@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Header } from './Header';
+import { Header, ScreenType } from './Header';
 import { Footer } from './Footer';
 import { Mail, Phone, Clock, Send, CheckCircle2 } from 'lucide-react';
 
 interface ContactScreenProps {
-  onNavigate: (screen: 'splash' | 'login' | 'signup' | 'contact' | 'privacy' | 'terms') => void;
+  onNavigate: (screen: ScreenType) => void;
 }
 
 export const ContactScreen: React.FC<ContactScreenProps> = ({ onNavigate }) => {

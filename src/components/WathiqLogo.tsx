@@ -1,4 +1,6 @@
 import React from 'react';
+import wathiqLogoFull from '../assets/wathiq_logo_full.jpg';
+import wathiqLogoIcon from '../assets/wathiq_logo_icon.jpg';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -33,7 +35,7 @@ export const WathiqLogo: React.FC<LogoProps> = ({
     return (
       <div className="inline-flex flex-col items-center justify-center select-none group cursor-pointer">
         <img
-          src="/assets/wathiq_logo_full.jpg"
+          src={wathiqLogoFull}
           alt="Wathiq Official Logo"
           className={`${dim.img} object-contain transition-transform duration-300 group-hover:scale-105 rounded-xl`}
         />
@@ -46,7 +48,7 @@ export const WathiqLogo: React.FC<LogoProps> = ({
       {/* Official Emblem Icon with Smooth Rounding */}
       <div className="relative rounded-2xl overflow-hidden shadow-md group-hover:shadow-lg transition-all duration-300 group-hover:scale-105 border border-slate-100/20">
         <img
-          src="/assets/wathiq_logo_icon.jpg"
+          src={wathiqLogoIcon}
           alt="شعار وثق الرسمي"
           className={`${dim.img} object-cover`}
         />

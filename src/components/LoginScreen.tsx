@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Header, ScreenType } from './Header';
 import { Footer } from './Footer';
 import { Mail, Lock, Eye, EyeOff, Shield, Zap, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import wathiqLogoIcon from '../assets/wathiq_logo_icon.jpg';
 
 interface LoginScreenProps {
   onNavigate: (screen: ScreenType) => void;
@@ -195,7 +196,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
             <div className="my-auto pt-4 flex flex-col items-center">
               <div className="mb-6 w-32 h-32 rounded-3xl overflow-hidden shadow-lg border border-slate-100 p-0.5 bg-white">
                 <img
-                  src="/assets/wathiq_logo_icon.jpg"
+                  src={wathiqLogoIcon}
                   alt="Watheq Logo Emblem"
                   className="w-full h-full object-cover rounded-2xl"
                 />

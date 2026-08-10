@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Header, ScreenType } from './Header';
 import { Footer } from './Footer';
+import heroBusinesswoman from '../assets/hero_businesswoman.png';
 import { User, Building, Phone, Lock, Eye, EyeOff, ShieldCheck, CheckCircle2, ArrowLeft, Layers } from 'lucide-react';
 
 interface SignupScreenProps {
@@ -237,7 +238,7 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ onNavigate }) => {
             {/* Bottom High Quality Hero Image Banner */}
             <div className="relative rounded-xl overflow-hidden border border-slate-200/60 group shadow-xs mt-auto">
               <img
-                src="/assets/hero_businesswoman.png"
+                src={heroBusinesswoman}
                 alt="Wathiq Business Management"
                 className="w-full h-44 object-cover object-center group-hover:scale-103 transition-transform duration-500"
               />

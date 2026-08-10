@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import wathiqLogoIcon from '../assets/wathiq_logo_icon.jpg';
 import { Lock, RefreshCw, ArrowLeft, ShieldCheck } from 'lucide-react';
 
 interface SplashScreenProps {
@@ -74,7 +75,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         <div className="mb-6 animate-shield-pulse relative">
           <div className="w-32 h-32 rounded-3xl overflow-hidden shadow-2xl shadow-emerald-500/30 border-2 border-white/20 p-0.5 bg-white">
             <img
-              src="/assets/wathiq_logo_icon.jpg"
+              src={wathiqLogoIcon}
               alt="Wathiq Official Logo"
               className="w-full h-full object-cover rounded-2xl"
             />

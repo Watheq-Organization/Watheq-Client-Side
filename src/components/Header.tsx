@@ -1,6 +1,7 @@
 import React from 'react';
+import wathiqLogoIcon from '../assets/wathiq_logo_icon.jpg';
 
-export type ScreenType = 'splash' | 'login' | 'signup' | 'contact' | 'privacy' | 'terms';
+export type ScreenType = 'splash' | 'login' | 'signup' | 'contact' | 'privacy' | 'terms' | 'dashboard' | 'settings' | 'clients' | 'client-detail';
 
 interface HeaderProps {
   currentScreen: ScreenType;
@@ -23,7 +24,7 @@ export const Header: React.FC<HeaderProps> = ({
           className="flex items-center gap-3 cursor-pointer group"
         >
           <img
-            src="/assets/wathiq_logo_icon.jpg"
+            src={wathiqLogoIcon}
             alt="Wathiq Logo"
             className="w-10 h-10 object-cover rounded-xl shadow-xs border border-slate-100 group-hover:scale-105 transition-transform"
           />

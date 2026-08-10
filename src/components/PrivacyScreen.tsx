@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Header } from './Header';
+import { Header, ScreenType } from './Header';
 import { Footer } from './Footer';
 import { ShieldCheck, Lock, Database, FileText, Cookie } from 'lucide-react';
 
 interface PrivacyScreenProps {
-  onNavigate: (screen: 'splash' | 'login' | 'signup' | 'contact' | 'privacy' | 'terms') => void;
+  onNavigate: (screen: ScreenType) => void;
 }
 
 export const PrivacyScreen: React.FC<PrivacyScreenProps> = ({ onNavigate }) => {

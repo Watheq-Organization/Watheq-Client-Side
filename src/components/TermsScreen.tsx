@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Header } from './Header';
+import { Header, ScreenType } from './Header';
 import { Footer } from './Footer';
 import { CheckCircle2, ShieldAlert, FileText, Check } from 'lucide-react';
 
 interface TermsScreenProps {
-  onNavigate: (screen: 'splash' | 'login' | 'signup' | 'contact' | 'privacy' | 'terms') => void;
+  onNavigate: (screen: ScreenType) => void;
 }
 
 export const TermsScreen: React.FC<TermsScreenProps> = ({ onNavigate }) => {
