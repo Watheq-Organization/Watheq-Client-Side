@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ScreenType } from './Header';
 import wathiqLogoIcon from '../assets/wathiq_logo_icon.jpg';
+import { logoutUser } from '../services/auth';
 import { 
   LayoutDashboard, 
   Users, 
@@ -33,6 +34,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
   const navItems = [
     { id: 'dashboard', label: 'لوحة القيادة', icon: LayoutDashboard },
@@ -128,7 +130,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </button>
 
           <button
-            onClick={() => onNavigate('login')}
+            onClick={() => {
+              setIsLogoutModalOpen(true);
+              setIsMobileMenuOpen(false);
+            }}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm text-rose-400 hover:bg-rose-900/20 hover:text-rose-300 transition-all cursor-pointer"
           >
             <LogOut className="w-5 h-5 text-rose-400" />
@@ -253,7 +258,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                   </button>
                   <div className="my-1 border-t border-slate-100" />
                   <button
-                    onClick={() => onNavigate('login')}
+                    onClick={() => {
+                      setIsLogoutModalOpen(true);
+                      setIsProfileDropdownOpen(false);
+                    }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer font-medium"
                   >
                     <LogOut className="w-4 h-4 text-rose-600" />
@@ -273,6 +281,53 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         </main>
         
       </div>
+
+      {/* ======================================================== */}
+      {/* LOGOUT CONFIRMATION MODAL */}
+      {/* ======================================================== */}
+      {isLogoutModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 sm:p-7 text-center border border-slate-100 animate-in zoom-in-95 duration-200">
+            
+            {/* Top Rose Icon Badge */}
+            <div className="w-16 h-16 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center mx-auto mb-4 shadow-xs">
+              <LogOut className="w-7 h-7 text-rose-600 rotate-180" />
+            </div>
+
+            {/* Title & Description */}
+            <h3 className="text-xl font-bold text-slate-900 font-alexandria mb-2">
+              تسجيل الخروج
+            </h3>
+            <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+              هل أنت متأكد من تسجيل الخروج؟ ستحتاج إلى تسجيل الدخول مرة أخرى للوصول إلى لوحة التحكم.
+            </p>
+
+            {/* Action Buttons: Confirm Red + Cancel */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  logoutUser();
+                  setIsLogoutModalOpen(false);
+                  onNavigate('login');
+                }}
+                className="w-full bg-[#B91C1C] hover:bg-[#991B1B] text-white font-bold py-3 rounded-xl transition-all shadow-md text-xs cursor-pointer font-alexandria"
+              >
+                تسجيل الخروج
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsLogoutModalOpen(false)}
+                className="w-full border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold py-3 rounded-xl transition-colors text-xs cursor-pointer"
+              >
+                إلغاء
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );
