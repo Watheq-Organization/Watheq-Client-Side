@@ -1,26 +1,48 @@
 import React, { useState } from 'react';
 import { Header, ScreenType } from './Header';
 import { Footer } from './Footer';
-import { Mail, Lock, Eye, EyeOff, Shield, Zap, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Phone, Lock, Eye, EyeOff, Shield, Zap, ArrowLeft, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import wathiqLogoIcon from '../assets/wathiq_logo_icon.jpg';
+import { loginUser } from '../services/auth';
 
 interface LoginScreenProps {
   onNavigate: (screen: ScreenType) => void;
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
-  const [emailOrPhone, setEmailOrPhone] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitted(true);
-    setTimeout(() => {
-      setIsSubmitted(false);
-    }, 3000);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsLoading(true);
+
+    const result = await loginUser({ phoneNumber, password }, rememberMe);
+
+    setIsLoading(false);
+
+    if (result.data) {
+      setSuccessMessage('تم تسجيل الدخول بنجاح! جاري توجيهك إلى لوحة التحكم...');
+      setTimeout(() => {
+        onNavigate('dashboard');
+      }, 1200);
+    } else {
+      setErrorMessage(result.message);
+    }
+  };
+
+  /** Quick-fill helper for demo accounts */
+  const fillDemo = (demoPhone: string, demoPass: string) => {
+    setPhoneNumber(demoPhone);
+    setPassword(demoPass);
+    setErrorMessage(null);
   };
 
   return (
@@ -41,37 +63,73 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
               <h2 className="text-2xl font-bold text-slate-900 font-alexandria mb-1">
                 تسجيل الدخول
               </h2>
-              <p className="text-xs sm:text-sm text-slate-500 mb-6 font-medium">
-                مرحباً بك مجدداً! أدخل بياناتك للوصول إلى لوحة التحكم
+              <p className="text-xs sm:text-sm text-slate-500 mb-4 font-medium">
+                مرحباً بك مجدداً! أدخل رقم جوالك وكلمة المرور للوصول إلى حسابك
               </p>
 
+              {/* Demo Accounts Quick-Fill */}
+              <div className="mb-5 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                <div className="font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
+                  <span>حسابات تجريبية للاختبار السريع:</span>
+                  <span className="text-[10px] text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full font-bold">
+                    API متصل 🟢
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fillDemo('123456789', 'admin123456')}
+                    className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg font-bold transition-all text-xs flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>⚡ 123456789</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fillDemo('Merchant@company.com', 'admin123456')}
+                    className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg font-medium transition-all text-xs flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>🏪 Merchant@company.com</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Error Alert Banner */}
+              {errorMessage && (
+                <div className="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5 animate-fade-in">
+                  <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 font-medium">{errorMessage}</div>
+                </div>
+              )}
+
               {/* Success Notification Alert */}
-              {isSubmitted && (
-                <div className="mb-5 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2 animate-fade-in">
+              {successMessage && (
+                <div className="mb-5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2.5 animate-fade-in">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                  <span>تم تسجيل الدخول بنجاح! جاري تحويلك...</span>
+                  <span className="font-semibold">{successMessage}</span>
                 </div>
               )}
 
               {/* Login Form */}
               <form onSubmit={handleSubmit} className="space-y-4">
                 
-                {/* Input 1: Email or Phone */}
+                {/* Input 1: Phone Number */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    البريد الإلكتروني أو رقم الجوال <span className="text-emerald-600">*</span>
+                    رقم الجوال <span className="text-emerald-600">*</span>
                   </label>
                   <div className="relative flex items-center">
                     <input
-                      type="text"
-                      value={emailOrPhone}
-                      onChange={(e) => setEmailOrPhone(e.target.value)}
-                      placeholder="example@domain.com"
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="05XXXXXXXX"
                       required
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all pl-10"
+                      dir="ltr"
+                      disabled={isLoading}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all pl-10 text-right disabled:opacity-60 disabled:cursor-not-allowed"
                     />
                     <div className="absolute left-3 text-slate-400 pointer-events-none">
-                      <Mail className="w-4 h-4" />
+                      <Phone className="w-4 h-4" />
                     </div>
                   </div>
                 </div>
@@ -88,7 +146,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
                       required
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all pr-10 pl-10"
+                      disabled={isLoading}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all pr-10 pl-10 disabled:opacity-60 disabled:cursor-not-allowed"
                     />
                     <div className="absolute right-3 text-slate-400 pointer-events-none">
                       <Lock className="w-4 h-4" />
@@ -107,8 +166,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
                 <div className="flex items-center justify-between text-xs pt-1">
                   <button
                     type="button"
-                    onClick={() => alert('سيتم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني')}
-                    className="text-emerald-600 hover:text-emerald-700 font-semibold transition-colors"
+                    onClick={() => onNavigate('forgot-password')}
+                    className="text-emerald-600 hover:text-emerald-700 font-semibold transition-colors cursor-pointer"
                   >
                     نسيت كلمة السر؟
                   </button>
@@ -127,10 +186,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
                 {/* Primary Submit Button */}
                 <button
                   type="submit"
-                  className="w-full mt-2 bg-[#15803D] hover:bg-[#166534] text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md hover:shadow-lg active:scale-99 flex items-center justify-center gap-2 cursor-pointer font-alexandria"
+                  disabled={isLoading}
+                  className="w-full mt-2 bg-[#15803D] hover:bg-[#166534] disabled:bg-emerald-800 disabled:opacity-80 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md hover:shadow-lg active:scale-99 flex items-center justify-center gap-2 cursor-pointer font-alexandria"
                 >
-                  <span>تسجيل الدخول</span>
-                  <ArrowLeft className="w-4 h-4" />
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-white" />
+                      <span>جاري التحقق وتسجيل الدخول...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>تسجيل الدخول</span>
+                      <ArrowLeft className="w-4 h-4" />
+                    </>
+                  )}
                 </button>
               </form>
 

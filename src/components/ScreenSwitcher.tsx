@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScreenType } from './Header';
-import { Play, LogIn, UserPlus, PhoneCall, ShieldCheck, Scale, LayoutDashboard, Settings, Users, UserCheck } from 'lucide-react';
+import { Play, LogIn, UserPlus, KeyRound, PhoneCall, ShieldCheck, Scale, LayoutDashboard, Settings, Users, UserCheck, PlusCircle, CreditCard } from 'lucide-react';
 
 interface ScreenSwitcherProps {
   currentScreen: ScreenType;
@@ -54,6 +54,19 @@ export const ScreenSwitcher: React.FC<ScreenSwitcherProps> = ({
       >
         <UserPlus className="w-3.5 h-3.5" />
         <span>3. إنشاء حساب</span>
+      </button>
+
+      {/* Screen 3.5: Forgot Password */}
+      <button
+        onClick={() => onChangeScreen('forgot-password')}
+        className={`flex items-center gap-1 px-2.5 py-1 rounded-full transition-all cursor-pointer font-medium whitespace-nowrap ${
+          currentScreen === 'forgot-password'
+            ? 'bg-emerald-600 text-white shadow-md'
+            : 'hover:bg-slate-800 text-slate-300'
+        }`}
+      >
+        <KeyRound className="w-3.5 h-3.5" />
+        <span>استعادة المرور</span>
       </button>
 
       {/* Screen 4: Contact */}
@@ -145,6 +158,32 @@ export const ScreenSwitcher: React.FC<ScreenSwitcherProps> = ({
       >
         <UserCheck className="w-3.5 h-3.5" />
         <span>10. ملف العميل</span>
+      </button>
+
+      {/* Screen 11: Add Debt */}
+      <button
+        onClick={() => onChangeScreen('add-debt')}
+        className={`flex items-center gap-1 px-2.5 py-1 rounded-full transition-all cursor-pointer font-medium whitespace-nowrap ${
+          currentScreen === 'add-debt'
+            ? 'bg-emerald-600 text-white shadow-md'
+            : 'hover:bg-slate-800 text-slate-300'
+        }`}
+      >
+        <PlusCircle className="w-3.5 h-3.5" />
+        <span>11. إضافة دين</span>
+      </button>
+
+      {/* Screen 12: Record Payment */}
+      <button
+        onClick={() => onChangeScreen('record-payment')}
+        className={`flex items-center gap-1 px-2.5 py-1 rounded-full transition-all cursor-pointer font-medium whitespace-nowrap ${
+          currentScreen === 'record-payment'
+            ? 'bg-emerald-600 text-white shadow-md'
+            : 'hover:bg-slate-800 text-slate-300'
+        }`}
+      >
+        <CreditCard className="w-3.5 h-3.5" />
+        <span>12. تسجيل دفعة</span>
       </button>
     </div>
   );

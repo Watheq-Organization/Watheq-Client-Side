@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { ScreenType } from './Header';
+import { Client } from '../types/client';
+import { INITIAL_CLIENTS } from '../data/mockClients';
 import { 
   UserPlus, 
   Download, 
@@ -7,11 +9,7 @@ import {
   Eye, 
   Edit, 
   MessageSquare, 
-  History, 
-  ShieldAlert, 
   CheckCircle2, 
-  Clock, 
-  ChevronLeft, 
   ChevronRight,
   Filter,
   Plus,
@@ -20,9 +18,17 @@ import {
 
 interface ClientsViewProps {
   onNavigate: (screen: ScreenType) => void;
+  clients?: Client[];
+  onSelectClient?: (client: Client) => void;
+  onAddClient?: (newClient: Client) => void;
 }
 
-export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigate }) => {
+export const ClientsView: React.FC<ClientsViewProps> = ({ 
+  onNavigate,
+  clients: externalClients,
+  onSelectClient,
+  onAddClient
+}) => {
   const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'overdue' | 'paid'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -32,80 +38,62 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigate }) => {
   const [newClientName, setNewClientName] = useState('');
   const [newClientType, setNewClientType] = useState<'individual' | 'company'>('individual');
   const [newClientIdNum, setNewClientIdNum] = useState('');
+  const [newClientPhone, setNewClientPhone] = useState('');
   const [newClientDebt, setNewClientDebt] = useState('');
 
-  const [clients, setClients] = useState([
-    {
-      id: 'c1',
-      name: 'أحمد عبدالله الراجحي',
-      type: 'عميل أفراد',
-      initial: 'أ',
-      avatarColor: 'bg-[#0b1d3a] text-white',
-      idNum: '1029384756',
-      debt: '45,000',
-      status: 'overdue',
-      statusText: 'متأخر',
-      statusColor: 'bg-rose-50 text-rose-700 border-rose-200'
-    },
-    {
-      id: 'c2',
-      name: 'شركة التقنية المتقدمة',
-      type: 'عميل شركات',
-      initial: 'ش',
-      avatarColor: 'bg-blue-600 text-white',
-      idNum: '7001234567',
-      debt: '120,500',
-      status: 'active',
-      statusText: 'دين نشط',
-      statusColor: 'bg-blue-50 text-blue-700 border-blue-200'
-    },
-    {
-      id: 'c3',
-      name: 'سالم محمد الدوسري',
-      type: 'عميل أفراد',
-      initial: 'س',
-      avatarColor: 'bg-emerald-600 text-white',
-      idNum: '1098765432',
-      debt: '0.00',
-      status: 'paid',
-      statusText: 'تم السداد',
-      statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200'
-    },
-    {
-      id: 'c4',
-      name: 'مؤسسة البناء الحديث',
-      type: 'عميل شركات',
-      initial: 'م',
-      avatarColor: 'bg-indigo-600 text-white',
-      idNum: '7009876543',
-      debt: '15,750',
-      status: 'active',
-      statusText: 'دين نشط',
-      statusColor: 'bg-blue-50 text-blue-700 border-blue-200'
+  const [internalClients, setInternalClients] = useState<Client[]>(INITIAL_CLIENTS);
+  const clients = externalClients || internalClients;
+
+  const handleSelectClient = (client: Client) => {
+    if (onSelectClient) {
+      onSelectClient(client);
     }
-  ]);
+    onNavigate('client-detail');
+  };
 
   const handleAddClient = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newClientName || !newClientIdNum) return;
 
-    const newEntry = {
+    const debtAmountNum = Number(newClientDebt) || 0;
+    const newEntry: Client = {
       id: `c${Date.now()}`,
       name: newClientName,
       type: newClientType === 'individual' ? 'عميل أفراد' : 'عميل شركات',
       initial: newClientName.charAt(0),
       avatarColor: 'bg-teal-600 text-white',
       idNum: newClientIdNum,
-      debt: newClientDebt ? Number(newClientDebt).toLocaleString() : '0.00',
-      status: Number(newClientDebt) > 0 ? 'active' : 'paid',
-      statusText: Number(newClientDebt) > 0 ? 'دين نشط' : 'تم السداد',
-      statusColor: Number(newClientDebt) > 0 ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+      phone: newClientPhone || '+966 50 000 0000',
+      registeredDate: 'اليوم',
+      debt: debtAmountNum.toLocaleString(undefined, { minimumFractionDigits: 2 }),
+      status: debtAmountNum > 0 ? 'active' : 'paid',
+      statusText: debtAmountNum > 0 ? 'دين نشط' : 'تم السداد',
+      statusColor: debtAmountNum > 0 ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      transactions: debtAmountNum > 0 ? [
+        {
+          id: `t-${Date.now()}`,
+          type: 'debt',
+          title: 'رصيد افتتاحي / دين جديد',
+          amount: `+${debtAmountNum.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+          amountColor: 'text-rose-600',
+          desc: 'تسجيل مديونية أولية عند فتح الحساب.',
+          date: 'الآن',
+          status: 'غير مدفوع',
+          badgeColor: 'bg-blue-50 text-blue-700 border-blue-200'
+        }
+      ] : []
     };
 
-    setClients([newEntry, ...clients]);
+    if (onAddClient) {
+      onAddClient(newEntry);
+    } else {
+      setInternalClients([newEntry, ...internalClients]);
+    }
+
     setIsAddModalOpen(false);
     setNewClientName('');
     setNewClientIdNum('');
+    setNewClientPhone('');
     setNewClientDebt('');
     setToastMsg(`تم إدراج العميل (${newClientName}) بنجاح!`);
     setTimeout(() => setToastMsg(null), 3500);
@@ -119,7 +107,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigate }) => {
       client.status === 'paid';
 
     const matchesSearch = 
-      client.name.includes(searchQuery) || 
+      client.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
       client.idNum.includes(searchQuery) ||
       client.debt.includes(searchQuery);
 
@@ -141,34 +129,73 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigate }) => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-xs">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 font-alexandria tracking-tight">
-            قائمة العملاء
+            دليل العملاء والمديونيات
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">
-            إدارة وتتبع الديون المستحقة والمشددة لعملائك من خلال لوحة تحكم واحدة.
+            إدارة كافة العملاء، متابعة سجلات الديون، وحالات السداد الفردية والمؤسسية.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
+          <button 
+            onClick={() => {
+              setToastMsg('جاري تصدير ملف إكسل بالعملاء...');
+              setTimeout(() => setToastMsg(null), 3000);
+            }}
+            className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-xl font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-2"
+          >
+            <Download className="w-4 h-4 text-slate-500" />
+            <span>تصدير Excel</span>
+          </button>
+
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="bg-[#0b1d3a] hover:bg-[#0f2a54] text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition-colors cursor-pointer flex items-center gap-2"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-colors cursor-pointer flex items-center gap-2"
           >
             <UserPlus className="w-4 h-4" />
             <span>إضافة عميل جديد</span>
           </button>
-
-          <button className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-xl font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-2">
-            <Download className="w-4 h-4 text-slate-500" />
-            <span>تصدير</span>
-          </button>
         </div>
       </div>
 
-      {/* FILTERS & SEARCH CONTAINER */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
+      {/* STATS OVERVIEW CARDS */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+          <span className="text-xs text-slate-500 font-medium block mb-1">إجمالي العملاء</span>
+          <span className="text-2xl font-extrabold text-slate-900 font-alexandria block">{clients.length}</span>
+          <span className="text-[11px] text-emerald-600 font-medium mt-1 inline-block">حسابات نشطة في النظام</span>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+          <span className="text-xs text-slate-500 font-medium block mb-1">ديون متأخرة</span>
+          <span className="text-2xl font-extrabold text-rose-600 font-alexandria block">
+            {clients.filter(c => c.status === 'overdue').length}
+          </span>
+          <span className="text-[11px] text-rose-500 font-medium mt-1 inline-block">تتطلب متابعة سريعة</span>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+          <span className="text-xs text-slate-500 font-medium block mb-1">ديون نشطة منتظمة</span>
+          <span className="text-2xl font-extrabold text-blue-600 font-alexandria block">
+            {clients.filter(c => c.status === 'active').length}
+          </span>
+          <span className="text-[11px] text-blue-500 font-medium mt-1 inline-block">مواعيد سداد قادمة</span>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+          <span className="text-xs text-slate-500 font-medium block mb-1">تمت التسوية بالكامل</span>
+          <span className="text-2xl font-extrabold text-emerald-600 font-alexandria block">
+            {clients.filter(c => c.status === 'paid').length}
+          </span>
+          <span className="text-[11px] text-emerald-600 font-medium mt-1 inline-block">رصيد صفري</span>
+        </div>
+      </div>
+
+      {/* FILTER TABS & SEARCH BAR */}
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
         
-        {/* Right in RTL: Filter Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
+        {/* Right in RTL: Status Filter Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 md:pb-0">
           <button
             onClick={() => setActiveFilter('all')}
             className={`px-4 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer whitespace-nowrap ${
@@ -177,7 +204,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigate }) => {
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            الكل
+            جميع العملاء ({clients.length})
           </button>
 
           <button
@@ -226,12 +253,6 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigate }) => {
               className="w-full bg-slate-50 border border-slate-200 rounded-xl pr-10 pl-4 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none"
             />
           </div>
-
-          <select className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none cursor-pointer">
-            <option value="newest">الأحدث</option>
-            <option value="highest">الأعلى ديناً</option>
-            <option value="name">حسب الاسم</option>
-          </select>
         </div>
 
       </div>
@@ -256,11 +277,15 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigate }) => {
                   {/* Client Info */}
                   <td className="py-4 px-4 sm:px-6">
                     <div 
-                      onClick={() => onNavigate('client-detail')}
+                      onClick={() => handleSelectClient(row)}
                       className="flex items-center gap-3 cursor-pointer"
                     >
-                      <div className={`w-10 h-10 rounded-xl font-bold flex items-center justify-center text-sm shadow-xs ${row.avatarColor}`}>
-                        {row.initial}
+                      <div className={`w-10 h-10 rounded-xl font-bold flex items-center justify-center text-sm shadow-xs overflow-hidden ${row.avatarColor}`}>
+                        {row.avatarUrl ? (
+                          <img src={row.avatarUrl} alt={row.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <span>{row.initial}</span>
+                        )}
                       </div>
                       <div>
                         <span className="font-bold text-slate-900 font-alexandria block group-hover:text-emerald-600 transition-colors">
@@ -295,18 +320,12 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigate }) => {
                   <td className="py-4 px-4 sm:px-6 text-center">
                     <div className="flex items-center justify-center gap-2">
                       <button
-                        onClick={() => onNavigate('client-detail')}
+                        onClick={() => handleSelectClient(row)}
                         title="عرض الملف المالي"
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer"
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer flex items-center gap-1"
                       >
                         <Eye className="w-4 h-4" />
-                      </button>
-
-                      <button
-                        title="تعديل البيانات"
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
-                      >
-                        <Edit className="w-4 h-4" />
+                        <span className="text-[11px] font-semibold hidden sm:inline">عرض السجل</span>
                       </button>
 
                       <button
@@ -330,106 +349,135 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ onNavigate }) => {
 
         {/* TABLE FOOTER PAGINATION */}
         <div className="bg-slate-50/60 p-4 border-t border-slate-200/80 flex items-center justify-between text-xs text-slate-500">
-          <span>عرض 1 إلى {filteredClients.length} من 120 عميل</span>
+          <span>عرض {filteredClients.length} من أصل {clients.length} عميل</span>
 
           <div className="flex items-center gap-1">
-            <button className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-50">
-              <ChevronRight className="w-4 h-4" />
-            </button>
             <button className="px-3 py-1 rounded-lg bg-[#0b1d3a] text-white font-bold">1</button>
-            <button className="px-3 py-1 rounded-lg hover:bg-slate-200">2</button>
-            <button className="px-3 py-1 rounded-lg hover:bg-slate-200">3</button>
-            <span>...</span>
-            <button className="px-3 py-1 rounded-lg hover:bg-slate-200">12</button>
-            <button className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100">
-              <ChevronLeft className="w-4 h-4" />
-            </button>
           </div>
         </div>
-
       </div>
 
-      {/* ADD NEW CLIENT MODAL DIALOG */}
+      {/* MODAL: ADD NEW CLIENT */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-200 p-6 space-y-5 animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-lg font-bold text-slate-900 font-alexandria">إضافة عميل جديد</h3>
-              <button 
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-100 overflow-hidden text-right">
+            
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-900 font-alexandria">
+                إضافة عميل جديد
+              </h3>
+              <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleAddClient} className="space-y-4">
+            <form onSubmit={handleAddClient} className="p-5 space-y-4">
+              
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">اسم العميل / المؤسسة</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  نوع العميل
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNewClientType('individual')}
+                    className={`py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                      newClientType === 'individual'
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-700'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    عميل أفراد
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewClientType('company')}
+                    className={`py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                      newClientType === 'company'
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-700'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    عميل شركات / مؤسسات
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  اسم العميل / الشركة <span className="text-rose-500">*</span>
+                </label>
                 <input
                   type="text"
-                  required
-                  placeholder="مثال: شركة الأفق التجاري"
+                  placeholder="مثال: عبدالله الراجحي"
                   value={newClientName}
                   onChange={(e) => setNewClientName(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none"
+                  required
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">نوع العميل</label>
-                  <select
-                    value={newClientType}
-                    onChange={(e) => setNewClientType(e.target.value as 'individual' | 'company')}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 focus:outline-none cursor-pointer"
-                  >
-                    <option value="individual">عميل أفراد</option>
-                    <option value="company">عميل شركات</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">رقم الهوية / السجل</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="1029384756"
-                    value={newClientIdNum}
-                    onChange={(e) => setNewClientIdNum(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 font-mono focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  رقم الهوية الوطنية / السجل التجاري <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="10XXXXXXXX أو 70XXXXXXXX"
+                  value={newClientIdNum}
+                  onChange={(e) => setNewClientIdNum(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 font-mono focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none"
+                  required
+                />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">مبلغ الدين الابتدائي (اختياري)</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  رقم الجوال
+                </label>
+                <input
+                  type="tel"
+                  placeholder="05XXXXXXXX"
+                  value={newClientPhone}
+                  onChange={(e) => setNewClientPhone(e.target.value)}
+                  dir="ltr"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 font-mono focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none text-right"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  رصيد المديونية الافتتاحي (اختياري)
+                </label>
                 <input
                   type="number"
                   placeholder="0.00"
                   value={newClientDebt}
                   onChange={(e) => setNewClientDebt(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 font-mono focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <div className="flex items-center gap-3 pt-3">
+                <button
+                  type="submit"
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-xs shadow-md transition-colors cursor-pointer"
+                >
+                  حفظ العميل
+                </button>
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
+                  className="px-5 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-colors cursor-pointer"
                 >
                   إلغاء
                 </button>
-
-                <button
-                  type="submit"
-                  className="bg-[#0b1d3a] hover:bg-[#0f2a54] text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md cursor-pointer"
-                >
-                  إضافة العميل
-                </button>
               </div>
             </form>
+
           </div>
         </div>
       )}

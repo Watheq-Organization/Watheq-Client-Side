@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Header, ScreenType } from './Header';
 import { Footer } from './Footer';
 import heroBusinesswoman from '../assets/hero_businesswoman.png';
-import { User, Building, Phone, Lock, Eye, EyeOff, ShieldCheck, CheckCircle2, ArrowLeft, Layers } from 'lucide-react';
+import { User, Building, Phone, Lock, Eye, EyeOff, ShieldCheck, CheckCircle2, ArrowLeft, Layers, AlertCircle, Loader2 } from 'lucide-react';
+import { registerUser } from '../services/auth';
 
 interface SignupScreenProps {
   onNavigate: (screen: ScreenType) => void;
@@ -15,18 +16,44 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ onNavigate }) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [agreedTerms, setAgreedTerms] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
     if (!agreedTerms) {
-      alert('يرجى الموافقة على الشروط والأحكام والمتابعة.');
+      setErrorMessage('يرجى الموافقة على الشروط والأحكام والمتابعة.');
       return;
     }
-    setIsSubmitted(true);
-    setTimeout(() => {
-      setIsSubmitted(false);
-    }, 3000);
+
+    if (password.length < 6) {
+      setErrorMessage('كلمة المرور يجب أن تكون 6 خانات على الأقل.');
+      return;
+    }
+
+    setIsLoading(true);
+
+    const result = await registerUser({
+      fullName,
+      businessName,
+      phoneNumber: phone,
+      password,
+    });
+
+    setIsLoading(false);
+
+    if (result.data) {
+      setSuccessMessage('تم إنشاء الحساب وتفعيله بنجاح! جاري الانتقال للوحة التحكم...');
+      setTimeout(() => {
+        onNavigate('dashboard');
+      }, 1500);
+    } else {
+      setErrorMessage(result.message);
+    }
   };
 
   return (
@@ -51,11 +78,19 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ onNavigate }) => {
                 ابدأ إدارة ديونك مجاناً بكل سهولة وأمان.
               </p>
 
+              {/* Error Alert Banner */}
+              {errorMessage && (
+                <div className="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5 animate-fade-in">
+                  <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 font-medium">{errorMessage}</div>
+                </div>
+              )}
+
               {/* Success Notification Alert */}
-              {isSubmitted && (
-                <div className="mb-5 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2 animate-fade-in">
+              {successMessage && (
+                <div className="mb-5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2.5 animate-fade-in">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                  <span>تم إنشاء الحساب بنجاح! مرحباً بك في وثق.</span>
+                  <span className="font-semibold">{successMessage}</span>
                 </div>
               )}
 
@@ -74,7 +109,8 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ onNavigate }) => {
                       onChange={(e) => setFullName(e.target.value)}
                       placeholder="أدخل اسمك الكامل"
                       required
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all pl-10"
+                      disabled={isLoading}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all pl-10 disabled:opacity-60"
                     />
                     <div className="absolute left-3 text-slate-400 pointer-events-none">
                       <User className="w-4 h-4" />
@@ -94,7 +130,8 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ onNavigate }) => {
                       onChange={(e) => setBusinessName(e.target.value)}
                       placeholder="اسم النشاط التجاري"
                       required
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all pl-10"
+                      disabled={isLoading}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all pl-10 disabled:opacity-60"
                     />
                     <div className="absolute left-3 text-slate-400 pointer-events-none">
                       <Building className="w-4 h-4" />
@@ -114,7 +151,9 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ onNavigate }) => {
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="050 xxxxxxx"
                       required
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all pl-10"
+                      dir="ltr"
+                      disabled={isLoading}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all pl-10 text-right disabled:opacity-60"
                     />
                     <div className="absolute left-3 text-slate-400 pointer-events-none">
                       <Phone className="w-4 h-4" />
@@ -135,7 +174,8 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ onNavigate }) => {
                       placeholder="••••••••"
                       required
                       minLength={6}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all pr-10 pl-10"
+                      disabled={isLoading}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all pr-10 pl-10 disabled:opacity-60"
                     />
                     <div className="absolute right-3 text-slate-400 pointer-events-none">
                       <Lock className="w-4 h-4" />
@@ -148,6 +188,9 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ onNavigate }) => {
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
+                  <p className="text-[11px] text-slate-400 mt-1 mr-0.5">
+                    يجب أن تحتوي على حرف كبير (A-Z)، حرف صغير (a-z)، رقم (0-9)، ورمز خاص (مثل @ أو #).
+                  </p>
                 </div>
 
                 {/* Terms and Privacy Checkbox */}
@@ -158,6 +201,7 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ onNavigate }) => {
                       checked={agreedTerms}
                       onChange={(e) => setAgreedTerms(e.target.checked)}
                       required
+                      disabled={isLoading}
                       className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 accent-emerald-600 cursor-pointer"
                     />
                     <span>
@@ -169,10 +213,20 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ onNavigate }) => {
                 {/* Submit Action Button */}
                 <button
                   type="submit"
-                  className="w-full mt-4 bg-[#15803D] hover:bg-[#166534] text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md hover:shadow-lg active:scale-99 flex items-center justify-center gap-2 cursor-pointer font-alexandria"
+                  disabled={isLoading}
+                  className="w-full mt-4 bg-[#15803D] hover:bg-[#166534] disabled:bg-emerald-800 disabled:opacity-80 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md hover:shadow-lg active:scale-99 flex items-center justify-center gap-2 cursor-pointer font-alexandria"
                 >
-                  <span>إنشاء حساب جديد</span>
-                  <ArrowLeft className="w-4 h-4" />
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-white" />
+                      <span>جاري إنشاء الحساب...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>إنشاء حساب جديد</span>
+                      <ArrowLeft className="w-4 h-4" />
+                    </>
+                  )}
                 </button>
               </form>
             </div>

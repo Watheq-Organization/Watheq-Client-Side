@@ -92,6 +92,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                   onClick={() => {
                     if (item.id === 'dashboard') onNavigate('dashboard');
                     else if (item.id === 'clients') onNavigate('clients');
+                    else if (item.id === 'add-debt') onNavigate('add-debt');
                     else if (item.id === 'settings') onNavigate('settings');
                     setIsMobileMenuOpen(false);
                   }}
