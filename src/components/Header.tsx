@@ -1,7 +1,24 @@
 import React from 'react';
 import wathiqLogoIcon from '../assets/wathiq_logo_icon.jpg';
 
-export type ScreenType = 'splash' | 'login' | 'signup' | 'forgot-password' | 'contact' | 'privacy' | 'terms' | 'dashboard' | 'settings' | 'clients' | 'client-detail' | 'add-debt' | 'record-payment';
+export type ScreenType = 
+  | 'splash' 
+  | 'login' 
+  | 'signup' 
+  | 'forgot-password' 
+  | 'contact' 
+  | 'privacy' 
+  | 'terms' 
+  | 'dashboard' 
+  | 'settings' 
+  | 'clients' 
+  | 'client-detail' 
+  | 'add-debt' 
+  | 'record-payment'
+  | 'payment-log'
+  | 'reports'
+  | 'reminders'
+  | 'subscriptions';
 
 interface HeaderProps {
   currentScreen: ScreenType;

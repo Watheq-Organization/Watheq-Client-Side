@@ -39,9 +39,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const navItems = [
     { id: 'dashboard', label: 'لوحة القيادة', icon: LayoutDashboard },
     { id: 'clients', label: 'العملاء', icon: Users },
+    { id: 'payment-log', label: 'سجل المدفوعات', icon: CreditCard },
     { id: 'add-debt', label: 'إضافة دين', icon: PlusCircle },
-    { id: 'reports', label: 'التقارير', icon: FileText },
-    { id: 'reminders', label: 'إعدادات التذكيرات', icon: BellRing },
+    { id: 'reports', label: 'التقارير المالية', icon: FileText },
+    { id: 'reminders', label: 'الأتمتة والتنبيهات', icon: BellRing },
     { id: 'subscriptions', label: 'الاشتراكات', icon: CreditCard },
   ];
 
@@ -69,7 +70,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                   وثق
                 </span>
                 <span className="text-[10px] text-slate-400 font-medium -mt-1">
-                  إدارة الديون
+                  إدارة الديون والتوثيق
                 </span>
               </div>
             </div>
@@ -86,16 +87,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           <nav className="p-4 space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = (item.id === 'dashboard' && currentScreen === 'dashboard') || currentScreen === item.id;
+              const isActive = currentScreen === item.id;
               
               return (
                 <button
                   key={item.id}
                   onClick={() => {
-                    if (item.id === 'dashboard') onNavigate('dashboard');
-                    else if (item.id === 'clients') onNavigate('clients');
-                    else if (item.id === 'add-debt') onNavigate('add-debt');
-                    else if (item.id === 'settings') onNavigate('settings');
+                    onNavigate(item.id as ScreenType);
                     setIsMobileMenuOpen(false);
                   }}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all cursor-pointer ${

@@ -17,19 +17,23 @@ import {
   ShieldCheck,
   X,
   Building,
-  User
+  User,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 
 interface ClientDetailViewProps {
   onNavigate: (screen: ScreenType) => void;
   client?: Client;
   onUpdateClient?: (updatedClient: Client) => void;
+  onDeleteClient?: (clientId: string) => void;
 }
 
 export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ 
   onNavigate, 
   client,
-  onUpdateClient 
+  onUpdateClient,
+  onDeleteClient
 }) => {
   const [activeLedgerTab, setActiveLedgerTab] = useState<'all' | 'debts' | 'payments'>('all');
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -37,6 +41,7 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
   // Modals
   const [isAddDebtOpen, setIsAddDebtOpen] = useState(false);
   const [isRecordPaymentOpen, setIsRecordPaymentOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   // Debt Form
   const [debtInvoiceNum, setDebtInvoiceNum] = useState('#8825');
@@ -252,6 +257,15 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
           >
             <RefreshCw className="w-4 h-4" />
             <span>تحديث البيانات</span>
+          </button>
+
+          <button 
+            onClick={() => setIsDeleteModalOpen(true)}
+            className="bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 px-4 py-2.5 rounded-xl font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-2 hover:border-rose-300"
+            title="حذف العميل"
+          >
+            <Trash2 className="w-4 h-4 text-rose-500" />
+            <span>حذف العميل</span>
           </button>
         </div>
       </div>
@@ -641,6 +655,70 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
                 </button>
               </div>
             </form>
+
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CLIENT CONFIRMATION MODAL */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-7 text-center border border-slate-100 animate-in zoom-in-95 duration-200 space-y-4">
+            
+            {/* Warning Icon Badge */}
+            <div className="w-16 h-16 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center mx-auto shadow-xs text-rose-600">
+              <Trash2 className="w-8 h-8" />
+            </div>
+
+            {/* Title & Description */}
+            <div className="space-y-1.5">
+              <h3 className="text-xl font-bold text-slate-900 font-alexandria">
+                حذف العميل
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                هل أنت متأكد من رغبتك في حذف العميل <span className="font-bold text-slate-900 font-alexandria">«{currentClientName}»</span>؟
+              </p>
+            </div>
+
+            {/* Outstanding Debt Notice if any */}
+            {currentBalance > 0 && (
+              <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-right flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="text-xs text-amber-800 space-y-0.5">
+                  <p className="font-bold">تنبيه بشأن المديونية القائمة:</p>
+                  <p className="text-[11px] text-amber-700">
+                    هذا العميل لديه رصيد مديونية غير مسدد بقيمة <span className="font-bold font-mono">{currentBalance.toLocaleString()} ر.س</span>. سيتم حذف كافة السجلات والمعاملات المالية نهائياً.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (client && onDeleteClient) {
+                    onDeleteClient(client.id);
+                  } else {
+                    onNavigate('clients');
+                  }
+                  setIsDeleteModalOpen(false);
+                }}
+                className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 rounded-xl transition-all shadow-md text-xs cursor-pointer font-alexandria flex items-center justify-center gap-1.5"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>تأكيد الحذف</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="w-full border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold py-3 rounded-xl transition-colors text-xs cursor-pointer"
+              >
+                إلغاء
+              </button>
+            </div>
 
           </div>
         </div>

@@ -13,13 +13,17 @@ import { ClientsView } from './components/ClientsView';
 import { ClientDetailView } from './components/ClientDetailView';
 import { AddDebtView } from './components/AddDebtView';
 import { RecordPaymentView } from './components/RecordPaymentView';
-import { ScreenSwitcher } from './components/ScreenSwitcher';
+import { PaymentLogView } from './components/PaymentLogView';
+import { FinancialReportsView } from './components/FinancialReportsView';
+import { RemindersAutomationView } from './components/RemindersAutomationView';
+import { SubscriptionsView } from './components/SubscriptionsView';
+// import { ScreenSwitcher } from './components/ScreenSwitcher';
 import { ScreenType } from './components/Header';
 import { Client } from './types/client';
 import { INITIAL_CLIENTS } from './data/mockClients';
 
 export function App() {
-  const [currentScreen, setCurrentScreen] = useState<ScreenType>('clients');
+  const [currentScreen, setCurrentScreen] = useState<ScreenType>('subscriptions');
   const [clients, setClients] = useState<Client[]>(INITIAL_CLIENTS);
   const [selectedClientId, setSelectedClientId] = useState<string>(INITIAL_CLIENTS[0].id);
 
@@ -36,6 +40,17 @@ export function App() {
 
   const handleUpdateClient = (updatedClient: Client) => {
     setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
+  };
+
+  const handleDeleteClient = (clientId: string) => {
+    setClients(prev => {
+      const remaining = prev.filter(c => c.id !== clientId);
+      if (remaining.length > 0) {
+        setSelectedClientId(remaining[0].id);
+      }
+      return remaining;
+    });
+    setCurrentScreen('clients');
   };
 
   const handleAddDebt = ({
@@ -157,10 +172,10 @@ export function App() {
   return (
     <div className="min-h-screen bg-slate-900 font-sans relative selection:bg-emerald-500 selection:text-white">
       {/* Floating Screen Switcher bar for quick toggling between all screens */}
-      <ScreenSwitcher
+      {/* <ScreenSwitcher
         currentScreen={currentScreen}
         onChangeScreen={setCurrentScreen}
-      />
+      /> */}
 
       {/* Screen Render Switcher */}
       {currentScreen === 'splash' && (
@@ -227,6 +242,7 @@ export function App() {
             onNavigate={setCurrentScreen}
             client={selectedClient}
             onUpdateClient={handleUpdateClient}
+            onDeleteClient={handleDeleteClient}
           />
         </DashboardLayout>
       )}
@@ -254,6 +270,34 @@ export function App() {
             onSelectClient={handleSelectClient}
             onRecordPayment={handleRecordPayment}
           />
+        </DashboardLayout>
+      )}
+
+      {/* Payment Log Screen */}
+      {currentScreen === 'payment-log' && (
+        <DashboardLayout currentScreen={currentScreen} onNavigate={setCurrentScreen}>
+          <PaymentLogView onNavigate={setCurrentScreen} />
+        </DashboardLayout>
+      )}
+
+      {/* Financial Reports Screen */}
+      {currentScreen === 'reports' && (
+        <DashboardLayout currentScreen={currentScreen} onNavigate={setCurrentScreen}>
+          <FinancialReportsView onNavigate={setCurrentScreen} />
+        </DashboardLayout>
+      )}
+
+      {/* Reminders & Automation Screen */}
+      {currentScreen === 'reminders' && (
+        <DashboardLayout currentScreen={currentScreen} onNavigate={setCurrentScreen}>
+          <RemindersAutomationView onNavigate={setCurrentScreen} />
+        </DashboardLayout>
+      )}
+
+      {/* Subscriptions Plans Screen */}
+      {currentScreen === 'subscriptions' && (
+        <DashboardLayout currentScreen={currentScreen} onNavigate={setCurrentScreen}>
+          <SubscriptionsView onNavigate={setCurrentScreen} />
         </DashboardLayout>
       )}
     </div>
