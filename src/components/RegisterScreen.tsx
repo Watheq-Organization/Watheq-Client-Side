@@ -4,6 +4,7 @@ import {
   User,
   Store,
   Phone,
+  Mail,
   Lock,
   Eye,
   EyeOff,
@@ -22,6 +23,7 @@ export const RegisterScreen: FC<RegisterScreenProps> = ({ onGoToSplash }) => {
   const [fullName, setFullName] = useState('');
   const [storeName, setStoreName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
@@ -182,6 +184,26 @@ export const RegisterScreen: FC<RegisterScreenProps> = ({ onGoToSplash }) => {
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="05xxxxxxxx"
                       dir="rtl"
+                      className="w-full pr-10 pl-3.5 py-2.5 bg-slate-50/70 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right font-sans"
+                    />
+                  </div>
+                </div>
+
+                {/* Email Address */}
+                <div className="space-y-1.5 text-right">
+                  <label className="text-xs sm:text-sm font-semibold text-slate-700">
+                    البريد الالكتروني
+                  </label>
+                  <div className="relative flex items-center">
+                    <div className="absolute right-3.5 text-slate-400 pointer-events-none">
+                      <Mail className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="user@gmail.com"
                       className="w-full pr-10 pl-3.5 py-2.5 bg-slate-50/70 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right font-sans"
                     />
                   </div>
