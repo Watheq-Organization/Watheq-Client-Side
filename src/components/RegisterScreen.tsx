@@ -76,16 +76,16 @@ export const RegisterScreen: FC<RegisterScreenProps> = ({ onGoToSplash }) => {
 
           {/* Login Button */}
           <div className="flex items-center gap-3">
-            {onGoToSplash && (
-              <button
-                type="button"
-                onClick={onGoToSplash}
-                className="hidden sm:inline-flex text-xs text-slate-500 hover:text-slate-800 px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition"
-                title="عرض شاشة البداية"
-              >
-                شاشة البداية ↺
-              </button>
-            )}
+            {/* {onGoToSplash && (
+              // <button
+              //   type="button"
+              //   onClick={onGoToSplash}
+              //   className="hidden sm:inline-flex text-xs text-slate-500 hover:text-slate-800 px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition"
+              //   title="عرض شاشة البداية"
+              // >
+              //   شاشة البداية ↺
+              // </button>
+            )} */}
             <button
               type="button"
               className="bg-[#0c2444] hover:bg-[#123663] text-white px-6 py-2.5 rounded-lg text-sm font-semibold shadow-sm transition-all duration-200 active:scale-95"
