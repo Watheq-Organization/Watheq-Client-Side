@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { FormEvent, FC } from 'react';
+import type { FormEvent, ChangeEvent, FC } from 'react';
 import {
   User,
   Store,
@@ -20,27 +20,40 @@ interface RegisterScreenProps {
 }
 
 export const RegisterScreen: FC<RegisterScreenProps> = ({ onGoToSplash }) => {
-  const [fullName, setFullName] = useState('');
-  const [storeName, setStoreName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [agreeTerms, setAgreeTerms] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formState, setFormState] = useState({
+    fullName: '',
+    storeName: '',
+    phone: '',
+    email: '',
+    password: '',
+    agreeTerms: false,
+    showPassword: false,
+    isSubmitting: false,
+  });
+
   const [isSuccess, setIsSuccess] = useState(false);
+
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    setFormState((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
+  };
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (!agreeTerms) {
+    if (!formState.agreeTerms) {
       alert('يرجى الموافقة على شروط الاستخدام وسياسة الخصوصية للمتابعة.');
       return;
     }
-    setIsSubmitting(true);
+    setFormState((prev) => ({ ...prev, isSubmitting: true }));
     setTimeout(() => {
-      setIsSubmitting(false);
+      setFormState((prev) => ({ ...prev, isSubmitting: false }));
       setIsSuccess(true);
-      setTimeout(() => setIsSuccess(false), 4000);
+      setTimeout(() => {
+        setIsSuccess(false);
+      }, 4000);
     }, 1200);
   };
 
@@ -138,9 +151,10 @@ export const RegisterScreen: FC<RegisterScreenProps> = ({ onGoToSplash }) => {
                       </div>
                       <input
                         type="text"
+                        name="storeName"
                         required
-                        value={storeName}
-                        onChange={(e) => setStoreName(e.target.value)}
+                        value={formState.storeName}
+                        onChange={handleChange}
                         placeholder="اسم النشاط التجاري"
                         className="w-full pr-10 pl-3.5 py-2.5 bg-slate-50/70 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right"
                       />
@@ -158,9 +172,10 @@ export const RegisterScreen: FC<RegisterScreenProps> = ({ onGoToSplash }) => {
                       </div>
                       <input
                         type="text"
+                        name="fullName"
                         required
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
+                        value={formState.fullName}
+                        onChange={handleChange}
                         placeholder="أدخل اسمك الثلاثي"
                         className="w-full pr-10 pl-3.5 py-2.5 bg-slate-50/70 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right"
                       />
@@ -179,9 +194,10 @@ export const RegisterScreen: FC<RegisterScreenProps> = ({ onGoToSplash }) => {
                     </div>
                     <input
                       type="tel"
+                      name="phone"
                       required
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
+                      value={formState.phone}
+                      onChange={handleChange}
                       placeholder="05xxxxxxxx"
                       dir="rtl"
                       className="w-full pr-10 pl-3.5 py-2.5 bg-slate-50/70 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right font-sans"
@@ -200,9 +216,10 @@ export const RegisterScreen: FC<RegisterScreenProps> = ({ onGoToSplash }) => {
                     </div>
                     <input
                       type="email"
+                      name="email"
                       required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      value={formState.email}
+                      onChange={handleChange}
                       placeholder="user@gmail.com"
                       className="w-full pr-10 pl-3.5 py-2.5 bg-slate-50/70 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right font-sans"
                     />
@@ -219,19 +236,25 @@ export const RegisterScreen: FC<RegisterScreenProps> = ({ onGoToSplash }) => {
                       <Lock className="w-4 h-4" />
                     </div>
                     <input
-                      type={showPassword ? 'text' : 'password'}
+                      type={formState.showPassword ? 'text' : 'password'}
+                      name="password"
                       required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      value={formState.password}
+                      onChange={handleChange}
                       placeholder="••••••••"
                       className="w-full pr-10 pl-11 py-2.5 bg-slate-50/70 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right font-sans"
                     />
                     <button
                       type="button"
-                      onClick={() => setShowPassword(!showPassword)}
+                      onClick={() =>
+                        setFormState((prev) => ({
+                          ...prev,
+                          showPassword: !prev.showPassword,
+                        }))
+                      }
                       className="absolute left-3.5 text-slate-400 hover:text-slate-600 focus:outline-none"
                     >
-                      {showPassword ? (
+                      {formState.showPassword ? (
                         <EyeOff className="w-4 h-4" />
                       ) : (
                         <Eye className="w-4 h-4" />
@@ -245,8 +268,9 @@ export const RegisterScreen: FC<RegisterScreenProps> = ({ onGoToSplash }) => {
                   <input
                     type="checkbox"
                     id="terms"
-                    checked={agreeTerms}
-                    onChange={(e) => setAgreeTerms(e.target.checked)}
+                    name="agreeTerms"
+                    checked={formState.agreeTerms}
+                    onChange={handleChange}
                     className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-emerald-600"
                   />
                   <label
@@ -274,10 +298,10 @@ export const RegisterScreen: FC<RegisterScreenProps> = ({ onGoToSplash }) => {
                 <div className="pt-2">
                   <button
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={formState.isSubmitting}
                     className="w-full bg-[#007a3d] hover:bg-[#006633] text-white py-3 px-6 rounded-lg font-bold text-base flex items-center justify-center gap-2 shadow-md shadow-emerald-800/15 hover:shadow-lg transition-all duration-200 active:scale-[0.99] disabled:opacity-75 cursor-pointer"
                   >
-                    {isSubmitting ? (
+                    {formState.isSubmitting ? (
                       <span className="flex items-center gap-2">
                         <svg
                           className="animate-spin h-5 w-5 text-white"
