@@ -12,14 +12,16 @@ import {
   Zap,
   ArrowLeft,
   Check,
+  AlertCircle,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Logo } from './Logo';
+import { registerUser } from '../services/authService';
+import { PATHS } from '../routes/paths';
+import type { RegisterFormData } from '../types/auth';
 
-interface RegisterScreenProps {
-  onGoToSplash?: () => void;
-}
-
-export const RegisterScreen: FC<RegisterScreenProps> = ({ onGoToSplash }) => {
+export const RegisterScreen: FC = () => {
+  const navigate = useNavigate();
   const [formState, setFormState] = useState({
     fullName: '',
     storeName: '',
@@ -32,6 +34,7 @@ export const RegisterScreen: FC<RegisterScreenProps> = ({ onGoToSplash }) => {
   });
 
   const [isSuccess, setIsSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -41,20 +44,34 @@ export const RegisterScreen: FC<RegisterScreenProps> = ({ onGoToSplash }) => {
     }));
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
+
     if (!formState.agreeTerms) {
-      alert('يرجى الموافقة على شروط الاستخدام وسياسة الخصوصية للمتابعة.');
+      setErrorMessage('يرجى الموافقة على شروط الاستخدام وسياسة الخصوصية للمتابعة.');
       return;
     }
+
     setFormState((prev) => ({ ...prev, isSubmitting: true }));
-    setTimeout(() => {
-      setFormState((prev) => ({ ...prev, isSubmitting: false }));
+
+    const formData: RegisterFormData = {
+      storeName: formState.storeName,
+      fullName: formState.fullName,
+      phone: formState.phone,
+      email: formState.email,
+      password: formState.password,
+    };
+
+    const result = await registerUser(formData);
+    setFormState((prev) => ({ ...prev, isSubmitting: false }));
+
+    if (result.success) {
       setIsSuccess(true);
-      setTimeout(() => {
-        setIsSuccess(false);
-      }, 4000);
-    }, 1200);
+      setTimeout(() => navigate(PATHS.VERIFY_OTP, { state: { email: formState.email } }), 1500);
+    } else {
+      setErrorMessage(result.message);
+    }
   };
 
   return (
@@ -117,8 +134,15 @@ export const RegisterScreen: FC<RegisterScreenProps> = ({ onGoToSplash }) => {
           <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center gap-3 shadow-sm animate-fade-in">
             <Check className="w-5 h-5 text-emerald-600 flex-shrink-0" />
             <span className="font-medium text-sm">
-              تم تسجيل الحساب بنجاح! جاري تحويلك إلى لوحة التحكم...
+              تم تسجيل الحساب بنجاح! جاري تحويلك لصفحة التحقق من البريد...
             </span>
+          </div>
+        )}
+
+        {errorMessage && (
+          <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 flex items-center gap-3 shadow-sm animate-fade-in">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+            <span className="font-medium text-sm">{errorMessage}</span>
           </div>
         )}
 

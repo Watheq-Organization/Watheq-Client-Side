@@ -8,4 +8,6 @@ export const PATHS = {
   SPLASH: '/splash',
   REGISTER: '/register',
   LOGIN: '/login',
+  VERIFY_OTP: '/verify-otp',
+  DASHBOARD: '/dashboard',
 } as const;

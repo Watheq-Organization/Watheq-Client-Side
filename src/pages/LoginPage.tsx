@@ -35,9 +35,11 @@ export const LoginPage: FC = () => {
     const result = await loginUser(formData);
     setIsSubmitting(false);
 
-    // Login API isn't available yet (see services/authService.ts) — surface
-    // that clearly instead of pretending the request succeeded.
-    setErrorMessage(result.message);
+    if (result.success) {
+      navigate(PATHS.DASHBOARD);
+    } else {
+      setErrorMessage(result.message);
+    }
   };
 
   const handleForgotPassword = () => {

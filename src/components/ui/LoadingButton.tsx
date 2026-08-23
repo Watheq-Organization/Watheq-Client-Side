@@ -1,6 +1,6 @@
-import type { FC, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, FC, ReactNode } from 'react';
 
-interface LoadingButtonProps {
+interface LoadingButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   isLoading: boolean;
   loadingLabel: string;
   children: ReactNode;
@@ -11,12 +11,13 @@ interface LoadingButtonProps {
  * form's submit button — extracted so the Login page's submit button
  * looks and behaves identically without duplicating markup.
  */
-export const LoadingButton: FC<LoadingButtonProps> = ({ isLoading, loadingLabel, children }) => {
+export const LoadingButton: FC<LoadingButtonProps> = ({ isLoading, loadingLabel, children, className = '', ...props }) => {
   return (
     <button
-      type="submit"
-      disabled={isLoading}
-      className="w-full bg-[#007a3d] hover:bg-[#006633] text-white py-3 px-6 rounded-lg font-bold text-base flex items-center justify-center gap-2 shadow-md shadow-emerald-800/15 hover:shadow-lg transition-all duration-200 active:scale-[0.99] disabled:opacity-75 cursor-pointer"
+      type={props.type || "submit"}
+      disabled={isLoading || props.disabled}
+      className={`w-full bg-[#007a3d] hover:bg-[#006633] text-white py-3 px-6 rounded-lg font-bold text-base flex items-center justify-center gap-2 shadow-md shadow-emerald-800/15 hover:shadow-lg transition-all duration-200 active:scale-[0.99] disabled:opacity-75 cursor-pointer ${className}`}
+      {...props}
     >
       {isLoading ? (
         <span className="flex items-center gap-2">
