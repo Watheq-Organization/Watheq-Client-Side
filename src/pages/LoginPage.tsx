@@ -43,11 +43,9 @@ export const LoginPage: FC = () => {
   };
 
   const handleForgotPassword = () => {
-    // No forgot-password flow (page or backend) exists anywhere in this
-    // project. Per project instructions, we don't invent one — just
-    // report that it needs to be built.
-    setInfoNotice('ميزة استعادة كلمة المرور تتطلب صفحة وواجهة خلفية غير متوفرة حالياً.');
+    navigate(PATHS.FORGOT_PASSWORD);
   };
+
 
   const handleSocialAuth = (provider: 'Google' | 'Apple') => {
     // No OAuth integration exists in this project for either provider.
@@ -108,9 +106,9 @@ export const LoginPage: FC = () => {
                   value={formData.password}
                   onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
                   placeholder="••••••••"
-                 
+                  
                 />
-               
+                
                     <button
                       type="button"
                       onClick={handleForgotPassword}
@@ -118,8 +116,8 @@ export const LoginPage: FC = () => {
                     >
                       نسيت كلمة المرور؟
                     </button>
-              
-                  <div className="flex items-center gap-2 pt-1 text-right justify-start select-none"></div>
+                  
+
                 {/* Remember Me Checkbox */}
                 <div className="flex items-center gap-2 pt-1 text-right justify-start select-none">
                   <input

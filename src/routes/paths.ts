@@ -9,6 +9,10 @@ export const PATHS = {
   REGISTER: '/register',
   LOGIN: '/login',
   VERIFY_OTP: '/verify-otp',
+  FORGOT_PASSWORD: '/forgot-password',
+  VERIFY_RESET_OTP: '/verify-reset-otp',
+  RESET_PASSWORD: '/reset-password',
   DASHBOARD: '/dashboard',
   CONTACT: '/contact-us',
 } as const;
+
