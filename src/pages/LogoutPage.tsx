@@ -23,7 +23,7 @@ export const LogoutPage: FC = () => {
 
   return (
     <div className="relative min-h-screen">
-      {/* Background Dashboard preview (blurred) */}
+      {/* Background Dashboard preview (matches screenshot where dashboard is visible behind the modal) */}
       <div className="pointer-events-none filter blur-xs select-none">
         <DashboardScreen />
       </div>

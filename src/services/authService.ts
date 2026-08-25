@@ -252,7 +252,7 @@ export async function resetPassword(data: {
 
 /**
  * POST /api/Auth/logout
- * Logs out the user, notifies backend, and clears stored credentials.
+ * Logs out the user and clears stored credentials.
  */
 export async function logoutUser(): Promise<void> {
   try {

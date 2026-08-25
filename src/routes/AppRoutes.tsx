@@ -27,7 +27,6 @@ export const AppRoutes: FC = () => {
       <Route path={PATHS.RESET_PASSWORD} element={<ResetPasswordPage />} />
       <Route path={PATHS.DASHBOARD} element={<DashboardPage />} />
       <Route path={PATHS.CONTACT} element={<ContactPage />} />
-      <Route path={PATHS.PRIVACY_POLICY} element={<PrivacyPolicyPage />} />
       <Route path={PATHS.LOGOUT} element={<LogoutPage />} />
 
       {/* Catch-all: redirect unknown paths home rather than inventing a 404 page design */}
@@ -35,6 +34,8 @@ export const AppRoutes: FC = () => {
     </Routes>
   );
 };
+
+
 
 
 export default AppRoutes;
