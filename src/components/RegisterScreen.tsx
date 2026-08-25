@@ -120,6 +120,7 @@ export const RegisterScreen: FC = () => {
             )} */}
             <button
               type="button"
+              onClick={() => navigate(PATHS.LOGIN)}
               className="bg-[#0c2444] hover:bg-[#123663] text-white px-6 py-2.5 rounded-lg text-sm font-semibold shadow-sm transition-all duration-200 active:scale-95"
             >
               تسجيل الدخول
@@ -360,12 +361,13 @@ export const RegisterScreen: FC = () => {
                 {/* Sign In Redirect */}
                 <div className="text-center pt-3 text-xs sm:text-sm text-slate-500">
                   <span>لديك حساب بالفعل؟ </span>
-                  <a
-                    href="#login"
+                  <button
+                    type="button"
+                    onClick={() => navigate(PATHS.LOGIN)}
                     className="text-[#0c2444] font-bold hover:underline hover:text-emerald-700 transition-colors"
                   >
                     تسجيل الدخول
-                  </a>
+                  </button>
                 </div>
               </form>
             </div>

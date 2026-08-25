@@ -182,3 +182,71 @@ export async function verifyOtp(data: { email: string; otp: string }): Promise<A
     };
   }
 }
+
+/**
+ * POST /api/Auth/forgot-password
+ * Sends an OTP verification code to the given email address.
+ */
+export async function forgotPassword(email: string): Promise<AuthResult> {
+  try {
+    const response = await httpClient.post<AuthApiResponseShape>('/auth/forgot-password', { email });
+
+    return {
+      success: true,
+      message: response?.message ?? 'تم إرسال رمز التحقق إلى بريدك الإلكتروني بنجاح.',
+      token: response?.token ?? response?.accessToken,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: toFriendlyErrorMessage(error),
+    };
+  }
+}
+
+/**
+ * POST /api/Auth/verify-reset-otp
+ * Validates the OTP sent for resetting the password.
+ */
+export async function verifyResetOtp(data: { email: string; otp: string }): Promise<AuthResult> {
+  try {
+    const response = await httpClient.post<AuthApiResponseShape>('/auth/verify-reset-otp', data);
+
+    return {
+      success: true,
+      message: response?.message ?? 'تم التحقق من رمز الاستعادة بنجاح.',
+      token: response?.token ?? response?.accessToken,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: toFriendlyErrorMessage(error),
+    };
+  }
+}
+
+/**
+ * POST /api/Auth/reset-password
+ * Updates the user's password with the new password.
+ */
+export async function resetPassword(data: {
+  email: string;
+  newPassword: string;
+  confirmPassword: string;
+}): Promise<AuthResult> {
+  try {
+    const response = await httpClient.post<AuthApiResponseShape>('/auth/reset-password', data);
+
+    return {
+      success: true,
+      message: response?.message ?? 'تم تحديث كلمة المرور بنجاح.',
+      token: response?.token ?? response?.accessToken,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: toFriendlyErrorMessage(error),
+    };
+  }
+}
+

@@ -53,8 +53,24 @@ export interface AuthApiResponseShape {
   [key: string]: unknown;
 }
 
+export interface ForgotPasswordFormData {
+  email: string;
+}
+
+export interface VerifyResetOtpPayload {
+  email: string;
+  otp: string;
+}
+
+export interface ResetPasswordFormData {
+  email: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
 export interface AuthResult {
   success: boolean;
   message: string;
   token?: string;
 }
+
