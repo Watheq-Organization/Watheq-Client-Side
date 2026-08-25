@@ -1,12 +1,16 @@
 import type { FC } from 'react';
+import { Link } from 'react-router-dom';
 import { Logo } from '../Logo';
+import { PATHS } from '../../routes/paths';
 
 /**
- * Extracted verbatim (same classNames/structure) from the original
- * RegisterScreen footer. The terms/privacy/contact links have no
- * corresponding pages anywhere in this project, so — per project
- * instructions not to invent missing pages — they remain the same
- * placeholder anchors they were before extraction.
+ * Single shared Footer used across every page. Originally extracted
+ * verbatim (same classNames/structure) from the RegisterScreen footer.
+ * All navigation links now route through the app's real routing system
+ * (react-router-dom `Link` + `PATHS`) instead of `#` placeholder anchors.
+ * The terms/privacy links still have no corresponding pages anywhere in
+ * this project, so — per project instructions not to invent missing
+ * pages — they remain placeholder anchors.
  */
 export const Footer: FC = () => {
   return (
@@ -23,10 +27,11 @@ export const Footer: FC = () => {
         </div>
 
         {/* Footer Links */}
-        <div className="flex items-center gap-4 text-xs">
-          <a href="#contact" className="hover:text-slate-800 transition">
+        <div className="flex flex-wrap items-center justify-center gap-4 text-xs">
+          <Link to={PATHS.CONTACT} className="hover:text-slate-800 transition">
             اتصل بنا
-          </a>
+          </Link>
+        
           <span className="text-slate-300">|</span>
           <a href="#terms" className="hover:text-slate-800 transition">
             شروط الاستخدام

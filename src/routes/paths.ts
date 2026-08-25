@@ -13,5 +13,6 @@ export const PATHS = {
   VERIFY_RESET_OTP: '/verify-reset-otp',
   RESET_PASSWORD: '/reset-password',
   DASHBOARD: '/dashboard',
+  CONTACT: '/contact-us',
 } as const;
 

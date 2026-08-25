@@ -6,6 +6,7 @@ import { RegisterPage } from '../pages/RegisterPage';
 import { LoginPage } from '../pages/LoginPage';
 import { VerifyOtpPage } from '../pages/VerifyOtpPage.tsx';
 import { DashboardPage } from '../pages/DashboardPage.tsx';
+import { ContactPage } from '../pages/ContactPage.tsx';
 
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { VerifyResetOtpPage } from '../pages/VerifyResetOtpPage';
@@ -23,6 +24,7 @@ export const AppRoutes: FC = () => {
       <Route path={PATHS.VERIFY_RESET_OTP} element={<VerifyResetOtpPage />} />
       <Route path={PATHS.RESET_PASSWORD} element={<ResetPasswordPage />} />
       <Route path={PATHS.DASHBOARD} element={<DashboardPage />} />
+      <Route path={PATHS.CONTACT} element={<ContactPage />} />
 
       {/* Catch-all: redirect unknown paths home rather than inventing a 404 page design */}
       <Route path="*" element={<Navigate to={PATHS.HOME} replace />} />
