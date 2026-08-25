@@ -7,6 +7,7 @@ import { LoginPage } from '../pages/LoginPage';
 import { VerifyOtpPage } from '../pages/VerifyOtpPage.tsx';
 import { DashboardPage } from '../pages/DashboardPage.tsx';
 import { ContactPage } from '../pages/ContactPage.tsx';
+import { PrivacyPolicyPage } from '../pages/PrivacyPolicyPage.tsx';
 
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { VerifyResetOtpPage } from '../pages/VerifyResetOtpPage';
