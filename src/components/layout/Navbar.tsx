@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Logo } from '../Logo';
 import { PATHS } from '../../routes/paths';
 

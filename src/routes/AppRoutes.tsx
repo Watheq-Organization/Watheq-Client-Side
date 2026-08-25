@@ -12,6 +12,7 @@ import { PrivacyPolicyPage } from '../pages/PrivacyPolicyPage.tsx';
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { VerifyResetOtpPage } from '../pages/VerifyResetOtpPage';
 import { ResetPasswordPage } from '../pages/ResetPasswordPage';
+import { LogoutPage } from '../pages/LogoutPage';
 
 export const AppRoutes: FC = () => {
   return (
@@ -27,6 +28,7 @@ export const AppRoutes: FC = () => {
       <Route path={PATHS.DASHBOARD} element={<DashboardPage />} />
       <Route path={PATHS.CONTACT} element={<ContactPage />} />
       <Route path={PATHS.PRIVACY_POLICY} element={<PrivacyPolicyPage />} />
+      <Route path={PATHS.LOGOUT} element={<LogoutPage />} />
 
       {/* Catch-all: redirect unknown paths home rather than inventing a 404 page design */}
       <Route path="*" element={<Navigate to={PATHS.HOME} replace />} />

@@ -15,5 +15,7 @@ export const PATHS = {
   DASHBOARD: '/dashboard',
   CONTACT: '/contact-us',
   PRIVACY_POLICY: '/privacy-policy',
+  LOGOUT: '/logout',
 } as const;
+
 
