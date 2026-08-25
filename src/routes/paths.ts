@@ -10,4 +10,5 @@ export const PATHS = {
   LOGIN: '/login',
   VERIFY_OTP: '/verify-otp',
   DASHBOARD: '/dashboard',
+  CONTACT: '/contact-us',
 } as const;
