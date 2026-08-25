@@ -39,9 +39,7 @@ export const Navbar: FC = () => {
           <a href="#help" className="hover:text-emerald-600 transition-colors duration-200">
             المساعدة
           </a>
-          <Link to={PATHS.CONTACT} className="hover:text-emerald-600 transition-colors duration-200">
-            اتصل بنا
-          </Link>
+      
         </nav>
 
         {/* Login Button */}

@@ -8,9 +8,10 @@ import { PATHS } from '../../routes/paths';
  * verbatim (same classNames/structure) from the RegisterScreen footer.
  * All navigation links now route through the app's real routing system
  * (react-router-dom `Link` + `PATHS`) instead of `#` placeholder anchors.
- * The terms/privacy links still have no corresponding pages anywhere in
- * this project, so — per project instructions not to invent missing
- * pages — they remain placeholder anchors.
+ * The terms-of-use link still has no corresponding page anywhere in this
+ * project, so — per project instructions not to invent missing pages — it
+ * remains a placeholder anchor. The privacy-policy link now routes to the
+ * real PrivacyPolicyPage.
  */
 export const Footer: FC = () => {
   return (
@@ -37,9 +38,9 @@ export const Footer: FC = () => {
             شروط الاستخدام
           </a>
           <span className="text-slate-300">|</span>
-          <a href="#privacy" className="hover:text-slate-800 transition">
+          <Link to={PATHS.PRIVACY_POLICY} className="hover:text-slate-800 transition">
             سياسة الخصوصية
-          </a>
+          </Link>
         </div>
       </div>
     </footer>
