@@ -250,3 +250,18 @@ export async function resetPassword(data: {
   }
 }
 
+/**
+ * POST /api/Auth/logout
+ * Logs out the user and clears stored credentials.
+ */
+export async function logoutUser(): Promise<void> {
+  try {
+    await httpClient.post('/auth/logout', {});
+  } catch {
+    // Ignore server error on logout
+  } finally {
+    localStorage.removeItem('auth_token');
+  }
+}
+
+

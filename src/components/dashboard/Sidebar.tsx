@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { FC } from 'react';
 import {
   LayoutDashboard,
@@ -12,6 +13,8 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PATHS } from '../../routes/paths';
+import { LogoutModal } from './LogoutModal';
+import { logoutUser } from '../../services/authService';
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -27,6 +30,8 @@ export const Sidebar: FC<SidebarProps> = ({
   onTabChange,
 }) => {
   const navigate = useNavigate();
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const navItems = [
     { id: 'dashboard', label: 'لوحة القيادة', icon: LayoutDashboard, path: PATHS.DASHBOARD },
@@ -37,9 +42,18 @@ export const Sidebar: FC<SidebarProps> = ({
     { id: 'subscriptions', label: 'الاشتراكات', icon: Tv2 },
   ];
 
-  const handleLogout = () => {
-    navigate(PATHS.LOGIN);
+  const handleLogoutClick = () => {
+    setIsLogoutModalOpen(true);
   };
+
+  const handleConfirmLogout = async () => {
+    setIsLoggingOut(true);
+    await logoutUser();
+    setIsLoggingOut(false);
+    setIsLogoutModalOpen(false);
+    navigate(PATHS.LOGIN, { replace: true });
+  };
+
 
   return (
     <>
@@ -149,14 +163,23 @@ export const Sidebar: FC<SidebarProps> = ({
 
           <button
             type="button"
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:text-rose-300 hover:bg-rose-500/10 transition-all duration-200 text-right"
+            onClick={handleLogoutClick}
+            className="w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:text-rose-300 hover:bg-rose-500/10 transition-all duration-200 text-right cursor-pointer"
           >
             <LogOut className="w-5 h-5 text-slate-400 group-hover:text-rose-300" />
             <span>تسجيل الخروج</span>
           </button>
         </div>
       </aside>
+
+      {/* Logout Modal */}
+      <LogoutModal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        onConfirm={handleConfirmLogout}
+        isLoading={isLoggingOut}
+      />
     </>
   );
 };
+

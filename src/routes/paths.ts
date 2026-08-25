@@ -14,5 +14,7 @@ export const PATHS = {
   RESET_PASSWORD: '/reset-password',
   DASHBOARD: '/dashboard',
   CONTACT: '/contact-us',
+  LOGOUT: '/logout',
 } as const;
+
 
