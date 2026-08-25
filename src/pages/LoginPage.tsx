@@ -108,7 +108,9 @@ export const LoginPage: FC = () => {
                   value={formData.password}
                   onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
                   placeholder="••••••••"
-                  labelExtra={
+                 
+                />
+               
                     <button
                       type="button"
                       onClick={handleForgotPassword}
@@ -116,9 +118,8 @@ export const LoginPage: FC = () => {
                     >
                       نسيت كلمة المرور؟
                     </button>
-                  }
-                />
-
+              
+                  <div className="flex items-center gap-2 pt-1 text-right justify-start select-none"></div>
                 {/* Remember Me Checkbox */}
                 <div className="flex items-center gap-2 pt-1 text-right justify-start select-none">
                   <input
