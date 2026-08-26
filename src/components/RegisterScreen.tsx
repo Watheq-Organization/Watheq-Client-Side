@@ -14,7 +14,7 @@ import {
   Check,
   AlertCircle,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Logo } from './Logo';
 import { Footer } from './layout/Footer';
 import { registerUser } from '../services/authService';
@@ -311,12 +311,12 @@ export const RegisterScreen: FC = () => {
                       شروط الاستخدام
                     </a>{' '}
                     و{' '}
-                    <a
-                      href="#privacy"
+                    <Link
+                      to={PATHS.PRIVACY_POLICY}
                       className="text-slate-800 font-semibold underline hover:text-emerald-700"
                     >
                       سياسة الخصوصية
-                    </a>
+                    </Link>
                   </label>
                 </div>
 
