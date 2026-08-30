@@ -15,7 +15,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Logo } from './Logo';
+import { Navbar } from './layout/Navbar';
 import { Footer } from './layout/Footer';
 import { registerUser } from '../services/authService';
 import { PATHS } from '../routes/paths';
@@ -78,57 +78,7 @@ export const RegisterScreen: FC = () => {
   return (
     <div className="min-h-screen flex flex-col justify-between bg-white text-slate-800 font-cairo antialiased selection:bg-emerald-100 selection:text-emerald-900">
       {/* 1. Header / Navbar */}
-      <header className="w-full bg-white border-b border-slate-100 sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 h-20 flex items-center justify-between">
-          {/* Logo Right in RTL */}
-          <div className="flex items-center gap-3">
-            <Logo variant="dark" size="md" />
-          </div>
-
-          {/* Center / Navigation Links */}
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
-            <a
-              href="#home"
-              className="hover:text-emerald-600 transition-colors duration-200"
-            >
-              الرئيسية
-            </a>
-            <a
-              href="#about"
-              className="hover:text-emerald-600 transition-colors duration-200"
-            >
-              حول النظام
-            </a>
-            <a
-              href="#help"
-              className="hover:text-emerald-600 transition-colors duration-200"
-            >
-              المساعدة
-            </a>
-          </nav>
-
-          {/* Login Button */}
-          <div className="flex items-center gap-3">
-            {/* {onGoToSplash && (
-              // <button
-              //   type="button"
-              //   onClick={onGoToSplash}
-              //   className="hidden sm:inline-flex text-xs text-slate-500 hover:text-slate-800 px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition"
-              //   title="عرض شاشة البداية"
-              // >
-              //   شاشة البداية ↺
-              // </button>
-            )} */}
-            <button
-              type="button"
-              onClick={() => navigate(PATHS.LOGIN)}
-              className="bg-[#0c2444] hover:bg-[#123663] text-white px-6 py-2.5 rounded-lg text-sm font-semibold shadow-sm transition-all duration-200 active:scale-95"
-            >
-              تسجيل الدخول
-            </button>
-          </div>
-        </div>
-      </header>
+      <Navbar />
 
       {/* 2. Main Hero & Form Section */}
       <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-14">

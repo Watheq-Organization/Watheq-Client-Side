@@ -6,6 +6,8 @@ import { RegisterPage } from '../pages/RegisterPage';
 import { LoginPage } from '../pages/LoginPage';
 import { VerifyOtpPage } from '../pages/VerifyOtpPage.tsx';
 import { DashboardPage } from '../pages/DashboardPage.tsx';
+import { AboutPage } from '../pages/AboutPage.tsx';
+import { HelpCenterPage } from '../pages/HelpCenterPage.tsx';
 import { ContactPage } from '../pages/ContactPage.tsx';
 import { PrivacyPolicyPage } from '../pages/PrivacyPolicyPage.tsx';
 
@@ -26,6 +28,8 @@ export const AppRoutes: FC = () => {
       <Route path={PATHS.VERIFY_RESET_OTP} element={<VerifyResetOtpPage />} />
       <Route path={PATHS.RESET_PASSWORD} element={<ResetPasswordPage />} />
       <Route path={PATHS.DASHBOARD} element={<DashboardPage />} />
+      <Route path={PATHS.ABOUT} element={<AboutPage />} />
+      <Route path={PATHS.HELP} element={<HelpCenterPage />} />
       <Route path={PATHS.CONTACT} element={<ContactPage />} />
       <Route path={PATHS.PRIVACY_POLICY} element={<PrivacyPolicyPage />} />
       <Route path={PATHS.LOGOUT} element={<LogoutPage />} />
