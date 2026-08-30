@@ -15,6 +15,7 @@ import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { VerifyResetOtpPage } from '../pages/VerifyResetOtpPage';
 import { ResetPasswordPage } from '../pages/ResetPasswordPage';
 import { LogoutPage } from '../pages/LogoutPage';
+import TermsPage from '../pages/TermsPage.tsx';
 
 export const AppRoutes: FC = () => {
   return (
@@ -30,6 +31,7 @@ export const AppRoutes: FC = () => {
       <Route path={PATHS.DASHBOARD} element={<DashboardPage />} />
       <Route path={PATHS.ABOUT} element={<AboutPage />} />
       <Route path={PATHS.HELP} element={<HelpCenterPage />} />
+      <Route path={PATHS.TERMS} element={<TermsPage />} />
       <Route path={PATHS.CONTACT} element={<ContactPage />} />
       <Route path={PATHS.PRIVACY_POLICY} element={<PrivacyPolicyPage />} />
       <Route path={PATHS.LOGOUT} element={<LogoutPage />} />

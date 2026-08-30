@@ -34,9 +34,9 @@ export const Footer: FC = () => {
           </Link>
         
           <span className="text-slate-300">|</span>
-          <a href="#terms" className="hover:text-slate-800 transition">
+           <Link to={PATHS.TERMS} className="hover:text-slate-800 transition">
             شروط الاستخدام
-          </a>
+          </Link>
           <span className="text-slate-300">|</span>
           <Link to={PATHS.PRIVACY_POLICY} className="hover:text-slate-800 transition">
             سياسة الخصوصية

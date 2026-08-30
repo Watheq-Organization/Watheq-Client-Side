@@ -18,6 +18,8 @@ export const PATHS = {
   CONTACT: '/contact-us',
   PRIVACY_POLICY: '/privacy-policy',
   LOGOUT: '/logout',
+  TERMS: '/terms',
+
 } as const;
 
 
