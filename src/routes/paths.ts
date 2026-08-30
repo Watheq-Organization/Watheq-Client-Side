@@ -13,6 +13,8 @@ export const PATHS = {
   VERIFY_RESET_OTP: '/verify-reset-otp',
   RESET_PASSWORD: '/reset-password',
   DASHBOARD: '/dashboard',
+  ABOUT: '/about',
+  HELP: '/help',
   CONTACT: '/contact-us',
   PRIVACY_POLICY: '/privacy-policy',
   LOGOUT: '/logout',
