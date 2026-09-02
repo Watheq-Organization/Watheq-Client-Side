@@ -68,6 +68,10 @@ export interface ResetPasswordFormData {
   confirmPassword: string;
 }
 
+export interface ResendVerificationCodePayload {
+  email: string;
+}
+
 export interface AuthResult {
   success: boolean;
   message: string;

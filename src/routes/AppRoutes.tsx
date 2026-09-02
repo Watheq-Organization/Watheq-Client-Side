@@ -10,6 +10,8 @@ import { AboutPage } from '../pages/AboutPage.tsx';
 import { HelpCenterPage } from '../pages/HelpCenterPage.tsx';
 import { ContactPage } from '../pages/ContactPage.tsx';
 import { PrivacyPolicyPage } from '../pages/PrivacyPolicyPage.tsx';
+import { CustomersPage } from '../pages/CustomersPage';
+import { CustomerDetailsPage } from '../pages/CustomerDetailsPage';
 
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { VerifyResetOtpPage } from '../pages/VerifyResetOtpPage';
@@ -29,6 +31,8 @@ export const AppRoutes: FC = () => {
       <Route path={PATHS.VERIFY_RESET_OTP} element={<VerifyResetOtpPage />} />
       <Route path={PATHS.RESET_PASSWORD} element={<ResetPasswordPage />} />
       <Route path={PATHS.DASHBOARD} element={<DashboardPage />} />
+      <Route path={PATHS.CUSTOMERS} element={<CustomersPage />} />
+      <Route path={PATHS.CUSTOMER_DETAILS} element={<CustomerDetailsPage />} />
       <Route path={PATHS.ABOUT} element={<AboutPage />} />
       <Route path={PATHS.HELP} element={<HelpCenterPage />} />
       <Route path={PATHS.TERMS} element={<TermsPage />} />

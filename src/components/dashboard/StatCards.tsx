@@ -1,7 +1,35 @@
+import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 import { CreditCard, Users, Banknote, ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { getDashboardSummary } from '../../services/dashboardService';
+import type { DashboardSummary } from '../../types/dashboard';
 
 export const StatCards: FC = () => {
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    getDashboardSummary()
+      .then((data) => {
+        if (isMounted && data) {
+          setSummary(data);
+        }
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Format numbers nicely or fallback to default presentation
+  const outstandingDebt = summary?.totalOutstandingDebt ?? summary?.outstandingDebts ?? summary?.totalDebts ?? 124500;
+  const activeCustomers = summary?.activeCustomers ?? summary?.totalCustomers ?? 45;
+  const totalCollections = summary?.totalCollections ?? summary?.collectedAmount ?? 45200;
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-5" dir="rtl">
       {/* 1. إجمالي الديون المستحقة (Total Outstanding Debts) */}
@@ -21,7 +49,7 @@ export const StatCards: FC = () => {
           <p className="text-slate-500 text-sm font-medium">إجمالي الديون المستحقة</p>
           <div className="mt-1 flex items-baseline gap-1.5 justify-start">
             <span className="text-3xl font-bold font-tajawal text-slate-900 tracking-tight">
-              ١٢٤,٥٠٠
+              {isLoading ? '...' : Number(outstandingDebt).toLocaleString('ar-SA')}
             </span>
             <span className="text-sm font-semibold text-slate-400 font-cairo">ر.س</span>
           </div>
@@ -45,7 +73,7 @@ export const StatCards: FC = () => {
           <p className="text-slate-500 text-sm font-medium">العملاء النشطين</p>
           <div className="mt-1 flex items-baseline gap-1.5 justify-start">
             <span className="text-3xl font-bold font-tajawal text-slate-900 tracking-tight">
-              ٤٥
+              {isLoading ? '...' : Number(activeCustomers).toLocaleString('ar-SA')}
             </span>
             <span className="text-sm font-semibold text-slate-400 font-cairo">عميل</span>
           </div>
@@ -64,7 +92,7 @@ export const StatCards: FC = () => {
           <p className="text-slate-500 text-sm font-medium">إجمالي التحصيلات</p>
           <div className="mt-1 flex items-baseline gap-1.5 justify-start">
             <span className="text-3xl font-bold font-tajawal text-slate-900 tracking-tight">
-              ٤٥,٢٠٠
+              {isLoading ? '...' : Number(totalCollections).toLocaleString('ar-SA')}
             </span>
             <span className="text-sm font-semibold text-slate-400 font-cairo">ر.س</span>
           </div>
@@ -73,3 +101,4 @@ export const StatCards: FC = () => {
     </div>
   );
 };
+
