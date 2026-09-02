@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { FC } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell, Check, ChevronLeft } from 'lucide-react';
+import { PATHS } from '../../routes/paths';
 
 interface PaymentItem {
   id: string;
@@ -35,6 +37,7 @@ interface OverduePaymentsTableProps {
 }
 
 export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuery = '' }) => {
+  const navigate = useNavigate();
   const [remindedIds, setRemindedIds] = useState<Record<string, boolean>>({});
 
   const handleSendReminder = (id: string) => {
@@ -58,7 +61,8 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
           </h2>
           <button
             type="button"
-            className="text-sm font-semibold text-slate-600 hover:text-[#051838] flex items-center gap-1 transition-colors duration-150"
+            onClick={() => navigate(PATHS.CUSTOMERS)}
+            className="text-sm font-semibold text-slate-600 hover:text-[#051838] flex items-center gap-1 transition-colors duration-150 cursor-pointer"
           >
             <span>عرض الكل</span>
             <ChevronLeft className="w-4 h-4" />

@@ -184,6 +184,27 @@ export async function verifyOtp(data: { email: string; otp: string }): Promise<A
 }
 
 /**
+ * POST /api/Auth/resend-verification-code
+ * Resends the verification code for email confirmation during registration.
+ */
+export async function resendVerificationCode(email: string): Promise<AuthResult> {
+  try {
+    const response = await httpClient.post<AuthApiResponseShape>('/auth/resend-verification-code', { email });
+
+    return {
+      success: true,
+      message: response?.message ?? 'تمت إعادة إرسال رمز التحقق بنجاح.',
+      token: response?.token ?? response?.accessToken,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: toFriendlyErrorMessage(error),
+    };
+  }
+}
+
+/**
  * POST /api/Auth/forgot-password
  * Sends an OTP verification code to the given email address.
  */

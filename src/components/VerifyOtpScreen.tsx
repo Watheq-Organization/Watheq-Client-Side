@@ -6,7 +6,7 @@ import { Footer } from './layout/Footer';
 import { LoadingButton } from './ui/LoadingButton';
 import { PATHS } from '../routes/paths';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
-import { verifyOtp } from '../services/authService';
+import { verifyOtp, resendVerificationCode } from '../services/authService';
 
 export const VerifyOtpScreen: FC = () => {
   const navigate = useNavigate();
@@ -16,6 +16,8 @@ export const VerifyOtpScreen: FC = () => {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [resendNotice, setResendNotice] = useState<string | null>(null);
+  const [isResending, setIsResending] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   
   // Countdown Timer (5 minutes = 300 seconds)
@@ -54,11 +56,23 @@ export const VerifyOtpScreen: FC = () => {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const handleResend = () => {
-    if (timeLeft > 0) return;
-    // Call resend API here later
-    setTimeLeft(300);
+  const handleResend = async () => {
+    if (timeLeft > 0 || isResending || !email) return;
+    setIsResending(true);
     setErrorMessage(null);
+    setResendNotice(null);
+
+    const result = await resendVerificationCode(email);
+    setIsResending(false);
+
+    if (result.success) {
+      setTimeLeft(300);
+      setResendNotice('تمت إعادة إرسال رمز التحقق إلى بريدك الإلكتروني بنجاح.');
+      setOtp(['', '', '', '', '', '']);
+      inputRefs[0].current?.focus();
+    } else {
+      setErrorMessage(result.message);
+    }
   };
 
   const handleChange = (index: number, value: string) => {
@@ -178,6 +192,13 @@ export const VerifyOtpScreen: FC = () => {
                 </div>
               )}
 
+              {resendNotice && (
+                <div className="mb-6 p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 flex items-center gap-3 shadow-sm animate-fade-in">
+                  <CheckCircle2 className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                  <span className="font-medium text-sm">{resendNotice}</span>
+                </div>
+              )}
+
               {errorMessage && (
                 <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 flex items-center gap-3 shadow-sm animate-fade-in">
                   <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
@@ -218,9 +239,10 @@ export const VerifyOtpScreen: FC = () => {
                     <button
                       type="button"
                       onClick={handleResend}
-                      className="text-[#008744] hover:text-[#006834] font-bold hover:underline transition-colors"
+                      disabled={isResending}
+                      className="text-[#008744] hover:text-[#006834] font-bold hover:underline transition-colors disabled:opacity-50"
                     >
-                      إعادة إرسال الرمز
+                      {isResending ? 'جاري إعادة الإرسال...' : 'إعادة إرسال الرمز'}
                     </button>
                   )}
                 </div>

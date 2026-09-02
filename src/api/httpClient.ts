@@ -27,6 +27,7 @@ async function request<TResponse>(
   options: RequestInit = {}
 ): Promise<TResponse> {
   const url = `${API_BASE_URL}${path}`;
+  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
 
   let response: Response;
   try {
@@ -35,6 +36,7 @@ async function request<TResponse>(
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(options.headers ?? {}),
       },
     });

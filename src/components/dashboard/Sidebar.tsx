@@ -35,7 +35,7 @@ export const Sidebar: FC<SidebarProps> = ({
 
   const navItems = [
     { id: 'dashboard', label: 'لوحة القيادة', icon: LayoutDashboard, path: PATHS.DASHBOARD },
-    { id: 'customers', label: 'العملاء', icon: Users },
+    { id: 'customers', label: 'العملاء', icon: Users, path: PATHS.CUSTOMERS },
     { id: 'add-debt', label: 'إضافة دين', icon: CreditCard },
     { id: 'reports', label: 'التقارير', icon: BarChart3 },
     { id: 'reminder-settings', label: 'إعدادات التذكيرات', icon: BellRing },
@@ -151,7 +151,7 @@ export const Sidebar: FC<SidebarProps> = ({
               if (onTabChange) onTabChange('settings');
               if (onClose) onClose();
             }}
-            className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 text-right ${
+            className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 text-right cursor-pointer ${
               activeTab === 'settings'
                 ? 'bg-[#183462] text-white font-semibold'
                 : 'text-slate-300 hover:text-white hover:bg-white/6'
