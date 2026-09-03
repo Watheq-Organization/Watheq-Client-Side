@@ -12,10 +12,12 @@ import { GoogleIcon } from '../components/icons/GoogleIcon';
 import { Logo } from '../components/Logo';
 import { loginUser } from '../services/authService';
 import { PATHS } from '../routes/paths';
+import { useAuth } from '../hooks/useAuth';
 import type { LoginFormData } from '../types/auth';
 
 export const LoginPage: FC = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const [formData, setFormData] = useState<LoginFormData>({
     phone: '',
@@ -36,7 +38,14 @@ export const LoginPage: FC = () => {
     setIsSubmitting(false);
 
     if (result.success) {
-      navigate(PATHS.DASHBOARD);
+      if (result.token) {
+        login(result.token);
+        navigate(PATHS.DASHBOARD);
+      } else {
+        // Backend reported success but returned no token — we can't
+        // authenticate the user without one, so don't pretend we did.
+        setErrorMessage('تعذر تسجيل الدخول. يرجى المحاولة مرة أخرى.');
+      }
     } else {
       setErrorMessage(result.message);
     }

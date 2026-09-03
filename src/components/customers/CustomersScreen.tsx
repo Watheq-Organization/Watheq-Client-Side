@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -9,15 +9,25 @@ import {
   History,
   ChevronLeft,
   ChevronRight,
-  UserCheck,
-  Building2,
   X,
   Check,
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
 import type { Customer, CustomerStatus } from '../../types/customer';
-import { MOCK_CUSTOMERS } from '../../services/customerService';
+import {
+  addCustomer,
+  getCustomers,
+  isDuplicatePhoneNumberError,
+  mapCustomerDtoToCustomer,
+  toAddCustomerErrorMessage,
+  toGetCustomersErrorMessage,
+  validateCustomerAddress,
+  validateCustomerFullName,
+  validateCustomerPhoneNumber,
+} from '../../services/customerService';
+import { ApiError } from '../../api/httpClient';
+import { getDashboardSummary } from '../../services/dashboardService';
 
 export const CustomersScreen: FC = () => {
   const navigate = useNavigate();
@@ -26,18 +36,77 @@ export const CustomersScreen: FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'newest' | 'highest_debt' | 'name'>('newest');
   const [currentPage, setCurrentPage] = useState(1);
-  const [customers, setCustomers] = useState<Customer[]>(MOCK_CUSTOMERS);
+  const [customers, setCustomers] = useState<Customer[]>([]);
 
-  // Modal State
+  // Real customer rows from GET /api/customer/getCustomers. No demo/mock
+  // data is used here — an empty or failed response is shown as such.
+  const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
+  const [customersLoadError, setCustomersLoadError] = useState<string | null>(null);
+  const [customersReloadToken, setCustomersReloadToken] = useState(0);
+
+  // Add Customer Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newCustomer, setNewCustomer] = useState({
-    name: '',
-    type: 'individual' as 'individual' | 'company',
-    nationalOrCrId: '',
-    totalDebt: '',
-    phone: '',
+    fullName: '',
+    phoneNumber: '',
+    address: '',
   });
+  const [addFieldErrors, setAddFieldErrors] = useState<{
+    fullName?: string;
+    phoneNumber?: string;
+    address?: string;
+  }>({});
+  const [isAddingCustomer, setIsAddingCustomer] = useState(false);
+  const [addSubmitError, setAddSubmitError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Real customer count from GET /api/Dashboard/summary (customersCount).
+  // Stays null on load failure so the UI falls back to the number of rows
+  // actually shown instead of a fabricated total.
+  const [totalCustomersCount, setTotalCustomersCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    getDashboardSummary().then((data) => {
+      if (isMounted && data) {
+        setTotalCustomersCount(data.customersCount);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoadingCustomers(true);
+    setCustomersLoadError(null);
+
+    getCustomers()
+      .then((dtos) => {
+        if (!isMounted) return;
+        setCustomers(dtos.map(mapCustomerDtoToCustomer));
+      })
+      .catch((error) => {
+        if (!isMounted) return;
+        setCustomers([]);
+        setCustomersLoadError(toGetCustomersErrorMessage(error));
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingCustomers(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [customersReloadToken]);
+
+  const closeAddModal = () => {
+    setIsAddModalOpen(false);
+    setNewCustomer({ fullName: '', phoneNumber: '', address: '' });
+    setAddFieldErrors({});
+    setAddSubmitError(null);
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -69,35 +138,47 @@ export const CustomersScreen: FC = () => {
       });
   }, [customers, activeTabFilter, searchQuery, sortBy]);
 
-  const handleAddCustomer = (e: React.FormEvent) => {
+  const handleAddCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCustomer.name || !newCustomer.nationalOrCrId) return;
 
-    const debtVal = parseFloat(newCustomer.totalDebt) || 0;
-    const added: Customer = {
-      id: Date.now().toString(),
-      name: newCustomer.name,
-      type: newCustomer.type,
-      typeLabel: newCustomer.type === 'company' ? 'عميل شركات' : 'عميل أفراد',
-      nationalOrCrId: newCustomer.nationalOrCrId,
-      totalDebt: debtVal,
-      status: debtVal > 0 ? 'active_debt' : 'paid',
-      statusLabel: debtVal > 0 ? 'دين نشط' : 'تم السداد',
-      avatarLetter: newCustomer.name.trim().charAt(0) || 'ع',
-      avatarBg: newCustomer.type === 'company' ? 'bg-indigo-100 text-indigo-600' : 'bg-rose-100 text-rose-600',
-      phone: newCustomer.phone,
-    };
+    const trimmedName = newCustomer.fullName.trim();
+    const trimmedPhone = newCustomer.phoneNumber.trim();
+    const trimmedAddress = newCustomer.address.trim();
 
-    setCustomers((prev) => [added, ...prev]);
-    setIsAddModalOpen(false);
-    setNewCustomer({
-      name: '',
-      type: 'individual',
-      nationalOrCrId: '',
-      totalDebt: '',
-      phone: '',
-    });
-    showToast('تمت إضافة العميل بنجاح.');
+    const errors: typeof addFieldErrors = {};
+    const nameError = validateCustomerFullName(trimmedName);
+    if (nameError) errors.fullName = nameError;
+    const phoneError = validateCustomerPhoneNumber(trimmedPhone);
+    if (phoneError) errors.phoneNumber = phoneError;
+    const addressError = validateCustomerAddress(trimmedAddress);
+    if (addressError) errors.address = addressError;
+
+    setAddFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    setAddSubmitError(null);
+    setIsAddingCustomer(true);
+    try {
+      const dto = await addCustomer({
+        fullName: trimmedName,
+        phoneNumber: trimmedPhone,
+        address: trimmedAddress || null,
+      });
+
+      setCustomers((prev) => [mapCustomerDtoToCustomer(dto), ...prev]);
+      closeAddModal();
+      showToast('تمت إضافة العميل بنجاح.');
+    } catch (err) {
+      if (err instanceof ApiError && isDuplicatePhoneNumberError(err)) {
+        setAddFieldErrors((p) => ({ ...p, phoneNumber: 'يوجد عميل آخر مسجل بنفس رقم الجوال.' }));
+      } else {
+        const message = toAddCustomerErrorMessage(err);
+        setAddSubmitError(message);
+        showToast(message);
+      }
+    } finally {
+      setIsAddingCustomer(false);
+    }
   };
 
   const handleExport = () => {
@@ -177,6 +258,7 @@ export const CustomersScreen: FC = () => {
             <div className="flex items-center gap-3 self-start md:self-auto">
               <button
                   type="button"
+                  onClick={() => setIsAddModalOpen(true)}
                   className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#123663] hover:bg-[#0c2444] text-white rounded-xl text-sm font-bold shadow-sm hover:shadow-md transition-all active:scale-[0.98] cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
@@ -277,7 +359,44 @@ export const CustomersScreen: FC = () => {
                 </thead>
 
                 <tbody className="divide-y divide-slate-100 text-xs sm:text-sm font-medium text-slate-700">
-                  {filteredCustomers.length === 0 ? (
+                  {isLoadingCustomers ? (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center text-slate-400">
+                        جارٍ تحميل قائمة العملاء...
+                      </td>
+                    </tr>
+                  ) : customersLoadError ? (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center">
+                        <div className="flex flex-col items-center gap-3">
+                          <span className="text-rose-600 font-semibold">{customersLoadError}</span>
+                          <button
+                            type="button"
+                            onClick={() => setCustomersReloadToken((t) => t + 1)}
+                            className="px-4 py-2 rounded-lg bg-[#123663] hover:bg-[#0c2444] text-white text-xs font-bold transition-colors cursor-pointer"
+                          >
+                            إعادة المحاولة
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : customers.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center text-slate-400">
+                        <div className="flex flex-col items-center gap-3">
+                          <span>لا يوجد عملاء بعد.</span>
+                          <button
+                            type="button"
+                            onClick={() => setIsAddModalOpen(true)}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#123663] hover:bg-[#0c2444] text-white text-xs font-bold transition-colors cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>إضافة عميل</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : filteredCustomers.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="py-12 text-center text-slate-400">
                         لا يوجد عملاء يطابقون خيارات البحث أو التصفية الحالية.
@@ -386,7 +505,7 @@ export const CustomersScreen: FC = () => {
             {/* Pagination Controls */}
             <div className="p-4 sm:p-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs sm:text-sm">
               <span className="text-slate-500 font-medium">
-                عرض 1 إلى {filteredCustomers.length} من 120 عميل
+                عرض 1 إلى {filteredCustomers.length} من {(totalCustomersCount ?? filteredCustomers.length).toLocaleString('ar-SA')} عميل
               </span>
 
               <div className="flex items-center gap-1.5" dir="ltr">
@@ -465,127 +584,149 @@ export const CustomersScreen: FC = () => {
 
       {/* Add Customer Modal */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fade-in" dir="rtl">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-slate-100 relative">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <h3 className="text-xl font-bold font-tajawal text-[#0c2444]">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in"
+          dir="rtl"
+        >
+          <div className="bg-white rounded-[12px] w-[450px] max-w-[calc(100vw-32px)] shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="h-[68px] flex items-center justify-between px-6 border-b border-slate-200">
+              <h3 className="text-lg font-bold font-tajawal text-[#0c2444]">
                 إضافة عميل جديد
               </h3>
               <button
                 type="button"
-                onClick={() => setIsAddModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                onClick={closeAddModal}
+                className="text-slate-900 hover:opacity-60 transition-opacity cursor-pointer"
+                aria-label="إغلاق"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5" strokeWidth={2} />
               </button>
             </div>
 
-            <form onSubmit={handleAddCustomer} className="mt-6 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  نوع العميل
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setNewCustomer((p) => ({ ...p, type: 'individual' }))}
-                    className={`py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-all ${
-                      newCustomer.type === 'individual'
-                        ? 'border-[#123663] bg-blue-50 text-[#123663]'
-                        : 'border-slate-200 text-slate-600'
-                    }`}
-                  >
-                    <UserCheck className="w-4 h-4" />
-                    <span>أفراد</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewCustomer((p) => ({ ...p, type: 'company' }))}
-                    className={`py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-all ${
-                      newCustomer.type === 'company'
-                        ? 'border-[#123663] bg-blue-50 text-[#123663]'
-                        : 'border-slate-200 text-slate-600'
-                    }`}
-                  >
-                    <Building2 className="w-4 h-4" />
-                    <span>شركات / مؤسسات</span>
-                  </button>
+            {/* Form Content */}
+            <form onSubmit={handleAddCustomer} noValidate>
+              <div className="px-6 py-5 space-y-4">
+              {addSubmitError && (
+                <div className="rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-sm px-3.5 py-2.5 text-right">
+                  {addSubmitError}
                 </div>
-              </div>
+              )}
 
+              {/* Field 1: Full Name */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  اسم العميل / المنشأة *
+                <label className="block text-sm font-bold text-[#0c2444] mb-1.5">
+                  اسم العميل <span className="text-red-600">*</span>
                 </label>
                 <input
                   type="text"
-                  required
-                  value={newCustomer.name}
-                  onChange={(e) => setNewCustomer((p) => ({ ...p, name: e.target.value }))}
-                  placeholder="أدخل الاسم الكامل"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#123663] focus:bg-white"
+                  value={newCustomer.fullName}
+                  onChange={(e) => {
+                    setNewCustomer((p) => ({ ...p, fullName: e.target.value }));
+                    setAddFieldErrors((p) => ({ ...p, fullName: undefined }));
+                  }}
+                  placeholder="مثال: أحمد علي"
+                  dir="rtl"
+                  className={`w-full h-[38px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none transition-colors ${
+                    addFieldErrors.fullName
+                      ? 'border-red-400 focus:border-red-500'
+                      : 'border-slate-200 focus:border-[#123663]'
+                  }`}
                 />
+                {addFieldErrors.fullName && (
+                  <p className="mt-1 text-xs text-red-600">{addFieldErrors.fullName}</p>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    {newCustomer.type === 'company' ? 'السجل التجاري *' : 'رقم الهوية الوطنية *'}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={newCustomer.nationalOrCrId}
-                    onChange={(e) =>
-                      setNewCustomer((p) => ({ ...p, nationalOrCrId: e.target.value }))
-                    }
-                    placeholder="10xxxxxxxx"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#123663] focus:bg-white font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    رقم الجوال
-                  </label>
-                  <input
-                    type="tel"
-                    value={newCustomer.phone}
-                    onChange={(e) => setNewCustomer((p) => ({ ...p, phone: e.target.value }))}
-                    placeholder="05xxxxxxxx"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#123663] focus:bg-white font-mono"
-                  />
-                </div>
-              </div>
-
+              {/* Field 2: Phone Number */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  إجمالي الدين المبدئي (ر.س)
+                <label className="block text-sm font-bold text-[#0c2444] mb-1.5">
+                  رقم الجوال <span className="text-red-600">*</span>
                 </label>
                 <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={newCustomer.totalDebt}
-                  onChange={(e) => setNewCustomer((p) => ({ ...p, totalDebt: e.target.value }))}
-                  placeholder="0.00"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#123663] focus:bg-white font-mono"
+                  type="tel"
+                  value={newCustomer.phoneNumber}
+                  onChange={(e) => {
+                    setNewCustomer((p) => ({ ...p, phoneNumber: e.target.value }));
+                    setAddFieldErrors((p) => ({ ...p, phoneNumber: undefined }));
+                  }}
+                  placeholder="0591234567 أو +970591234567"
+                  dir="ltr"
+                  className={`w-full h-[38px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none transition-colors ${
+                    addFieldErrors.phoneNumber
+                      ? 'border-red-400 focus:border-red-500'
+                      : 'border-slate-200 focus:border-[#123663]'
+                  }`}
                 />
+                {addFieldErrors.phoneNumber && (
+                  <p className="mt-1 text-xs text-red-600">{addFieldErrors.phoneNumber}</p>
+                )}
               </div>
 
-              <div className="pt-4 flex items-center justify-end gap-3">
+              {/* Field 3: Address (optional) */}
+              <div>
+                <label className="block text-sm font-bold text-[#0c2444] mb-1.5">
+                  العنوان (اختياري)
+                </label>
+                <input
+                  type="text"
+                  value={newCustomer.address}
+                  onChange={(e) => {
+                    setNewCustomer((p) => ({ ...p, address: e.target.value }));
+                    setAddFieldErrors((p) => ({ ...p, address: undefined }));
+                  }}
+                  placeholder="مثال: نابلس، فلسطين"
+                  dir="rtl"
+                  className={`w-full h-[38px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none transition-colors ${
+                    addFieldErrors.address
+                      ? 'border-red-400 focus:border-red-500'
+                      : 'border-slate-200 focus:border-[#123663]'
+                  }`}
+                />
+                {addFieldErrors.address && (
+                  <p className="mt-1 text-xs text-red-600">{addFieldErrors.address}</p>
+                )}
+              </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
                 <button
                   type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50"
+                  onClick={closeAddModal}
+                  disabled={isAddingCustomer}
+                  className="h-9 w-[62px] rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-[#123663] text-white text-sm font-bold shadow-md hover:bg-[#0c2444] transition-all"
+                  disabled={isAddingCustomer}
+                  className="h-9 min-w-[110px] px-4 rounded-lg bg-[#007a3d] hover:bg-[#006633] text-white text-sm font-bold shadow-sm transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  حفظ العميل
+                  {isAddingCustomer ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24">
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          fill="none"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8v8H4z"
+                        />
+                      </svg>
+                      <span>جارٍ الحفظ...</span>
+                    </>
+                  ) : (
+                    <span>حفظ العميل</span>
+                  )}
                 </button>
               </div>
             </form>

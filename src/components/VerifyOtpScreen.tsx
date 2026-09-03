@@ -129,7 +129,7 @@ export const VerifyOtpScreen: FC = () => {
 
     if (result.success) {
       setIsSuccess(true);
-      setTimeout(() => navigate(PATHS.DASHBOARD), 1500);
+      setTimeout(() => navigate(PATHS.LOGIN), 1500);
     } else {
       setErrorMessage(result.message);
     }
@@ -187,7 +187,7 @@ export const VerifyOtpScreen: FC = () => {
                 <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center gap-3 shadow-sm animate-fade-in">
                   <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
                   <span className="font-medium text-sm">
-                    تم التحقق بنجاح! جاري تحويلك إلى لوحة القيادة...
+                    تم التحقق بنجاح! جاري تحويلك إلى صفحة تسجيل الدخول...
                   </span>
                 </div>
               )}

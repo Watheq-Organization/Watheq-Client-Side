@@ -25,10 +25,12 @@ export const StatCards: FC = () => {
     };
   }, []);
 
-  // Format numbers nicely or fallback to default presentation
-  const outstandingDebt = summary?.totalOutstandingDebt ?? summary?.outstandingDebts ?? summary?.totalDebts ?? 124500;
-  const activeCustomers = summary?.activeCustomers ?? summary?.totalCustomers ?? 45;
-  const totalCollections = summary?.totalCollections ?? summary?.collectedAmount ?? 45200;
+  // Real values from GET /api/Dashboard/summary (DashboardSummaryDto).
+  // No demo fallback numbers: while loading we show '...', and if the
+  // request fails (summary stays null) we show 0 rather than fake data.
+  const outstandingDebt = summary?.totalDebt ?? 0;
+  const activeCustomers = summary?.customersCount ?? 0;
+  const totalCollections = summary?.collectedAmount ?? 0;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-5" dir="rtl">
