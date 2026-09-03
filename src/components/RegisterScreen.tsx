@@ -370,7 +370,7 @@ export const RegisterScreen: FC = () => {
             {/* Hero Image */}
             <div className="relative rounded-2xl overflow-hidden shadow-lg border border-slate-100 group">
               <img
-                src="/hero-business.jpg"
+                src="/studio-republic-fotKKqWNMQ4-unsplash.jpg"
                 alt="فريق عمل وثّق"
                 className="w-full h-48 sm:h-56 object-cover object-center transform transition duration-500 group-hover:scale-105"
               />
