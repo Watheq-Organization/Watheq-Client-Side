@@ -5,14 +5,17 @@ import { LogoutModal } from '../components/dashboard/LogoutModal';
 import { DashboardScreen } from '../components/dashboard/DashboardScreen';
 import { logoutUser } from '../services/authService';
 import { PATHS } from '../routes/paths';
+import { useAuth } from '../hooks/useAuth';
 
 export const LogoutPage: FC = () => {
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleConfirmLogout = async () => {
     setIsLoggingOut(true);
     await logoutUser();
+    logout();
     setIsLoggingOut(false);
     navigate(PATHS.LOGIN, { replace: true });
   };

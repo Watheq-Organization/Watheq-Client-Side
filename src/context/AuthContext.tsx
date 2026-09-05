@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AuthContext } from './authContextInstance';
 import type { AuthContextValue } from './authContextInstance';
+import { getStoredToken, setStoredToken, clearStoredToken } from '../lib/authToken';
 
 /**
  * The project had no existing auth state (no Redux, no Context, no auth
@@ -16,20 +17,16 @@ import type { AuthContextValue } from './authContextInstance';
  * contract (and any backend guidance on token storage) is confirmed.
  */
 
-const TOKEN_STORAGE_KEY = 'watheq_auth_token';
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(() =>
-    localStorage.getItem(TOKEN_STORAGE_KEY)
-  );
+  const [token, setToken] = useState<string | null>(() => getStoredToken());
 
   const login = useCallback((newToken: string) => {
-    localStorage.setItem(TOKEN_STORAGE_KEY, newToken);
+    setStoredToken(newToken);
     setToken(newToken);
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    clearStoredToken();
     setToken(null);
   }, []);
 

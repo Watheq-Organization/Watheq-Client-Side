@@ -18,6 +18,7 @@ import { VerifyResetOtpPage } from '../pages/VerifyResetOtpPage';
 import { ResetPasswordPage } from '../pages/ResetPasswordPage';
 import { LogoutPage } from '../pages/LogoutPage';
 import TermsPage from '../pages/TermsPage.tsx';
+import { ProtectedRoute } from './ProtectedRoute';
 
 export const AppRoutes: FC = () => {
   return (
@@ -30,15 +31,43 @@ export const AppRoutes: FC = () => {
       <Route path={PATHS.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
       <Route path={PATHS.VERIFY_RESET_OTP} element={<VerifyResetOtpPage />} />
       <Route path={PATHS.RESET_PASSWORD} element={<ResetPasswordPage />} />
-      <Route path={PATHS.DASHBOARD} element={<DashboardPage />} />
-      <Route path={PATHS.CUSTOMERS} element={<CustomersPage />} />
-      <Route path={PATHS.CUSTOMER_DETAILS} element={<CustomerDetailsPage />} />
+      <Route
+        path={PATHS.DASHBOARD}
+        element={
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={PATHS.CUSTOMERS}
+        element={
+          <ProtectedRoute>
+            <CustomersPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={PATHS.CUSTOMER_DETAILS}
+        element={
+          <ProtectedRoute>
+            <CustomerDetailsPage />
+          </ProtectedRoute>
+        }
+      />
       <Route path={PATHS.ABOUT} element={<AboutPage />} />
       <Route path={PATHS.HELP} element={<HelpCenterPage />} />
       <Route path={PATHS.TERMS} element={<TermsPage />} />
       <Route path={PATHS.CONTACT} element={<ContactPage />} />
       <Route path={PATHS.PRIVACY_POLICY} element={<PrivacyPolicyPage />} />
-      <Route path={PATHS.LOGOUT} element={<LogoutPage />} />
+      <Route
+        path={PATHS.LOGOUT}
+        element={
+          <ProtectedRoute>
+            <LogoutPage />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Catch-all: redirect unknown paths home rather than inventing a 404 page design */}
       <Route path="*" element={<Navigate to={PATHS.HOME} replace />} />

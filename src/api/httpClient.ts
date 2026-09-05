@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '../config/env';
+import { getStoredToken } from '../lib/authToken';
 
 /**
  * The project had no existing Axios instance, fetch wrapper, or API client
@@ -27,7 +28,7 @@ async function request<TResponse>(
   options: RequestInit = {}
 ): Promise<TResponse> {
   const url = `${API_BASE_URL}${path}`;
-  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+  const token = getStoredToken();
 
   let response: Response;
   try {
@@ -60,6 +61,11 @@ export const httpClient = {
   post: <TResponse>(path: string, data: unknown) =>
     request<TResponse>(path, {
       method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  put: <TResponse>(path: string, data: unknown) =>
+    request<TResponse>(path, {
+      method: 'PUT',
       body: JSON.stringify(data),
     }),
   get: <TResponse>(path: string) => request<TResponse>(path, { method: 'GET' }),

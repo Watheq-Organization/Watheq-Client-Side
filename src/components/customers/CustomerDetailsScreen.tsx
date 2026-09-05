@@ -16,9 +16,11 @@ import {
   Phone,
   HelpCircle,
   Bell,
+  X,
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
-import { getCustomerById, MOCK_CUSTOMERS } from '../../services/customerService';
+import { getCustomerById, MOCK_CUSTOMERS, updateCustomer, isDuplicatePhoneNumberError, toUpdateCustomerErrorMessage } from '../../services/customerService';
+import { ApiError } from '../../api/httpClient';
 import { PATHS } from '../../routes/paths';
 
 interface ActivityItem {
@@ -42,7 +44,100 @@ export const CustomerDetailsScreen: FC = () => {
   const [searchActivityQuery, setSearchActivityQuery] = useState('');
 
   // Customer Data
-  const customer = (id ? getCustomerById(id) : null) || MOCK_CUSTOMERS[0];
+  const initialCustomer = (id ? getCustomerById(id) : null) || MOCK_CUSTOMERS[0];
+  const [customer, setCustomer] = useState(initialCustomer);
+
+  // Edit Customer Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    fullName: '',
+    nationalOrCrId: '',
+    phoneNumber: '',
+  });
+  const [fieldErrors, setFieldErrors] = useState<{
+    fullName?: string;
+    nationalOrCrId?: string;
+    phoneNumber?: string;
+  }>({});
+  const [isSavingCustomer, setIsSavingCustomer] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const openEditModal = () => {
+    setEditForm({
+      fullName: customer.name,
+      nationalOrCrId: customer.nationalOrCrId,
+      phoneNumber: customer.phone ?? '',
+    });
+    setFieldErrors({});
+    setSubmitError(null);
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const trimmedName = editForm.fullName.trim();
+    const trimmedPhone = editForm.phoneNumber.trim();
+    const trimmedNationalId = editForm.nationalOrCrId.trim();
+
+    const errors: typeof fieldErrors = {};
+    if (!trimmedName || trimmedName.length < 2) {
+      errors.fullName = 'الاسم مطلوب ويجب ألا يقل عن حرفين.';
+    } else if (trimmedName.length > 150) {
+      errors.fullName = 'الاسم طويل جداً (الحد الأقصى 150 حرفاً).';
+    }
+
+    if (!trimmedNationalId) {
+      errors.nationalOrCrId = 'رقم الهوية الوطنية / السجل التجاري مطلوب.';
+    }
+
+    if (!trimmedPhone) {
+      errors.phoneNumber = 'رقم الجوال مطلوب.';
+    } else if (trimmedPhone.length > 20 || !/^\+?[0-9]{8,15}$/.test(trimmedPhone)) {
+      errors.phoneNumber = 'صيغة رقم الجوال غير صحيحة.';
+    }
+
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    setSubmitError(null);
+    setIsSavingCustomer(true);
+    try {
+      const dto = await updateCustomer(customer.id, {
+        fullName: trimmedName,
+        phoneNumber: trimmedPhone,
+        address: customer.address ?? '',
+      });
+
+      setCustomer((prev) => ({
+        ...prev,
+        name: dto.fullName,
+        phone: dto.phoneNumber,
+        address: dto.address,
+        totalDebt: dto.totalDebt,
+        totalPaid: dto.totalPaid,
+      }));
+
+      setIsEditModalOpen(false);
+      showToast('تم تحديث بيانات العميل بنجاح.');
+    } catch (err) {
+      if (err instanceof ApiError && isDuplicatePhoneNumberError(err)) {
+        setFieldErrors((p) => ({ ...p, phoneNumber: 'يوجد عميل آخر مسجل بنفس رقم الجوال.' }));
+      } else {
+        const message = toUpdateCustomerErrorMessage(err);
+        setSubmitError(message);
+        showToast(message);
+      }
+    } finally {
+      setIsSavingCustomer(false);
+    }
+  };
 
   // Activity Log
   const activities: ActivityItem[] = [
@@ -109,6 +204,14 @@ export const CustomerDetailsScreen: FC = () => {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 lg:mr-72 transition-all duration-300">
+
+        {/* Toast Notification */}
+        {toastMessage && (
+          <div className="fixed bottom-6 left-6 z-[60] bg-[#051838] text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-3 animate-fade-in text-sm font-medium">
+            <Check className="w-5 h-5 text-emerald-400" />
+            <span>{toastMessage}</span>
+          </div>
+        )}
         
         {/* Top Header Bar */}
         <header className="w-full bg-white border-b border-slate-100/80 px-4 sm:px-8 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
@@ -186,9 +289,10 @@ export const CustomerDetailsScreen: FC = () => {
             <div className="flex items-center gap-3 self-start sm:self-auto">
               <button
                 type="button"
+                onClick={openEditModal}
                 className="px-4 py-2 bg-[#0c2444] hover:bg-[#123663] text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-all cursor-pointer"
               >
-                تحديث البيانات
+                تحديث بيانات العميل
               </button>
 
               <button
@@ -505,6 +609,141 @@ export const CustomerDetailsScreen: FC = () => {
 
         </main>
       </div>
+
+      {/* Edit Customer Modal */}
+      {isEditModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in"
+          dir="rtl"
+        >
+          <div className="bg-white rounded-[12px] w-[450px] max-w-[calc(100vw-32px)] shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="h-[68px] flex items-center justify-between px-6 border-b border-slate-200">
+              <h3 className="text-lg font-bold font-tajawal text-[#0c2444]">
+                تعديل بيانات العميل
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(false)}
+                className="text-slate-900 hover:opacity-60 transition-opacity cursor-pointer"
+                aria-label="إغلاق"
+              >
+                <X className="w-5 h-5" strokeWidth={2} />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateCustomer}>
+              <div className="px-6 py-5 space-y-4">
+                {submitError && (
+                  <div className="rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-sm px-3.5 py-2.5 text-right">
+                    {submitError}
+                  </div>
+                )}
+                {/* Field 1: Customer Name */}
+                <div>
+                  <label className="block text-sm font-bold text-[#0c2444] mb-1.5">
+                    اسم العميل <span className="text-red-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.fullName}
+                    onChange={(e) => setEditForm((p) => ({ ...p, fullName: e.target.value }))}
+                    dir="rtl"
+                    className={`w-full h-[38px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none focus:border-[#123663] transition-colors ${
+                      fieldErrors.fullName ? 'border-rose-400' : 'border-slate-200'
+                    }`}
+                  />
+                  {fieldErrors.fullName && (
+                    <p className="mt-1 text-xs text-rose-600">{fieldErrors.fullName}</p>
+                  )}
+                </div>
+
+                {/* Field 2: National ID / CR Number (display only — not sent to the API) */}
+                <div>
+                  <label className="block text-sm font-bold text-[#0c2444] mb-1.5">
+                    رقم الهوية الوطنية <span className="text-red-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.nationalOrCrId}
+                    onChange={(e) =>
+                      setEditForm((p) => ({ ...p, nationalOrCrId: e.target.value }))
+                    }
+                    dir="rtl"
+                    className={`w-full h-[38px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none focus:border-[#123663] transition-colors ${
+                      fieldErrors.nationalOrCrId ? 'border-rose-400' : 'border-slate-200'
+                    }`}
+                  />
+                  {fieldErrors.nationalOrCrId && (
+                    <p className="mt-1 text-xs text-rose-600">{fieldErrors.nationalOrCrId}</p>
+                  )}
+                </div>
+
+                {/* Field 3: Mobile Number */}
+                <div>
+                  <label className="block text-sm font-bold text-[#0c2444] mb-1.5">
+                    رقم الجوال
+                  </label>
+                  <input
+                    type="tel"
+                    value={editForm.phoneNumber}
+                    onChange={(e) =>
+                      setEditForm((p) => ({ ...p, phoneNumber: e.target.value }))
+                    }
+                    dir="rtl"
+                    className={`w-full h-[38px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none focus:border-[#123663] transition-colors ${
+                      fieldErrors.phoneNumber ? 'border-rose-400' : 'border-slate-200'
+                    }`}
+                  />
+                  {fieldErrors.phoneNumber && (
+                    <p className="mt-1 text-xs text-rose-600">{fieldErrors.phoneNumber}</p>
+                  )}
+                </div>
+
+                {/* Field 4: Debt Balance — read-only, not sent to the API */}
+                <div>
+                  <label className="block text-sm font-bold text-[#0c2444] mb-1.5">
+                    رصيد المديونية (ريال) <span className="font-normal text-slate-400">(اختياري)</span>
+                  </label>
+                  <div className="relative flex items-center">
+                    <span className="absolute left-3.5 text-sm font-semibold text-slate-400 pointer-events-none">
+                      SAR
+                    </span>
+                    <input
+                      type="text"
+                      value={customer.totalDebt.toFixed(2)}
+                      disabled
+                      readOnly
+                      dir="rtl"
+                      className="w-full h-[38px] bg-slate-50 border border-slate-200 rounded-lg pr-3.5 pl-12 text-sm text-right text-slate-500 outline-none cursor-not-allowed"
+                    />
+                  </div>
+                  <p className="mt-1.5 text-xs text-slate-400">القيمة الحالية للمديونية.</p>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  disabled={isSavingCustomer}
+                  className="h-9 px-4 rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-60"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingCustomer}
+                  className="h-9 px-5 rounded-lg bg-[#007a3d] hover:bg-[#006633] text-white text-sm font-bold shadow-sm transition-colors cursor-pointer disabled:opacity-70"
+                >
+                  {isSavingCustomer ? 'جاري الحفظ...' : 'حفظ التعديلات'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

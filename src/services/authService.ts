@@ -1,4 +1,5 @@
 import { httpClient, ApiError } from '../api/httpClient';
+import { clearStoredToken } from '../lib/authToken';
 import type {
   RegisterFormData,
   RegisterApiPayload,
@@ -10,12 +11,48 @@ import type {
 /**
  * ⚠️ UNVERIFIED BACKEND CONTRACT — see types/auth.ts for full context.
  *
- * No Swagger/OpenAPI doc, backend source, or Postman collection for
- * POST /api/auth/register was found or provided, so this mapping is a
- * best-effort based only on the existing form's own field names. It is
- * intentionally isolated in this ONE function so that once the real DTO
- * is confirmed, this is the only place that needs to change.
+ * The backend wraps AT LEAST its error responses in a nested `result`
+ * object (see toFriendlyErrorMessage below, which reads
+ * `body.result.message`). That's a strong signal the success responses
+ * are wrapped the same way (a common ASP.NET "ApiResponse<T>" pattern:
+ * { isSuccess, message, result: { token, ... } }) — but this was never
+ * confirmed against a real response body, so instead of hard-coding one
+ * guessed path, extractAuthToken below checks every path we know this
+ * kind of backend commonly uses. This one function is the single place
+ * to fix once the real shape is confirmed (e.g. from a browser Network
+ * tab capture of the real /auth/login response).
  */
+function extractAuthToken(response: unknown): string | undefined {
+  if (!response || typeof response !== 'object') return undefined;
+  const r = response as Record<string, unknown>;
+
+  // Common top-level and nested-wrapper locations, roughly in order of
+  // how likely each is for a typical ASP.NET Core API response.
+  const candidates: unknown[] = [
+    r.token,
+    r.accessToken,
+    r.access_token,
+    r.jwt,
+    r.jwtToken,
+    (r.result as Record<string, unknown> | undefined)?.token,
+    (r.result as Record<string, unknown> | undefined)?.accessToken,
+    (r.result as Record<string, unknown> | undefined)?.access_token,
+    (r.result as Record<string, unknown> | undefined)?.jwtToken,
+    (r.data as Record<string, unknown> | undefined)?.token,
+    (r.data as Record<string, unknown> | undefined)?.accessToken,
+    (r.data as Record<string, unknown> | undefined)?.jwtToken,
+    (r.result as Record<string, unknown> | undefined)?.user &&
+      (((r.result as Record<string, unknown>).user as Record<string, unknown>)?.token),
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
+
 function mapRegisterFormToApiPayload(form: RegisterFormData): RegisterApiPayload {
   return {
     businessName: form.storeName,
@@ -115,7 +152,7 @@ export async function registerUser(form: RegisterFormData): Promise<AuthResult> 
     // let the caller decide what to do (per project instructions: don't
     // auto-login/auto-redirect to a dashboard unless the API is confirmed
     // to support it).
-    const token = response?.token ?? response?.accessToken;
+    const token = extractAuthToken(response);
 
     return {
       success: true,
@@ -146,13 +183,12 @@ export async function loginUser(form: LoginFormData): Promise<AuthResult> {
 
     const response = await httpClient.post<AuthApiResponseShape>('/auth/login', payload);
 
-    const token = response?.token ?? response?.accessToken;
+    const token = extractAuthToken(response);
 
-    // Persist the token so authenticated requests can attach it.
-    if (token) {
-      localStorage.setItem('auth_token', token);
-    }
-
+    // Token persistence is intentionally NOT done here. The caller
+    // (LoginPage) hands the token to AuthContext's login(), which is the
+    // single place that writes to storage and updates auth state — so
+    // isAuthenticated is never out of sync with what's actually stored.
     return {
       success: true,
       message: 'تم تسجيل الدخول بنجاح.',
@@ -173,7 +209,7 @@ export async function verifyOtp(data: { email: string; otp: string }): Promise<A
     return {
       success: true,
       message: 'تم التحقق من الرمز بنجاح.',
-      token: response?.token ?? response?.accessToken,
+      token: extractAuthToken(response),
     };
   } catch (error) {
     return {
@@ -194,7 +230,7 @@ export async function resendVerificationCode(email: string): Promise<AuthResult>
     return {
       success: true,
       message: response?.message ?? 'تمت إعادة إرسال رمز التحقق بنجاح.',
-      token: response?.token ?? response?.accessToken,
+      token: extractAuthToken(response),
     };
   } catch (error) {
     return {
@@ -215,7 +251,7 @@ export async function forgotPassword(email: string): Promise<AuthResult> {
     return {
       success: true,
       message: response?.message ?? 'تم إرسال رمز التحقق إلى بريدك الإلكتروني بنجاح.',
-      token: response?.token ?? response?.accessToken,
+      token: extractAuthToken(response),
     };
   } catch (error) {
     return {
@@ -236,7 +272,7 @@ export async function verifyResetOtp(data: { email: string; otp: string }): Prom
     return {
       success: true,
       message: response?.message ?? 'تم التحقق من رمز الاستعادة بنجاح.',
-      token: response?.token ?? response?.accessToken,
+      token: extractAuthToken(response),
     };
   } catch (error) {
     return {
@@ -261,7 +297,7 @@ export async function resetPassword(data: {
     return {
       success: true,
       message: response?.message ?? 'تم تحديث كلمة المرور بنجاح.',
-      token: response?.token ?? response?.accessToken,
+      token: extractAuthToken(response),
     };
   } catch (error) {
     return {
@@ -281,7 +317,7 @@ export async function logoutUser(): Promise<void> {
   } catch {
     // Ignore server error on logout
   } finally {
-    localStorage.removeItem('auth_token');
+    clearStoredToken();
   }
 }
 
