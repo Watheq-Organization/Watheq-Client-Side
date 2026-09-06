@@ -55,7 +55,7 @@ export const PrivacyPolicyPage: FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-white text-slate-800 font-cairo antialiased selection:bg-emerald-100 selection:text-emerald-900">
+    <div className="min-h-screen flex flex-col justify-between bg-white text-slate-800 font-cairo antialiased selection:bg-emerald-100 selection:text-emerald-900" dir="rtl">
       <Navbar />
 
       <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-14">
@@ -86,18 +86,18 @@ export const PrivacyPolicyPage: FC = () => {
                       نحن في "وثّق" نلتزم بحماية خصوصيتك. عندما تستخدم منصتنا لإدارة الديون، نقوم
                       بجمع أنواع معينة من المعلومات لتحسين تجربتك وضمان دقة السجلات المالية.
                     </p>
-                    <ul className="space-y-2 text-sm sm:text-base text-slate-600 leading-relaxed">
-                      <li className="flex items-start gap-2 justify-end">
+                    <ul className="space-y-2.5 text-sm sm:text-base text-slate-600 leading-relaxed mt-3">
+                      <li className="flex items-start gap-2.5 text-right">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2 flex-shrink-0" />
                         <span>المعلومات الشخصية (الاسم، البريد الإلكتروني، رقم الهاتف).</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2.5 flex-shrink-0" />
                       </li>
-                      <li className="flex items-start gap-2 justify-end">
+                      <li className="flex items-start gap-2.5 text-right">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2 flex-shrink-0" />
                         <span>البيانات المالية المتعلقة بالديون والمعاملات.</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2.5 flex-shrink-0" />
                       </li>
-                      <li className="flex items-start gap-2 justify-end">
+                      <li className="flex items-start gap-2.5 text-right">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2 flex-shrink-0" />
                         <span>بيانات السجل الفني ومعلومات الجهاز المستخدم.</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2.5 flex-shrink-0" />
                       </li>
                     </ul>
                   </div>
@@ -118,18 +118,18 @@ export const PrivacyPolicyPage: FC = () => {
                       تُستخدم المعلومات التي نجمعها بشكل أساسي لتقديم خدمات "وثّق" وصيانتها
                       وتحسينها. يشمل ذلك:
                     </p>
-                    <ul className="space-y-2 text-sm sm:text-base text-slate-600 leading-relaxed">
-                      <li className="flex items-start gap-2 justify-end">
+                    <ul className="space-y-2.5 text-sm sm:text-base text-slate-600 leading-relaxed mt-3">
+                      <li className="flex items-start gap-2.5 text-right">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2 flex-shrink-0" />
                         <span>توثيق المعاملات وإدارة السجلات المالية بدقة.</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2.5 flex-shrink-0" />
                       </li>
-                      <li className="flex items-start gap-2 justify-end">
+                      <li className="flex items-start gap-2.5 text-right">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2 flex-shrink-0" />
                         <span>التواصل معك بشأن حسابك وتحديثات الخدمة.</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2.5 flex-shrink-0" />
                       </li>
-                      <li className="flex items-start gap-2 justify-end">
+                      <li className="flex items-start gap-2.5 text-right">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2 flex-shrink-0" />
                         <span>منع الاحتيال وضمان أمان المنصة.</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2.5 flex-shrink-0" />
                       </li>
                     </ul>
                   </div>

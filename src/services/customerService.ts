@@ -226,6 +226,18 @@ export function toGetCustomersErrorMessage(error: unknown): string {
   return 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.';
 }
 
+function extractCustomerDto(response: unknown): unknown {
+  if (!response || typeof response !== 'object') return response;
+  const obj = response as Record<string, unknown>;
+  if (obj.data && typeof obj.data === 'object' && !Array.isArray(obj.data)) {
+    return obj.data;
+  }
+  if (obj.result && typeof obj.result === 'object' && !Array.isArray(obj.result)) {
+    return obj.result;
+  }
+  return response;
+}
+
 /**
  * PUT http://whateq.runasp.net/api/Customer/updateCustomer/{customerId}
  *
@@ -239,7 +251,8 @@ export async function updateCustomer(
   customerId: string,
   payload: UpdateCustomerPayload
 ): Promise<CustomerDto> {
-  return httpClient.put<CustomerDto>(`/Customer/updateCustomer/${customerId}`, payload);
+  const response = await httpClient.put<unknown>(`/Customer/updateCustomer/${customerId}`, payload);
+  return normalizeCustomerDto(extractCustomerDto(response));
 }
 
 /**
@@ -258,7 +271,8 @@ export async function addCustomer(payload: AddCustomerPayload): Promise<Customer
     phoneNumber: payload.phoneNumber,
     ...(payload.address ? { address: payload.address } : {}),
   };
-  return httpClient.post<CustomerDto>('/customer/addCustomer', body);
+  const response = await httpClient.post<unknown>('/customer/addCustomer', body);
+  return normalizeCustomerDto(extractCustomerDto(response));
 }
 
 /**
@@ -299,23 +313,34 @@ export function validateCustomerAddress(value: string): string | null {
  * doesn't have them), so those are given sane defaults rather than
  * fabricated data.
  */
-export function mapCustomerDtoToCustomer(dto: CustomerDto): Customer {
-  const hasDebt = dto.totalDebt > 0;
+export function mapCustomerDtoToCustomer(dto: CustomerDto, index?: number): Customer {
+  const safeFullName = (dto?.fullName ?? '').trim();
+  const totalDebt = Number(dto?.totalDebt) || 0;
+  const totalPaid = Number(dto?.totalPaid) || 0;
+  const hasDebt = totalDebt > 0;
+  const rawId = dto?.id != null ? String(dto.id) : '';
+
+  // Format sequential ID strictly per merchant (0001, 0002, 0003...)
+  // Index takes precedence so every account starts numbering its own customers from 0001
+  const sequentialId = index !== undefined
+    ? String(index + 1).padStart(4, '0')
+    : '0001';
+
   return {
-    id: dto.id,
-    name: dto.fullName,
+    id: rawId || String(Date.now()),
+    name: safeFullName || 'عميل بدون اسم',
     type: 'individual',
     typeLabel: 'عميل أفراد',
-    nationalOrCrId: '',
-    totalDebt: dto.totalDebt,
-    totalPaid: dto.totalPaid,
+    nationalOrCrId: sequentialId,
+    totalDebt: totalDebt,
+    totalPaid: totalPaid,
     status: hasDebt ? 'active_debt' : 'paid',
     statusLabel: hasDebt ? 'دين نشط' : 'تم السداد',
-    avatarLetter: dto.fullName.trim().charAt(0) || 'ع',
+    avatarLetter: safeFullName.charAt(0) || 'ع',
     avatarBg: 'bg-rose-100 text-rose-600',
-    phone: dto.phoneNumber,
-    address: dto.address,
-    registrationDate: dto.createdAt,
+    phone: dto?.phoneNumber != null ? String(dto.phoneNumber) : '',
+    address: dto?.address != null ? String(dto.address) : '',
+    registrationDate: dto?.createdAt ? String(dto.createdAt) : new Date().toISOString(),
   };
 }
 

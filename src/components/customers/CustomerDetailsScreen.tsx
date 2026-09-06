@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { FC } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -19,7 +19,7 @@ import {
   X,
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
-import { getCustomerById, MOCK_CUSTOMERS, updateCustomer, isDuplicatePhoneNumberError, toUpdateCustomerErrorMessage } from '../../services/customerService';
+import { getCustomerById, MOCK_CUSTOMERS, updateCustomer, isDuplicatePhoneNumberError, toUpdateCustomerErrorMessage, getCustomers, mapCustomerDtoToCustomer } from '../../services/customerService';
 import { ApiError } from '../../api/httpClient';
 import { PATHS } from '../../routes/paths';
 
@@ -46,6 +46,22 @@ export const CustomerDetailsScreen: FC = () => {
   // Customer Data
   const initialCustomer = (id ? getCustomerById(id) : null) || MOCK_CUSTOMERS[0];
   const [customer, setCustomer] = useState(initialCustomer);
+
+  useEffect(() => {
+    if (!id) return;
+    getCustomers().then((dtos) => {
+      const sorted = [...dtos].sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        if (dateA && dateB && dateA !== dateB) return dateA - dateB;
+        return Number(a.id || 0) - Number(b.id || 0);
+      });
+      const foundIdx = sorted.findIndex((c) => String(c.id) === String(id));
+      if (foundIdx !== -1) {
+        setCustomer(mapCustomerDtoToCustomer(sorted[foundIdx], foundIdx));
+      }
+    });
+  }, [id]);
 
   // Edit Customer Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -342,7 +358,7 @@ export const CustomerDetailsScreen: FC = () => {
                 {/* National ID Pill */}
                 <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-semibold font-mono" dir="rtl">
                   <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
-                  <span>هوية: {customer.nationalOrCrId || '1029384756'}</span>
+                  <span>معرف / هوية: {customer.nationalOrCrId || '0001'}</span>
                 </div>
 
                 {/* Divider */}

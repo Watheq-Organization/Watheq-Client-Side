@@ -8,15 +8,19 @@ import type { DashboardSummary } from '../types/dashboard';
 export async function getDashboardSummary(): Promise<DashboardSummary | null> {
   try {
     const response = await httpClient.get<any>('/Dashboard/summary');
-    // In case the API wraps the payload in response.data or response.result
     if (response && typeof response === 'object') {
-      if (response.result && typeof response.result === 'object') {
-        return response.result as DashboardSummary;
+      // The ASP.NET API returns: { result: { code: 200, message: "..." }, data: { customersCount: 1, ... } }
+      // response.data contains the actual DashboardSummaryDto payload.
+      const payload = response.data ?? response.result ?? response;
+      if (payload && typeof payload === 'object') {
+        return {
+          customersCount: Number(payload.customersCount) || 0,
+          totalDebt: Number(payload.totalDebt) || 0,
+          collectedAmount: Number(payload.collectedAmount) || 0,
+          remainingAmount: Number(payload.remainingAmount) || 0,
+          overdueAmount: Number(payload.overdueAmount) || 0,
+        };
       }
-      if (response.data && typeof response.data === 'object') {
-        return response.data as DashboardSummary;
-      }
-      return response as DashboardSummary;
     }
     return null;
   } catch (error) {
