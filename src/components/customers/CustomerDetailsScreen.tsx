@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { FC } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -17,6 +17,7 @@ import {
   HelpCircle,
   Bell,
   X,
+  Menu,
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
 import {
@@ -28,6 +29,7 @@ import {
   toUpdateCustomerErrorMessage,
   deleteCustomer,
   toDeleteCustomerErrorMessage,
+  getCustomers,
 } from '../../services/customerService';
 import type { Customer, CustomerProfileTransactionDto } from '../../types/customer';
 import { ApiError } from '../../api/httpClient';
@@ -151,18 +153,26 @@ export const CustomerDetailsScreen: FC = () => {
 
   useEffect(() => {
     if (!id) return;
-    getCustomers().then((dtos) => {
-      const sorted = [...dtos].sort((a, b) => {
-        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        if (dateA && dateB && dateA !== dateB) return dateA - dateB;
-        return Number(a.id || 0) - Number(b.id || 0);
+    getCustomers()
+      .then((dtos) => {
+        const sorted = [...dtos].sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          if (dateA && dateB && dateA !== dateB) return dateA - dateB;
+          return Number(a.id || 0) - Number(b.id || 0);
+        });
+        const foundIdx = sorted.findIndex((c) => String(c.id) === String(id));
+        if (foundIdx !== -1) {
+          const sequentialId = String(foundIdx + 1).padStart(4, '0');
+          setCustomer((prev) => ({
+            ...prev,
+            nationalOrCrId: getStoredNationalId(String(id)) || sequentialId,
+          }));
+        }
+      })
+      .catch(() => {
+        // Fallback silently if customer list cannot be retrieved
       });
-      const foundIdx = sorted.findIndex((c) => String(c.id) === String(id));
-      if (foundIdx !== -1) {
-        setCustomer(mapCustomerDtoToCustomer(sorted[foundIdx], foundIdx));
-      }
-    });
   }, [id]);
 
   // Edit Customer Modal State
@@ -359,16 +369,26 @@ export const CustomerDetailsScreen: FC = () => {
         
         {/* Top Header Bar */}
         <header className="w-full bg-white border-b border-slate-100/80 px-4 sm:px-8 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
-          {/* Search bar */}
-          <div className="relative w-full max-w-md">
-            <input
-              type="text"
-              value={searchActivityQuery}
-              onChange={(e) => setSearchActivityQuery(e.target.value)}
-              placeholder="بحث عن معاملة..."
-              className="w-full bg-[#f8fafc] border border-slate-200/90 text-slate-800 text-xs sm:text-sm rounded-xl pr-10 pl-4 py-2.5 outline-none focus:border-[#0c2444] focus:bg-white transition-all placeholder:text-slate-400 font-cairo"
-            />
-            <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          {/* Mobile menu trigger & Search bar */}
+          <div className="flex items-center gap-3 flex-1 max-w-md">
+            <button
+              type="button"
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+              aria-label="فتح القائمة الجانبية"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="relative w-full">
+              <input
+                type="text"
+                value={searchActivityQuery}
+                onChange={(e) => setSearchActivityQuery(e.target.value)}
+                placeholder="بحث عن معاملة..."
+                className="w-full bg-[#f8fafc] border border-slate-200/90 text-slate-800 text-xs sm:text-sm rounded-xl pr-10 pl-4 py-2.5 outline-none focus:border-[#0c2444] focus:bg-white transition-all placeholder:text-slate-400 font-cairo"
+              />
+              <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
           </div>
 
           {/* User & Actions */}
@@ -441,6 +461,7 @@ export const CustomerDetailsScreen: FC = () => {
 
               <button
                 type="button"
+                onClick={() => window.print()}
                 className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer"
               >
                 تحميل السجل
@@ -478,18 +499,8 @@ export const CustomerDetailsScreen: FC = () => {
                 
                 {/* Avatar with Verified Badge */}
                 <div className="relative mb-4">
-                  <div className="w-24 h-24 rounded-3xl overflow-hidden ring-4 ring-slate-100/80 shadow-md bg-slate-100 flex items-center justify-center">
-                    <img
-                      src="/merchant-avatar.jpg"
-                      alt={customer.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLElement).style.display = 'none';
-                      }}
-                    />
-                    <div className="w-full h-full bg-[#123663] text-white font-bold flex items-center justify-center text-2xl font-tajawal">
-                      {customer.avatarLetter || 'أ'}
-                    </div>
+                  <div className="w-24 h-24 rounded-3xl overflow-hidden ring-4 ring-slate-100/80 shadow-md bg-gradient-to-tr from-[#0c2444] to-[#1e3a8a] text-white flex items-center justify-center font-bold text-3xl font-tajawal select-none">
+                    {customer.avatarLetter || 'ع'}
                   </div>
                   {/* Verified Green Shield / Check Badge */}
                   <div className="absolute -bottom-1 -left-1 w-7 h-7 bg-emerald-600 rounded-full border-2 border-white flex items-center justify-center text-white shadow-sm">
@@ -499,13 +510,13 @@ export const CustomerDetailsScreen: FC = () => {
 
                 {/* Name */}
                 <h2 className="text-xl font-extrabold font-tajawal text-[#0c2444]">
-                  {customer.name || 'أحمد الراجحي'}
+                  {customer.name || 'عميل بدون اسم'}
                 </h2>
 
                 {/* National ID Pill */}
                 <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-semibold font-mono" dir="rtl">
                   <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
-                  <span>هوية: {customer.nationalOrCrId || 'غير متوفر'}</span>
+                  <span>معرف / هوية: {customer.nationalOrCrId || 'غير متوفر'}</span>
                 </div>
 
                 {/* Divider */}
@@ -583,6 +594,7 @@ export const CustomerDetailsScreen: FC = () => {
                 {/* 3. Export Statement PDF */}
                 <button
                   type="button"
+                  onClick={() => window.print()}
                   className="w-full py-3 px-4 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 shadow-2xs hover:shadow-xs transition-all cursor-pointer"
                 >
                   <FileText className="w-4 h-4 text-slate-500" />
@@ -658,76 +670,83 @@ export const CustomerDetailsScreen: FC = () => {
                 </div>
 
                 {/* Timeline Items */}
-                <div className="relative space-y-6 before:absolute before:top-4 before:bottom-4 before:right-5 before:w-0.5 before:bg-slate-100">
-                  {filteredActivities.map((act) => (
-                    <div key={act.id} className="relative flex items-start gap-4 sm:gap-5">
-                      
-                      {/* Timeline Icon Node */}
-                      <div
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 z-10 shadow-2xs ${act.iconBg}`}
-                      >
-                        {act.type === 'debt' && <Plus className="w-5 h-5 stroke-[2.5]" />}
-                        {act.type === 'payment' && <Check className="w-5 h-5 stroke-[2.5]" />}
-                        {act.type === 'alert' && <AlertTriangle className="w-5 h-5 text-slate-600" />}
-                      </div>
+                {filteredActivities.length === 0 ? (
+                  <div className="py-12 text-center text-slate-400 space-y-2">
+                    <FileText className="w-10 h-10 mx-auto text-slate-300 stroke-[1.5]" />
+                    <p className="text-sm font-semibold">لا توجد معاملات مسجلة لهذا العميل حتى الآن</p>
+                  </div>
+                ) : (
+                  <div className="relative space-y-6 before:absolute before:top-4 before:bottom-4 before:right-5 before:w-0.5 before:bg-slate-100">
+                    {filteredActivities.map((act) => (
+                      <div key={act.id} className="relative flex items-start gap-4 sm:gap-5">
+                        
+                        {/* Timeline Icon Node */}
+                        <div
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 z-10 shadow-2xs ${act.iconBg}`}
+                        >
+                          {act.type === 'debt' && <Plus className="w-5 h-5 stroke-[2.5]" />}
+                          {act.type === 'payment' && <Check className="w-5 h-5 stroke-[2.5]" />}
+                          {act.type === 'alert' && <AlertTriangle className="w-5 h-5 text-slate-600" />}
+                        </div>
 
-                      {/* Content Card */}
-                      <div
-                        className={`flex-1 rounded-2xl p-4 sm:p-5 transition-all ${
-                          act.type === 'alert'
-                            ? 'bg-[#f8fafc] border-2 border-dashed border-slate-200'
-                            : 'bg-white border border-slate-100 shadow-2xs hover:shadow-xs'
-                        }`}
-                      >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                          <div className="flex items-center gap-2.5 flex-wrap">
-                            <span className="font-bold text-[#0c2444] text-sm sm:text-base font-tajawal">
-                              {act.title}
-                            </span>
-                            {act.badgeText && (
-                              <span
-                                className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold ${act.badgeStyle}`}
-                              >
-                                {act.badgeText}
+                        {/* Content Card */}
+                        <div
+                          className={`flex-1 rounded-2xl p-4 sm:p-5 transition-all ${
+                            act.type === 'alert'
+                              ? 'bg-[#f8fafc] border-2 border-dashed border-slate-200'
+                              : 'bg-white border border-slate-100 shadow-2xs hover:shadow-xs'
+                          }`}
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div className="flex items-center gap-2.5 flex-wrap">
+                              <span className="font-bold text-[#0c2444] text-sm sm:text-base font-tajawal">
+                                {act.title}
                               </span>
+                              {act.badgeText && (
+                                <span
+                                  className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold ${act.badgeStyle}`}
+                                >
+                                  {act.badgeText}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Amount */}
+                            {act.amount && (
+                              <div className="text-left" dir="ltr">
+                                <span className={`text-base sm:text-lg font-extrabold font-tajawal ${act.amountColor}`}>
+                                  {act.amount}
+                                </span>
+                                <span className="text-[10px] text-slate-400 block font-cairo">
+                                  ريال سعودي
+                                </span>
+                              </div>
                             )}
                           </div>
 
-                          {/* Amount */}
-                          {act.amount && (
-                            <div className="text-left" dir="ltr">
-                              <span className={`text-base sm:text-lg font-extrabold font-tajawal ${act.amountColor}`}>
-                                {act.amount}
-                              </span>
-                              <span className="text-[10px] text-slate-400 block font-cairo">
-                                ريال سعودي
-                              </span>
+                          {/* Description */}
+                          <p className="text-xs sm:text-sm text-slate-500 mt-2 leading-relaxed font-normal">
+                            {act.description}
+                          </p>
+
+                          {/* Date & Running Balance */}
+                          <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono">
+                              <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                              <span>{act.date}</span>
                             </div>
-                          )}
-                        </div>
-
-                        {/* Description */}
-                        <p className="text-xs sm:text-sm text-slate-500 mt-2 leading-relaxed font-normal">
-                          {act.description}
-                        </p>
-
-                        {/* Date & Running Balance */}
-                        <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
-                          <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono">
-                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                            <span>{act.date}</span>
+                            {act.balanceLabel && (
+                              <span className="text-[11px] text-slate-400 font-mono" dir="ltr">
+                                الرصيد بعد العملية: {act.balanceLabel}
+                              </span>
+                            )}
                           </div>
-                          {act.balanceLabel && (
-                            <span className="text-[11px] text-slate-400 font-mono" dir="ltr">
-                              الرصيد بعد العملية: {act.balanceLabel}
-                            </span>
-                          )}
                         </div>
-                      </div>
 
-                    </div>
-                  ))}
-                </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Footer Note */}
                 <div className="pt-4 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-400">

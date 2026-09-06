@@ -105,17 +105,6 @@ export function toGetCustomersErrorMessage(error: unknown): string {
   return 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.';
 }
 
-function extractCustomerDto(response: unknown): unknown {
-  if (!response || typeof response !== 'object') return response;
-  const obj = response as Record<string, unknown>;
-  if (obj.data && typeof obj.data === 'object' && !Array.isArray(obj.data)) {
-    return obj.data;
-  }
-  if (obj.result && typeof obj.result === 'object' && !Array.isArray(obj.result)) {
-    return obj.result;
-  }
-  return response;
-}
 
 /**
  * GET http://whateq.runasp.net/api/Customer/getCustomerProfile/{customerId}
