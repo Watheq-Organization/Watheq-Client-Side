@@ -1,165 +1,12 @@
 import { httpClient, ApiError } from '../api/httpClient';
-import type { AddCustomerPayload, Customer, CustomerDto, UpdateCustomerPayload } from '../types/customer';
-
-export const MOCK_CUSTOMERS: Customer[] = [
-  {
-    id: '1',
-    name: 'أحمد عبدالله الراجحي',
-    type: 'individual',
-    typeLabel: 'عميل أفراد',
-    nationalOrCrId: '1029384756',
-    totalDebt: 45000,
-    totalPaid: 15000,
-    status: 'overdue',
-    statusLabel: 'متأخر',
-    avatarLetter: 'أ',
-    avatarBg: 'bg-rose-100 text-rose-600',
-    phone: '0501234567',
-    email: 'ahmed.rajhi@example.com',
-    address: 'الرياض - حي الياسمين',
-    registrationDate: '2024-01-15',
-    transactions: [
-      {
-        id: 'tx-101',
-        date: '2024-08-10',
-        type: 'debt',
-        typeLabel: 'فاتورة مبيعات آجل',
-        amount: 30000,
-        status: 'overdue',
-        statusLabel: 'متأخر',
-        invoiceNumber: 'INV-2024-001',
-        notes: 'دفعة مستحقة منذ 15 يوماً',
-      },
-      {
-        id: 'tx-102',
-        date: '2024-07-20',
-        type: 'debt',
-        typeLabel: 'فاتورة خدمات إضافية',
-        amount: 15000,
-        status: 'overdue',
-        statusLabel: 'متأخر',
-        invoiceNumber: 'INV-2024-002',
-        notes: 'استحقاق السداد نهاية الشهر الماضي',
-      },
-      {
-        id: 'tx-103',
-        date: '2024-06-05',
-        type: 'payment',
-        typeLabel: 'سداد نقدي / حوالة',
-        amount: 15000,
-        status: 'completed',
-        statusLabel: 'مكتمل',
-        invoiceNumber: 'PAY-2024-099',
-        notes: 'سداد عن طريق تحويل بنكي',
-      },
-    ],
-  },
-  {
-    id: '2',
-    name: 'شركة التقنية المتقدمة',
-    type: 'company',
-    typeLabel: 'عميل شركات',
-    nationalOrCrId: '7001234567',
-    totalDebt: 120500,
-    totalPaid: 80000,
-    status: 'active_debt',
-    statusLabel: 'دين نشط',
-    avatarLetter: 'ش',
-    avatarBg: 'bg-indigo-100 text-indigo-600',
-    phone: '0559876543',
-    email: 'finance@advtech.sa',
-    address: 'جدة - طريق الملك عبدالعزيز',
-    registrationDate: '2023-11-20',
-    transactions: [
-      {
-        id: 'tx-201',
-        date: '2024-08-18',
-        type: 'debt',
-        typeLabel: 'عقد توريد أجهزة',
-        amount: 120500,
-        status: 'pending',
-        statusLabel: 'قيد الاستحقاق',
-        invoiceNumber: 'INV-2024-045',
-        notes: 'مستحق السداد خلال 30 يوم',
-      },
-      {
-        id: 'tx-202',
-        date: '2024-05-12',
-        type: 'payment',
-        typeLabel: 'سداد دفعة عقد',
-        amount: 80000,
-        status: 'completed',
-        statusLabel: 'مكتمل',
-        invoiceNumber: 'PAY-2024-032',
-        notes: 'تم سداد الدفعة الأولى',
-      },
-    ],
-  },
-  {
-    id: '3',
-    name: 'سالم محمد الدوسري',
-    type: 'individual',
-    typeLabel: 'عميل أفراد',
-    nationalOrCrId: '1098765432',
-    totalDebt: 0,
-    totalPaid: 45000,
-    status: 'paid',
-    statusLabel: 'تم السداد',
-    avatarLetter: 'س',
-    avatarBg: 'bg-emerald-100 text-emerald-600',
-    phone: '0543219876',
-    email: 'salem.aldossari@example.com',
-    address: 'الدمام - حي الشاطئ',
-    registrationDate: '2024-02-10',
-    transactions: [
-      {
-        id: 'tx-301',
-        date: '2024-06-15',
-        type: 'payment',
-        typeLabel: 'سداد كامل الرصيد',
-        amount: 45000,
-        status: 'completed',
-        statusLabel: 'مكتمل',
-        invoiceNumber: 'PAY-2024-077',
-        notes: 'تم تصفية الحساب بالكامل',
-      },
-    ],
-  },
-  {
-    id: '4',
-    name: 'مؤسسة البناء الحديث',
-    type: 'company',
-    typeLabel: 'عميل شركات',
-    nationalOrCrId: '7009876543',
-    totalDebt: 15750,
-    totalPaid: 60000,
-    status: 'active_debt',
-    statusLabel: 'دين نشط',
-    avatarLetter: 'م',
-    avatarBg: 'bg-blue-100 text-blue-600',
-    phone: '0567891234',
-    email: 'contact@modernbuild.sa',
-    address: 'الرياض - حي الملز',
-    registrationDate: '2023-09-05',
-    transactions: [
-      {
-        id: 'tx-401',
-        date: '2024-08-01',
-        type: 'debt',
-        typeLabel: 'مواد بناء وتجهيزات',
-        amount: 15750,
-        status: 'pending',
-        statusLabel: 'قيد الاستحقاق',
-        invoiceNumber: 'INV-2024-112',
-        notes: 'الدفعة الأخيرة للعقد',
-      },
-    ],
-  },
-];
-
-export function getCustomerById(id: string): Customer | undefined {
-  return MOCK_CUSTOMERS.find((c) => c.id === id);
-}
+import type {
+  AddCustomerPayload,
+  Customer,
+  CustomerDto,
+  CustomerProfileDto,
+  CustomerProfileTransactionDto,
+  UpdateCustomerPayload,
+} from '../types/customer';
 
 /**
  * GET http://whateq.runasp.net/api/customer/getCustomers
@@ -188,6 +35,38 @@ function extractCustomerDtoList(response: unknown): unknown[] {
     if (Array.isArray(obj.result)) return obj.result;
   }
   return [];
+}
+
+/**
+ * Single-object counterpart to extractCustomerDtoList above, for endpoints
+ * that return one customer (addCustomer / updateCustomer) instead of a
+ * list. Unwraps the same possible ApiResponse-style envelopes
+ * (`{ data: {...} }` / `{ result: {...} }`) before falling back to
+ * treating the response itself as the DTO.
+ *
+ * This was the actual cause of the "add customer succeeds, then the page
+ * goes blank" bug: addCustomer/updateCustomer used to hand the raw
+ * response straight to mapCustomerDtoToCustomer without this unwrap step.
+ * If the backend ever wraps that response in one of these envelopes,
+ * `dto.fullName` is undefined, and `dto.fullName.trim()` inside
+ * mapCustomerDtoToCustomer throws — uncaught, that crashes the whole React
+ * tree to a blank screen (there's no error boundary), which a refresh
+ * "fixes" only because it remounts fresh and re-fetches via the already-
+ * normalized getCustomers(). Normalizing here the same way closes that gap
+ * without changing anything for the (also valid) case where the backend
+ * already returns a bare object.
+ */
+function extractCustomerDtoObject(response: unknown): unknown {
+  if (response && typeof response === 'object' && !Array.isArray(response)) {
+    const obj = response as Record<string, unknown>;
+    if (obj.data && typeof obj.data === 'object' && !Array.isArray(obj.data)) {
+      return obj.data;
+    }
+    if (obj.result && typeof obj.result === 'object' && !Array.isArray(obj.result)) {
+      return obj.result;
+    }
+  }
+  return response;
 }
 
 /**
@@ -227,6 +106,116 @@ export function toGetCustomersErrorMessage(error: unknown): string {
 }
 
 /**
+ * GET http://whateq.runasp.net/api/Customer/getCustomerProfile/{customerId}
+ *
+ * Fetches the full profile of a single customer for the authenticated
+ * merchant: basic info, current balance, total debt/paid, and the complete
+ * transaction history (newest-first, each with a running balance). Per the
+ * confirmed API contract, `customerId` is sent as a route parameter only
+ * (never in the body or as a query parameter), and the backend derives the
+ * UserId from the JWT (attached automatically by httpClient) — the
+ * frontend does not send userId.
+ */
+export async function getCustomerProfile(customerId: string): Promise<CustomerProfileDto> {
+  const response = await httpClient.get<unknown>(`/Customer/getCustomerProfile/${customerId}`);
+  // Same envelope-unwrap as extractCustomerDtoObject (used by addCustomer/
+  // updateCustomer above): if the backend wraps this response in
+  // `{ data: {...} }` / `{ result: {...} }`, normalizing the raw envelope
+  // directly (as this used to do) makes every field read as empty/0, so the
+  // screen falls back to its placeholder text instead of the real
+  // customer's data. Unwrapping first fixes that.
+  return normalizeCustomerProfileDto(extractCustomerDtoObject(response));
+}
+
+/**
+ * The doc's sample response shows a numeric `id`, while the rest of this
+ * codebase treats customer ids as strings (see `normalizeCustomerDto`
+ * above) — normalized the same way at this boundary for consistency.
+ */
+function normalizeCustomerProfileDto(raw: unknown): CustomerProfileDto {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const rawTransactions = Array.isArray(r.transactions) ? r.transactions : [];
+  return {
+    id: String(r.id ?? ''),
+    fullName: typeof r.fullName === 'string' ? r.fullName : '',
+    phoneNumber: r.phoneNumber != null ? String(r.phoneNumber) : '',
+    address: typeof r.address === 'string' ? r.address : '',
+    currentBalance: Number(r.currentBalance) || 0,
+    totalDebt: Number(r.totalDebt) || 0,
+    totalPaid: Number(r.totalPaid) || 0,
+    createdAt: typeof r.createdAt === 'string' ? r.createdAt : '',
+    transactions: rawTransactions.map(normalizeCustomerProfileTransaction),
+  };
+}
+
+function normalizeCustomerProfileTransaction(raw: unknown): CustomerProfileTransactionDto {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  return {
+    type: typeof r.type === 'string' ? r.type : '',
+    date: typeof r.date === 'string' ? r.date : '',
+    amount: Number(r.amount) || 0,
+    description: typeof r.description === 'string' ? r.description : '',
+    reference: typeof r.reference === 'string' ? r.reference : '',
+    balance: Number(r.balance) || 0,
+    currencyCode: typeof r.currencyCode === 'string' ? r.currencyCode : '',
+    status: typeof r.status === 'string' ? r.status : null,
+    paymentMethod: typeof r.paymentMethod === 'string' ? r.paymentMethod : null,
+  };
+}
+
+/**
+ * Maps the real CustomerProfileDto to the app's local UI model (Customer).
+ * Mirrors `mapCustomerDtoToCustomer` below: the profile doesn't carry
+ * `type`/`nationalOrCrId` either (the backend has no such fields), so
+ * those get the same sane defaults rather than fabricated data. Status is
+ * derived from `currentBalance` (the true outstanding balance) rather than
+ * `totalDebt`, since a customer can have debt transactions that were fully
+ * paid off.
+ */
+export function mapCustomerProfileToCustomer(dto: CustomerProfileDto): Customer {
+  const hasOutstandingBalance = dto.currentBalance > 0;
+  return {
+    id: dto.id,
+    name: dto.fullName,
+    type: 'individual',
+    typeLabel: 'عميل أفراد',
+    nationalOrCrId: '',
+    totalDebt: dto.totalDebt,
+    totalPaid: dto.totalPaid,
+    status: hasOutstandingBalance ? 'active_debt' : 'paid',
+    statusLabel: hasOutstandingBalance ? 'دين نشط' : 'تم السداد',
+    avatarLetter: dto.fullName.trim().charAt(0) || 'ع',
+    avatarBg: 'bg-rose-100 text-rose-600',
+    phone: dto.phoneNumber,
+    address: dto.address,
+    registrationDate: dto.createdAt,
+  };
+}
+
+/** Maps getCustomerProfile errors to user-friendly Arabic messages. */
+export function toGetCustomerProfileErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 0) {
+      return 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.';
+    }
+    if (error.status === 400) {
+      return 'معرّف العميل غير صالح.';
+    }
+    if (error.status === 401) {
+      return 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.';
+    }
+    if (error.status === 404) {
+      return 'تعذر العثور على بيانات هذا العميل.';
+    }
+    if (error.status >= 500) {
+      return 'حدث خطأ في الخادم. يرجى المحاولة لاحقاً.';
+    }
+    return 'تعذر جلب بيانات العميل. يرجى المحاولة مرة أخرى.';
+  }
+  return 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.';
+}
+
+/**
  * PUT http://whateq.runasp.net/api/Customer/updateCustomer/{customerId}
  *
  * Updates a customer's name, phone, and address. `customerId` is sent in
@@ -239,7 +228,8 @@ export async function updateCustomer(
   customerId: string,
   payload: UpdateCustomerPayload
 ): Promise<CustomerDto> {
-  return httpClient.put<CustomerDto>(`/Customer/updateCustomer/${customerId}`, payload);
+  const response = await httpClient.put<unknown>(`/Customer/updateCustomer/${customerId}`, payload);
+  return normalizeCustomerDto(extractCustomerDtoObject(response));
 }
 
 /**
@@ -258,7 +248,43 @@ export async function addCustomer(payload: AddCustomerPayload): Promise<Customer
     phoneNumber: payload.phoneNumber,
     ...(payload.address ? { address: payload.address } : {}),
   };
-  return httpClient.post<CustomerDto>('/customer/addCustomer', body);
+  const response = await httpClient.post<unknown>('/customer/addCustomer', body);
+  return normalizeCustomerDto(extractCustomerDtoObject(response));
+}
+
+/**
+ * DELETE http://whateq.runasp.net/api/customer/deleteCustomer/{customerId}
+ *
+ * Deletes a customer belonging to the current merchant. `customerId` is
+ * sent as a route parameter only — no request body. The backend verifies
+ * the current user and the customer's business before deleting, per the
+ * confirmed API contract.
+ */
+export async function deleteCustomer(customerId: string): Promise<void> {
+  await httpClient.delete<unknown>(`/customer/deleteCustomer/${customerId}`);
+}
+
+/** Maps deleteCustomer errors to user-friendly Arabic messages. */
+export function toDeleteCustomerErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 0) {
+      return 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.';
+    }
+    if (error.status === 401) {
+      return 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.';
+    }
+    if (error.status === 403) {
+      return 'لا تملك صلاحية حذف هذا العميل.';
+    }
+    if (error.status === 404) {
+      return 'تعذر العثور على بيانات هذا العميل.';
+    }
+    if (error.status >= 500) {
+      return 'حدث خطأ في الخادم. يرجى المحاولة لاحقاً.';
+    }
+    return 'تعذر حذف العميل. يرجى المحاولة مرة أخرى.';
+  }
+  return 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.';
 }
 
 /**
