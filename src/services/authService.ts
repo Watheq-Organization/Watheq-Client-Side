@@ -1,5 +1,5 @@
 import { httpClient, ApiError } from '../api/httpClient';
-import { clearStoredToken } from '../lib/authToken';
+import { clearAllTokens } from '../lib/authToken';
 import type {
   RegisterFormData,
   RegisterApiPayload,
@@ -43,6 +43,32 @@ function extractAuthToken(response: unknown): string | undefined {
     (r.data as Record<string, unknown> | undefined)?.jwtToken,
     (r.result as Record<string, unknown> | undefined)?.user &&
       (((r.result as Record<string, unknown>).user as Record<string, unknown>)?.token),
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Same defensive-unwrap approach as extractAuthToken above, but for the
+ * refreshToken field of the AuthResponse (see the Refresh/Logout API doc).
+ * Kept as a twin function rather than generalizing extractAuthToken, so
+ * the well-tested access-token extraction above isn't touched.
+ */
+function extractRefreshToken(response: unknown): string | undefined {
+  if (!response || typeof response !== 'object') return undefined;
+  const r = response as Record<string, unknown>;
+
+  const candidates: unknown[] = [
+    r.refreshToken,
+    r.refresh_token,
+    (r.result as Record<string, unknown> | undefined)?.refreshToken,
+    (r.result as Record<string, unknown> | undefined)?.refresh_token,
+    (r.data as Record<string, unknown> | undefined)?.refreshToken,
   ];
 
   for (const candidate of candidates) {
@@ -158,6 +184,7 @@ export async function registerUser(form: RegisterFormData): Promise<AuthResult> 
       success: true,
       message: 'تم إنشاء الحساب بنجاح.',
       token,
+      refreshToken: extractRefreshToken(response),
     };
   } catch (error) {
     return {
@@ -193,6 +220,7 @@ export async function loginUser(form: LoginFormData): Promise<AuthResult> {
       success: true,
       message: 'تم تسجيل الدخول بنجاح.',
       token,
+      refreshToken: extractRefreshToken(response),
     };
   } catch (error) {
     return {
@@ -309,15 +337,24 @@ export async function resetPassword(data: {
 
 /**
  * POST /api/Auth/logout
- * Logs out the user and clears stored credentials.
+ *
+ * Revokes the current refresh token server-side (sends the access token
+ * as a Bearer header, no request body — httpClient attaches the header
+ * automatically). Whatever the server says, the local session is always
+ * cleared: a logout the user asked for must never leave them "stuck"
+ * logged in just because the network call failed.
+ *
+ * clearAllTokens() (rather than clearStoredToken()) also clears the
+ * refresh token and notifies AuthContext, so isAuthenticated flips to
+ * false immediately regardless of which screen triggered the logout.
  */
 export async function logoutUser(): Promise<void> {
   try {
-    await httpClient.post('/auth/logout', {});
+    await httpClient.post('/auth/logout');
   } catch {
     // Ignore server error on logout
   } finally {
-    clearStoredToken();
+    clearAllTokens();
   }
 }
 

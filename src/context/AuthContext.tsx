@@ -1,8 +1,8 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AuthContext } from './authContextInstance';
 import type { AuthContextValue } from './authContextInstance';
-import { getStoredToken, setStoredToken, clearStoredToken } from '../lib/authToken';
+import { getStoredToken, setStoredTokens, clearAllTokens, AUTH_LOGOUT_EVENT } from '../lib/authToken';
 
 /**
  * The project had no existing auth state (no Redux, no Context, no auth
@@ -20,14 +20,25 @@ import { getStoredToken, setStoredToken, clearStoredToken } from '../lib/authTok
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(() => getStoredToken());
 
-  const login = useCallback((newToken: string) => {
-    setStoredToken(newToken);
+  const login = useCallback((newToken: string, newRefreshToken?: string) => {
+    setStoredTokens(newToken, newRefreshToken);
     setToken(newToken);
   }, []);
 
   const logout = useCallback(() => {
-    clearStoredToken();
+    clearAllTokens();
     setToken(null);
+  }, []);
+
+  // Keeps isAuthenticated in sync when tokens are cleared from OUTSIDE a
+  // component — e.g. httpClient's silent-refresh flow giving up after a
+  // failed refresh (expired/revoked refresh token). Without this, a
+  // component that isn't the one calling logout() would keep thinking the
+  // user is still authenticated until its next remount.
+  useEffect(() => {
+    const handleExternalLogout = () => setToken(null);
+    window.addEventListener(AUTH_LOGOUT_EVENT, handleExternalLogout);
+    return () => window.removeEventListener(AUTH_LOGOUT_EVENT, handleExternalLogout);
   }, []);
 
   const value = useMemo<AuthContextValue>(

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import type { FC } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Plus,
   Download,
@@ -31,6 +31,7 @@ import { getDashboardSummary } from '../../services/dashboardService';
 
 export const CustomersScreen: FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeTabFilter, setActiveTabFilter] = useState<'all' | CustomerStatus>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -60,6 +61,19 @@ export const CustomersScreen: FC = () => {
   const [addSubmitError, setAddSubmitError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Shows a one-off success toast passed via navigation state (e.g. after
+  // deleting a customer from the details screen), then clears it from
+  // history so it doesn't reappear on back/forward navigation or refresh.
+  useEffect(() => {
+    const state = location.state as { toast?: string } | null;
+    if (state?.toast) {
+      setToastMessage(state.toast);
+      setTimeout(() => setToastMessage(null), 3000);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Real customer count from GET /api/Dashboard/summary (customersCount).
   // Stays null on load failure so the UI falls back to the number of rows
   // actually shown instead of a fabricated total.
@@ -67,11 +81,16 @@ export const CustomersScreen: FC = () => {
 
   useEffect(() => {
     let isMounted = true;
-    getDashboardSummary().then((data) => {
-      if (isMounted && data) {
-        setTotalCustomersCount(data.customersCount);
-      }
-    });
+    getDashboardSummary()
+      .then((data) => {
+        if (isMounted) {
+          setTotalCustomersCount(data.customersCount);
+        }
+      })
+      .catch(() => {
+        // Non-critical here: this count is only a supplementary display
+        // value, and the table below shows the real row count regardless.
+      });
     return () => {
       isMounted = false;
     };

@@ -39,7 +39,7 @@ export const LoginPage: FC = () => {
 
     if (result.success) {
       if (result.token) {
-        login(result.token);
+        login(result.token, result.refreshToken);
         navigate(PATHS.DASHBOARD);
       } else {
         // Backend reported success but returned no token — we can't
