@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { FC } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -148,6 +148,22 @@ export const CustomerDetailsScreen: FC = () => {
   useEffect(() => {
     loadCustomerProfile();
   }, [loadCustomerProfile]);
+
+  useEffect(() => {
+    if (!id) return;
+    getCustomers().then((dtos) => {
+      const sorted = [...dtos].sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        if (dateA && dateB && dateA !== dateB) return dateA - dateB;
+        return Number(a.id || 0) - Number(b.id || 0);
+      });
+      const foundIdx = sorted.findIndex((c) => String(c.id) === String(id));
+      if (foundIdx !== -1) {
+        setCustomer(mapCustomerDtoToCustomer(sorted[foundIdx], foundIdx));
+      }
+    });
+  }, [id]);
 
   // Edit Customer Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
