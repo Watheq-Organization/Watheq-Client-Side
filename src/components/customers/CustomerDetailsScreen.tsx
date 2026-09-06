@@ -19,7 +19,17 @@ import {
   X,
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
-import { getCustomerById, MOCK_CUSTOMERS, updateCustomer, isDuplicatePhoneNumberError, toUpdateCustomerErrorMessage, getCustomers, mapCustomerDtoToCustomer } from '../../services/customerService';
+import {
+  getCustomerProfile,
+  mapCustomerProfileToCustomer,
+  toGetCustomerProfileErrorMessage,
+  updateCustomer,
+  isDuplicatePhoneNumberError,
+  toUpdateCustomerErrorMessage,
+  deleteCustomer,
+  toDeleteCustomerErrorMessage,
+} from '../../services/customerService';
+import type { Customer, CustomerProfileTransactionDto } from '../../types/customer';
 import { ApiError } from '../../api/httpClient';
 import { PATHS } from '../../routes/paths';
 
@@ -33,7 +43,67 @@ interface ActivityItem {
   amountColor?: string;
   description: string;
   date: string;
+  balanceLabel?: string;
   iconBg: string;
+}
+
+const EMPTY_CUSTOMER: Customer = {
+  id: '',
+  name: '',
+  type: 'individual',
+  typeLabel: 'عميل أفراد',
+  nationalOrCrId: '',
+  totalDebt: 0,
+  totalPaid: 0,
+  status: 'paid',
+  statusLabel: 'تم السداد',
+  avatarLetter: 'ع',
+  avatarBg: 'bg-rose-100 text-rose-600',
+  phone: '',
+  address: '',
+  registrationDate: '',
+};
+
+/**
+ * The backend has no nationalOrCrId field at all (see the comments in
+ * customerService.ts) — getCustomerProfile/addCustomer/updateCustomer never
+ * return or accept it. That's why it kept showing "غير متوفر" even right
+ * after being entered: the value the user typed was validated, but there
+ * was nowhere for it to be saved, so the next render (and the next visit)
+ * had nothing to read it back from. Persisting it locally, keyed by
+ * customer id, is the smallest fix that survives a save and a page
+ * reload without needing a backend field that doesn't exist.
+ */
+function getStoredNationalId(customerId: string): string {
+  if (!customerId) return '';
+  try {
+    return localStorage.getItem(`customer-national-id:${customerId}`) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function setStoredNationalId(customerId: string, value: string): void {
+  if (!customerId) return;
+  try {
+    localStorage.setItem(`customer-national-id:${customerId}`, value);
+  } catch {
+    // Ignore storage failures (e.g. private browsing) — the field simply
+    // won't persist across reloads in that case.
+  }
+}
+
+/** Formats an ISO date string (from the API) into an Arabic date, optionally with time. */
+function formatApiDate(iso: string, withTime = false): string {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return new Intl.DateTimeFormat('ar-EG', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+    ...(withTime ? { hour: '2-digit', minute: '2-digit' } : {}),
+  }).format(date);
 }
 
 export const CustomerDetailsScreen: FC = () => {
@@ -43,9 +113,41 @@ export const CustomerDetailsScreen: FC = () => {
   const [activeActivityTab, setActiveActivityTab] = useState<'all' | 'debt' | 'payment'>('all');
   const [searchActivityQuery, setSearchActivityQuery] = useState('');
 
-  // Customer Data
-  const initialCustomer = (id ? getCustomerById(id) : null) || MOCK_CUSTOMERS[0];
-  const [customer, setCustomer] = useState(initialCustomer);
+  // Customer Data — fetched from GET /api/Customer/getCustomerProfile/{customerId}
+  const [customer, setCustomer] = useState<Customer>(EMPTY_CUSTOMER);
+  const [profileTransactions, setProfileTransactions] = useState<CustomerProfileTransactionDto[]>([]);
+  const [currentBalance, setCurrentBalance] = useState(0);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadCustomerProfile = useCallback(() => {
+    if (!id) {
+      setIsLoadingProfile(false);
+      setLoadError('معرّف العميل غير موجود.');
+      return;
+    }
+    setIsLoadingProfile(true);
+    setLoadError(null);
+    getCustomerProfile(id)
+      .then((dto) => {
+        setCustomer({
+          ...mapCustomerProfileToCustomer(dto),
+          nationalOrCrId: getStoredNationalId(dto.id),
+        });
+        setProfileTransactions(dto.transactions);
+        setCurrentBalance(dto.currentBalance);
+      })
+      .catch((err) => {
+        setLoadError(toGetCustomerProfileErrorMessage(err));
+      })
+      .finally(() => {
+        setIsLoadingProfile(false);
+      });
+  }, [id]);
+
+  useEffect(() => {
+    loadCustomerProfile();
+  }, [loadCustomerProfile]);
 
   useEffect(() => {
     if (!id) return;
@@ -82,6 +184,30 @@ export const CustomerDetailsScreen: FC = () => {
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // Delete Customer Modal State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeletingCustomer, setIsDeletingCustomer] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleDeleteCustomer = async () => {
+    if (!customer.id) return;
+    setDeleteError(null);
+    setIsDeletingCustomer(true);
+    try {
+      await deleteCustomer(customer.id);
+      setIsDeleteModalOpen(false);
+      // Navigate back to the customers list (no page refresh) and let it
+      // show the success toast itself, since this screen unmounts here.
+      navigate(PATHS.CUSTOMERS, { state: { toast: 'تم حذف العميل بنجاح.' } });
+    } catch (err) {
+      const message = toDeleteCustomerErrorMessage(err);
+      setDeleteError(message);
+      showToast(message);
+    } finally {
+      setIsDeletingCustomer(false);
+    }
   };
 
   const openEditModal = () => {
@@ -131,6 +257,10 @@ export const CustomerDetailsScreen: FC = () => {
         address: customer.address ?? '',
       });
 
+      // The backend doesn't store nationalOrCrId (see getStoredNationalId
+      // above), so it's persisted locally here instead of coming back from `dto`.
+      setStoredNationalId(customer.id, trimmedNationalId);
+
       setCustomer((prev) => ({
         ...prev,
         name: dto.fullName,
@@ -138,6 +268,7 @@ export const CustomerDetailsScreen: FC = () => {
         address: dto.address,
         totalDebt: dto.totalDebt,
         totalPaid: dto.totalPaid,
+        nationalOrCrId: trimmedNationalId,
       }));
 
       setIsEditModalOpen(false);
@@ -155,41 +286,38 @@ export const CustomerDetailsScreen: FC = () => {
     }
   };
 
-  // Activity Log
-  const activities: ActivityItem[] = [
-    {
-      id: 'act-1',
-      type: 'debt',
-      title: 'إضافة دين جديد - فاتورة #8821',
-      badgeText: 'غير مدفوع',
-      badgeStyle: 'bg-blue-50 text-blue-600 border border-blue-100',
-      amount: '+1,250.00',
-      amountColor: 'text-[#e11d48]',
-      description: 'شراء مستلزمات مكتبية وأدوات قرطاسية متنوعة.',
-      date: '14 مارس 2024 - 04:30 م',
-      iconBg: 'bg-[#0c2444] text-white',
-    },
-    {
-      id: 'act-2',
-      type: 'payment',
-      title: 'استلام دفعة نقدية',
-      badgeText: 'مسددة',
-      badgeStyle: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
-      amount: '-500.00',
-      amountColor: 'text-emerald-600',
-      description: 'سداد جزئي مقابل مديونية شهر فبراير.',
-      date: '02 مارس 2024 - 11:15 ص',
-      iconBg: 'bg-emerald-600 text-white',
-    },
-    {
-      id: 'act-3',
-      type: 'alert',
-      title: 'تنبيه آلي: تأخر سداد',
-      description: 'لقد تجاوز العميل موعد السداد المحدد للفاتورة #8122.',
-      date: '01 فبراير 2024',
-      iconBg: 'bg-slate-100 text-slate-500 border border-slate-200',
-    },
-  ];
+  // Activity Log — derived from the transaction history returned by
+  // getCustomerProfile (already newest-first, per the API contract).
+  const activities: ActivityItem[] = useMemo(() => {
+    return profileTransactions.map((tx, index) => {
+      const isDebt = tx.type === 'Debt';
+      const sign = isDebt ? '+' : '-';
+      return {
+        id: `${tx.reference || (isDebt ? 'debt' : 'payment')}-${index}`,
+        type: isDebt ? 'debt' : 'payment',
+        title: isDebt
+          ? `دين جديد${tx.reference ? ` - ${tx.reference}` : ''}`
+          : `دفعة مستلمة${tx.reference ? ` - ${tx.reference}` : ''}`,
+        badgeText: (isDebt ? tx.status : tx.paymentMethod) ?? undefined,
+        badgeStyle: isDebt
+          ? 'bg-blue-50 text-blue-600 border border-blue-100'
+          : 'bg-emerald-50 text-emerald-600 border border-emerald-100',
+        amount: `${sign}${tx.amount.toFixed(2)}`,
+        amountColor: isDebt ? 'text-[#e11d48]' : 'text-emerald-600',
+        description: tx.description || (isDebt ? 'معاملة دين' : 'معاملة دفع'),
+        date: formatApiDate(tx.date, true),
+        balanceLabel: `${tx.balance.toFixed(2)} ${tx.currencyCode || 'ر.س'}`,
+        iconBg: isDebt ? 'bg-[#0c2444] text-white' : 'bg-emerald-600 text-white',
+      };
+    });
+  }, [profileTransactions]);
+
+  // Latest payment amount, used in the debt banner below. Transactions are
+  // already newest-first, so the first Payment entry is the most recent one.
+  const lastPaymentAmount = useMemo(() => {
+    const lastPayment = profileTransactions.find((tx) => tx.type === 'Payment');
+    return lastPayment ? lastPayment.amount : 0;
+  }, [profileTransactions]);
 
   // Filter activities based on tab and search
   const filteredActivities = useMemo(() => {
@@ -320,6 +448,25 @@ export const CustomerDetailsScreen: FC = () => {
             </div>
           </div>
 
+          {/* Profile Load Status */}
+          {loadError && (
+            <div className="rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-sm px-4 py-3 flex items-center justify-between gap-3">
+              <span>{loadError}</span>
+              <button
+                type="button"
+                onClick={loadCustomerProfile}
+                className="shrink-0 text-xs font-bold underline hover:no-underline cursor-pointer"
+              >
+                إعادة المحاولة
+              </button>
+            </div>
+          )}
+          {isLoadingProfile && !loadError && (
+            <div className="rounded-2xl bg-slate-50 border border-slate-200 text-slate-500 text-sm px-4 py-3 text-center">
+              جاري تحميل بيانات العميل...
+            </div>
+          )}
+
           {/* Main 2-Column Grid matching Design */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             
@@ -358,7 +505,7 @@ export const CustomerDetailsScreen: FC = () => {
                 {/* National ID Pill */}
                 <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-semibold font-mono" dir="rtl">
                   <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
-                  <span>معرف / هوية: {customer.nationalOrCrId || '0001'}</span>
+                  <span>هوية: {customer.nationalOrCrId || 'غير متوفر'}</span>
                 </div>
 
                 {/* Divider */}
@@ -373,7 +520,7 @@ export const CustomerDetailsScreen: FC = () => {
                       <span>رقم الهاتف</span>
                     </div>
                     <span className="font-bold text-slate-800 font-mono" dir="ltr">
-                      {customer.phone || '+966 50 123 4567'}
+                      {customer.phone || 'غير متوفر'}
                     </span>
                   </div>
 
@@ -384,7 +531,18 @@ export const CustomerDetailsScreen: FC = () => {
                       <span>تاريخ التسجيل</span>
                     </div>
                     <span className="font-bold text-slate-800">
-                      12 أكتوبر 2023
+                      {customer.registrationDate ? formatApiDate(customer.registrationDate) : 'غير متوفر'}
+                    </span>
+                  </div>
+
+                  {/* Total Paid */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-slate-500 font-medium">
+                      <Check className="w-4 h-4 text-slate-400" />
+                      <span>إجمالي المدفوع</span>
+                    </div>
+                    <span className="font-bold text-slate-800 font-mono" dir="ltr">
+                      {(customer.totalPaid ?? 0).toFixed(2)} ر.س
                     </span>
                   </div>
 
@@ -431,9 +589,13 @@ export const CustomerDetailsScreen: FC = () => {
                   <span>تصدير كشف حساب (PDF)</span>
                 </button>
 
-                {/* 4. Delete Customer Button (UI only) */}
+                {/* 4. Delete Customer Button */}
                 <button
                   type="button"
+                  onClick={() => {
+                    setDeleteError(null);
+                    setIsDeleteModalOpen(true);
+                  }}
                   className="w-full py-3 px-4 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 border border-rose-200/60 transition-all cursor-pointer"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -549,10 +711,17 @@ export const CustomerDetailsScreen: FC = () => {
                           {act.description}
                         </p>
 
-                        {/* Date */}
-                        <div className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400 font-mono">
-                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{act.date}</span>
+                        {/* Date & Running Balance */}
+                        <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono">
+                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                            <span>{act.date}</span>
+                          </div>
+                          {act.balanceLabel && (
+                            <span className="text-[11px] text-slate-400 font-mono" dir="ltr">
+                              الرصيد بعد العملية: {act.balanceLabel}
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -580,7 +749,7 @@ export const CustomerDetailsScreen: FC = () => {
                   </span>
                   <div className="flex items-baseline gap-2">
                     <span className="text-3xl sm:text-5xl font-black font-tajawal tracking-tight">
-                      4,250.00
+                      {currentBalance.toFixed(2)}
                     </span>
                     <span className="text-sm font-bold text-slate-400 font-cairo">
                       ر.س
@@ -596,23 +765,20 @@ export const CustomerDetailsScreen: FC = () => {
                       آخر دفعة
                     </span>
                     <span className="text-sm sm:text-base font-bold text-white font-tajawal">
-                      500.00
+                      {lastPaymentAmount.toFixed(2)}
                     </span>
                     <span className="text-[10px] text-slate-400 block font-cairo">
                       ر.س
                     </span>
                   </div>
 
-                  {/* Due Date Card */}
+                  {/* Transaction Count Card */}
                   <div className="flex-1 md:w-36 bg-white/5 border border-white/10 rounded-2xl p-3.5 text-center backdrop-blur-xs">
                     <span className="text-[11px] text-slate-400 font-medium block mb-1">
-                      تاريخ الاستحقاق
+                      عدد المعاملات
                     </span>
                     <span className="text-xs sm:text-sm font-bold text-white font-tajawal block">
-                      25 مارس
-                    </span>
-                    <span className="text-[10px] text-slate-400 block font-mono">
-                      2024
+                      {profileTransactions.length}
                     </span>
                   </div>
                 </div>
@@ -757,6 +923,60 @@ export const CustomerDetailsScreen: FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Customer Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs transition-opacity duration-200"
+          dir="rtl"
+          onClick={() => !isDeletingCustomer && setIsDeleteModalOpen(false)}
+          aria-modal="true"
+          role="dialog"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 text-center transform transition-all duration-200 scale-100 animate-in fade-in zoom-in-95"
+          >
+            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 shadow-xs">
+              <Trash2 className="w-7 h-7" />
+            </div>
+
+            <h3 className="text-xl font-bold font-tajawal text-slate-900 mb-2">
+              حذف العميل
+            </h3>
+
+            <p className="text-xs sm:text-sm text-slate-500 leading-relaxed mb-6 font-cairo">
+              هل أنت متأكد من حذف {customer.name || 'هذا العميل'}؟ لا يمكن التراجع عن هذا الإجراء.
+            </p>
+
+            {deleteError && (
+              <div className="mb-4 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs sm:text-sm px-3.5 py-2.5 text-right">
+                {deleteError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                disabled={isDeletingCustomer}
+                onClick={handleDeleteCustomer}
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-bold bg-[#fecaca] hover:bg-[#fca5a5] text-[#b91c1c] transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-50"
+              >
+                {isDeletingCustomer ? 'جاري الحذف...' : 'حذف العميل'}
+              </button>
+
+              <button
+                type="button"
+                disabled={isDeletingCustomer}
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-50"
+              >
+                إلغاء
+              </button>
+            </div>
           </div>
         </div>
       )}
