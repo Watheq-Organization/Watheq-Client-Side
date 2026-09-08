@@ -66,7 +66,7 @@ export const Sidebar: FC<SidebarProps> = ({
       {isOpen && (
         <div
           onClick={onClose}
-          className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-xs transition-opacity duration-300"
+          className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-xs transition-opacity duration-300 print:hidden"
           aria-hidden="true"
         />
       )}
@@ -75,7 +75,7 @@ export const Sidebar: FC<SidebarProps> = ({
       <aside
         className={`fixed top-0 right-0 bottom-0 z-50 w-72 bg-[#051838] text-white flex flex-col justify-between transition-transform duration-300 ease-in-out lg:translate-x-0 ${
           isOpen ? 'translate-x-0 shadow-2xl' : 'translate-x-full lg:translate-x-0'
-        }`}
+        } print:hidden`}
         dir="rtl"
       >
         {/* Top Header & Logo */}

@@ -11,3 +11,26 @@ body {
   padding: 0;
   box-sizing: border-box;
 }
+
+@media print {
+  @page {
+    margin: 12mm 15mm;
+    size: auto;
+  }
+
+  body {
+    background-color: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+}
+

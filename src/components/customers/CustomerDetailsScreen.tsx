@@ -358,7 +358,7 @@ export const CustomerDetailsScreen: FC = () => {
   }, [activities, activeActivityTab, searchActivityQuery]);
 
   return (
-    <div className="min-h-screen bg-[#f4f7fb] text-slate-800 font-cairo antialiased flex" dir="rtl">
+    <div className="min-h-screen bg-[#f4f7fb] text-slate-800 font-cairo antialiased flex print:bg-white print:block" dir="rtl">
       {/* Sidebar */}
       <Sidebar
         isOpen={isSidebarOpen}
@@ -367,18 +367,18 @@ export const CustomerDetailsScreen: FC = () => {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 lg:mr-72 transition-all duration-300">
+      <div className="flex-1 flex flex-col min-w-0 lg:mr-72 transition-all duration-300 print:mr-0 print:p-0">
 
         {/* Toast Notification */}
         {toastMessage && (
-          <div className="fixed bottom-6 left-6 z-[60] bg-[#051838] text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-3 animate-fade-in text-sm font-medium">
+          <div className="fixed bottom-6 left-6 z-[60] bg-[#051838] text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-3 animate-fade-in text-sm font-medium print:hidden">
             <Check className="w-5 h-5 text-emerald-400" />
             <span>{toastMessage}</span>
           </div>
         )}
 
         {/* Top Header Bar */}
-        <header className="w-full bg-white border-b border-slate-100/80 px-4 sm:px-8 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
+        <header className="w-full bg-white border-b border-slate-100/80 px-4 sm:px-8 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-2xs print:hidden">
           {/* Mobile menu trigger & Search bar */}
           <div className="flex items-center gap-3 flex-1 max-w-md">
             <button
@@ -434,10 +434,10 @@ export const CustomerDetailsScreen: FC = () => {
         </header>
 
         {/* Page Main Content */}
-        <main className="p-4 sm:p-6 lg:p-8 space-y-6 flex-1 max-w-7xl w-full mx-auto">
+        <main className="p-4 sm:p-6 lg:p-8 space-y-6 flex-1 max-w-7xl w-full mx-auto print:p-0 print:m-0 print:max-w-none print:w-full">
 
           {/* Breadcrumb / Section Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
             <div>
               <div className="flex items-center gap-2">
                 <button
@@ -481,7 +481,7 @@ export const CustomerDetailsScreen: FC = () => {
 
           {/* Profile Load Status */}
           {loadError && (
-            <div className="rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-sm px-4 py-3 flex items-center justify-between gap-3">
+            <div className="rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-sm px-4 py-3 flex items-center justify-between gap-3 print:hidden">
               <span>{loadError}</span>
               <button
                 type="button"
@@ -493,16 +493,16 @@ export const CustomerDetailsScreen: FC = () => {
             </div>
           )}
           {isLoadingProfile && !loadError && (
-            <div className="rounded-2xl bg-slate-50 border border-slate-200 text-slate-500 text-sm px-4 py-3 text-center">
+            <div className="rounded-2xl bg-slate-50 border border-slate-200 text-slate-500 text-sm px-4 py-3 text-center print:hidden">
               جاري تحميل بيانات العميل...
             </div>
           )}
 
           {/* Main 2-Column Grid matching Design */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start print:block print:w-full">
 
             {/* RIGHT COLUMN: Client Profile Card & Actions (Takes 4 cols on desktop) */}
-            <div className="lg:col-span-4 space-y-4">
+            <div className="lg:col-span-4 space-y-4 print:hidden">
 
               {/* Profile Card */}
               <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-100 shadow-xs flex flex-col items-center text-center">
@@ -628,13 +628,33 @@ export const CustomerDetailsScreen: FC = () => {
             </div>
 
             {/* LEFT COLUMN: Financial Activity Log & Total Debt Banner (Takes 8 cols on desktop) */}
-            <div className="lg:col-span-8 space-y-6">
+            <div className="lg:col-span-8 space-y-6 print:w-full print:space-y-4 print:m-0 print:p-0">
 
               {/* Financial Activity Log Card */}
-              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-xs space-y-6">
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-xs space-y-6 print:border print:border-slate-200 print:rounded-2xl print:p-6 print:shadow-none">
+
+                {/* Print-Only Header with Customer Info */}
+                <div className="hidden print:flex items-center justify-between pb-4 border-b-2 border-slate-200" dir="rtl">
+                  <div>
+                    <h2 className="text-xl font-extrabold font-tajawal text-[#0c2444]">
+                      سجل النشاط المالي وكشف الحساب
+                    </h2>
+                    <div className="flex items-center gap-3 text-xs text-slate-600 mt-1 font-cairo">
+                      <span><strong>العميل:</strong> {customer.name || 'عميل'}</span>
+                      <span>•</span>
+                      <span><strong>الهاتف:</strong> <span dir="ltr">{customer.phone || 'غير متوفر'}</span></span>
+                      <span>•</span>
+                      <span><strong>معرف/هوية:</strong> {customer.nationalOrCrId || 'غير متوفر'}</span>
+                    </div>
+                  </div>
+                  <div className="text-left text-xs text-slate-500 font-mono">
+                    <span className="font-bold text-[#0c2444] block font-tajawal text-sm">منصة وثيق</span>
+                    <span>{new Date().toLocaleDateString('ar-SA')}</span>
+                  </div>
+                </div>
 
                 {/* Header with Title and Filter Tabs */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5 print:hidden">
                   <h3 className="text-lg sm:text-xl font-extrabold font-tajawal text-[#0c2444]">
                     سجل النشاط المالي
                   </h3>
@@ -755,7 +775,7 @@ export const CustomerDetailsScreen: FC = () => {
                 )}
 
                 {/* Footer Note */}
-                <div className="pt-4 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-400">
+                <div className="pt-4 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-400 print:hidden">
                   <Clock className="w-4 h-4" />
                   <span>يتم تحديث السجل تلقائياً عند كل عملية إضافة أو سداد موثقة.</span>
                 </div>
@@ -763,7 +783,7 @@ export const CustomerDetailsScreen: FC = () => {
               </div>
 
               {/* Total Current Debt Banner (Dark Navy Banner) */}
-              <div className="bg-[#0c2444] rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+              <div className="bg-[#0c2444] rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden print:rounded-2xl print:p-6 print:shadow-none print:break-inside-avoid">
                 {/* Ambient glow */}
                 <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -820,7 +840,7 @@ export const CustomerDetailsScreen: FC = () => {
       {/* Edit Customer Modal */}
       {isEditModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in print:hidden"
           dir="rtl"
         >
           <div className="bg-white rounded-[12px] w-[450px] max-w-[calc(100vw-32px)] shadow-2xl overflow-hidden">
@@ -968,7 +988,7 @@ export const CustomerDetailsScreen: FC = () => {
       {/* Delete Customer Confirmation Modal */}
       {isDeleteModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs transition-opacity duration-200"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs transition-opacity duration-200 print:hidden"
           dir="rtl"
           onClick={() => !isDeletingCustomer && setIsDeleteModalOpen(false)}
           aria-modal="true"
