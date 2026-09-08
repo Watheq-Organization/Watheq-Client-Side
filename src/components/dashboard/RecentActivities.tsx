@@ -1,6 +1,7 @@
+
 import { useCallback, useEffect, useState } from 'react';
 import type { FC } from 'react';
-import { Loader2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, AlertCircle} from 'lucide-react';
 import { getRecentActivities, toDashboardSummaryErrorMessage } from '../../services/dashboardService';
 import type { RecentActivityItem } from '../../types/dashboard';
 
@@ -8,7 +9,6 @@ export const RecentActivities: FC = () => {
   const [activities, setActivities] = useState<RecentActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isExpanded, setIsExpanded] = useState(false);
 
   const loadData = useCallback(() => {
     setIsLoading(true);
@@ -29,8 +29,8 @@ export const RecentActivities: FC = () => {
     loadData();
   }, [loadData]);
 
-  const displayedActivities = isExpanded ? activities : activities.slice(0, 5);
-  const hasMoreThanFive = activities.length > 5;
+  // Always display only the latest 5 activities
+  const displayedActivities = activities.slice(0, 5);
 
   return (
     <div
@@ -73,8 +73,8 @@ export const RecentActivities: FC = () => {
             <Loader2 className="w-6 h-6 animate-spin text-[#0f284e]" />
             <span className="text-xs font-medium font-tajawal">جاري تحميل النشاطات...</span>
           </div>
-        ) : activities.length > 0 ? (
-          <div className={`relative pr-4 transition-all duration-300 ${isExpanded ? 'max-h-[380px] overflow-y-auto pl-1 pr-4' : ''}`}>
+        ) : displayedActivities.length > 0 ? (
+          <div className="relative pr-4">
             {/* Vertical continuous line */}
             <div className="absolute top-2.5 bottom-6 right-[7px] w-0.5 bg-slate-200" />
 
@@ -108,24 +108,6 @@ export const RecentActivities: FC = () => {
           </div>
         )}
       </div>
-
-      {/* Footer Link */}
-      {hasMoreThanFive && (
-        <div className="pt-4 mt-4 border-t border-slate-100 text-center">
-          <button
-            type="button"
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold font-tajawal text-[#051838] hover:text-[#183462] transition-all duration-150 cursor-pointer"
-          >
-            <span>{isExpanded ? 'عرض أقل' : 'عرض جميع النشاطات'}</span>
-            {isExpanded ? (
-              <ChevronUp className="w-4 h-4 text-[#051838]" />
-            ) : (
-              <ChevronDown className="w-4 h-4 text-[#051838]" />
-            )}
-          </button>
-        </div>
-      )}
     </div>
   );
 };

@@ -350,15 +350,19 @@ export async function addCustomer(payload: AddCustomerPayload): Promise<Customer
  * the current user and the customer's business before deleting, per the
  * confirmed API contract.
  */
-export async function deleteCustomer(customerId: string): Promise<void> {
-  await httpClient.delete<unknown>(`/customer/deleteCustomer/${customerId}`);
+export async function deleteCustomer(customerId: string | number): Promise<void> {
+  const cleanId = String(customerId).trim();
+  await httpClient.delete<unknown>(`/Customer/deleteCustomer/${encodeURIComponent(cleanId)}`);
 }
 
 /** Maps deleteCustomer errors to user-friendly Arabic messages. */
 export function toDeleteCustomerErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 0) {
-      return 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.';
+      return 'تعذر الاتصال بالخادم لإتمام الحذف. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.';
+    }
+    if (error.status === 400) {
+      return 'لا يمكن حذف هذا العميل نظراً لوجود ديون أو معاملات مسجلة عليه في الخادم.';
     }
     if (error.status === 401) {
       return 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.';
@@ -367,10 +371,10 @@ export function toDeleteCustomerErrorMessage(error: unknown): string {
       return 'لا تملك صلاحية حذف هذا العميل.';
     }
     if (error.status === 404) {
-      return 'تعذر العثور على بيانات هذا العميل.';
+      return 'تعذر العثور على بيانات هذا العميل في قاعدة البيانات.';
     }
     if (error.status >= 500) {
-      return 'حدث خطأ في الخادم. يرجى المحاولة لاحقاً.';
+      return 'حدث خطأ في الخادم أثناء عملية الحذف. يرجى المحاولة لاحقاً.';
     }
     return 'تعذر حذف العميل. يرجى المحاولة مرة أخرى.';
   }

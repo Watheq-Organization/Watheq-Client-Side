@@ -15,6 +15,8 @@ export const PATHS = {
   DASHBOARD: '/dashboard',
   CUSTOMERS: '/customers',
   CUSTOMER_DETAILS: '/customers/:id',
+  NEW_PAYMENT: '/customers/:id/payments/new',
+  DEBT_NEW: '/add-debt',
   SETTINGS: '/settings',
   SUBSCRIPTIONS: '/subscriptions',
   ABOUT: '/about',
