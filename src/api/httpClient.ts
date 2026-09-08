@@ -108,9 +108,13 @@ async function request<TResponse>(
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
 
   let response: Response;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
   try {
     response = await fetch(url, {
       ...options,
+      signal: options.signal || controller.signal,
       headers: {
         ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
         Accept: 'application/json',
@@ -118,9 +122,15 @@ async function request<TResponse>(
         ...(options.headers ?? {}),
       },
     });
-  } catch {
+  } catch (err: unknown) {
+    clearTimeout(timeoutId);
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new ApiError('TIMEOUT', 408, { message: 'انتهت مهلة انتظار الخادم.' });
+    }
     // Network-level failure (offline, CORS, DNS, server unreachable, etc.)
     throw new ApiError('NETWORK_ERROR', 0, null);
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   const contentType = response.headers.get('content-type') ?? '';

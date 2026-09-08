@@ -11,7 +11,17 @@
  * always resolves correctly.
  */
 
-const FALLBACK_API_BASE_URL = 'http://whateq.runasp.net/api';
+function resolveApiBaseUrl(): string {
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+    const envUrl = import.meta.env.VITE_API_BASE_URL as string | undefined;
+    if (!envUrl || envUrl.startsWith('http://')) {
+      return '/api';
+    }
+    return envUrl;
+  }
+  return (import.meta.env.VITE_API_BASE_URL as string | undefined) || 'http://whateq.runasp.net/api';
+}
 
-export const API_BASE_URL: string =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? FALLBACK_API_BASE_URL;
+export const API_BASE_URL: string = resolveApiBaseUrl();
+
+
