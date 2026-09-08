@@ -101,6 +101,12 @@ async function request<TResponse>(
   const url = `${API_BASE_URL}${path}`;
   const token = getStoredToken();
 
+  // FormData (multipart/form-data, used by file-upload endpoints like
+  // registerPayment) must NOT get a manually-set Content-Type: the browser
+  // has to compute the multipart boundary itself. JSON requests keep the
+  // explicit header exactly as before.
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+
   let response: Response;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -110,7 +116,7 @@ async function request<TResponse>(
       ...options,
       signal: options.signal || controller.signal,
       headers: {
-        'Content-Type': 'application/json',
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
         Accept: 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(options.headers ?? {}),
@@ -146,6 +152,20 @@ async function request<TResponse>(
         return request<TResponse>(path, options, true);
       }
     }
+
+    // Diagnostic only — doesn't change any behavior, just makes the real
+    // server response visible in the console so a failing request can be
+    // debugged without digging through the Network tab by hand. This is
+    // the single place every API call funnels through, so it covers every
+    // endpoint, not just createDebt.
+    // eslint-disable-next-line no-console
+    console.error(`[httpClient] ${options.method ?? 'GET'} ${url} -> ${response.status}`, {
+      status: response.status,
+      allowHeader: response.headers.get('allow'),
+      contentType,
+      body,
+    });
+
     throw new ApiError(`HTTP_${response.status}`, response.status, body);
   }
 
@@ -158,6 +178,12 @@ export const httpClient = {
       method: 'POST',
       ...(data !== undefined ? { body: JSON.stringify(data) } : {}),
     }),
+  /** POST with a FormData body (multipart/form-data) — for endpoints that
+   * accept a file upload (e.g. registerPayment's optional receiptImage).
+   * Never JSON.stringify's the body and never sets Content-Type manually;
+   * see the isFormData branch in request() above. */
+  postForm: <TResponse>(path: string, formData: FormData) =>
+    request<TResponse>(path, { method: 'POST', body: formData }),
   put: <TResponse>(path: string, data: unknown) =>
     request<TResponse>(path, {
       method: 'PUT',

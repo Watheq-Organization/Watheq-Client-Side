@@ -108,13 +108,7 @@ export const CustomersScreen: FC = () => {
     getCustomers()
       .then((dtos) => {
         if (!isMounted) return;
-        const sorted = [...dtos].sort((a, b) => {
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          if (dateA && dateB && dateA !== dateB) return dateA - dateB;
-          return Number(a.id || 0) - Number(b.id || 0);
-        });
-        setCustomers(sorted.map((dto, idx) => mapCustomerDtoToCustomer(dto, idx)));
+        setCustomers(dtos.map(mapCustomerDtoToCustomer));
       })
       .catch((error) => {
         if (!isMounted) return;
@@ -146,7 +140,6 @@ export const CustomersScreen: FC = () => {
   const filteredCustomers = useMemo(() => {
     return customers
       .filter((c) => {
-        if (!c) return false;
         // Tab status filter
         if (activeTabFilter !== 'all' && c.status !== activeTabFilter) {
           return false;
@@ -154,16 +147,16 @@ export const CustomersScreen: FC = () => {
         // Search filter
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase().trim();
-          const matchName = (c.name || '').toLowerCase().includes(q);
-          const matchId = (c.nationalOrCrId || '').includes(q);
-          const matchDebt = String(c.totalDebt ?? 0).includes(q);
+          const matchName = c.name.toLowerCase().includes(q);
+          const matchId = c.nationalOrCrId.includes(q);
+          const matchDebt = c.totalDebt.toString().includes(q);
           return matchName || matchId || matchDebt;
         }
         return true;
       })
       .sort((a, b) => {
-        if (sortBy === 'highest_debt') return (b.totalDebt ?? 0) - (a.totalDebt ?? 0);
-        if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '', 'ar');
+        if (sortBy === 'highest_debt') return b.totalDebt - a.totalDebt;
+        if (sortBy === 'name') return a.name.localeCompare(b.name, 'ar');
         return 0; // Default newest
       });
   }, [customers, activeTabFilter, searchQuery, sortBy]);
@@ -511,14 +504,12 @@ export const CustomersScreen: FC = () => {
 
                         {/* 2. ID / CR Number */}
                         <td className="py-4 px-4 sm:px-6 font-mono text-slate-600" dir="ltr">
-                          <span className="inline-block text-right">
-                            {customer.nationalOrCrId || '0001'}
-                          </span>
+                          <span className="inline-block text-right">{customer.nationalOrCrId}</span>
                         </td>
 
                         {/* 3. Total Debt */}
                         <td className="py-4 px-4 sm:px-6 font-bold text-slate-900 font-tajawal text-sm sm:text-base">
-                          <span>{(customer.totalDebt ?? 0).toLocaleString('ar-SA')}</span>{' '}
+                          <span>{customer.totalDebt.toLocaleString('ar-SA')}</span>{' '}
                           <span className="text-xs font-normal text-slate-400 font-cairo">ر.س</span>
                         </td>
 

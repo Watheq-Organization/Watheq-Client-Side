@@ -22,7 +22,18 @@ import type {
  */
 export async function getCustomers(): Promise<CustomerDto[]> {
   const response = await httpClient.get<unknown>('/customer/getCustomers');
-  return extractCustomerDtoList(response).map(normalizeCustomerDto);
+  const dtos = extractCustomerDtoList(response).map(normalizeCustomerDto);
+  // Diagnostic only — prints exactly what the backend returned for
+  // totalDebt/totalPaid per customer, so a stale value on the Customers
+  // list can be confirmed as a backend/DB issue (the raw response is
+  // already stale) rather than a frontend caching bug (the list not
+  // re-fetching). Doesn't change any behavior.
+  // eslint-disable-next-line no-console
+  console.log(
+    '[getCustomers] raw totals from backend:',
+    dtos.map((c) => ({ id: c.id, fullName: c.fullName, totalDebt: c.totalDebt, totalPaid: c.totalPaid }))
+  );
+  return dtos;
 }
 
 function extractCustomerDtoList(response: unknown): unknown[] {
@@ -170,7 +181,6 @@ export function toGetCustomersErrorMessage(error: unknown): string {
   return 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.';
 }
 
-
 /**
  * GET http://whateq.runasp.net/api/Customer/getCustomerProfile/{customerId}
  *
@@ -217,6 +227,7 @@ function normalizeCustomerProfileDto(raw: unknown): CustomerProfileDto {
 function normalizeCustomerProfileTransaction(raw: unknown): CustomerProfileTransactionDto {
   const r = (raw ?? {}) as Record<string, unknown>;
   return {
+    id: Number(r.id) || 0,
     type: typeof r.type === 'string' ? r.type : '',
     date: typeof r.date === 'string' ? r.date : '',
     amount: Number(r.amount) || 0,
@@ -465,8 +476,8 @@ export function mapCustomerDtoToCustomer(dto: CustomerDto, index?: number): Cust
   }
 
   return {
-    id: rawId || String(Date.now()),
-    name: safeFullName || 'عميل بدون اسم',
+    id: dto.id,
+    name: dto.fullName,
     type: 'individual',
     typeLabel: 'عميل أفراد',
     nationalOrCrId: displayNationalId,
@@ -476,9 +487,9 @@ export function mapCustomerDtoToCustomer(dto: CustomerDto, index?: number): Cust
     statusLabel: statusLabel,
     avatarLetter: safeFullName.charAt(0) || 'ع',
     avatarBg: 'bg-rose-100 text-rose-600',
-    phone: dto?.phoneNumber != null ? String(dto.phoneNumber) : '',
-    address: dto?.address != null ? String(dto.address) : '',
-    registrationDate: dto?.createdAt ? String(dto.createdAt) : new Date().toISOString(),
+    phone: dto.phoneNumber,
+    address: dto.address,
+    registrationDate: dto.createdAt,
   };
 }
 

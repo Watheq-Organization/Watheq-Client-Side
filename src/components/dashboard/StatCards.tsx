@@ -34,8 +34,18 @@ export const StatCards: FC = () => {
   // Real values from GET /api/Dashboard/summary (DashboardSummaryDto). No
   // demo fallback numbers: while loading we show '...', and on failure we
   // show '—' (summary stays null) instead of a fake 0.
+  //
+  // "إجمالي الديون المستحقة" (Total Outstanding Debts) must read
+  // `remainingAmount` — "total amount still outstanding" per the DTO
+  // comment in types/dashboard.ts — NOT `totalDebt`, which is "total
+  // value of all debts EVER created" (a running gross total). That's
+  // exactly why this card only ever went up on a new debt and never came
+  // down on a payment: `totalDebt` doesn't decrease when a debt gets paid
+  // off, only `remainingAmount` does. The backend was already sending the
+  // right number in `remainingAmount` the whole time — this card was just
+  // reading the wrong field of the response.
   const hasData = !isLoading && !loadError && summary !== null;
-  const outstandingDebt = summary?.totalDebt ?? 0;
+  const outstandingDebt = summary?.remainingAmount ?? 0;
   const activeCustomers = summary?.customersCount ?? 0;
   const totalCollections = summary?.collectedAmount ?? 0;
 
