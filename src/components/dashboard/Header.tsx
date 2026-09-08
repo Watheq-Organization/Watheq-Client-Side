@@ -1,5 +1,6 @@
 import type { FC } from 'react';
 import { Search, Bell, HelpCircle, Menu } from 'lucide-react';
+import { useMerchantProfile } from '../../services/merchantProfileService';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -12,6 +13,7 @@ export const Header: FC<HeaderProps> = ({
   searchQuery = '',
   onSearchChange,
 }) => {
+  const profile = useMerchantProfile();
   return (
     <header
       className="w-full bg-white border-b border-slate-100/80 px-4 sm:px-8 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-xs"
@@ -69,8 +71,8 @@ export const Header: FC<HeaderProps> = ({
         <div className="flex items-center gap-2 pr-1 sm:pr-2 border-r border-slate-100">
           <div className="relative w-10 h-10 rounded-full ring-2 ring-slate-100 overflow-hidden shadow-xs cursor-pointer hover:ring-[#051838]/20 transition-all duration-200">
             <img
-              src="/merchant-avatar.jpg"
-              alt="صورة التاجر"
+              src={profile.profileImagePath || '/merchant-avatar.jpg'}
+              alt={profile.fullName || 'صورة التاجر'}
               className="w-full h-full object-cover"
               onError={(e) => {
                 // Fallback if image fails to load

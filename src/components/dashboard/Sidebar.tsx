@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Users,
   CreditCard,
+  Receipt,
   BarChart3,
   BellRing,
   Tv2,
@@ -11,7 +12,7 @@ import {
   LogOut,
   X,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { PATHS } from '../../routes/paths';
 import { LogoutModal } from './LogoutModal';
 import { logoutUser } from '../../services/authService';
@@ -30,16 +31,20 @@ export const Sidebar: FC<SidebarProps> = ({
   onTabChange,
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const isSettingsActive = activeTab === 'settings' || location.pathname === PATHS.SETTINGS;
 
   const navItems = [
     { id: 'dashboard', label: 'لوحة القيادة', icon: LayoutDashboard, path: PATHS.DASHBOARD },
     { id: 'customers', label: 'العملاء', icon: Users, path: PATHS.CUSTOMERS },
     { id: 'add-debt', label: 'إضافة دين', icon: CreditCard },
+    { id: 'payments', label: 'سجل المدفوعات', icon: Receipt },
     { id: 'reports', label: 'التقارير', icon: BarChart3 },
     { id: 'reminder-settings', label: 'إعدادات التذكيرات', icon: BellRing },
-    { id: 'subscriptions', label: 'الاشتراكات', icon: Tv2 },
+    { id: 'subscriptions', label: 'الاشتراكات', icon: Tv2, path: PATHS.SUBSCRIPTIONS },
   ];
 
   const handleLogoutClick = () => {
@@ -114,7 +119,10 @@ export const Sidebar: FC<SidebarProps> = ({
           <nav className="mt-10 space-y-1.5">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = activeTab === item.id;
+              const isActive =
+                !isSettingsActive &&
+                ((item.path && location.pathname === item.path) ||
+                  (!item.path && activeTab === item.id));
 
               return (
                 <button
@@ -149,15 +157,16 @@ export const Sidebar: FC<SidebarProps> = ({
             type="button"
             onClick={() => {
               if (onTabChange) onTabChange('settings');
+              navigate(PATHS.SETTINGS);
               if (onClose) onClose();
             }}
             className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 text-right cursor-pointer ${
-              activeTab === 'settings'
-                ? 'bg-[#183462] text-white font-semibold'
+              isSettingsActive
+                ? 'bg-[#183462] text-white font-semibold shadow-xs'
                 : 'text-slate-300 hover:text-white hover:bg-white/6'
             }`}
           >
-            <Settings className="w-5 h-5 text-slate-400" />
+            <Settings className={`w-5 h-5 ${isSettingsActive ? 'text-white' : 'text-slate-400'}`} />
             <span>الإعدادات</span>
           </button>
 

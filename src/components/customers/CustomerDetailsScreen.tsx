@@ -34,6 +34,7 @@ import {
 import type { Customer, CustomerProfileTransactionDto } from '../../types/customer';
 import { ApiError } from '../../api/httpClient';
 import { PATHS } from '../../routes/paths';
+import { useMerchantProfile } from '../../services/merchantProfileService';
 
 interface ActivityItem {
   id: string;
@@ -114,6 +115,7 @@ export const CustomerDetailsScreen: FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeActivityTab, setActiveActivityTab] = useState<'all' | 'debt' | 'payment'>('all');
   const [searchActivityQuery, setSearchActivityQuery] = useState('');
+  const merchantProfile = useMerchantProfile();
 
   // Customer Data — fetched from GET /api/Customer/getCustomerProfile/{customerId}
   const [customer, setCustomer] = useState<Customer>(EMPTY_CUSTOMER);
@@ -234,6 +236,12 @@ export const CustomerDetailsScreen: FC = () => {
   const handleUpdateCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const targetCustomerId = customer.id || id;
+    if (!targetCustomerId) {
+      setSubmitError('معرّف العميل غير متوفر.');
+      return;
+    }
+
     const trimmedName = editForm.fullName.trim();
     const trimmedPhone = editForm.phoneNumber.trim();
     const trimmedNationalId = editForm.nationalOrCrId.trim();
@@ -261,28 +269,30 @@ export const CustomerDetailsScreen: FC = () => {
     setSubmitError(null);
     setIsSavingCustomer(true);
     try {
-      const dto = await updateCustomer(customer.id, {
+      const dto = await updateCustomer(targetCustomerId, {
         fullName: trimmedName,
         phoneNumber: trimmedPhone,
         address: customer.address ?? '',
+        nationalId: trimmedNationalId,
       });
 
       // The backend doesn't store nationalOrCrId (see getStoredNationalId
       // above), so it's persisted locally here instead of coming back from `dto`.
-      setStoredNationalId(customer.id, trimmedNationalId);
+      setStoredNationalId(targetCustomerId, trimmedNationalId);
 
       setCustomer((prev) => ({
         ...prev,
-        name: dto.fullName,
-        phone: dto.phoneNumber,
-        address: dto.address,
-        totalDebt: dto.totalDebt,
-        totalPaid: dto.totalPaid,
+        name: dto.fullName || trimmedName,
+        phone: dto.phoneNumber || trimmedPhone,
+        address: dto.address || prev.address,
+        totalDebt: dto.totalDebt || prev.totalDebt,
+        totalPaid: dto.totalPaid || prev.totalPaid,
         nationalOrCrId: trimmedNationalId,
       }));
 
       setIsEditModalOpen(false);
       showToast('تم تحديث بيانات العميل بنجاح.');
+      loadCustomerProfile();
     } catch (err) {
       if (err instanceof ApiError && isDuplicatePhoneNumberError(err)) {
         setFieldErrors((p) => ({ ...p, phoneNumber: 'يوجد عميل آخر مسجل بنفس رقم الجوال.' }));
@@ -366,7 +376,7 @@ export const CustomerDetailsScreen: FC = () => {
             <span>{toastMessage}</span>
           </div>
         )}
-        
+
         {/* Top Header Bar */}
         <header className="w-full bg-white border-b border-slate-100/80 px-4 sm:px-8 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
           {/* Mobile menu trigger & Search bar */}
@@ -411,8 +421,8 @@ export const CustomerDetailsScreen: FC = () => {
             <div className="flex items-center gap-2 pr-1 sm:pr-2 border-r border-slate-100">
               <div className="w-10 h-10 rounded-full ring-2 ring-slate-100 overflow-hidden shadow-xs cursor-pointer">
                 <img
-                  src="/merchant-avatar.jpg"
-                  alt="صورة التاجر"
+                  src={merchantProfile.profileImagePath || '/merchant-avatar.jpg'}
+                  alt={merchantProfile.fullName || 'صورة التاجر'}
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     (e.target as HTMLElement).style.display = 'none';
@@ -425,7 +435,7 @@ export const CustomerDetailsScreen: FC = () => {
 
         {/* Page Main Content */}
         <main className="p-4 sm:p-6 lg:p-8 space-y-6 flex-1 max-w-7xl w-full mx-auto">
-          
+
           {/* Breadcrumb / Section Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -490,13 +500,13 @@ export const CustomerDetailsScreen: FC = () => {
 
           {/* Main 2-Column Grid matching Design */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            
+
             {/* RIGHT COLUMN: Client Profile Card & Actions (Takes 4 cols on desktop) */}
             <div className="lg:col-span-4 space-y-4">
-              
+
               {/* Profile Card */}
               <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-100 shadow-xs flex flex-col items-center text-center">
-                
+
                 {/* Avatar with Verified Badge */}
                 <div className="relative mb-4">
                   <div className="w-24 h-24 rounded-3xl overflow-hidden ring-4 ring-slate-100/80 shadow-md bg-gradient-to-tr from-[#0c2444] to-[#1e3a8a] text-white flex items-center justify-center font-bold text-3xl font-tajawal select-none">
@@ -619,10 +629,10 @@ export const CustomerDetailsScreen: FC = () => {
 
             {/* LEFT COLUMN: Financial Activity Log & Total Debt Banner (Takes 8 cols on desktop) */}
             <div className="lg:col-span-8 space-y-6">
-              
+
               {/* Financial Activity Log Card */}
               <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-xs space-y-6">
-                
+
                 {/* Header with Title and Filter Tabs */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
                   <h3 className="text-lg sm:text-xl font-extrabold font-tajawal text-[#0c2444]">
@@ -634,11 +644,10 @@ export const CustomerDetailsScreen: FC = () => {
                     <button
                       type="button"
                       onClick={() => setActiveActivityTab('all')}
-                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                        activeActivityTab === 'all'
-                          ? 'bg-white text-[#0c2444] shadow-xs'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
+                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeActivityTab === 'all'
+                        ? 'bg-white text-[#0c2444] shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                        }`}
                     >
                       الكل
                     </button>
@@ -646,11 +655,10 @@ export const CustomerDetailsScreen: FC = () => {
                     <button
                       type="button"
                       onClick={() => setActiveActivityTab('debt')}
-                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                        activeActivityTab === 'debt'
-                          ? 'bg-white text-[#0c2444] shadow-xs'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
+                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeActivityTab === 'debt'
+                        ? 'bg-white text-[#0c2444] shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                        }`}
                     >
                       الديون
                     </button>
@@ -658,11 +666,10 @@ export const CustomerDetailsScreen: FC = () => {
                     <button
                       type="button"
                       onClick={() => setActiveActivityTab('payment')}
-                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                        activeActivityTab === 'payment'
-                          ? 'bg-white text-[#0c2444] shadow-xs'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
+                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeActivityTab === 'payment'
+                        ? 'bg-white text-[#0c2444] shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                        }`}
                     >
                       المدفوعات
                     </button>
@@ -679,7 +686,7 @@ export const CustomerDetailsScreen: FC = () => {
                   <div className="relative space-y-6 before:absolute before:top-4 before:bottom-4 before:right-5 before:w-0.5 before:bg-slate-100">
                     {filteredActivities.map((act) => (
                       <div key={act.id} className="relative flex items-start gap-4 sm:gap-5">
-                        
+
                         {/* Timeline Icon Node */}
                         <div
                           className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 z-10 shadow-2xs ${act.iconBg}`}
@@ -691,11 +698,10 @@ export const CustomerDetailsScreen: FC = () => {
 
                         {/* Content Card */}
                         <div
-                          className={`flex-1 rounded-2xl p-4 sm:p-5 transition-all ${
-                            act.type === 'alert'
-                              ? 'bg-[#f8fafc] border-2 border-dashed border-slate-200'
-                              : 'bg-white border border-slate-100 shadow-2xs hover:shadow-xs'
-                          }`}
+                          className={`flex-1 rounded-2xl p-4 sm:p-5 transition-all ${act.type === 'alert'
+                            ? 'bg-[#f8fafc] border-2 border-dashed border-slate-200'
+                            : 'bg-white border border-slate-100 shadow-2xs hover:shadow-xs'
+                            }`}
                         >
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div className="flex items-center gap-2.5 flex-wrap">
@@ -825,7 +831,12 @@ export const CustomerDetailsScreen: FC = () => {
               </h3>
               <button
                 type="button"
-                onClick={() => setIsEditModalOpen(false)}
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setIsSavingCustomer(false);
+                  setSubmitError(null);
+                  setFieldErrors({});
+                }}
                 className="text-slate-900 hover:opacity-60 transition-opacity cursor-pointer"
                 aria-label="إغلاق"
               >
@@ -850,9 +861,8 @@ export const CustomerDetailsScreen: FC = () => {
                     value={editForm.fullName}
                     onChange={(e) => setEditForm((p) => ({ ...p, fullName: e.target.value }))}
                     dir="rtl"
-                    className={`w-full h-[38px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none focus:border-[#123663] transition-colors ${
-                      fieldErrors.fullName ? 'border-rose-400' : 'border-slate-200'
-                    }`}
+                    className={`w-full h-[38px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none focus:border-[#123663] transition-colors ${fieldErrors.fullName ? 'border-rose-400' : 'border-slate-200'
+                      }`}
                   />
                   {fieldErrors.fullName && (
                     <p className="mt-1 text-xs text-rose-600">{fieldErrors.fullName}</p>
@@ -871,9 +881,8 @@ export const CustomerDetailsScreen: FC = () => {
                       setEditForm((p) => ({ ...p, nationalOrCrId: e.target.value }))
                     }
                     dir="rtl"
-                    className={`w-full h-[38px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none focus:border-[#123663] transition-colors ${
-                      fieldErrors.nationalOrCrId ? 'border-rose-400' : 'border-slate-200'
-                    }`}
+                    className={`w-full h-[38px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none focus:border-[#123663] transition-colors ${fieldErrors.nationalOrCrId ? 'border-rose-400' : 'border-slate-200'
+                      }`}
                   />
                   {fieldErrors.nationalOrCrId && (
                     <p className="mt-1 text-xs text-rose-600">{fieldErrors.nationalOrCrId}</p>
@@ -892,9 +901,8 @@ export const CustomerDetailsScreen: FC = () => {
                       setEditForm((p) => ({ ...p, phoneNumber: e.target.value }))
                     }
                     dir="rtl"
-                    className={`w-full h-[38px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none focus:border-[#123663] transition-colors ${
-                      fieldErrors.phoneNumber ? 'border-rose-400' : 'border-slate-200'
-                    }`}
+                    className={`w-full h-[38px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none focus:border-[#123663] transition-colors ${fieldErrors.phoneNumber ? 'border-rose-400' : 'border-slate-200'
+                      }`}
                   />
                   {fieldErrors.phoneNumber && (
                     <p className="mt-1 text-xs text-rose-600">{fieldErrors.phoneNumber}</p>
@@ -927,18 +935,29 @@ export const CustomerDetailsScreen: FC = () => {
               <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
                 <button
                   type="button"
-                  onClick={() => setIsEditModalOpen(false)}
-                  disabled={isSavingCustomer}
-                  className="h-9 px-4 rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-60"
+                  onClick={() => {
+                    setIsEditModalOpen(false);
+                    setIsSavingCustomer(false);
+                    setSubmitError(null);
+                    setFieldErrors({});
+                  }}
+                  className="h-9 px-4 rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors cursor-pointer"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
                   disabled={isSavingCustomer}
-                  className="h-9 px-5 rounded-lg bg-[#007a3d] hover:bg-[#006633] text-white text-sm font-bold shadow-sm transition-colors cursor-pointer disabled:opacity-70"
+                  className="h-9 px-5 rounded-lg bg-[#007a3d] hover:bg-[#006633] text-white text-sm font-bold shadow-sm transition-colors cursor-pointer disabled:opacity-70 flex items-center gap-2"
                 >
-                  {isSavingCustomer ? 'جاري الحفظ...' : 'حفظ التعديلات'}
+                  {isSavingCustomer ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                      <span>جاري التحديث...</span>
+                    </>
+                  ) : (
+                    <span>تحديث البيانات</span>
+                  )}
                 </button>
               </div>
             </form>

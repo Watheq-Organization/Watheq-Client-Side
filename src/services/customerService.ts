@@ -5,6 +5,7 @@ import type {
   CustomerDto,
   CustomerProfileDto,
   CustomerProfileTransactionDto,
+  CustomerStatus,
   UpdateCustomerPayload,
 } from '../types/customer';
 
@@ -75,16 +76,80 @@ function extractCustomerDtoObject(response: unknown): unknown {
  * than loosening the shared type (and risking silent bugs elsewhere), the
  * raw JSON is normalized to the declared contract at this one boundary.
  */
+export function getStoredNationalId(customerId: string): string {
+  if (!customerId || typeof window === 'undefined') return '';
+  try {
+    return localStorage.getItem(`customer-national-id:${customerId}`) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export function setStoredNationalId(customerId: string, value: string): void {
+  if (!customerId || typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(`customer-national-id:${customerId}`, value);
+  } catch {
+    // Ignore storage failures
+  }
+}
+
 function normalizeCustomerDto(raw: unknown): CustomerDto {
   const r = (raw ?? {}) as Record<string, unknown>;
+
+  const totalDebt = Number(
+    r.totalDebt ??
+    r.TotalDebt ??
+    r.currentBalance ??
+    r.CurrentBalance ??
+    r.debt ??
+    r.Debt ??
+    r.totalDebts ??
+    r.TotalDebts ??
+    0
+  ) || 0;
+
+  const totalPaid = Number(
+    r.totalPaid ??
+    r.TotalPaid ??
+    r.paid ??
+    r.Paid ??
+    r.totalPayments ??
+    r.TotalPayments ??
+    0
+  ) || 0;
+
+  const currentBalance = Number(
+    r.currentBalance ??
+    r.CurrentBalance ??
+    totalDebt
+  ) || 0;
+
+  const nationalId = (r.nationalId ?? r.NationalId ?? r.nationalOrCrId ?? r.NationalOrCrId) != null
+    ? String(r.nationalId ?? r.NationalId ?? r.nationalOrCrId ?? r.NationalOrCrId).trim()
+    : '';
+
+  const rawStatus = String(r.status ?? r.Status ?? r.accountStatus ?? r.AccountStatus ?? '').trim();
+
   return {
-    id: String(r.id ?? ''),
-    fullName: typeof r.fullName === 'string' ? r.fullName : '',
-    phoneNumber: r.phoneNumber != null ? String(r.phoneNumber) : '',
-    address: typeof r.address === 'string' ? r.address : '',
-    totalDebt: Number(r.totalDebt) || 0,
-    totalPaid: Number(r.totalPaid) || 0,
-    createdAt: typeof r.createdAt === 'string' ? r.createdAt : '',
+    id: String(r.id ?? r.customerId ?? r.Id ?? r.CustomerId ?? ''),
+    fullName: typeof (r.fullName ?? r.FullName ?? r.name ?? r.Name) === 'string'
+      ? String(r.fullName ?? r.FullName ?? r.name ?? r.Name)
+      : '',
+    phoneNumber: (r.phoneNumber ?? r.PhoneNumber ?? r.phone ?? r.Phone) != null
+      ? String(r.phoneNumber ?? r.PhoneNumber ?? r.phone ?? r.Phone)
+      : '',
+    address: typeof (r.address ?? r.Address) === 'string'
+      ? String(r.address ?? r.Address)
+      : '',
+    nationalId,
+    totalDebt,
+    totalPaid,
+    currentBalance,
+    status: rawStatus,
+    createdAt: typeof (r.createdAt ?? r.CreatedAt) === 'string'
+      ? String(r.createdAt ?? r.CreatedAt)
+      : '',
   };
 }
 
@@ -137,7 +202,7 @@ function normalizeCustomerProfileDto(raw: unknown): CustomerProfileDto {
   const r = (raw ?? {}) as Record<string, unknown>;
   const rawTransactions = Array.isArray(r.transactions) ? r.transactions : [];
   return {
-    id: String(r.id ?? ''),
+    id: String(r.id ?? r.customerId ?? ''),
     fullName: typeof r.fullName === 'string' ? r.fullName : '',
     phoneNumber: r.phoneNumber != null ? String(r.phoneNumber) : '',
     address: typeof r.address === 'string' ? r.address : '',
@@ -226,10 +291,18 @@ export function toGetCustomerProfileErrorMessage(error: unknown): string {
  * fullName/phoneNumber/address are sent, per the confirmed API contract.
  */
 export async function updateCustomer(
-  customerId: string,
+  customerId: string | number,
   payload: UpdateCustomerPayload
 ): Promise<CustomerDto> {
-  const response = await httpClient.put<unknown>(`/Customer/updateCustomer/${customerId}`, payload);
+  const body: Record<string, unknown> = {
+    fullName: payload.fullName.trim(),
+    phoneNumber: payload.phoneNumber.trim(),
+    address: payload.address && payload.address.trim() ? payload.address.trim() : null,
+  };
+  if (payload.nationalId !== undefined && payload.nationalId !== null) {
+    body.nationalId = payload.nationalId.trim() || null;
+  }
+  const response = await httpClient.put<unknown>(`/Customer/updateCustomer/${customerId}`, body);
   return normalizeCustomerDto(extractCustomerDtoObject(response));
 }
 
@@ -244,12 +317,17 @@ export async function updateCustomer(
  * provided, matching the documented "or don't send the field at all" case.
  */
 export async function addCustomer(payload: AddCustomerPayload): Promise<CustomerDto> {
-  const body: AddCustomerPayload = {
-    fullName: payload.fullName,
-    phoneNumber: payload.phoneNumber,
-    ...(payload.address ? { address: payload.address } : {}),
+  const body: Record<string, unknown> = {
+    fullName: payload.fullName.trim(),
+    nationalId: payload.nationalId?.trim() || null,
+    phoneNumber: payload.phoneNumber?.trim() || null,
+    initialDebt:
+      payload.initialDebt !== undefined && payload.initialDebt !== null && !isNaN(Number(payload.initialDebt))
+        ? Number(payload.initialDebt)
+        : null,
+    address: payload.address?.trim() || null,
   };
-  const response = await httpClient.post<unknown>('/customer/addCustomer', body);
+  const response = await httpClient.post<unknown>('/Customer/addCustomer', body);
   return normalizeCustomerDto(extractCustomerDtoObject(response));
 }
 
@@ -320,6 +398,31 @@ export function validateCustomerAddress(value: string): string | null {
 }
 
 /**
+ * Validation for national ID or Commercial Registration (CR): 10 digits.
+ */
+export function validateCustomerNationalId(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return 'رقم الهوية الوطنية / السجل التجاري مطلوب.';
+  if (!/^\d{10}$/.test(trimmed)) {
+    return 'رقم الهوية أو السجل التجاري يجب أن يتكون من 10 أرقام.';
+  }
+  return null;
+}
+
+/**
+ * Validation for optional initial debt balance.
+ */
+export function validateCustomerInitialDebt(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const num = Number(trimmed);
+  if (isNaN(num) || num < 0) {
+    return 'يرجى إدخال مبلغ صحيح لرصيد المديونية.';
+  }
+  return null;
+}
+
+/**
  * Maps the real backend Customer DTO (returned by addCustomer) to the
  * app's local UI model. The DTO only carries a subset of the fields the
  * table/details UI displays (no `type`/`nationalOrCrId`, since the backend
@@ -330,25 +433,47 @@ export function mapCustomerDtoToCustomer(dto: CustomerDto, index?: number): Cust
   const safeFullName = (dto?.fullName ?? '').trim();
   const totalDebt = Number(dto?.totalDebt) || 0;
   const totalPaid = Number(dto?.totalPaid) || 0;
-  const hasDebt = totalDebt > 0;
+  const hasDebt = totalDebt > 0 || (Number(dto?.currentBalance) || 0) > 0;
   const rawId = dto?.id != null ? String(dto.id) : '';
 
-  // Format sequential ID strictly per merchant (0001, 0002, 0003...)
-  // Index takes precedence so every account starts numbering its own customers from 0001
+  // Format sequential ID as fallback
   const sequentialId = index !== undefined
     ? String(index + 1).padStart(4, '0')
     : '0001';
+
+  // Use real nationalId from backend, or locally stored ID, or fallback sequential ID
+  const displayNationalId = (dto.nationalId && dto.nationalId.trim())
+    ? dto.nationalId.trim()
+    : (getStoredNationalId(rawId) || sequentialId);
+
+  // Derive status from backend dto if provided, otherwise derive from hasDebt
+  let status: CustomerStatus = hasDebt ? 'active_debt' : 'paid';
+  let statusLabel = hasDebt ? 'دين نشط' : 'تم السداد';
+
+  if (dto.status) {
+    const s = dto.status.toLowerCase();
+    if (s.includes('overdue') || s.includes('متأخر') || s === '2') {
+      status = 'overdue';
+      statusLabel = 'متأخر';
+    } else if (s.includes('active') || s.includes('نشط') || s === '1') {
+      status = 'active_debt';
+      statusLabel = 'دين نشط';
+    } else if (s.includes('paid') || s.includes('سداد') || s === '0') {
+      status = 'paid';
+      statusLabel = 'تم السداد';
+    }
+  }
 
   return {
     id: rawId || String(Date.now()),
     name: safeFullName || 'عميل بدون اسم',
     type: 'individual',
     typeLabel: 'عميل أفراد',
-    nationalOrCrId: sequentialId,
+    nationalOrCrId: displayNationalId,
     totalDebt: totalDebt,
     totalPaid: totalPaid,
-    status: hasDebt ? 'active_debt' : 'paid',
-    statusLabel: hasDebt ? 'دين نشط' : 'تم السداد',
+    status: status,
+    statusLabel: statusLabel,
     avatarLetter: safeFullName.charAt(0) || 'ع',
     avatarBg: 'bg-rose-100 text-rose-600',
     phone: dto?.phoneNumber != null ? String(dto.phoneNumber) : '',
@@ -365,8 +490,8 @@ export function isDuplicatePhoneNumberError(error: unknown): boolean {
     typeof body === 'object' && body !== null && typeof body.message === 'string'
       ? body.message
       : typeof body === 'string'
-      ? body
-      : '';
+        ? body
+        : '';
   return message.includes('A customer with this phone number already exists');
 }
 
@@ -375,6 +500,9 @@ export function toUpdateCustomerErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 0) {
       return 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.';
+    }
+    if (error.status === 408 || error.message === 'TIMEOUT') {
+      return 'استغرقت الاستجابة وقتاً طويلاً من الخادم. يرجى المحاولة مرة أخرى.';
     }
     if (isDuplicatePhoneNumberError(error)) {
       return 'يوجد عميل آخر مسجل بنفس رقم الجوال.';

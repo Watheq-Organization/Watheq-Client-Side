@@ -68,6 +68,20 @@ export const RegisterScreen: FC = () => {
     setFormState((prev) => ({ ...prev, isSubmitting: false }));
 
     if (result.success) {
+      try {
+        localStorage.setItem(
+          'watheq_merchant_profile',
+          JSON.stringify({
+            businessName: formData.storeName,
+            fullName: formData.fullName,
+            phoneNumber: formData.phone,
+            email: formData.email,
+            address: '',
+          })
+        );
+      } catch {
+        // Ignore storage errors
+      }
       setIsSuccess(true);
       setTimeout(() => navigate(PATHS.VERIFY_OTP, { state: { email: formState.email } }), 1500);
     } else {
