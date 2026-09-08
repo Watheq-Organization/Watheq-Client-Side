@@ -20,3 +20,21 @@ export interface DashboardSummaryResult {
   data?: DashboardSummary;
   message?: string;
 }
+
+export interface OverduePaymentItem {
+  id: string;
+  customerName: string;
+  amount: string;
+  dueDate: string;
+  phone?: string;
+}
+
+export interface RecentActivityItem {
+  id: string;
+  time: string;
+  title: string;
+  description: string;
+  dotColor: string;
+  timestamp: number;
+}
+
