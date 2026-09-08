@@ -6,11 +6,13 @@ import { Header } from './Header';
 import { StatCards } from './StatCards';
 import { OverduePaymentsTable } from './OverduePaymentsTable';
 import { RecentActivities } from './RecentActivities';
+import { useMerchantProfile } from '../../services/merchantProfileService';
 
 export const DashboardScreen: FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
+  const merchantProfile = useMerchantProfile();
 
   return (
     <div
@@ -43,7 +45,7 @@ export const DashboardScreen: FC = () => {
                 لوحة القيادة
               </h1>
               <p className="mt-1 text-sm font-medium text-slate-500 font-cairo">
-                مرحباً بك محمد، إليك ملخص العمليات اليوم.
+                مرحباً بك {merchantProfile.fullName || 'محمد'}، إليك ملخص العمليات اليوم.
               </p>
             </div>
 

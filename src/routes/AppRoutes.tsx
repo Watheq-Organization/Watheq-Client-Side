@@ -12,6 +12,8 @@ import { ContactPage } from '../pages/ContactPage.tsx';
 import { PrivacyPolicyPage } from '../pages/PrivacyPolicyPage.tsx';
 import { CustomersPage } from '../pages/CustomersPage';
 import { CustomerDetailsPage } from '../pages/CustomerDetailsPage';
+import { SettingsPage } from '../pages/SettingsPage';
+import { SubscriptionsPage } from '../pages/SubscriptionsPage';
 
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { VerifyResetOtpPage } from '../pages/VerifyResetOtpPage';
@@ -52,6 +54,22 @@ export const AppRoutes: FC = () => {
         element={
           <ProtectedRoute>
             <CustomerDetailsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={PATHS.SETTINGS}
+        element={
+          <ProtectedRoute>
+            <SettingsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={PATHS.SUBSCRIPTIONS}
+        element={
+          <ProtectedRoute>
+            <SubscriptionsPage />
           </ProtectedRoute>
         }
       />

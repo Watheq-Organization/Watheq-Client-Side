@@ -44,8 +44,11 @@ export interface CustomerDto {
   fullName: string;
   phoneNumber: string;
   address: string;
+  nationalId?: string;
   totalDebt: number;
   totalPaid: number;
+  currentBalance?: number;
+  status?: string;
   createdAt: string;
 }
 
@@ -57,7 +60,8 @@ export interface CustomerDto {
 export interface UpdateCustomerPayload {
   fullName: string;
   phoneNumber: string;
-  address: string;
+  address?: string | null;
+  nationalId?: string | null;
 }
 
 /**
@@ -107,6 +111,8 @@ export interface CustomerProfileDto {
  */
 export interface AddCustomerPayload {
   fullName: string;
-  phoneNumber: string;
+  nationalId?: string | null;
+  phoneNumber?: string | null;
+  initialDebt?: number | null;
   address?: string | null;
 }

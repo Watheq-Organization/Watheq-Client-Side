@@ -11,6 +11,7 @@ import {
   ChevronRight,
   X,
   Check,
+  RotateCw,
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
@@ -22,9 +23,10 @@ import {
   mapCustomerDtoToCustomer,
   toAddCustomerErrorMessage,
   toGetCustomersErrorMessage,
-  validateCustomerAddress,
   validateCustomerFullName,
   validateCustomerPhoneNumber,
+  validateCustomerNationalId,
+  validateCustomerInitialDebt,
 } from '../../services/customerService';
 import { ApiError } from '../../api/httpClient';
 import { getDashboardSummary } from '../../services/dashboardService';
@@ -49,13 +51,15 @@ export const CustomersScreen: FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newCustomer, setNewCustomer] = useState({
     fullName: '',
+    nationalId: '',
     phoneNumber: '',
-    address: '',
+    initialDebt: '',
   });
   const [addFieldErrors, setAddFieldErrors] = useState<{
     fullName?: string;
+    nationalId?: string;
     phoneNumber?: string;
-    address?: string;
+    initialDebt?: string;
   }>({});
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   const [addSubmitError, setAddSubmitError] = useState<string | null>(null);
@@ -128,7 +132,7 @@ export const CustomersScreen: FC = () => {
 
   const closeAddModal = () => {
     setIsAddModalOpen(false);
-    setNewCustomer({ fullName: '', phoneNumber: '', address: '' });
+    setNewCustomer({ fullName: '', nationalId: '', phoneNumber: '', initialDebt: '' });
     setAddFieldErrors({});
     setAddSubmitError(null);
   };
@@ -168,16 +172,26 @@ export const CustomersScreen: FC = () => {
     e.preventDefault();
 
     const trimmedName = newCustomer.fullName.trim();
+    const trimmedNationalId = newCustomer.nationalId.trim();
     const trimmedPhone = newCustomer.phoneNumber.trim();
-    const trimmedAddress = newCustomer.address.trim();
+    const trimmedDebt = newCustomer.initialDebt.trim();
 
     const errors: typeof addFieldErrors = {};
     const nameError = validateCustomerFullName(trimmedName);
     if (nameError) errors.fullName = nameError;
-    const phoneError = validateCustomerPhoneNumber(trimmedPhone);
-    if (phoneError) errors.phoneNumber = phoneError;
-    const addressError = validateCustomerAddress(trimmedAddress);
-    if (addressError) errors.address = addressError;
+
+    const nationalIdError = validateCustomerNationalId(trimmedNationalId);
+    if (nationalIdError) errors.nationalId = nationalIdError;
+
+    if (trimmedPhone) {
+      const phoneError = validateCustomerPhoneNumber(trimmedPhone);
+      if (phoneError) errors.phoneNumber = phoneError;
+    }
+
+    if (trimmedDebt) {
+      const debtError = validateCustomerInitialDebt(trimmedDebt);
+      if (debtError) errors.initialDebt = debtError;
+    }
 
     setAddFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
@@ -185,26 +199,39 @@ export const CustomersScreen: FC = () => {
     setAddSubmitError(null);
     setIsAddingCustomer(true);
     try {
+      const parsedDebt = trimmedDebt ? Number(trimmedDebt) : 0;
       const dto = await addCustomer({
         fullName: trimmedName,
-        phoneNumber: trimmedPhone,
-        address: trimmedAddress || null,
+        nationalId: trimmedNationalId,
+        phoneNumber: trimmedPhone || null,
+        initialDebt: parsedDebt,
       });
 
       const nextIndex = customers.length;
       const newCustomerItem = mapCustomerDtoToCustomer(dto, nextIndex);
-      // Ensure sequential ID per merchant starts from 0001
-      newCustomerItem.nationalOrCrId = String(nextIndex + 1).padStart(4, '0');
+      
+      // Store nationalId locally for persistence and details screen
+      newCustomerItem.nationalOrCrId = trimmedNationalId;
+      if (dto.id) {
+        try {
+          localStorage.setItem(`customer-national-id:${dto.id}`, trimmedNationalId);
+        } catch {
+          // ignore
+        }
+      }
+
+      if (parsedDebt > 0) {
+        newCustomerItem.totalDebt = parsedDebt;
+        newCustomerItem.status = 'active_debt';
+        newCustomerItem.statusLabel = 'دين نشط';
+      }
 
       // Ensure form inputs are used as backup if dto fields were missing
       if (!newCustomerItem.name || newCustomerItem.name === 'عميل بدون اسم') {
         newCustomerItem.name = trimmedName;
       }
-      if (!newCustomerItem.phone) {
+      if (!newCustomerItem.phone && trimmedPhone) {
         newCustomerItem.phone = trimmedPhone;
-      }
-      if (!newCustomerItem.address && trimmedAddress) {
-        newCustomerItem.address = trimmedAddress;
       }
 
       setCustomers((prev) => [newCustomerItem, ...prev]);
@@ -307,6 +334,17 @@ export const CustomersScreen: FC = () => {
                   <Plus className="w-4 h-4" />
                   <span>إضافة عميل جديد</span>
                 </button>
+
+              <button
+                type="button"
+                onClick={() => setCustomersReloadToken((t) => t + 1)}
+                disabled={isLoadingCustomers}
+                className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-xl text-sm font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                title="تحديث البيانات من السيرفر"
+              >
+                <RotateCw className={`w-4 h-4 text-slate-500 ${isLoadingCustomers ? 'animate-spin' : ''}`} />
+                <span>تحديث</span>
+              </button>
 
               <button
                 type="button"
@@ -658,10 +696,10 @@ export const CustomersScreen: FC = () => {
                 </div>
               )}
 
-              {/* Field 1: Full Name */}
+              {/* Field 1: Full Name / Company Name */}
               <div>
                 <label className="block text-sm font-bold text-[#0c2444] mb-1.5">
-                  اسم العميل <span className="text-red-600">*</span>
+                  اسم العميل / الشركة <span className="text-red-600">*</span>
                 </label>
                 <input
                   type="text"
@@ -670,9 +708,9 @@ export const CustomersScreen: FC = () => {
                     setNewCustomer((p) => ({ ...p, fullName: e.target.value }));
                     setAddFieldErrors((p) => ({ ...p, fullName: undefined }));
                   }}
-                  placeholder="مثال: أحمد علي"
+                  placeholder="مثال: عبدالله الراجحي"
                   dir="rtl"
-                  className={`w-full h-[38px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none transition-colors ${
+                  className={`w-full h-[40px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none transition-colors ${
                     addFieldErrors.fullName
                       ? 'border-red-400 focus:border-red-500'
                       : 'border-slate-200 focus:border-[#123663]'
@@ -683,10 +721,35 @@ export const CustomersScreen: FC = () => {
                 )}
               </div>
 
-              {/* Field 2: Phone Number */}
+              {/* Field 2: National ID / CR ID */}
               <div>
                 <label className="block text-sm font-bold text-[#0c2444] mb-1.5">
-                  رقم الجوال <span className="text-red-600">*</span>
+                  رقم الهوية الوطنية / السجل التجاري <span className="text-red-600">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newCustomer.nationalId}
+                  onChange={(e) => {
+                    setNewCustomer((p) => ({ ...p, nationalId: e.target.value }));
+                    setAddFieldErrors((p) => ({ ...p, nationalId: undefined }));
+                  }}
+                  placeholder="10XXXXXXXX أو 70XXXXXXXX"
+                  dir="ltr"
+                  className={`w-full h-[40px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none transition-colors ${
+                    addFieldErrors.nationalId
+                      ? 'border-red-400 focus:border-red-500'
+                      : 'border-slate-200 focus:border-[#123663]'
+                  }`}
+                />
+                {addFieldErrors.nationalId && (
+                  <p className="mt-1 text-xs text-red-600">{addFieldErrors.nationalId}</p>
+                )}
+              </div>
+
+              {/* Field 3: Phone Number */}
+              <div>
+                <label className="block text-sm font-bold text-[#0c2444] mb-1.5">
+                  رقم الجوال
                 </label>
                 <input
                   type="tel"
@@ -695,9 +758,9 @@ export const CustomersScreen: FC = () => {
                     setNewCustomer((p) => ({ ...p, phoneNumber: e.target.value }));
                     setAddFieldErrors((p) => ({ ...p, phoneNumber: undefined }));
                   }}
-                  placeholder="0591234567 أو +970591234567"
+                  placeholder="05XXXXXXXX"
                   dir="ltr"
-                  className={`w-full h-[38px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none transition-colors ${
+                  className={`w-full h-[40px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none transition-colors ${
                     addFieldErrors.phoneNumber
                       ? 'border-red-400 focus:border-red-500'
                       : 'border-slate-200 focus:border-[#123663]'
@@ -708,28 +771,28 @@ export const CustomersScreen: FC = () => {
                 )}
               </div>
 
-              {/* Field 3: Address (optional) */}
+              {/* Field 4: Initial Debt Balance (Optional) */}
               <div>
                 <label className="block text-sm font-bold text-[#0c2444] mb-1.5">
-                  العنوان (اختياري)
+                  رصيد المديونية الافتتاحي (اختياري)
                 </label>
                 <input
                   type="text"
-                  value={newCustomer.address}
+                  value={newCustomer.initialDebt}
                   onChange={(e) => {
-                    setNewCustomer((p) => ({ ...p, address: e.target.value }));
-                    setAddFieldErrors((p) => ({ ...p, address: undefined }));
+                    setNewCustomer((p) => ({ ...p, initialDebt: e.target.value }));
+                    setAddFieldErrors((p) => ({ ...p, initialDebt: undefined }));
                   }}
-                  placeholder="مثال: نابلس، فلسطين"
-                  dir="rtl"
-                  className={`w-full h-[38px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none transition-colors ${
-                    addFieldErrors.address
+                  placeholder="0.00 ر.س"
+                  dir="ltr"
+                  className={`w-full h-[40px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none transition-colors ${
+                    addFieldErrors.initialDebt
                       ? 'border-red-400 focus:border-red-500'
                       : 'border-slate-200 focus:border-[#123663]'
                   }`}
                 />
-                {addFieldErrors.address && (
-                  <p className="mt-1 text-xs text-red-600">{addFieldErrors.address}</p>
+                {addFieldErrors.initialDebt && (
+                  <p className="mt-1 text-xs text-red-600">{addFieldErrors.initialDebt}</p>
                 )}
               </div>
               </div>
