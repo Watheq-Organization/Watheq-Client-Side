@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { FC } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Search,
   Check,
@@ -17,7 +17,7 @@ import {
   HelpCircle,
   Bell,
   X,
-  Menu,
+  Pencil,
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
 import {
@@ -29,8 +29,15 @@ import {
   toUpdateCustomerErrorMessage,
   deleteCustomer,
   toDeleteCustomerErrorMessage,
-  getCustomers,
 } from '../../services/customerService';
+import {
+  getEditableDebt,
+  type EditableDebtRecord,
+  deleteDebt,
+  isDeleteDebtRequiresConfirmation,
+  toDeleteDebtErrorMessage,
+} from '../../services/debtService';
+import { deletePayment, toDeletePaymentErrorMessage } from '../../services/paymentService';
 import type { Customer, CustomerProfileTransactionDto } from '../../types/customer';
 import { ApiError } from '../../api/httpClient';
 import { PATHS } from '../../routes/paths';
@@ -47,7 +54,28 @@ interface ActivityItem {
   date: string;
   balanceLabel?: string;
   iconBg: string;
+  /** Raw reference/debt number from the API (debt.DebtNumber /
+   * payment.ReceiptNumber) — used as a secondary lookup key for the local
+   * editable-debt cache, and shown to the user as-is. */
+  reference: string;
+  /** Real numeric id of the underlying Debt/Payment record
+   * (CustomerProfileTransactionDto.id). This is what PUT /api/Debt/{id}
+   * needs — see handleEditActivityClick below. */
+  recordId: number;
+  /** Unformatted transaction amount (tx.amount, no sign/decimals applied),
+   * used to prefill the edit form when no local cache entry exists. */
+  rawAmount: number;
+  /** Raw debt status (tx.status), null for payments. */
+  rawStatus: string | null;
 }
+
+/**
+ * Treat totalDebt below this as "paid off" for the Delete Customer guard —
+ * avoids blocking deletion over a sub-cent floating-point remainder
+ * (e.g. 0.0000000001 from repeated debt/payment recalculation) that isn't
+ * a real outstanding balance.
+ */
+const DEBT_ZERO_EPSILON = 0.009;
 
 const EMPTY_CUSTOMER: Customer = {
   id: '',
@@ -111,6 +139,7 @@ function formatApiDate(iso: string, withTime = false): string {
 export const CustomerDetailsScreen: FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeActivityTab, setActiveActivityTab] = useState<'all' | 'debt' | 'payment'>('all');
   const [searchActivityQuery, setSearchActivityQuery] = useState('');
@@ -151,30 +180,6 @@ export const CustomerDetailsScreen: FC = () => {
     loadCustomerProfile();
   }, [loadCustomerProfile]);
 
-  useEffect(() => {
-    if (!id) return;
-    getCustomers()
-      .then((dtos) => {
-        const sorted = [...dtos].sort((a, b) => {
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          if (dateA && dateB && dateA !== dateB) return dateA - dateB;
-          return Number(a.id || 0) - Number(b.id || 0);
-        });
-        const foundIdx = sorted.findIndex((c) => String(c.id) === String(id));
-        if (foundIdx !== -1) {
-          const sequentialId = String(foundIdx + 1).padStart(4, '0');
-          setCustomer((prev) => ({
-            ...prev,
-            nationalOrCrId: getStoredNationalId(String(id)) || sequentialId,
-          }));
-        }
-      })
-      .catch(() => {
-        // Fallback silently if customer list cannot be retrieved
-      });
-  }, [id]);
-
   // Edit Customer Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -196,14 +201,193 @@ export const CustomerDetailsScreen: FC = () => {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  // Shows a one-off success toast passed via navigation state (e.g. after
+  // saving a payment from the New Payment page), then clears it from
+  // history so it doesn't reappear on back/forward navigation or refresh.
+  useEffect(() => {
+    const state = location.state as { toast?: string } | null;
+    if (state?.toast) {
+      showToast(state.toast);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Delete Customer Modal State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeletingCustomer, setIsDeletingCustomer] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  /**
+   * Delete-Activity affordance on each timeline item (per the "add debt" /
+   * "receive payment" reference design).
+   *
+   * Debts ARE wired to a real endpoint — DELETE /api/Debt/{id} — per the
+   * confirmed API doc. That endpoint has a two-step contract: a first call
+   * with confirmDeleteWithPayments=false either deletes the debt directly
+   * (no prior payments) or comes back 400 with requiresConfirmation=true
+   * (the debt has payments, and deleting it will also delete all of
+   * them). `debtPendingHardDelete` below drives that second, stronger
+   * confirmation step; `activityPendingDelete` is the first, ordinary
+   * "delete this?" prompt.
+   *
+   * Payments ARE also wired to a real endpoint — DELETE /api/Payment/{id}
+   * — per the confirmed API doc. Unlike debts, deleting a payment is a
+   * single-step call: the backend recalculates the debt's PaidAmount and
+   * Status plus the customer's TotalDebt in one transaction, so no second
+   * confirmation step is needed.
+   *
+   * The edit icon, in contrast, IS wired to a real endpoint for debts
+   * (PUT /api/Debt/{id}) — see handleEditActivityClick below.
+   */
+  const [activityPendingDelete, setActivityPendingDelete] = useState<ActivityItem | null>(null);
+  /** Set only when the backend reports the debt has payments and a second,
+   * explicit confirmation is required before it (and all its payments)
+   * are deleted. `paymentsCount` comes straight from that response. */
+  const [debtPendingHardDelete, setDebtPendingHardDelete] = useState<{
+    activity: ActivityItem;
+    paymentsCount: number;
+  } | null>(null);
+  const [isDeletingActivity, setIsDeletingActivity] = useState(false);
+
+  /**
+   * Edit icon on a debt row: opens the Add Debt screen pre-filled with
+   * this debt's details, in edit mode (see AddDebtNavigationState in
+   * AddDebtScreen.tsx).
+   *
+   * getCustomerProfile (confirmed API doc) returns the real numeric debt
+   * id as `transactions[].id`, so every debt is editable now — not just
+   * ones created/edited in this browser. What that endpoint does NOT
+   * return is `dueDate` or `notes` (only the combined `description` and
+   * `status`/`currencyCode`), so those two fields can't be prefilled from
+   * it alone. The local cache (see rememberEditableDebt in
+   * debtService.ts) is kept as a bonus: when this exact debt was created
+   * or last edited in this browser, it still has the accurate dueDate —
+   * use it when present. Otherwise the form opens with the due date left
+   * blank for the merchant to (re)select, rather than silently guessing a
+   * wrong date.
+   *
+   * Payments have no update endpoint in the documented API at all, so the
+   * edit icon on a payment row always shows the "coming soon" message.
+   */
+  const handleEditActivityClick = (act: ActivityItem) => {
+    if (act.type === 'payment') {
+      showToast('تعديل الدفعات سيتوفر قريباً بعد ربطه بواجهة الخادم.');
+      return;
+    }
+
+    if (!act.recordId) {
+      showToast('تعذر فتح هذا الدين للتعديل.');
+      return;
+    }
+
+    const cached = getEditableDebt(customer.id, act.reference);
+    const record =
+      cached ??
+      ({
+        id: String(act.recordId),
+        debtNumber: act.reference,
+        customerId: customer.id,
+        amount: act.rawAmount,
+        dueDate: '',
+        notes: '',
+        status: act.rawStatus,
+      } satisfies EditableDebtRecord);
+
+    navigate(PATHS.DEBT_NEW, {
+      state: {
+        editingDebt: {
+          ...record,
+          customerFullName: customer.name,
+          phoneNumber: customer.phone ?? '',
+        },
+      },
+    });
+  };
+
+  const confirmDeleteActivity = async () => {
+    if (!activityPendingDelete) return;
+
+    if (!activityPendingDelete.recordId) {
+      showToast(
+        activityPendingDelete.type === 'debt' ? 'تعذر حذف هذا الدين.' : 'تعذر حذف هذه الدفعة.'
+      );
+      setActivityPendingDelete(null);
+      return;
+    }
+
+    const activity = activityPendingDelete;
+
+    if (activity.type === 'payment') {
+      setIsDeletingActivity(true);
+      try {
+        await deletePayment(activity.recordId);
+        setActivityPendingDelete(null);
+        loadCustomerProfile();
+        showToast('تم حذف الدفعة بنجاح.');
+      } catch (err) {
+        showToast(toDeletePaymentErrorMessage(err));
+        setActivityPendingDelete(null);
+      } finally {
+        setIsDeletingActivity(false);
+      }
+      return;
+    }
+
+    setIsDeletingActivity(true);
+    try {
+      await deleteDebt(activity.recordId, false);
+      setActivityPendingDelete(null);
+      loadCustomerProfile();
+      showToast('تم حذف الدين بنجاح.');
+    } catch (err) {
+      if (isDeleteDebtRequiresConfirmation(err)) {
+        // The debt has payments — hand off to the stronger confirmation
+        // step instead of treating this as a failure.
+        setActivityPendingDelete(null);
+        setDebtPendingHardDelete({
+          activity,
+          paymentsCount: err.body.paymentsCount ?? 0,
+        });
+      } else {
+        showToast(toDeleteDebtErrorMessage(err));
+        setActivityPendingDelete(null);
+      }
+    } finally {
+      setIsDeletingActivity(false);
+    }
+  };
+
+  const confirmHardDeleteDebt = async () => {
+    if (!debtPendingHardDelete) return;
+    const { activity } = debtPendingHardDelete;
+    setIsDeletingActivity(true);
+    try {
+      await deleteDebt(activity.recordId, true);
+      setDebtPendingHardDelete(null);
+      loadCustomerProfile();
+      showToast('تم حذف الدين والدفعات المرتبطة به بنجاح.');
+    } catch (err) {
+      showToast(toDeleteDebtErrorMessage(err));
+      setDebtPendingHardDelete(null);
+    } finally {
+      setIsDeletingActivity(false);
+    }
+  };
+
   const handleDeleteCustomer = async () => {
     if (!customer.id) return;
     setDeleteError(null);
+    // Frontend-only guard (not enforced by the Delete Customer API itself):
+    // a customer with an outstanding balance must be paid off first.
+    // Re-checked here too — not just at the button click below — in case
+    // the profile refreshed with a new totalDebt while the modal was open.
+    if (customer.totalDebt > DEBT_ZERO_EPSILON) {
+      const message = 'لا يمكن حذف هذا العميل، فعليه ديون لم يتم تسديدها بعد.';
+      setDeleteError(message);
+      showToast(message);
+      return;
+    }
     setIsDeletingCustomer(true);
     try {
       await deleteCustomer(customer.id);
@@ -317,6 +501,10 @@ export const CustomerDetailsScreen: FC = () => {
         description: tx.description || (isDebt ? 'معاملة دين' : 'معاملة دفع'),
         date: formatApiDate(tx.date, true),
         balanceLabel: `${tx.balance.toFixed(2)} ${tx.currencyCode || 'ر.س'}`,
+        reference: tx.reference,
+        recordId: tx.id,
+        rawAmount: tx.amount,
+        rawStatus: isDebt ? tx.status : null,
         iconBg: isDebt ? 'bg-[#0c2444] text-white' : 'bg-emerald-600 text-white',
       };
     });
@@ -369,26 +557,16 @@ export const CustomerDetailsScreen: FC = () => {
         
         {/* Top Header Bar */}
         <header className="w-full bg-white border-b border-slate-100/80 px-4 sm:px-8 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
-          {/* Mobile menu trigger & Search bar */}
-          <div className="flex items-center gap-3 flex-1 max-w-md">
-            <button
-              type="button"
-              onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
-              aria-label="فتح القائمة الجانبية"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-            <div className="relative w-full">
-              <input
-                type="text"
-                value={searchActivityQuery}
-                onChange={(e) => setSearchActivityQuery(e.target.value)}
-                placeholder="بحث عن معاملة..."
-                className="w-full bg-[#f8fafc] border border-slate-200/90 text-slate-800 text-xs sm:text-sm rounded-xl pr-10 pl-4 py-2.5 outline-none focus:border-[#0c2444] focus:bg-white transition-all placeholder:text-slate-400 font-cairo"
-              />
-              <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
+          {/* Search bar */}
+          <div className="relative w-full max-w-md">
+            <input
+              type="text"
+              value={searchActivityQuery}
+              onChange={(e) => setSearchActivityQuery(e.target.value)}
+              placeholder="بحث عن معاملة..."
+              className="w-full bg-[#f8fafc] border border-slate-200/90 text-slate-800 text-xs sm:text-sm rounded-xl pr-10 pl-4 py-2.5 outline-none focus:border-[#0c2444] focus:bg-white transition-all placeholder:text-slate-400 font-cairo"
+            />
+            <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
           {/* User & Actions */}
@@ -461,7 +639,6 @@ export const CustomerDetailsScreen: FC = () => {
 
               <button
                 type="button"
-                onClick={() => window.print()}
                 className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer"
               >
                 تحميل السجل
@@ -499,8 +676,18 @@ export const CustomerDetailsScreen: FC = () => {
                 
                 {/* Avatar with Verified Badge */}
                 <div className="relative mb-4">
-                  <div className="w-24 h-24 rounded-3xl overflow-hidden ring-4 ring-slate-100/80 shadow-md bg-gradient-to-tr from-[#0c2444] to-[#1e3a8a] text-white flex items-center justify-center font-bold text-3xl font-tajawal select-none">
-                    {customer.avatarLetter || 'ع'}
+                  <div className="w-24 h-24 rounded-3xl overflow-hidden ring-4 ring-slate-100/80 shadow-md bg-slate-100 flex items-center justify-center">
+                    <img
+                      src="/merchant-avatar.jpg"
+                      alt={customer.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                    <div className="w-full h-full bg-[#123663] text-white font-bold flex items-center justify-center text-2xl font-tajawal">
+                      {customer.avatarLetter || 'أ'}
+                    </div>
                   </div>
                   {/* Verified Green Shield / Check Badge */}
                   <div className="absolute -bottom-1 -left-1 w-7 h-7 bg-emerald-600 rounded-full border-2 border-white flex items-center justify-center text-white shadow-sm">
@@ -510,13 +697,13 @@ export const CustomerDetailsScreen: FC = () => {
 
                 {/* Name */}
                 <h2 className="text-xl font-extrabold font-tajawal text-[#0c2444]">
-                  {customer.name || 'عميل بدون اسم'}
+                  {customer.name || 'أحمد الراجحي'}
                 </h2>
 
                 {/* National ID Pill */}
                 <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-semibold font-mono" dir="rtl">
                   <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
-                  <span>معرف / هوية: {customer.nationalOrCrId || 'غير متوفر'}</span>
+                  <span>هوية: {customer.nationalOrCrId || 'غير متوفر'}</span>
                 </div>
 
                 {/* Divider */}
@@ -576,7 +763,9 @@ export const CustomerDetailsScreen: FC = () => {
                 {/* 1. Record New Payment Button */}
                 <button
                   type="button"
-                  className="w-full py-3 px-4 bg-[#007a3d] hover:bg-[#006633] text-white rounded-2xl text-sm font-bold flex items-center justify-center gap-2 shadow-sm hover:shadow-md transition-all active:scale-[0.99] cursor-pointer"
+                  onClick={() => navigate(`/customers/${customer.id}/payments/new`)}
+                  disabled={!customer.id}
+                  className="w-full py-3 px-4 bg-[#007a3d] hover:bg-[#006633] text-white rounded-2xl text-sm font-bold flex items-center justify-center gap-2 shadow-sm hover:shadow-md transition-all active:scale-[0.99] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <CreditCard className="w-4 h-4" />
                   <span>تسجيل دفعة جديدة</span>
@@ -585,7 +774,23 @@ export const CustomerDetailsScreen: FC = () => {
                 {/* 2. Add New Debt Button */}
                 <button
                   type="button"
-                  className="w-full py-3 px-4 bg-[#0c2444] hover:bg-[#123663] text-white rounded-2xl text-sm font-bold flex items-center justify-center gap-2 shadow-sm hover:shadow-md transition-all active:scale-[0.99] cursor-pointer"
+                  onClick={() =>
+                    navigate(PATHS.DEBT_NEW, {
+                      state: {
+                        presetCustomer: {
+                          id: customer.id,
+                          fullName: customer.name,
+                          phoneNumber: customer.phone ?? '',
+                          address: customer.address ?? '',
+                          totalDebt: customer.totalDebt,
+                          totalPaid: customer.totalPaid ?? 0,
+                          createdAt: customer.registrationDate ?? '',
+                        },
+                      },
+                    })
+                  }
+                  disabled={!customer.id}
+                  className="w-full py-3 px-4 bg-[#0c2444] hover:bg-[#123663] text-white rounded-2xl text-sm font-bold flex items-center justify-center gap-2 shadow-sm hover:shadow-md transition-all active:scale-[0.99] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <Plus className="w-4 h-4" />
                   <span>إضافة دين جديد</span>
@@ -594,7 +799,6 @@ export const CustomerDetailsScreen: FC = () => {
                 {/* 3. Export Statement PDF */}
                 <button
                   type="button"
-                  onClick={() => window.print()}
                   className="w-full py-3 px-4 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 shadow-2xs hover:shadow-xs transition-all cursor-pointer"
                 >
                   <FileText className="w-4 h-4 text-slate-500" />
@@ -605,6 +809,14 @@ export const CustomerDetailsScreen: FC = () => {
                 <button
                   type="button"
                   onClick={() => {
+                    // Frontend-only guard (the Delete Customer API doesn't
+                    // enforce this itself): block deletion up front — and
+                    // tell the merchant why — instead of opening the
+                    // confirmation modal only to fail on submit.
+                    if (customer.totalDebt > DEBT_ZERO_EPSILON) {
+                      showToast('لا يمكن حذف هذا العميل، فعليه ديون لم يتم تسديدها بعد.');
+                      return;
+                    }
                     setDeleteError(null);
                     setIsDeleteModalOpen(true);
                   }}
@@ -670,48 +882,43 @@ export const CustomerDetailsScreen: FC = () => {
                 </div>
 
                 {/* Timeline Items */}
-                {filteredActivities.length === 0 ? (
-                  <div className="py-12 text-center text-slate-400 space-y-2">
-                    <FileText className="w-10 h-10 mx-auto text-slate-300 stroke-[1.5]" />
-                    <p className="text-sm font-semibold">لا توجد معاملات مسجلة لهذا العميل حتى الآن</p>
-                  </div>
-                ) : (
-                  <div className="relative space-y-6 before:absolute before:top-4 before:bottom-4 before:right-5 before:w-0.5 before:bg-slate-100">
-                    {filteredActivities.map((act) => (
-                      <div key={act.id} className="relative flex items-start gap-4 sm:gap-5">
-                        
-                        {/* Timeline Icon Node */}
-                        <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 z-10 shadow-2xs ${act.iconBg}`}
-                        >
-                          {act.type === 'debt' && <Plus className="w-5 h-5 stroke-[2.5]" />}
-                          {act.type === 'payment' && <Check className="w-5 h-5 stroke-[2.5]" />}
-                          {act.type === 'alert' && <AlertTriangle className="w-5 h-5 text-slate-600" />}
-                        </div>
+                <div className="relative space-y-6 before:absolute before:top-4 before:bottom-4 before:right-5 before:w-0.5 before:bg-slate-100">
+                  {filteredActivities.map((act) => (
+                    <div key={act.id} className="relative flex items-start gap-4 sm:gap-5">
+                      
+                      {/* Timeline Icon Node */}
+                      <div
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 z-10 shadow-2xs ${act.iconBg}`}
+                      >
+                        {act.type === 'debt' && <Plus className="w-5 h-5 stroke-[2.5]" />}
+                        {act.type === 'payment' && <Check className="w-5 h-5 stroke-[2.5]" />}
+                        {act.type === 'alert' && <AlertTriangle className="w-5 h-5 text-slate-600" />}
+                      </div>
 
-                        {/* Content Card */}
-                        <div
-                          className={`flex-1 rounded-2xl p-4 sm:p-5 transition-all ${
-                            act.type === 'alert'
-                              ? 'bg-[#f8fafc] border-2 border-dashed border-slate-200'
-                              : 'bg-white border border-slate-100 shadow-2xs hover:shadow-xs'
-                          }`}
-                        >
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                            <div className="flex items-center gap-2.5 flex-wrap">
-                              <span className="font-bold text-[#0c2444] text-sm sm:text-base font-tajawal">
-                                {act.title}
+                      {/* Content Card */}
+                      <div
+                        className={`flex-1 rounded-2xl p-4 sm:p-5 transition-all ${
+                          act.type === 'alert'
+                            ? 'bg-[#f8fafc] border-2 border-dashed border-slate-200'
+                            : 'bg-white border border-slate-100 shadow-2xs hover:shadow-xs'
+                        }`}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="flex items-center gap-2.5 flex-wrap">
+                            <span className="font-bold text-[#0c2444] text-sm sm:text-base font-tajawal">
+                              {act.title}
+                            </span>
+                            {act.badgeText && (
+                              <span
+                                className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold ${act.badgeStyle}`}
+                              >
+                                {act.badgeText}
                               </span>
-                              {act.badgeText && (
-                                <span
-                                  className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold ${act.badgeStyle}`}
-                                >
-                                  {act.badgeText}
-                                </span>
-                              )}
-                            </div>
+                            )}
+                          </div>
 
-                            {/* Amount */}
+                          {/* Amount + Row Actions (Delete / Edit) */}
+                          <div className="flex items-center gap-3">
                             {act.amount && (
                               <div className="text-left" dir="ltr">
                                 <span className={`text-base sm:text-lg font-extrabold font-tajawal ${act.amountColor}`}>
@@ -722,31 +929,54 @@ export const CustomerDetailsScreen: FC = () => {
                                 </span>
                               </div>
                             )}
-                          </div>
 
-                          {/* Description */}
-                          <p className="text-xs sm:text-sm text-slate-500 mt-2 leading-relaxed font-normal">
-                            {act.description}
-                          </p>
-
-                          {/* Date & Running Balance */}
-                          <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
-                            <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono">
-                              <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                              <span>{act.date}</span>
-                            </div>
-                            {act.balanceLabel && (
-                              <span className="text-[11px] text-slate-400 font-mono" dir="ltr">
-                                الرصيد بعد العملية: {act.balanceLabel}
-                              </span>
+                            {act.type !== 'alert' && (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setActivityPendingDelete(act)}
+                                  aria-label="حذف العملية"
+                                  title="حذف"
+                                  className="w-8 h-8 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-500 flex items-center justify-center transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditActivityClick(act)}
+                                  aria-label="تعديل العملية"
+                                  title="تعديل"
+                                  className="w-8 h-8 rounded-lg bg-[#0c2444] hover:bg-[#123663] text-white flex items-center justify-center transition-colors cursor-pointer"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             )}
                           </div>
                         </div>
 
+                        {/* Description */}
+                        <p className="text-xs sm:text-sm text-slate-500 mt-2 leading-relaxed font-normal">
+                          {act.description}
+                        </p>
+
+                        {/* Date & Running Balance */}
+                        <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono">
+                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                            <span>{act.date}</span>
+                          </div>
+                          {act.balanceLabel && (
+                            <span className="text-[11px] text-slate-400 font-mono" dir="ltr">
+                              الرصيد بعد العملية: {act.balanceLabel}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                )}
+
+                    </div>
+                  ))}
+                </div>
 
                 {/* Footer Note */}
                 <div className="pt-4 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-400">
@@ -992,6 +1222,110 @@ export const CustomerDetailsScreen: FC = () => {
                 disabled={isDeletingCustomer}
                 onClick={() => setIsDeleteModalOpen(false)}
                 className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-50"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Activity (Debt/Payment) Confirmation Modal */}
+      {activityPendingDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs transition-opacity duration-200"
+          dir="rtl"
+          onClick={() => !isDeletingActivity && setActivityPendingDelete(null)}
+          aria-modal="true"
+          role="dialog"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 text-center transform transition-all duration-200 scale-100 animate-in fade-in zoom-in-95"
+          >
+            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 shadow-xs">
+              <Trash2 className="w-7 h-7" />
+            </div>
+
+            <h3 className="text-xl font-bold font-tajawal text-slate-900 mb-2">
+              {activityPendingDelete.type === 'debt' ? 'حذف الدين' : 'حذف الدفعة'}
+            </h3>
+
+            <p className="text-xs sm:text-sm text-slate-500 leading-relaxed mb-6 font-cairo">
+              هل أنت متأكد من حذف "{activityPendingDelete.title}"؟ لا يمكن التراجع عن هذا الإجراء.
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={confirmDeleteActivity}
+                disabled={isDeletingActivity}
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-bold bg-[#fecaca] hover:bg-[#fca5a5] text-[#b91c1c] transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isDeletingActivity ? 'جارٍ الحذف...' : 'حذف'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActivityPendingDelete(null)}
+                disabled={isDeletingActivity}
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hard-Delete Debt Confirmation Modal — shown when the backend
+          reports the debt has associated payments (DELETE /api/Debt/{id}
+          responded 400 with requiresConfirmation=true) and deleting it
+          means deleting every linked payment too. */}
+      {debtPendingHardDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs transition-opacity duration-200"
+          dir="rtl"
+          onClick={() => !isDeletingActivity && setDebtPendingHardDelete(null)}
+          aria-modal="true"
+          role="dialog"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 text-center transform transition-all duration-200 scale-100 animate-in fade-in zoom-in-95"
+          >
+            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 shadow-xs">
+              <AlertTriangle className="w-7 h-7" />
+            </div>
+
+            <h3 className="text-xl font-bold font-tajawal text-slate-900 mb-2">
+              هذا الدين مرتبط بدفعات
+            </h3>
+
+            <p className="text-xs sm:text-sm text-slate-500 leading-relaxed mb-6 font-cairo">
+              يحتوي هذا الدين على{' '}
+              {debtPendingHardDelete.paymentsCount > 0
+                ? `${debtPendingHardDelete.paymentsCount} دفعة/دفعات مرتبطة به`
+                : 'دفعات مرتبطة به'}
+              . حذف الدين سيؤدي أيضاً إلى حذف جميع الدفعات المرتبطة به، ولا يمكن التراجع عن هذا
+              الإجراء. هل أنت متأكد من المتابعة؟
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={confirmHardDeleteDebt}
+                disabled={isDeletingActivity}
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-bold bg-[#fecaca] hover:bg-[#fca5a5] text-[#b91c1c] transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isDeletingActivity ? 'جارٍ الحذف...' : 'حذف الدين والدفعات'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDebtPendingHardDelete(null)}
+                disabled={isDeletingActivity}
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 إلغاء
               </button>

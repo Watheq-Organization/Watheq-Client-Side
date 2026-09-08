@@ -68,6 +68,11 @@ export interface UpdateCustomerPayload {
  * `paymentMethod` is the inverse (populated for Payment, null for Debt).
  */
 export interface CustomerProfileTransactionDto {
+  /** Real numeric id of the underlying Debt or Payment record (debt.Id /
+   * payment.Id per the documented API). Lets the edit icon in the
+   * Financial Activity Log call PUT /api/Debt/{id} directly, without
+   * needing the local "editable debt" cache. */
+  id: number;
   type: 'Debt' | 'Payment' | string;
   date: string;
   amount: number;

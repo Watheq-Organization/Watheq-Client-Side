@@ -36,7 +36,7 @@ export const Sidebar: FC<SidebarProps> = ({
   const navItems = [
     { id: 'dashboard', label: 'لوحة القيادة', icon: LayoutDashboard, path: PATHS.DASHBOARD },
     { id: 'customers', label: 'العملاء', icon: Users, path: PATHS.CUSTOMERS },
-    { id: 'add-debt', label: 'إضافة دين', icon: CreditCard },
+    { id: 'add-debt', label: 'إضافة دين', icon: CreditCard, path: PATHS.DEBT_NEW },
     { id: 'reports', label: 'التقارير', icon: BarChart3 },
     { id: 'reminder-settings', label: 'إعدادات التذكيرات', icon: BellRing },
     { id: 'subscriptions', label: 'الاشتراكات', icon: Tv2 },

@@ -12,6 +12,8 @@ import { ContactPage } from '../pages/ContactPage.tsx';
 import { PrivacyPolicyPage } from '../pages/PrivacyPolicyPage.tsx';
 import { CustomersPage } from '../pages/CustomersPage';
 import { CustomerDetailsPage } from '../pages/CustomerDetailsPage';
+import { NewPaymentPage } from '../pages/NewPaymentPage';
+import { AddDebtPage } from '../pages/AddDebtPage';
 
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { VerifyResetOtpPage } from '../pages/VerifyResetOtpPage';
@@ -52,6 +54,22 @@ export const AppRoutes: FC = () => {
         element={
           <ProtectedRoute>
             <CustomerDetailsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={PATHS.PAYMENT_NEW}
+        element={
+          <ProtectedRoute>
+            <NewPaymentPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={PATHS.DEBT_NEW}
+        element={
+          <ProtectedRoute>
+            <AddDebtPage />
           </ProtectedRoute>
         }
       />
