@@ -5,7 +5,7 @@
       "destination": "http://whateq.runasp.net/api/:path*"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]

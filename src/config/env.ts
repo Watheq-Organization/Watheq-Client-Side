@@ -11,19 +11,17 @@
  * always resolves correctly.
  */
 
-/**
- * In production / on HTTPS (e.g. Vercel deployment), requests to http://
- * are blocked by browsers as Mixed Content.
- * When on HTTPS, we default to the relative /api proxy rewrite configured in vercel.json
- * unless an explicit VITE_API_BASE_URL is provided in the environment.
- */
-const getDefaultApiBaseUrl = (): string => {
+function resolveApiBaseUrl(): string {
   if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
-    return '/api';
+    const envUrl = import.meta.env.VITE_API_BASE_URL as string | undefined;
+    if (!envUrl || envUrl.startsWith('http://')) {
+      return '/api';
+    }
+    return envUrl;
   }
-  return 'http://whateq.runasp.net/api';
-};
+  return (import.meta.env.VITE_API_BASE_URL as string | undefined) || 'http://whateq.runasp.net/api';
+}
 
-export const API_BASE_URL: string =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined) || getDefaultApiBaseUrl();
+export const API_BASE_URL: string = resolveApiBaseUrl();
+
 
