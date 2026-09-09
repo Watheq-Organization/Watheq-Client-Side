@@ -30,6 +30,8 @@ import {
   toUpdateCustomerErrorMessage,
   deleteCustomer,
   toDeleteCustomerErrorMessage,
+  getStoredTotalPaid,
+  setStoredTotalPaid,
 } from '../../services/customerService';
 import {
   getEditableDebt,
@@ -326,6 +328,7 @@ export const CustomerDetailsScreen: FC = () => {
       try {
         await deletePayment(activity.recordId);
         setActivityPendingDelete(null);
+        setStoredTotalPaid(customer.id, Math.max(0, computedTotalPaid - (activity.rawAmount || 0)));
         loadCustomerProfile();
         showToast('تم حذف الدفعة بنجاح.');
       } catch (err) {
@@ -527,6 +530,37 @@ export const CustomerDetailsScreen: FC = () => {
     const lastPayment = profileTransactions.find((tx) => tx.type === 'Payment');
     return lastPayment ? lastPayment.amount : 0;
   }, [profileTransactions]);
+
+  // Real total paid: combines backend customer.totalPaid, transactions history sum,
+  // debt differential (totalDebt - currentBalance), and locally persisted payment total.
+  const computedTotalPaid = useMemo(() => {
+    const transactionsPaid = profileTransactions.reduce((acc, tx) => {
+      const typeStr = String(tx.type || '').toLowerCase();
+      if (
+        typeStr.includes('payment') ||
+        typeStr.includes('pay') ||
+        typeStr.includes('دفعة') ||
+        typeStr.includes('سداد')
+      ) {
+        return acc + (Number(tx.amount) || 0);
+      }
+      return acc;
+    }, 0);
+
+    const diffPaid =
+      customer.totalDebt > 0 && currentBalance >= 0 && customer.totalDebt > currentBalance
+        ? customer.totalDebt - currentBalance
+        : 0;
+
+    const storedPaid = getStoredTotalPaid(customer.id);
+
+    return Math.max(
+      customer.totalPaid || 0,
+      transactionsPaid,
+      diffPaid,
+      storedPaid
+    );
+  }, [customer.totalPaid, customer.totalDebt, customer.id, profileTransactions, currentBalance]);
 
   // Filter activities based on tab and search
   const filteredActivities = useMemo(() => {
@@ -761,7 +795,7 @@ export const CustomerDetailsScreen: FC = () => {
                       <span>إجمالي المدفوع</span>
                     </div>
                     <span className="font-bold text-slate-800 font-mono" dir="ltr">
-                      {(customer.totalPaid ?? 0).toFixed(2)} ر.س
+                      {computedTotalPaid.toFixed(2)} ر.س
                     </span>
                   </div>
 
@@ -804,7 +838,7 @@ export const CustomerDetailsScreen: FC = () => {
                           phoneNumber: customer.phone ?? '',
                           address: customer.address ?? '',
                           totalDebt: customer.totalDebt,
-                          totalPaid: customer.totalPaid ?? 0,
+                          totalPaid: computedTotalPaid,
                           createdAt: customer.registrationDate ?? '',
                         },
                       },

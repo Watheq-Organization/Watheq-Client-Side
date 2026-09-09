@@ -161,6 +161,20 @@ export const CustomersScreen: FC = () => {
       });
   }, [customers, activeTabFilter, searchQuery, sortBy]);
 
+  const ITEMS_PER_PAGE = 5;
+  const totalPages = Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE) || 1;
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, filteredCustomers.length);
+
+  const paginatedCustomers = useMemo(() => {
+    return filteredCustomers.slice(startIndex, endIndex);
+  }, [filteredCustomers, startIndex, endIndex]);
+
+  // Reset to first page when filtering or searching
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, activeTabFilter, sortBy]);
+
   const handleAddCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -477,7 +491,7 @@ export const CustomersScreen: FC = () => {
                       </td>
                     </tr>
                   ) : (
-                    filteredCustomers.map((customer) => (
+                    paginatedCustomers.map((customer) => (
                       <tr
                         key={customer.id}
                         onClick={() => navigate(`/customers/${customer.id}`)}
@@ -579,76 +593,35 @@ export const CustomersScreen: FC = () => {
             {/* Pagination Controls */}
             <div className="p-4 sm:p-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs sm:text-sm">
               <span className="text-slate-500 font-medium">
-                عرض 1 إلى {filteredCustomers.length} من {(totalCustomersCount ?? filteredCustomers.length).toLocaleString('ar-SA')} عميل
+                {filteredCustomers.length === 0
+                  ? 'لا يوجد عملاء'
+                  : `عرض ${(startIndex + 1).toLocaleString('ar-SA')} إلى ${endIndex.toLocaleString('ar-SA')} من ${(totalCustomersCount ?? filteredCustomers.length).toLocaleString('ar-SA')} عميل`}
               </span>
 
-              <div className="flex items-center gap-1.5" dir="ltr">
+              {/* Two arrows (Right and Left) */}
+              <div className="flex items-center gap-2">
+                {/* Right Arrow (Previous page) */}
                 <button
                   type="button"
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
                   disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage(1)}
-                  className={`w-8 h-8 rounded-lg font-bold text-xs ${
-                    currentPage === 1
-                      ? 'bg-[#123663] text-white shadow-xs'
-                      : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  1
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage(2)}
-                  className={`w-8 h-8 rounded-lg font-bold text-xs ${
-                    currentPage === 2
-                      ? 'bg-[#123663] text-white shadow-xs'
-                      : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  2
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage(3)}
-                  className={`w-8 h-8 rounded-lg font-bold text-xs ${
-                    currentPage === 3
-                      ? 'bg-[#123663] text-white shadow-xs'
-                      : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  3
-                </button>
-
-                <span className="px-1 text-slate-400">...</span>
-
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage(12)}
-                  className={`w-8 h-8 rounded-lg font-bold text-xs ${
-                    currentPage === 12
-                      ? 'bg-[#123663] text-white shadow-xs'
-                      : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  12
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((p) => Math.min(12, p + 1))}
-                  className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
-                  disabled={currentPage === 12}
+                  className="p-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-2xs cursor-pointer"
+                  title="الصفحة السابقة"
+                  aria-label="الصفحة السابقة"
                 >
                   <ChevronRight className="w-4 h-4" />
+                </button>
+
+                {/* Left Arrow (Next page) */}
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages}
+                  className="p-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-2xs cursor-pointer"
+                  title="الصفحة التالية"
+                  aria-label="الصفحة التالية"
+                >
+                  <ChevronLeft className="w-4 h-4" />
                 </button>
               </div>
             </div>
