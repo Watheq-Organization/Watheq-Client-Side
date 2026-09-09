@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { httpClient, ApiError } from '../api/httpClient';
+import { httpClient } from '../api/httpClient';
 import { getStoredToken } from '../lib/authToken';
 
 export interface MerchantProfile {
@@ -103,7 +103,7 @@ export function getStoredMerchantProfile(): MerchantProfile {
     email: stored.email?.trim() || DEFAULT_MERCHANT_PROFILE.email,
     phoneNumber: stored.phoneNumber?.trim() || DEFAULT_MERCHANT_PROFILE.phoneNumber,
     address: stored.address?.trim() || DEFAULT_MERCHANT_PROFILE.address,
-    profileImagePath: stored.profileImagePath || DEFAULT_MERCHANT_PROFILE.profileImagePath,
+    profileImagePath: normalizeProfileImageUrl(stored.profileImagePath),
   };
 }
 
@@ -147,6 +147,48 @@ export function useMerchantProfile(): MerchantProfile {
 }
 
 /**
+/**
+ * Ensures profile image URLs are properly formatted for both local dev and production on Vercel.
+ * Prevents mixed-content blocking (HTTP on HTTPS) and fixes relative paths from backend.
+ */
+export function normalizeProfileImageUrl(path?: string | null): string {
+  if (!path || !path.trim()) return '/merchant-avatar.jpg';
+  const trimmed = path.trim();
+
+  // If already base64 data URL, blob, or local static asset
+  if (
+    trimmed.startsWith('data:') ||
+    trimmed.startsWith('blob:') ||
+    trimmed.startsWith('/merchant-avatar')
+  ) {
+    return trimmed;
+  }
+
+  // If it's a backend URL on whateq.runasp.net
+  if (trimmed.includes('whateq.runasp.net')) {
+    const cleanRelative = trimmed.replace(/^https?:\/\/whateq\.runasp\.net/, '');
+    const pathWithSlash = cleanRelative.startsWith('/') ? cleanRelative : `/${cleanRelative}`;
+    // In production HTTPS (e.g. Vercel), route through proxy to avoid mixed content block
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+      return pathWithSlash;
+    }
+    return `http://whateq.runasp.net${pathWithSlash}`;
+  }
+
+  // If it's an absolute external URL
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+
+  // If relative path from backend (e.g. /uploads/... or Uploads/...)
+  const pathWithSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+    return pathWithSlash;
+  }
+  return `http://whateq.runasp.net${pathWithSlash}`;
+}
+
+/**
  * GET http://whateq.runasp.net/api/MerchantProfile/getProfile
  * Fetches merchant profile from backend, falling back to stored registration data
  */
@@ -159,6 +201,12 @@ export async function getMerchantProfile(): Promise<MerchantProfile> {
 
     if (unwrapped && typeof unwrapped === 'object') {
       const obj = unwrapped as Record<string, unknown>;
+      const rawImage =
+        (typeof obj.profileImagePath === 'string' && obj.profileImagePath) ||
+        (typeof obj.ProfileImagePath === 'string' && obj.ProfileImagePath) ||
+        (typeof obj.imagePath === 'string' && obj.imagePath) ||
+        (typeof obj.ImagePath === 'string' && obj.ImagePath);
+
       const serverProfile: MerchantProfile = {
         businessName:
           (typeof obj.businessName === 'string' && obj.businessName.trim()) ||
@@ -180,10 +228,7 @@ export async function getMerchantProfile(): Promise<MerchantProfile> {
           (typeof obj.address === 'string' && obj.address.trim()) ||
           (typeof obj.Address === 'string' && obj.Address.trim()) ||
           localProfile.address,
-        profileImagePath:
-          (typeof obj.profileImagePath === 'string' && obj.profileImagePath) ||
-          (typeof obj.ProfileImagePath === 'string' && obj.ProfileImagePath) ||
-          localProfile.profileImagePath,
+        profileImagePath: rawImage ? normalizeProfileImageUrl(rawImage) : localProfile.profileImagePath,
       };
 
       setStoredMerchantProfile(serverProfile);
@@ -214,23 +259,52 @@ export async function updateMerchantProfile(
     if (profile.address) formData.append('Address', profile.address.trim());
     if (profile.phoneNumber) formData.append('PhoneNumber', profile.phoneNumber.trim());
     if (profile.email) formData.append('Email', profile.email.trim());
-    if (imageFile) formData.append('ProfileImageFile', imageFile);
 
-    await httpClient.put<unknown>('/MerchantProfile/UpdateProfile', formData);
+    // Extract UserId from JWT if available
+    const token = getStoredToken();
+    if (token) {
+      const claims = parseJwtClaims(token);
+      if (claims) {
+        const userId =
+          (claims['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] as string) ||
+          (claims['sub'] as string) ||
+          (claims['UserId'] as string) ||
+          (claims['nameid'] as string);
+        if (userId) formData.append('UserId', userId);
+      }
+    }
+
+    if (imageFile) {
+      formData.append('ProfileImageFile', imageFile);
+    }
+
+    const response = await httpClient.putForm<unknown>('/MerchantProfile/UpdateProfile', formData);
+    const unwrapped = extractProfileObject(response);
+
+    if (unwrapped && typeof unwrapped === 'object') {
+      const obj = unwrapped as Record<string, unknown>;
+      const serverImage =
+        (typeof obj.profileImagePath === 'string' && obj.profileImagePath) ||
+        (typeof obj.ProfileImagePath === 'string' && obj.ProfileImagePath);
+      if (serverImage) {
+        setStoredMerchantProfile({
+          ...profile,
+          profileImagePath: normalizeProfileImageUrl(serverImage),
+        });
+      }
+    }
   } catch (error) {
-    // If form-data fails, try JSON body as fallback
-    try {
-      await httpClient.put<unknown>('/MerchantProfile/UpdateProfile', {
-        fullName: profile.fullName?.trim(),
-        businessName: profile.businessName?.trim(),
-        phoneNumber: profile.phoneNumber?.trim(),
-        email: profile.email?.trim(),
-        address: profile.address?.trim() || null,
-      });
-    } catch {
-      // Re-throw if critical ApiError or proceed with saved local data
-      if (error instanceof ApiError && error.status >= 500) {
-        // Continue with local update
+    console.warn('Profile update with form-data error:', error);
+    // If form-data with extra fields failed, try with only standard Swagger fields
+    if (imageFile) {
+      try {
+        const minimalForm = new FormData();
+        if (profile.fullName) minimalForm.append('FullName', profile.fullName.trim());
+        if (profile.businessName) minimalForm.append('BusinessName', profile.businessName.trim());
+        minimalForm.append('ProfileImageFile', imageFile);
+        await httpClient.putForm<unknown>('/MerchantProfile/UpdateProfile', minimalForm);
+      } catch (fallbackErr) {
+        console.warn('Fallback minimal form update also failed:', fallbackErr);
       }
     }
   }
