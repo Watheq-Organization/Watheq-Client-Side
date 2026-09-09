@@ -16,7 +16,8 @@ import { AddDebtPage } from '../pages/AddDebtPage';
 import { NewPaymentPage } from '../pages/NewPaymentPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { SubscriptionsPage } from '../pages/SubscriptionsPage';
-
+import { ReportsPage } from '../pages/ReportsPage';
+import { PaymentsPage } from '../pages/PaymentsPage';
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { VerifyResetOtpPage } from '../pages/VerifyResetOtpPage';
 import { ResetPasswordPage } from '../pages/ResetPasswordPage';
@@ -88,6 +89,22 @@ export const AppRoutes: FC = () => {
         element={
           <ProtectedRoute>
             <SubscriptionsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={PATHS.REPORTS}
+        element={
+          <ProtectedRoute>
+            <ReportsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={PATHS.PAYMENTS}
+        element={
+          <ProtectedRoute>
+            <PaymentsPage />
           </ProtectedRoute>
         }
       />
