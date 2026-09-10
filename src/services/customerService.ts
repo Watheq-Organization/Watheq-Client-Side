@@ -236,7 +236,12 @@ function normalizeCustomerProfileTransaction(raw: unknown): CustomerProfileTrans
     balance: Number(r.balance) || 0,
     currencyCode: typeof r.currencyCode === 'string' ? r.currencyCode : '',
     status: typeof r.status === 'string' ? r.status : null,
-    paymentMethod: typeof r.paymentMethod === 'string' ? r.paymentMethod : null,
+    paymentMethod:
+      typeof r.paymentMethod === 'string'
+        ? r.paymentMethod
+        : typeof r.paymentMethod === 'number'
+        ? String(r.paymentMethod)
+        : null,
   };
 }
 
