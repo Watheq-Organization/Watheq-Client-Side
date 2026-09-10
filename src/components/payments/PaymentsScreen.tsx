@@ -1,739 +1,794 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Download,
-  Plus,
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-  RotateCw,
-  Filter,
-  Loader2,
-  AlertCircle,
   CreditCard,
   Banknote,
-  Wallet,
+  Landmark,
+  Plus,
+  Download,
+  ChevronDown,
+  RotateCcw,
+  MoreHorizontal,
   CheckCircle2,
   Clock,
-  MoreHorizontal,
-  Receipt,
-  TrendingUp,
-  Menu,
+  Check,
+  X,
+  FileText,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Share2,
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
-import { getCustomers, getCustomerProfile } from '../../services/customerService';
-import { getDashboardSummary } from '../../services/dashboardService';
 import { PATHS } from '../../routes/paths';
-
-/* ─────────────────────────────────────────────────────────── */
-/* Types                                                        */
-/* ─────────────────────────────────────────────────────────── */
-
-type PaymentStatus = 'verified' | 'pending' | 'all';
-type PaymentMethodFilter = 'all' | 'cash' | 'bank_transfer' | 'credit_card';
+import { getCustomers } from '../../services/customerService';
+import type { Customer } from '../../types/customer';
 
 interface PaymentRecord {
   id: string;
+  customerId: string;
   customerName: string;
   customerInitials: string;
-  customerColor: string;
+  customerAvatarBg: string;
   amount: number;
-  date: string; // ISO string
-  paymentMethod: 'cash' | 'bank_transfer' | 'credit_card';
-  status: 'verified' | 'pending';
+  date: string;
+  time: string;
+  method: 'تحويل بنكي' | 'نقداً' | 'مدى' | 'بطاقة ائتمان';
+  status: 'تم التحقق' | 'قيد الانتظار';
   receiptNumber?: string;
 }
 
-/* ─────────────────────────────────────────────────────────── */
-/* Helpers                                                      */
-/* ─────────────────────────────────────────────────────────── */
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(' ').filter(Boolean);
-  if (parts.length >= 2) return parts[0][0] + parts[1][0];
-  return parts[0]?.[0] ?? '؟';
-}
-
-const AVATAR_COLORS = [
-  'bg-[#0f3460]',
-  'bg-emerald-600',
-  'bg-violet-600',
-  'bg-amber-500',
-  'bg-rose-500',
-  'bg-sky-600',
-  'bg-teal-600',
-  'bg-orange-500',
+const INITIAL_PAYMENTS: PaymentRecord[] = [
+  {
+    id: 'pay-1',
+    customerId: '1',
+    customerName: 'محمد العتيبي',
+    customerInitials: 'مح',
+    customerAvatarBg: 'bg-indigo-100 text-indigo-700',
+    amount: 4500.0,
+    date: '2023-10-24',
+    time: '10:30 ص',
+    method: 'تحويل بنكي',
+    status: 'تم التحقق',
+    receiptNumber: 'REC-98214',
+  },
+  {
+    id: 'pay-2',
+    customerId: '2',
+    customerName: 'سارة الشمري',
+    customerInitials: 'سش',
+    customerAvatarBg: 'bg-purple-100 text-purple-700',
+    amount: 1250.0,
+    date: '2023-10-24',
+    time: '09:15 ص',
+    method: 'نقداً',
+    status: 'قيد الانتظار',
+    receiptNumber: 'REC-98215',
+  },
+  {
+    id: 'pay-3',
+    customerId: '3',
+    customerName: 'فهد الدوسري',
+    customerInitials: 'فه',
+    customerAvatarBg: 'bg-blue-100 text-blue-700',
+    amount: 12000.0,
+    date: '2023-10-23',
+    time: '04:45 م',
+    method: 'مدى',
+    status: 'تم التحقق',
+    receiptNumber: 'REC-98210',
+  },
+  {
+    id: 'pay-4',
+    customerId: '4',
+    customerName: 'عبدالله القحطاني',
+    customerInitials: 'عق',
+    customerAvatarBg: 'bg-emerald-100 text-emerald-700',
+    amount: 3200.0,
+    date: '2023-10-22',
+    time: '01:20 م',
+    method: 'تحويل بنكي',
+    status: 'تم التحقق',
+    receiptNumber: 'REC-98198',
+  },
+  {
+    id: 'pay-5',
+    customerId: '5',
+    customerName: 'ريم المطيري',
+    customerInitials: 'رم',
+    customerAvatarBg: 'bg-rose-100 text-rose-700',
+    amount: 850.0,
+    date: '2023-10-21',
+    time: '11:10 ص',
+    method: 'نقداً',
+    status: 'تم التحقق',
+    receiptNumber: 'REC-98180',
+  },
+  {
+    id: 'pay-6',
+    customerId: '6',
+    customerName: 'خالد السعد',
+    customerInitials: 'خس',
+    customerAvatarBg: 'bg-amber-100 text-amber-700',
+    amount: 6700.0,
+    date: '2023-10-20',
+    time: '03:40 م',
+    method: 'بطاقة ائتمان',
+    status: 'قيد الانتظار',
+    receiptNumber: 'REC-98172',
+  },
 ];
-
-function getAvatarColor(id: string): string {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) & 0xffffffff;
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
-
-function formatDate(iso: string): string {
-  try {
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return iso;
-    return d.toLocaleString('ar-SA', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-  } catch {
-    return iso;
-  }
-}
-
-function formatAmount(n: number): string {
-  return n.toLocaleString('ar-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function methodLabel(m: PaymentRecord['paymentMethod']): string {
-  if (m === 'cash') return 'نقداً';
-  if (m === 'bank_transfer') return 'تحويل بنكي';
-  return 'مدى';
-}
-
-function MethodIcon({ method }: { method: PaymentRecord['paymentMethod'] }) {
-  if (method === 'cash') return <Banknote className="w-4 h-4 text-emerald-600" />;
-  if (method === 'bank_transfer') return <CreditCard className="w-4 h-4 text-blue-600" />;
-  return <Wallet className="w-4 h-4 text-violet-600" />;
-}
-
-function toDateInput(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
-/* ─────────────────────────────────────────────────────────── */
-/* Stat Card                                                    */
-/* ─────────────────────────────────────────────────────────── */
-
-interface StatCardProps {
-  label: string;
-  value: string | number;
-  sub?: string;
-  icon: React.ReactNode;
-  iconBg: string;
-  trend?: string;
-  trendUp?: boolean;
-}
-
-const StatCard: FC<StatCardProps> = ({ label, value, sub, icon, iconBg, trend, trendUp }) => (
-  <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5 flex flex-col gap-3 min-w-0">
-    <div className="flex items-start justify-between gap-2">
-      <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}>
-        {icon}
-      </div>
-      {trend && (
-        <span
-          className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-            trendUp ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600'
-          }`}
-        >
-          {trendUp ? '▲' : '▼'} {trend}
-        </span>
-      )}
-    </div>
-    <div>
-      <p className="text-2xl font-extrabold text-slate-900 font-tajawal leading-tight">{value}</p>
-      {sub && <p className="text-xs text-slate-500 font-tajawal mt-0.5">{sub}</p>}
-      <p className="text-xs font-medium text-slate-500 font-tajawal mt-1">{label}</p>
-    </div>
-  </div>
-);
-
-/* ─────────────────────────────────────────────────────────── */
-/* Add Customer Stat Card (placeholder)                         */
-/* ─────────────────────────────────────────────────────────── */
-
-const AddStatCard: FC<{ onClick: () => void }> = ({ onClick }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    className="bg-white rounded-2xl border-2 border-dashed border-slate-200 shadow-xs p-5 flex flex-col items-center justify-center gap-2 min-h-[120px] hover:border-[#0f284e] hover:bg-slate-50 transition-all duration-200 group cursor-pointer min-w-0"
-  >
-    <div className="w-10 h-10 rounded-xl bg-slate-100 group-hover:bg-[#0f284e]/10 flex items-center justify-center transition-colors">
-      <Plus className="w-5 h-5 text-slate-400 group-hover:text-[#0f284e] transition-colors" />
-    </div>
-    <span className="text-xs font-semibold text-slate-400 group-hover:text-[#0f284e] font-tajawal transition-colors">
-      أضف ملخصاً جديداً
-    </span>
-  </button>
-);
-
-/* ─────────────────────────────────────────────────────────── */
-/* ITEMS PER PAGE                                              */
-/* ─────────────────────────────────────────────────────────── */
-
-const PAGE_SIZE = 10;
-
-/* ─────────────────────────────────────────────────────────── */
-/* Main Screen                                                  */
-/* ─────────────────────────────────────────────────────────── */
 
 export const PaymentsScreen: FC = () => {
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  /* ── Data ── */
-  const [payments, setPayments] = useState<PaymentRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  // Filters
+  const [selectedMethod, setSelectedMethod] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [fromDate, setFromDate] = useState<string>('2023-01-01');
+  const [toDate, setToDate] = useState<string>('2023-12-31');
 
-  /* ── Summary stats ── */
-  const [totalCollected, setTotalCollected] = useState<number>(0);
-  const [verifiedCount, setVerifiedCount] = useState<number>(0);
-  const [pendingCount, setPendingCount] = useState<number>(0);
+  // Customer picker modal for "تسجيل تحصيل جديد"
+  const [isNewPaymentModalOpen, setIsNewPaymentModalOpen] = useState(false);
+  const [customersList, setCustomersList] = useState<Customer[]>([]);
+  const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState('');
 
-  /* ── Filters ── */
-  const today = new Date();
-  const firstOfYear = new Date(today.getFullYear(), 0, 1);
-  const [dateFrom, setDateFrom] = useState(toDateInput(firstOfYear));
-  const [dateTo, setDateTo] = useState(toDateInput(today));
-  const [statusFilter, setStatusFilter] = useState<PaymentStatus>('all');
-  const [methodFilter, setMethodFilter] = useState<PaymentMethodFilter>('all');
+  // Toast
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  /* ── Pagination ── */
+  // Active dropdown action row
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-
-  /* ── Toast ── */
-  const [toast, setToast] = useState<string | null>(null);
-
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  };
-
-  /* ─────────────────────────────────────────────────────── */
-  /* Load Data — derive payment records from customer profiles */
-  /* ─────────────────────────────────────────────────────── */
-
-  const loadPayments = useCallback(async () => {
-    setIsLoading(true);
-    setLoadError(null);
-    try {
-      // Fetch all customers
-      const customers = await getCustomers();
-
-      // Fetch profiles for up to 30 customers concurrently
-      const top = customers.slice(0, 30);
-      const profiles = await Promise.all(
-        top.map((c) => getCustomerProfile(c.id).catch(() => null))
-      );
-
-      // Also fetch dashboard summary for collected amount
-      const summary = await getDashboardSummary().catch(() => null);
-      if (summary) setTotalCollected(summary.collectedAmount);
-
-      const records: PaymentRecord[] = [];
-
-      profiles.forEach((profile, idx) => {
-        if (!profile || !profile.transactions) return;
-        const customer = top[idx];
-
-        profile.transactions.forEach((tx, txIdx) => {
-          const typeStr = String(tx.type ?? '').toLowerCase();
-          const isPayment =
-            typeStr.includes('pay') ||
-            typeStr.includes('دفعة') ||
-            typeStr.includes('سداد') ||
-            typeStr === 'payment';
-
-          if (!isPayment) return;
-
-          // Derive method from paymentMethod field
-          let method: PaymentRecord['paymentMethod'] = 'cash';
-          const mStr = String(tx.paymentMethod ?? '').toLowerCase();
-          if (mStr.includes('bank') || mStr.includes('transfer') || mStr === '2') {
-            method = 'bank_transfer';
-          } else if (
-            mStr.includes('credit') ||
-            mStr.includes('card') ||
-            mStr.includes('wallet') ||
-            mStr.includes('مدى') ||
-            mStr === '3'
-          ) {
-            method = 'credit_card';
-          }
-
-          // Derive status
-          const statusStr = String(tx.status ?? '').toLowerCase();
-          const status: PaymentRecord['status'] =
-            statusStr.includes('pending') || statusStr.includes('انتظار') ? 'pending' : 'verified';
-
-          const customerId = String(customer.id ?? idx);
-          records.push({
-            id: `pay-${customerId}-${txIdx}`,
-            customerName: customer.fullName || 'عميل',
-            customerInitials: getInitials(customer.fullName || 'عميل'),
-            customerColor: getAvatarColor(customerId),
-            amount: Number(tx.amount) || 0,
-            date: tx.date ?? new Date().toISOString(),
-            paymentMethod: method,
-            status,
-            receiptNumber: tx.reference || undefined,
-          });
-        });
-      });
-
-      // Sort newest first
-      records.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-      setPayments(records);
-      setVerifiedCount(records.filter((r) => r.status === 'verified').length);
-      setPendingCount(records.filter((r) => r.status === 'pending').length);
-    } catch (err) {
-      console.error('[PaymentsScreen] load error:', err);
-      setLoadError('تعذر تحميل سجل المدفوعات. يرجى المحاولة مرة أخرى.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const ITEMS_PER_PAGE = 3;
 
   useEffect(() => {
-    loadPayments();
-  }, [loadPayments]);
+    setIsLoadingCustomers(true);
+    getCustomers()
+      .then((data) => {
+        setCustomersList(
+          data.map((dto) => ({
+            id: dto.id,
+            name: dto.fullName || 'عميل بدون اسم',
+            type: 'individual',
+            typeLabel: 'عميل أفراد',
+            nationalOrCrId: dto.nationalId || '',
+            totalDebt: dto.totalDebt || 0,
+            status: dto.status as any,
+            statusLabel: 'نشط',
+            avatarLetter: (dto.fullName || 'ع').charAt(0),
+            avatarBg: 'bg-blue-100 text-blue-700',
+            phone: dto.phoneNumber,
+          }))
+        );
+      })
+      .catch(() => { })
+      .finally(() => setIsLoadingCustomers(false));
+  }, []);
 
-  /* ─────────────────────────────────────────────────────── */
-  /* Filtering & Pagination                                    */
-  /* ─────────────────────────────────────────────────────── */
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
+  const handleResetFilters = () => {
+    setSelectedMethod('all');
+    setSelectedStatus('all');
+    setFromDate('2023-01-01');
+    setToDate('2023-12-31');
+    setSearchQuery('');
+    setCurrentPage(1);
+    showToast('تمت إعادة ضبط خيارات التصفية.');
+  };
+
+  const handleExportData = () => {
+    const csvContent =
+      'data:text/csv;charset=utf-8,' +
+      ['الاسم,المبلغ,التاريخ,الوقت,طريقة الدفع,الحالة,رقم الإيصال']
+        .concat(
+          filteredPayments.map(
+            (p) =>
+              `"${p.customerName}",${p.amount},"${p.date}","${p.time}","${p.method}","${p.status}","${p.receiptNumber ?? ''}"`
+          )
+        )
+        .join('\n');
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', 'watheq_payments_log.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('تم تصدير سجل المدفوعات بنجاح.');
+  };
+
+  // Filtered Payments
   const filteredPayments = useMemo(() => {
-    const from = dateFrom ? new Date(dateFrom).getTime() : null;
-    const to = dateTo ? new Date(dateTo + 'T23:59:59').getTime() : null;
+    return INITIAL_PAYMENTS.filter((payment) => {
+      // Search filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchName = payment.customerName.toLowerCase().includes(q);
+        const matchAmount = payment.amount.toString().includes(q);
+        const matchReceipt = payment.receiptNumber?.toLowerCase().includes(q) ?? false;
+        if (!matchName && !matchAmount && !matchReceipt) return false;
+      }
 
-    return payments.filter((p) => {
-      const pTime = new Date(p.date).getTime();
-      if (from && pTime < from) return false;
-      if (to && pTime > to) return false;
-      if (statusFilter !== 'all' && p.status !== statusFilter) return false;
-      if (methodFilter !== 'all' && p.paymentMethod !== methodFilter) return false;
+      // Method filter
+      if (selectedMethod !== 'all' && payment.method !== selectedMethod) {
+        return false;
+      }
+
+      // Status filter
+      if (selectedStatus !== 'all' && payment.status !== selectedStatus) {
+        return false;
+      }
+
+      // Date range filter
+      if (fromDate && payment.date < fromDate) {
+        return false;
+      }
+      if (toDate && payment.date > toDate) {
+        return false;
+      }
+
       return true;
     });
-  }, [payments, dateFrom, dateTo, statusFilter, methodFilter]);
+  }, [searchQuery, selectedMethod, selectedStatus, fromDate, toDate]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredPayments.length / PAGE_SIZE));
-  const safePage = Math.min(currentPage, totalPages);
-  const pagedPayments = filteredPayments.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const totalPages = Math.ceil(filteredPayments.length / ITEMS_PER_PAGE) || 1;
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedPayments = filteredPayments.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
-  const resetFilters = () => {
-    setDateFrom(toDateInput(firstOfYear));
-    setDateTo(toDateInput(today));
-    setStatusFilter('all');
-    setMethodFilter('all');
-    setCurrentPage(1);
-  };
-
-  /* ─────────────────────────────────────────────────────── */
-  /* CSV Export                                               */
-  /* ─────────────────────────────────────────────────────── */
-
-  const handleExport = () => {
-    if (filteredPayments.length === 0) {
-      showToast('لا توجد بيانات للتصدير.');
-      return;
+  const getMethodIcon = (method: PaymentRecord['method']) => {
+    switch (method) {
+      case 'تحويل بنكي':
+        return <Landmark className="w-4 h-4 text-slate-500" />;
+      case 'نقداً':
+        return <Banknote className="w-4 h-4 text-slate-500" />;
+      case 'مدى':
+      case 'بطاقة ائتمان':
+        return <CreditCard className="w-4 h-4 text-slate-500" />;
+      default:
+        return <Banknote className="w-4 h-4 text-slate-500" />;
     }
-    const rows = [
-      ['اسم العميل', 'المبلغ (ر.س)', 'التاريخ', 'طريقة الدفع', 'الحالة', 'رقم الإيصال'],
-      ...filteredPayments.map((p) => [
-        p.customerName,
-        p.amount.toFixed(2),
-        formatDate(p.date),
-        methodLabel(p.paymentMethod),
-        p.status === 'verified' ? 'تم التحقق' : 'في انتظار التأكيد',
-        p.receiptNumber ?? '',
-      ]),
-    ];
-    const csv = '\uFEFF' + rows.map((r) => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'سجل_المدفوعات.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast('تم تصدير البيانات بنجاح.');
   };
 
-  /* ─────────────────────────────────────────────────────── */
-  /* Pagination helpers                                       */
-  /* ─────────────────────────────────────────────────────── */
-
-  const pageNumbers = useMemo(() => {
-    if (totalPages <= 5) return Array.from({ length: totalPages }, (_, i) => i + 1);
-    if (safePage <= 3) return [1, 2, 3, 4, 5];
-    if (safePage >= totalPages - 2) return [totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
-    return [safePage - 2, safePage - 1, safePage, safePage + 1, safePage + 2];
-  }, [totalPages, safePage]);
-
-  /* ─────────────────────────────────────────────────────── */
-  /* Render                                                   */
-  /* ─────────────────────────────────────────────────────── */
+  const filteredCustomerList = useMemo(() => {
+    if (!customerSearch.trim()) return customersList;
+    const q = customerSearch.toLowerCase().trim();
+    return customersList.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (c.phone && c.phone.includes(q)) ||
+        (c.nationalOrCrId && c.nationalOrCrId.includes(q))
+    );
+  }, [customersList, customerSearch]);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex" dir="rtl">
-      {/* Sidebar */}
+    <div
+      className="min-h-screen bg-[#f4f7fb] text-slate-800 font-cairo antialiased flex"
+      dir="rtl"
+    >
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-[#051838] text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200 border border-white/10">
+          <Check className="w-5 h-5 text-emerald-400 shrink-0" />
+          <span className="text-sm font-medium">{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Sidebar Navigation */}
       <Sidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         activeTab="payments"
       />
 
-      {/* Main Content */}
-      <div className="flex-1 lg:mr-72 flex flex-col min-w-0">
-        {/* Header */}
-        <Header onMenuClick={() => setIsSidebarOpen(true)} />
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 lg:mr-72 transition-all duration-300">
+        {/* Top Header */}
+        <Header
+          onMenuClick={() => setIsSidebarOpen(true)}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="البحث في العمليات..."
+        />
 
-        {/* Page Body */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-screen-xl mx-auto w-full">
-
-          {/* ── Page Title + Actions ── */}
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
-            <div>
-              <h1 className="text-2xl font-extrabold text-slate-900 font-tajawal">
+        {/* Payments Body Content */}
+        <main className="p-4 sm:p-6 lg:p-8 space-y-6 flex-1">
+          {/* Top Title & Action Buttons */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="text-right">
+              <h1 className="text-2xl sm:text-3xl font-bold font-tajawal text-slate-900 tracking-tight">
                 سجل المدفوعات
               </h1>
-              <p className="text-sm text-slate-500 font-tajawal mt-1">
+              <p className="mt-1 text-sm font-medium text-slate-500 font-cairo">
                 تتبع وإدارة جميع التحصيلات المالية من العملاء بدقة.
               </p>
             </div>
+
+            {/* Top Action Buttons */}
             <div className="flex items-center gap-3 flex-wrap">
+              {/* Green New Payment Button */}
               <button
                 type="button"
-                onClick={handleExport}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 shadow-xs font-tajawal"
+                onClick={() => setIsNewPaymentModalOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#007a3d] hover:bg-[#006633] text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs hover:shadow-md transition-all active:scale-98 cursor-pointer"
               >
-                <Download className="w-4 h-4" />
-                تصدير البيانات
+                <Banknote className="w-4 h-4" />
+                <span>تسجيل تحصيل جديد</span>
               </button>
+
+              {/* Export Data Button */}
               <button
                 type="button"
-                onClick={() => navigate(PATHS.CUSTOMERS)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0f284e] text-white text-sm font-semibold hover:bg-[#1a3a6b] active:scale-95 transition-all duration-200 shadow-sm font-tajawal"
+                onClick={handleExportData}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-xl text-xs sm:text-sm font-bold shadow-2xs hover:shadow-xs transition-all active:scale-98 cursor-pointer"
               >
-                <Plus className="w-4 h-4" />
-                تسجيل تحصيل جديد
+                <Download className="w-4 h-4 text-slate-500" />
+                <span>تصدير البيانات</span>
               </button>
             </div>
           </div>
 
-          {/* ── Stat Cards ── */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <AddStatCard onClick={() => navigate(PATHS.CUSTOMERS)} />
+          {/* 4 Summary Stat Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+            {/* Card 1: إجمالي المحصل (أكتوبر) */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5 flex flex-col justify-between hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#2563eb] flex items-center justify-center">
+                  <CreditCard className="w-5 h-5" />
+                </div>
+                <span className="text-xs text-slate-400 font-medium">إجمالي المحصل (أكتوبر)</span>
+              </div>
+              <div className="mt-4 text-right">
+                <div className="flex items-baseline gap-1.5 justify-start">
+                  <span className="text-2xl sm:text-3xl font-bold font-tajawal text-[#051838] tracking-tight">
+                    145,280
+                  </span>
+                  <span className="text-xs text-slate-400 font-medium font-cairo">ريال</span>
+                </div>
+                <div className="mt-1 flex items-center gap-1 text-xs text-emerald-600 font-semibold">
+                  <span>↗ +12%</span>
+                </div>
+              </div>
+            </div>
 
-            <StatCard
-              label="إجمالي المحصّل (أكتوبر)"
-              value={`${formatAmount(totalCollected)} ر.س`}
-              icon={<TrendingUp className="w-5 h-5 text-white" />}
-              iconBg="bg-[#0f284e]"
-              trend="+12%"
-              trendUp
-            />
+            {/* Card 2: عمليات تم التحقق منها */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5 flex flex-col justify-between hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <span className="text-xs text-slate-400 font-medium">عمليات تم التحقق منها</span>
+              </div>
+              <div className="mt-4 text-right">
+                <span className="text-2xl sm:text-3xl font-bold font-tajawal text-[#051838] tracking-tight">
+                  342
+                </span>
+              </div>
+            </div>
 
-            <StatCard
-              label="عمليات تم التحقق منها"
-              value={verifiedCount}
-              icon={<CheckCircle2 className="w-5 h-5 text-white" />}
-              iconBg="bg-emerald-500"
-            />
+            {/* Card 3: عمليات في انتظار التأكيد */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5 flex flex-col justify-between hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <span className="text-xs text-slate-400 font-medium">عمليات في انتظار التأكيد</span>
+              </div>
+              <div className="mt-4 text-right">
+                <span className="text-2xl sm:text-3xl font-bold font-tajawal text-[#051838] tracking-tight">
+                  18
+                </span>
+              </div>
+            </div>
 
-            <StatCard
-              label="عمليات في انتظار التأكيد"
-              value={pendingCount}
-              icon={<Clock className="w-5 h-5 text-white" />}
-              iconBg="bg-rose-400"
-            />
+            {/* Card 4: أضف ملخصاً جديداً (Dashed) */}
+            <div
+              onClick={() => showToast('ميزة إضافة ملخصات مخصصة ستتوفر في التحديث القادم.')}
+              className="rounded-2xl border-2 border-dashed border-slate-200 bg-white/50 hover:bg-slate-50/80 hover:border-slate-300 p-5 flex flex-col items-center justify-center text-center cursor-pointer transition-all shadow-2xs group"
+            >
+              <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 group-hover:text-slate-700 flex items-center justify-center mb-1.5 transition-colors">
+                <Plus className="w-4 h-4" />
+              </div>
+              <span className="text-xs font-bold text-slate-500 group-hover:text-slate-800 transition-colors">
+                أضف ملخصاً جديداً
+              </span>
+            </div>
           </div>
 
-          {/* ── Filters Bar ── */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-4 mb-4">
+          {/* Filter Bar: تصفية حسب */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-4 flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-3">
-              {/* Filter label */}
-              <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-600 font-tajawal ml-auto sm:ml-0">
-                <Filter className="w-4 h-4" />
-                <span>تصفية حسب:</span>
-              </div>
+              <span className="text-xs text-slate-500 font-bold whitespace-nowrap">
+                تصفية حسب:
+              </span>
 
-              {/* Method Filter */}
+              {/* Method Filter Dropdown */}
               <div className="relative">
                 <select
-                  id="method-filter"
-                  value={methodFilter}
-                  onChange={(e) => { setMethodFilter(e.target.value as PaymentMethodFilter); setCurrentPage(1); }}
-                  className="appearance-none bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 pr-8 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0f284e]/20 focus:border-[#0f284e] cursor-pointer font-tajawal min-w-[140px]"
+                  value={selectedMethod}
+                  onChange={(e) => {
+                    setSelectedMethod(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="appearance-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl px-3.5 py-2 pr-4 pl-8 text-xs font-semibold text-slate-700 outline-hidden cursor-pointer"
                 >
                   <option value="all">جميع طرق الدفع</option>
-                  <option value="cash">نقداً</option>
-                  <option value="bank_transfer">تحويل بنكي</option>
-                  <option value="credit_card">مدى</option>
+                  <option value="تحويل بنكي">تحويل بنكي</option>
+                  <option value="نقداً">نقداً</option>
+                  <option value="مدى">مدى</option>
+                  <option value="بطاقة ائتمان">بطاقة ائتمان</option>
                 </select>
-                <ChevronLeft className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none rotate-[-90deg]" />
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
 
-              {/* Status Filter */}
+              {/* Status Filter Dropdown */}
               <div className="relative">
                 <select
-                  id="status-filter"
-                  value={statusFilter}
-                  onChange={(e) => { setStatusFilter(e.target.value as PaymentStatus); setCurrentPage(1); }}
-                  className="appearance-none bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 pr-8 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0f284e]/20 focus:border-[#0f284e] cursor-pointer font-tajawal min-w-[140px]"
+                  value={selectedStatus}
+                  onChange={(e) => {
+                    setSelectedStatus(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="appearance-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl px-3.5 py-2 pr-4 pl-8 text-xs font-semibold text-slate-700 outline-hidden cursor-pointer"
                 >
                   <option value="all">جميع الحالات</option>
-                  <option value="verified">تم التحقق</option>
-                  <option value="pending">في الانتظار</option>
+                  <option value="تم التحقق">تم التحقق</option>
+                  <option value="قيد الانتظار">قيد الانتظار</option>
                 </select>
-                <ChevronLeft className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none rotate-[-90deg]" />
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
 
-              {/* Date From */}
-              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
-                <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
-                <input
-                  type="date"
-                  id="date-from"
-                  value={dateFrom}
-                  onChange={(e) => { setDateFrom(e.target.value); setCurrentPage(1); }}
-                  className="bg-transparent text-sm font-semibold text-slate-700 focus:outline-none font-tajawal"
-                />
+              {/* Date Range Inputs */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex items-center">
+                  <input
+                    type="date"
+                    value={fromDate}
+                    onChange={(e) => {
+                      setFromDate(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700 outline-hidden font-sans cursor-pointer"
+                  />
+                </div>
+                <span className="text-xs text-slate-400 font-medium">إلى</span>
+                <div className="relative flex items-center">
+                  <input
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => {
+                      setToDate(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700 outline-hidden font-sans cursor-pointer"
+                  />
+                </div>
               </div>
+            </div>
 
-              <span className="text-slate-400 text-sm font-tajawal">إلى</span>
+            {/* Reset Filters Button */}
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-[#051838] transition-colors cursor-pointer py-1 px-2.5 rounded-lg hover:bg-slate-100"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>إعادة ضبط</span>
+            </button>
+          </div>
 
-              {/* Date To */}
-              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
-                <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
-                <input
-                  type="date"
-                  id="date-to"
-                  value={dateTo}
-                  onChange={(e) => { setDateTo(e.target.value); setCurrentPage(1); }}
-                  className="bg-transparent text-sm font-semibold text-slate-700 focus:outline-none font-tajawal"
-                />
+          {/* Payments Table Card */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-right text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 text-slate-400 font-medium text-xs bg-slate-50/60">
+                    <th className="px-6 py-4">اسم العميل</th>
+                    <th className="px-6 py-4">المبلغ (ر.س)</th>
+                    <th className="px-6 py-4">التاريخ</th>
+                    <th className="px-6 py-4">طريقة الدفع</th>
+                    <th className="px-6 py-4">الحالة</th>
+                    <th className="px-6 py-4 text-center">الإجراءات</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {paginatedPayments.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-slate-400 text-sm">
+                        لا توجد عمليات تحصيل مطابقة لخيارات التصفية.
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedPayments.map((payment) => (
+                      <tr
+                        key={payment.id}
+                        className="hover:bg-slate-50/70 transition-colors group relative"
+                      >
+                        {/* Customer Info */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs font-tajawal shadow-2xs ${payment.customerAvatarBg}`}
+                            >
+                              {payment.customerInitials}
+                            </div>
+                            <span className="font-bold text-[#0c2444] text-sm font-tajawal">
+                              {payment.customerName}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Amount */}
+                        <td className="px-6 py-4 font-bold font-tajawal text-slate-900 text-base" dir="ltr">
+                          {payment.amount.toLocaleString('en-US', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </td>
+
+                        {/* Date & Time */}
+                        <td className="px-6 py-4 text-xs text-slate-500 font-medium">
+                          <div className="space-y-0.5">
+                            <p>{payment.date}</p>
+                            <p className="text-[11px] text-slate-400">{payment.time}</p>
+                          </div>
+                        </td>
+
+                        {/* Payment Method */}
+                        <td className="px-6 py-4">
+                          <div className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
+                            {getMethodIcon(payment.method)}
+                            <span>{payment.method}</span>
+                          </div>
+                        </td>
+
+                        {/* Status Badge */}
+                        <td className="px-6 py-4">
+                          {payment.status === 'تم التحقق' ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/50">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              <span>تم التحقق</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200/50">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                              <span>قيد الانتظار</span>
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Actions 3 Dots */}
+                        <td className="px-6 py-4 text-center relative">
+                          <div className="relative inline-block">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setActiveMenuId(activeMenuId === payment.id ? null : payment.id)
+                              }
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </button>
+
+                            {/* Dropdown Action Menu */}
+                            {activeMenuId === payment.id && (
+                              <div
+                                className="absolute left-0 mt-1 w-44 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-30 text-right text-xs animate-in fade-in zoom-in-95 duration-150"
+                                dir="rtl"
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveMenuId(null);
+                                    showToast(`رقم الإيصال: ${payment.receiptNumber}`);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3.5 py-2 hover:bg-slate-50 text-slate-700 transition-colors cursor-pointer"
+                                >
+                                  <FileText className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>عرض سند القبض</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveMenuId(null);
+                                    navigate(PATHS.CUSTOMERS);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3.5 py-2 hover:bg-slate-50 text-slate-700 transition-colors cursor-pointer"
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>ملف العميل</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveMenuId(null);
+                                    showToast('تم نسخ رابط السند للمشاركة.');
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3.5 py-2 hover:bg-slate-50 text-slate-700 transition-colors cursor-pointer"
+                                >
+                                  <Share2 className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>مشاركة السند</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            <div className="p-4 sm:p-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs sm:text-sm">
+              <span className="text-slate-500 font-medium">
+                عرض {filteredPayments.length === 0 ? 0 : paginatedPayments.length} من أصل {filteredPayments.length} عملية تحصيل
+              </span>
+
+              {/* Numbered Pagination matching design */}
+              <div className="flex items-center gap-1.5" dir="ltr">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-8 h-8 rounded-lg font-bold text-xs transition-colors cursor-pointer ${
+                      currentPage === page
+                        ? 'bg-[#051838] text-white shadow-xs'
+                        : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages}
+                  className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
-
-              {/* Reset */}
-              <button
-                type="button"
-                id="reset-filters-btn"
-                onClick={resetFilters}
-                className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-100 text-slate-600 text-sm font-semibold hover:bg-slate-200 transition-all duration-200 font-tajawal"
-              >
-                <RotateCw className="w-3.5 h-3.5" />
-                <span>إعادة ضبط</span>
-              </button>
             </div>
           </div>
 
-          {/* ── Table Card ── */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
-
-            {/* Error */}
-            {loadError && (
-              <div className="m-4 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm font-semibold flex items-center justify-between gap-3 font-tajawal">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{loadError}</span>
+          {/* Bottom Floating Activity Banner */}
+          <div className="pt-2 pb-6 flex justify-center">
+            <div className="bg-[#0c2444] text-white rounded-2xl px-6 py-3.5 shadow-xl flex items-center justify-between gap-6 w-full max-w-lg">
+              {/* Right Side: Verified Today */}
+              <div className="flex items-center gap-2.5">
+                <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white shrink-0">
+                  <Check className="w-3.5 h-3.5 stroke-[3]" />
                 </div>
-                <button
-                  type="button"
-                  onClick={loadPayments}
-                  className="underline text-xs font-bold hover:no-underline cursor-pointer"
-                >
-                  إعادة المحاولة
-                </button>
+                <span className="text-xs sm:text-sm font-semibold">
+                  تم التحقق من 4 عمليات اليوم
+                </span>
               </div>
-            )}
 
-            {/* Loading */}
-            {isLoading ? (
-              <div className="py-20 flex flex-col items-center justify-center text-slate-400 gap-3">
-                <Loader2 className="w-7 h-7 animate-spin text-[#0f284e]" />
-                <span className="text-sm font-medium font-tajawal">جاري تحميل سجل المدفوعات...</span>
+              {/* Separator */}
+              <div className="w-px h-5 bg-white/20" />
+
+              {/* Left Side: Pending Tasks */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-blue-200/80 font-medium">تحتاج إلى مراجعة:</span>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-600 text-white">
+                  12 مهمة
+                </span>
               </div>
-            ) : (
-              <>
-                {/* Table */}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-right border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-100 bg-slate-50/70">
-                        <th className="py-3.5 px-5 text-xs font-semibold text-slate-500 font-tajawal">اسم العميل</th>
-                        <th className="py-3.5 px-4 text-xs font-semibold text-slate-500 font-tajawal text-center">المبلغ (ر.س)</th>
-                        <th className="py-3.5 px-4 text-xs font-semibold text-slate-500 font-tajawal text-center">التاريخ</th>
-                        <th className="py-3.5 px-4 text-xs font-semibold text-slate-500 font-tajawal text-center">طريقة الدفع</th>
-                        <th className="py-3.5 px-4 text-xs font-semibold text-slate-500 font-tajawal text-center">الحالة</th>
-                        <th className="py-3.5 px-4 text-xs font-semibold text-slate-500 font-tajawal text-left">الإجراءات</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {pagedPayments.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="py-16 text-center">
-                            <div className="flex flex-col items-center gap-3 text-slate-400">
-                              <Receipt className="w-10 h-10 opacity-30" />
-                              <p className="text-sm font-semibold font-tajawal">
-                                لا توجد عمليات تحصيل تطابق الفلاتر المحددة
-                              </p>
-                              <button
-                                type="button"
-                                onClick={resetFilters}
-                                className="text-xs text-[#0f284e] font-bold underline underline-offset-2 hover:no-underline font-tajawal"
-                              >
-                                إعادة ضبط الفلاتر
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ) : (
-                        pagedPayments.map((p) => (
-                          <tr
-                            key={p.id}
-                            className="hover:bg-slate-50/60 transition-colors duration-150 group"
-                          >
-                            {/* Customer Name */}
-                            <td className="py-4 px-5">
-                              <div className="flex items-center gap-3">
-                                <div
-                                  className={`w-9 h-9 rounded-full ${p.customerColor} flex items-center justify-center shrink-0`}
-                                >
-                                  <span className="text-xs font-bold text-white font-tajawal">
-                                    {p.customerInitials}
-                                  </span>
-                                </div>
-                                <span className="text-sm font-bold text-slate-800 font-tajawal">
-                                  {p.customerName}
-                                </span>
-                              </div>
-                            </td>
-
-                            {/* Amount */}
-                            <td className="py-4 px-4 text-center">
-                              <span className="text-sm font-extrabold text-slate-900 font-tajawal tabular-nums">
-                                {formatAmount(p.amount)}
-                              </span>
-                            </td>
-
-                            {/* Date */}
-                            <td className="py-4 px-4 text-center">
-                              <span className="text-sm text-slate-600 font-tajawal whitespace-nowrap">
-                                {formatDate(p.date)}
-                              </span>
-                            </td>
-
-                            {/* Payment Method */}
-                            <td className="py-4 px-4 text-center">
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-100 text-xs font-semibold text-slate-700 font-tajawal whitespace-nowrap">
-                                <MethodIcon method={p.paymentMethod} />
-                                {methodLabel(p.paymentMethod)}
-                              </span>
-                            </td>
-
-                            {/* Status */}
-                            <td className="py-4 px-4 text-center">
-                              {p.status === 'verified' ? (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-700 font-tajawal">
-                                  <CheckCircle2 className="w-3.5 h-3.5" />
-                                  تم التحقق
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-xs font-bold text-amber-700 font-tajawal">
-                                  <Clock className="w-3.5 h-3.5" />
-                                  في الانتظار
-                                </span>
-                              )}
-                            </td>
-
-                            {/* Actions */}
-                            <td className="py-4 px-4 text-left">
-                              <button
-                                type="button"
-                                className="inline-flex items-center gap-1 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all duration-150 opacity-0 group-hover:opacity-100"
-                                aria-label="خيارات"
-                              >
-                                <MoreHorizontal className="w-4 h-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* ── Pagination ── */}
-                {filteredPayments.length > 0 && (
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-4 border-t border-slate-100">
-                    <p className="text-xs font-medium text-slate-500 font-tajawal order-2 sm:order-1">
-                      عرض{' '}
-                      <span className="font-bold text-slate-700">
-                        {Math.min((safePage - 1) * PAGE_SIZE + 1, filteredPayments.length)}–
-                        {Math.min(safePage * PAGE_SIZE, filteredPayments.length)}
-                      </span>{' '}
-                      من أصل{' '}
-                      <span className="font-bold text-slate-700">{filteredPayments.length}</span>{' '}
-                      عملية تحصيل
-                    </p>
-
-                    <div className="flex items-center gap-1 order-1 sm:order-2">
-                      {/* Prev */}
-                      <button
-                        type="button"
-                        id="prev-page-btn"
-                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                        disabled={safePage === 1}
-                        className="p-2 rounded-lg text-slate-500 hover:text-[#0f284e] hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-150"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-
-                      {pageNumbers.map((n) => (
-                        <button
-                          key={n}
-                          type="button"
-                          id={`page-btn-${n}`}
-                          onClick={() => setCurrentPage(n)}
-                          className={`w-8 h-8 rounded-lg text-sm font-bold transition-all duration-150 font-tajawal ${
-                            n === safePage
-                              ? 'bg-[#0f284e] text-white shadow-sm'
-                              : 'text-slate-500 hover:text-[#0f284e] hover:bg-slate-100'
-                          }`}
-                        >
-                          {n.toLocaleString('ar-SA')}
-                        </button>
-                      ))}
-
-                      {/* Next */}
-                      <button
-                        type="button"
-                        id="next-page-btn"
-                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                        disabled={safePage === totalPages}
-                        className="p-2 rounded-lg text-slate-500 hover:text-[#0f284e] hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-150"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
+            </div>
           </div>
         </main>
       </div>
 
-      {/* Toast */}
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-3 bg-[#0f284e] text-white px-5 py-3 rounded-2xl shadow-xl text-sm font-semibold font-tajawal animate-fade-in-up">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          {toast}
+      {/* Quick Customer Picker Modal for "تسجيل تحصيل جديد" */}
+      {isNewPaymentModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-lg font-bold font-tajawal text-slate-900">
+                  تسجيل تحصيل جديد
+                </h3>
+                <p className="text-xs text-slate-500">
+                  اختر العميل المراد تسجيل دفعة مالية له
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsNewPaymentModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Search Input in modal */}
+            <div>
+              <input
+                type="text"
+                placeholder="البحث باسم العميل أو رقم الهاتف..."
+                value={customerSearch}
+                onChange={(e) => setCustomerSearch(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 placeholder:text-slate-400 outline-hidden focus:border-[#051838]"
+              />
+            </div>
+
+            {/* Customer List */}
+            <div className="max-h-64 overflow-y-auto divide-y divide-slate-100">
+              {isLoadingCustomers ? (
+                <div className="py-8 text-center text-xs text-slate-400">جاري تحميل العملاء...</div>
+              ) : filteredCustomerList.length === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-400">لا يوجد عملاء متاحين</div>
+              ) : (
+                filteredCustomerList.map((cust) => (
+                  <div
+                    key={cust.id}
+                    onClick={() => {
+                      setIsNewPaymentModalOpen(false);
+                      navigate(`/customers/${cust.id}/payments/new`);
+                    }}
+                    className="py-3 px-2 flex items-center justify-between hover:bg-slate-50 rounded-xl cursor-pointer transition-colors group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-[#edf5ff] text-[#2563eb] flex items-center justify-center font-bold text-xs font-tajawal">
+                        {cust.avatarLetter}
+                      </div>
+                      <div>
+                        <p className="font-bold text-xs text-slate-900 group-hover:text-blue-700">
+                          {cust.name}
+                        </p>
+                        <p className="text-[11px] text-slate-400">{cust.phone || 'بدون هاتف'}</p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="px-3 py-1.5 bg-[#007a3d] hover:bg-[#006633] text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                    >
+                      تسجيل دفعة
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsNewPaymentModalOpen(false)}
+                className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-medium rounded-xl hover:bg-slate-200 transition-colors cursor-pointer"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
   );
 };
+
+export default PaymentsScreen;

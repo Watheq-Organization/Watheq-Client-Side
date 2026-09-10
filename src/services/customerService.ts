@@ -105,6 +105,25 @@ export function setStoredNationalId(customerId: string, value: string): void {
   }
 }
 
+export function getStoredTotalPaid(customerId: string): number {
+  if (!customerId || typeof window === 'undefined') return 0;
+  try {
+    const val = localStorage.getItem(`customer-total-paid:${customerId}`);
+    return val ? Number(val) || 0 : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function setStoredTotalPaid(customerId: string, value: number): void {
+  if (!customerId || typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(`customer-total-paid:${customerId}`, String(value));
+  } catch {
+    // Ignore storage failures
+  }
+}
+
 function normalizeCustomerDto(raw: unknown): CustomerDto {
   const r = (raw ?? {}) as Record<string, unknown>;
 
@@ -210,38 +229,102 @@ export async function getCustomerProfile(customerId: string): Promise<CustomerPr
  */
 function normalizeCustomerProfileDto(raw: unknown): CustomerProfileDto {
   const r = (raw ?? {}) as Record<string, unknown>;
-  const rawTransactions = Array.isArray(r.transactions) ? r.transactions : [];
+  const rawTransactions = Array.isArray(r.transactions)
+    ? r.transactions
+    : Array.isArray(r.Transactions)
+      ? r.Transactions
+      : [];
+  const normalizedTransactions = rawTransactions.map(normalizeCustomerProfileTransaction);
+
+  const customerId = String(r.id ?? r.customerId ?? r.Id ?? r.CustomerId ?? '');
+
+  // 1. Direct fields from backend (handling PascalCase, lowercase, and alternative names)
+  const directTotalPaid = Number(
+    r.totalPaid ??
+    r.TotalPaid ??
+    r.paidAmount ??
+    r.PaidAmount ??
+    r.totalPaidAmount ??
+    r.TotalPaidAmount ??
+    r.paid ??
+    r.Paid ??
+    r.totalPayments ??
+    r.TotalPayments
+  );
+
+  // 2. Sum of all payment transactions from the transactions history
+  const sumFromTransactions = normalizedTransactions.reduce((acc, tx) => {
+    const typeStr = String(tx.type || '').toLowerCase();
+    const isPayment =
+      typeStr.includes('payment') ||
+      typeStr.includes('pay') ||
+      typeStr.includes('دفعة') ||
+      typeStr.includes('سداد');
+    if (isPayment) {
+      return acc + (Number(tx.amount) || 0);
+    }
+    return acc;
+  }, 0);
+
+  const totalDebt = Number(
+    r.totalDebt ??
+    r.TotalDebt ??
+    r.debt ??
+    r.Debt ??
+    r.totalDebts ??
+    r.TotalDebts ??
+    0
+  ) || 0;
+
+  const currentBalance = Number(
+    r.currentBalance ??
+    r.CurrentBalance ??
+    0
+  );
+
+  // 3. Difference between totalDebt and currentBalance (if debt was partially or fully paid off)
+  const differentialPaid =
+    totalDebt > 0 && currentBalance >= 0 && totalDebt > currentBalance
+      ? totalDebt - currentBalance
+      : 0;
+
+  // 4. Stored totalPaid in local cache
+  const storedPaid = getStoredTotalPaid(customerId);
+
+  // Effective total paid: take the most accurate positive value
+  const effectiveTotalPaid = Math.max(
+    !isNaN(directTotalPaid) && directTotalPaid > 0 ? directTotalPaid : 0,
+    sumFromTransactions,
+    differentialPaid,
+    storedPaid
+  );
+
   return {
-    id: String(r.id ?? r.customerId ?? ''),
-    fullName: typeof r.fullName === 'string' ? r.fullName : '',
-    phoneNumber: r.phoneNumber != null ? String(r.phoneNumber) : '',
-    address: typeof r.address === 'string' ? r.address : '',
-    currentBalance: Number(r.currentBalance) || 0,
-    totalDebt: Number(r.totalDebt) || 0,
-    totalPaid: Number(r.totalPaid) || 0,
-    createdAt: typeof r.createdAt === 'string' ? r.createdAt : '',
-    transactions: rawTransactions.map(normalizeCustomerProfileTransaction),
+    id: customerId,
+    fullName: typeof (r.fullName ?? r.FullName) === 'string' ? String(r.fullName ?? r.FullName) : '',
+    phoneNumber: (r.phoneNumber ?? r.PhoneNumber) != null ? String(r.phoneNumber ?? r.PhoneNumber) : '',
+    address: typeof (r.address ?? r.Address) === 'string' ? String(r.address ?? r.Address) : '',
+    currentBalance: currentBalance,
+    totalDebt: totalDebt,
+    totalPaid: effectiveTotalPaid,
+    createdAt: typeof (r.createdAt ?? r.CreatedAt) === 'string' ? String(r.createdAt ?? r.CreatedAt) : '',
+    transactions: normalizedTransactions,
   };
 }
 
 function normalizeCustomerProfileTransaction(raw: unknown): CustomerProfileTransactionDto {
   const r = (raw ?? {}) as Record<string, unknown>;
   return {
-    id: Number(r.id) || 0,
-    type: typeof r.type === 'string' ? r.type : '',
-    date: typeof r.date === 'string' ? r.date : '',
-    amount: Number(r.amount) || 0,
-    description: typeof r.description === 'string' ? r.description : '',
-    reference: typeof r.reference === 'string' ? r.reference : '',
-    balance: Number(r.balance) || 0,
-    currencyCode: typeof r.currencyCode === 'string' ? r.currencyCode : '',
-    status: typeof r.status === 'string' ? r.status : null,
-    paymentMethod:
-      typeof r.paymentMethod === 'string'
-        ? r.paymentMethod
-        : typeof r.paymentMethod === 'number'
-        ? String(r.paymentMethod)
-        : null,
+    id: Number(r.id ?? r.Id) || 0,
+    type: typeof (r.type ?? r.Type) === 'string' ? String(r.type ?? r.Type) : '',
+    date: typeof (r.date ?? r.Date) === 'string' ? String(r.date ?? r.Date) : '',
+    amount: Number(r.amount ?? r.Amount) || 0,
+    description: typeof (r.description ?? r.Description) === 'string' ? String(r.description ?? r.Description) : '',
+    reference: typeof (r.reference ?? r.Reference) === 'string' ? String(r.reference ?? r.Reference) : '',
+    balance: Number(r.balance ?? r.Balance) || 0,
+    currencyCode: typeof (r.currencyCode ?? r.CurrencyCode) === 'string' ? String(r.currencyCode ?? r.CurrencyCode) : '',
+    status: typeof (r.status ?? r.Status) === 'string' ? String(r.status ?? r.Status) : null,
+    paymentMethod: typeof (r.paymentMethod ?? r.PaymentMethod) === 'string' ? String(r.paymentMethod ?? r.PaymentMethod) : null,
   };
 }
 

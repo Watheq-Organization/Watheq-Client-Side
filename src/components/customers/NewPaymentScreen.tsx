@@ -20,6 +20,7 @@ import { Header } from '../dashboard/Header';
 import { Textarea } from '../ui/Textarea';
 import {
   getCustomerProfile,
+  setStoredTotalPaid,
   toGetCustomerProfileErrorMessage,
 } from '../../services/customerService';
 import {
@@ -230,13 +231,21 @@ export const NewPaymentScreen: FC = () => {
     setSubmitError(null);
     setIsSaving(true);
     try {
-      await registerPayment(id, {
+      const res = await registerPayment(id, {
         amount,
         method,
         paymentDate: paymentDate || undefined,
         notes: notes.trim(),
         receiptFile,
       });
+
+      // Update stored totalPaid immediately so details screen reflects it
+      const numericAmount = Number(amount) || 0;
+      const returnedPaid = Number(res?.totalPaid);
+      const prevTotalPaid = Number(customerProfile?.totalPaid) || 0;
+      const newTotalPaid = returnedPaid > 0 ? returnedPaid : (prevTotalPaid + numericAmount);
+      setStoredTotalPaid(id, newTotalPaid);
+
       navigate(`/customers/${id}`, { state: { toast: 'تم حفظ الدفعة بنجاح.' } });
     } catch (error) {
       setSubmitError(toRegisterPaymentErrorMessage(error));

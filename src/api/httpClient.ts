@@ -184,10 +184,15 @@ export const httpClient = {
    * see the isFormData branch in request() above. */
   postForm: <TResponse>(path: string, formData: FormData) =>
     request<TResponse>(path, { method: 'POST', body: formData }),
+  /** PUT with a FormData body (multipart/form-data) — for endpoints that
+   * accept a file upload (e.g. UpdateProfile).
+   * Never JSON.stringify's the body and never sets Content-Type manually. */
+  putForm: <TResponse>(path: string, formData: FormData) =>
+    request<TResponse>(path, { method: 'PUT', body: formData }),
   put: <TResponse>(path: string, data: unknown) =>
     request<TResponse>(path, {
       method: 'PUT',
-      body: JSON.stringify(data),
+      body: typeof FormData !== 'undefined' && data instanceof FormData ? data : JSON.stringify(data),
     }),
   get: <TResponse>(path: string) => request<TResponse>(path, { method: 'GET' }),
   delete: <TResponse>(path: string) => request<TResponse>(path, { method: 'DELETE' }),
