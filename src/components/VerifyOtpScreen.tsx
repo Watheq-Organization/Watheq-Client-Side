@@ -150,7 +150,7 @@ export const VerifyOtpScreen: FC = () => {
              
              {/* Simplified custom illustration instead of generic image */}
              <div className="relative z-10 w-full max-w-sm aspect-video bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm shadow-2xl flex flex-col items-center justify-center gap-6">
-                <div className="text-white font-bold text-xl font-tajawal text-center">
+                <div className="text-white font-bold text-xl font-cairo text-center">
                    التحقق من الرمز - وثّق (سطح المكتب)
                 </div>
                 <div className="w-24 h-40 bg-white rounded-3xl border-8 border-slate-800 shadow-inner flex flex-col items-center justify-center relative">
@@ -170,7 +170,7 @@ export const VerifyOtpScreen: FC = () => {
             
             <div className="max-w-md w-full mx-auto">
               <div className="text-center mb-10">
-                <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0c2444] font-tajawal tracking-tight mb-3">
+                <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0c2444] font-cairo tracking-tight mb-3">
                   التحقق من الرمز
                 </h1>
                 <p className="text-slate-500 text-sm sm:text-base">

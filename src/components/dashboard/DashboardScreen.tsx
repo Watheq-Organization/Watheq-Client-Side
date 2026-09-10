@@ -41,7 +41,7 @@ export const DashboardScreen: FC = () => {
           {/* Welcome & Date Section */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="text-right">
-              <h1 className="text-2xl sm:text-3xl font-bold font-tajawal text-slate-900 tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-bold font-cairo text-slate-900 tracking-tight">
                 لوحة القيادة
               </h1>
               <p className="mt-1 text-sm font-medium text-slate-500 font-cairo">
@@ -50,7 +50,7 @@ export const DashboardScreen: FC = () => {
             </div>
 
             {/* Date Badge */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold font-tajawal text-slate-600 shadow-2xs self-start sm:self-auto">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold font-cairo text-slate-600 shadow-2xs self-start sm:self-auto">
               <Calendar className="w-4 h-4 text-slate-400" />
               <span>١٥ أكتوبر ٢٠٢٣</span>
             </div>

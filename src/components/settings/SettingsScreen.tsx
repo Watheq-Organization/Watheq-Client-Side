@@ -178,7 +178,7 @@ export const SettingsScreen: FC = () => {
             >
               <Menu className="w-6 h-6" />
             </button>
-            <h1 className="text-xl sm:text-2xl font-extrabold font-tajawal text-slate-900 tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-extrabold font-cairo text-slate-900 tracking-tight">
               الإعدادات
             </h1>
           </div>
@@ -223,7 +223,7 @@ export const SettingsScreen: FC = () => {
               <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-6 sm:p-8">
                 {/* Card Title */}
                 <div className="text-center mb-8 pb-4 border-b border-slate-100">
-                  <h2 className="text-xl sm:text-2xl font-bold font-tajawal text-slate-900">
+                  <h2 className="text-xl sm:text-2xl font-bold font-cairo text-slate-900">
                     إعدادات الملف الشخصي
                   </h2>
                 </div>
@@ -343,7 +343,7 @@ export const SettingsScreen: FC = () => {
                   </div>
 
                   <div className="flex items-center gap-2 text-right">
-                    <h2 className="text-lg sm:text-xl font-bold font-tajawal text-slate-900">
+                    <h2 className="text-lg sm:text-xl font-bold font-cairo text-slate-900">
                       إعدادات واتساب والتذكير
                     </h2>
                     <div className="text-emerald-500">
@@ -414,7 +414,7 @@ export const SettingsScreen: FC = () => {
               <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-5 flex items-center justify-between">
                 {/* Organization & Manager Info (Right in RTL) */}
                 <div className="text-right">
-                  <h2 className="text-base font-extrabold font-tajawal text-slate-900 leading-tight">
+                  <h2 className="text-base font-extrabold font-cairo text-slate-900 leading-tight">
                     {profile.businessName || 'مؤسسة الأفق التجاري'}
                   </h2>
                   <p className="text-xs text-slate-500 font-medium font-cairo mt-1">
@@ -465,7 +465,7 @@ export const SettingsScreen: FC = () => {
                     <span className="text-xs font-bold text-slate-600 font-cairo block">
                       الباقة الحالية
                     </span>
-                    <span className="text-sm font-extrabold text-emerald-600 font-tajawal">
+                    <span className="text-sm font-extrabold text-emerald-600 font-cairo">
                       باقة الأعمال (نشط)
                     </span>
                   </div>

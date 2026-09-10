@@ -58,7 +58,7 @@ export const ContactPage: FC = () => {
       <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-14">
         {/* Page Title & Description */}
         <div className="text-right mb-8 lg:mb-12">
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0c2444] font-tajawal tracking-tight">
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0c2444] font-cairo tracking-tight">
             تواصل معنا
           </h1>
           <p className="text-slate-600 text-sm sm:text-base mt-3 leading-relaxed max-w-2xl">

@@ -82,7 +82,7 @@ export const StatCards: FC = () => {
           <div className="mt-5 text-right">
             <p className="text-slate-500 text-sm font-medium">إجمالي الديون المستحقة</p>
             <div className="mt-1 flex items-baseline gap-1.5 justify-start">
-              <span className="text-3xl font-bold font-tajawal text-slate-900 tracking-tight">
+              <span className="text-3xl font-bold font-cairo text-slate-900 tracking-tight">
                 {formatValue(outstandingDebt)}
               </span>
               <span className="text-sm font-semibold text-slate-400 font-cairo">ش.إ</span>
@@ -101,7 +101,7 @@ export const StatCards: FC = () => {
           <div className="mt-5 text-right">
             <p className="text-slate-500 text-sm font-medium">العملاء النشطين</p>
             <div className="mt-1 flex items-baseline gap-1.5 justify-start">
-              <span className="text-3xl font-bold font-tajawal text-slate-900 tracking-tight">
+              <span className="text-3xl font-bold font-cairo text-slate-900 tracking-tight">
                 {formatValue(activeCustomers)}
               </span>
               <span className="text-sm font-semibold text-slate-400 font-cairo">عميل</span>
@@ -120,7 +120,7 @@ export const StatCards: FC = () => {
           <div className="mt-5 text-right">
             <p className="text-slate-500 text-sm font-medium">إجمالي التحصيلات</p>
             <div className="mt-1 flex items-baseline gap-1.5 justify-start">
-              <span className="text-3xl font-bold font-tajawal text-slate-900 tracking-tight">
+              <span className="text-3xl font-bold font-cairo text-slate-900 tracking-tight">
                 {formatValue(totalCollections)}
               </span>
               <span className="text-sm font-semibold text-slate-400 font-cairo">ش.إ</span>

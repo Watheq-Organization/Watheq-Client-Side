@@ -35,7 +35,7 @@ export const LogoutModal: FC<LogoutModalProps> = ({
         </div>
 
         {/* Modal Heading */}
-        <h3 className="text-xl font-bold font-tajawal text-slate-900 mb-2">
+        <h3 className="text-xl font-bold font-cairo text-slate-900 mb-2">
           تسجيل الخروج
         </h3>
 

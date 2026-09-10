@@ -59,7 +59,7 @@ export const SplashScreen: FC<SplashScreenProps> = ({ onComplete }) => {
 
         {/* English & Arabic Brand Title */}
         <div className="flex flex-col items-center gap-1 mb-2">
-          <h1 className="text-4xl sm:text-5xl font-black font-tajawal tracking-tight text-white drop-shadow-md">
+          <h1 className="text-4xl sm:text-5xl font-black font-cairo tracking-tight text-white drop-shadow-md">
             وثَّـق
           </h1>
           <span className="text-xl sm:text-2xl font-bold font-sans tracking-wide text-blue-200">

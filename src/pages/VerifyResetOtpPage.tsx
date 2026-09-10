@@ -152,7 +152,7 @@ export const VerifyResetOtpPage: FC = () => {
 
             {/* Top Brand Tag */}
             <div className="relative z-10">
-              <span className="font-tajawal text-xl font-bold tracking-wider text-white">
+              <span className="font-cairo text-xl font-bold tracking-wider text-white">
                 Watheq
               </span>
             </div>
@@ -160,7 +160,7 @@ export const VerifyResetOtpPage: FC = () => {
             {/* Center Phone Graphic Card */}
             <div className="relative z-10 my-auto flex flex-col items-center justify-center">
               <div className="w-full max-w-xs bg-white rounded-2xl p-6 shadow-2xl flex flex-col items-center text-center border border-slate-100">
-                <div className="text-slate-800 font-bold text-sm mb-4 font-tajawal">
+                <div className="text-slate-800 font-bold text-sm mb-4 font-cairo">
                   التحقق من الحد - تأكيد السجل المالي
                 </div>
                 
@@ -208,7 +208,7 @@ export const VerifyResetOtpPage: FC = () => {
 
               {/* Title & Subtitle */}
               <div className="text-center mb-8">
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] font-tajawal tracking-tight mb-2">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] font-cairo tracking-tight mb-2">
                   التحقق من الرمز
                 </h1>
                 <p className="text-slate-500 text-xs sm:text-sm leading-relaxed">

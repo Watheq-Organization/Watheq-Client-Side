@@ -93,7 +93,7 @@ export const ForgotPasswordPage: FC = () => {
 
             {/* Bottom Content */}
             <div className="relative z-10 text-center space-y-2">
-              <h3 className="text-xl font-bold font-tajawal text-white flex items-center justify-center gap-2">
+              <h3 className="text-xl font-bold font-cairo text-white flex items-center justify-center gap-2">
                 <ShieldCheck className="w-5 h-5 text-emerald-400" />
                 <span>نظام إدارة الديون الذكي</span>
               </h3>
@@ -127,7 +127,7 @@ export const ForgotPasswordPage: FC = () => {
 
               {/* Header Title */}
               <div className="text-right mb-8">
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] font-tajawal tracking-tight mb-2">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] font-cairo tracking-tight mb-2">
                   استعادة كلمة المرور
                 </h1>
                 <p className="text-slate-500 text-xs sm:text-sm leading-relaxed">

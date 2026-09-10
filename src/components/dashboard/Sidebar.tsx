@@ -93,7 +93,7 @@ export const Sidebar: FC<SidebarProps> = ({
 
               {/* Brand Text */}
               <div className="flex flex-col">
-                <span className="text-xl font-bold font-tajawal text-white tracking-tight leading-tight">
+                <span className="text-xl font-bold font-cairo text-white tracking-tight leading-tight">
                   وثَّـق
                 </span>
                 <span className="text-xs text-blue-200/70 font-medium">

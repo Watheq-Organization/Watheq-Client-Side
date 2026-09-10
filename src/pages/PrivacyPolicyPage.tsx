@@ -9,7 +9,7 @@ import { Footer } from '../components/layout/Footer';
  *
  * Reuses the shared Navbar/Footer and the card/typography/color patterns
  * already established in ContactPage.tsx and the auth pages (navy
- * `#0c2444` headings, `font-tajawal` for titles, emerald icon badges,
+ * `#0c2444` headings, `font-cairo` for titles, emerald icon badges,
  * `bg-slate-50` muted highlight boxes, `rounded-2xl`/`rounded-xl` cards).
  * No new design tokens are introduced.
  */
@@ -61,7 +61,7 @@ export const PrivacyPolicyPage: FC = () => {
       <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-14">
         {/* Page Title & Description */}
         <div className="text-right mb-8 lg:mb-10">
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0c2444] font-tajawal tracking-tight">
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0c2444] font-cairo tracking-tight">
             سياسة الخصوصية
           </h1>
           <p className="text-slate-500 text-sm sm:text-base mt-3">تاريخ آخر تحديث: 15 أكتوبر 2024</p>
@@ -79,7 +79,7 @@ export const PrivacyPolicyPage: FC = () => {
                     <Database className="w-6 h-6" />
                   </div>
                   <div className="space-y-3 text-right flex-1">
-                    <h2 className="font-bold text-[#0c2444] text-lg sm:text-xl font-tajawal">
+                    <h2 className="font-bold text-[#0c2444] text-lg sm:text-xl font-cairo">
                       جمع البيانات
                     </h2>
                     <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
@@ -111,7 +111,7 @@ export const PrivacyPolicyPage: FC = () => {
                     <BarChart3 className="w-6 h-6" />
                   </div>
                   <div className="space-y-3 text-right flex-1">
-                    <h2 className="font-bold text-[#0c2444] text-lg sm:text-xl font-tajawal">
+                    <h2 className="font-bold text-[#0c2444] text-lg sm:text-xl font-cairo">
                       استخدام المعلومات
                     </h2>
                     <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
@@ -143,7 +143,7 @@ export const PrivacyPolicyPage: FC = () => {
                     <ShieldCheck className="w-6 h-6" />
                   </div>
                   <div className="space-y-3 text-right flex-1">
-                    <h2 className="font-bold text-[#0c2444] text-lg sm:text-xl font-tajawal">
+                    <h2 className="font-bold text-[#0c2444] text-lg sm:text-xl font-cairo">
                       حماية البيانات
                     </h2>
                     <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
@@ -165,7 +165,7 @@ export const PrivacyPolicyPage: FC = () => {
                     <Cookie className="w-6 h-6" />
                   </div>
                   <div className="space-y-3 text-right flex-1">
-                    <h2 className="font-bold text-[#0c2444] text-lg sm:text-xl font-tajawal">
+                    <h2 className="font-bold text-[#0c2444] text-lg sm:text-xl font-cairo">
                       ملفات تعريف الارتباط
                     </h2>
                     <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
@@ -186,7 +186,7 @@ export const PrivacyPolicyPage: FC = () => {
           {/* Left (Sidebar: Table of Contents) */}
           <div className="lg:col-span-1 w-full order-1 lg:order-2">
             <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-100 shadow-sm lg:sticky lg:top-28">
-              <h2 className="font-bold text-[#0c2444] text-base mb-4 text-right font-tajawal">
+              <h2 className="font-bold text-[#0c2444] text-base mb-4 text-right font-cairo">
                 جدول المحتويات
               </h2>
               <nav className="flex flex-col gap-1">

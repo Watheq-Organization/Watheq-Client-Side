@@ -24,7 +24,7 @@ interface TermSectionProps {
 const TermSection: FC<TermSectionProps> = ({ icon, title, children }) => (
   <section className="py-5 first:pt-0">
     <div className="flex items-center gap-2 mb-2.5">
-      <h2 className="text-lg sm:text-xl font-bold text-[#0c2444] font-tajawal">{title}</h2>
+      <h2 className="text-lg sm:text-xl font-bold text-[#0c2444] font-cairo">{title}</h2>
       <span className="text-emerald-600">{icon}</span>
     </div>
     <div className="text-sm sm:text-[15px] text-slate-600 leading-relaxed space-y-2">
@@ -50,7 +50,7 @@ export const TermsPage: FC = () => {
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-10">
           {/* Card Header */}
           <div className="text-right pb-5 mb-5 border-b border-slate-100">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] font-tajawal tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] font-cairo tracking-tight">
               شروط الاستخدام
             </h1>
             <p className="text-slate-500 text-xs sm:text-sm mt-2">آخر تحديث: 24 أكتوبر 2024</p>

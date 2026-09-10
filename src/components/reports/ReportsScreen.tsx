@@ -242,7 +242,7 @@ export const ReportsScreen: FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             {/* Title & Subtitle */}
             <div className="text-right">
-              <h1 className="text-2xl sm:text-3xl font-bold font-tajawal text-slate-900 tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-bold font-cairo text-slate-900 tracking-tight">
                 التقارير المالية
               </h1>
               <p className="mt-1 text-sm font-medium text-slate-500 font-cairo">
@@ -314,7 +314,7 @@ export const ReportsScreen: FC = () => {
 
               <div className="mt-5 text-right">
                 <div className="flex items-baseline gap-1.5 justify-start">
-                  <span className="text-3xl font-bold font-tajawal text-[#047857] tracking-tight">
+                  <span className="text-3xl font-bold font-cairo text-[#047857] tracking-tight">
                     {stats.collections.toLocaleString('ar-SA')}
                   </span>
                   <span className="text-sm font-semibold text-slate-500 font-cairo">شيكل</span>
@@ -337,7 +337,7 @@ export const ReportsScreen: FC = () => {
 
               <div className="mt-5 text-right">
                 <div className="flex items-baseline gap-1.5 justify-start">
-                  <span className="text-3xl font-bold font-tajawal text-[#051838] tracking-tight">
+                  <span className="text-3xl font-bold font-cairo text-[#051838] tracking-tight">
                     {stats.debts.toLocaleString('ar-SA')}
                   </span>
                   <span className="text-sm font-semibold text-slate-500 font-cairo">شيكل</span>
@@ -360,7 +360,7 @@ export const ReportsScreen: FC = () => {
 
               <div className="mt-5 text-right">
                 <div className="flex items-baseline gap-1.5 justify-start">
-                  <span className="text-3xl font-bold font-tajawal text-slate-900 tracking-tight">
+                  <span className="text-3xl font-bold font-cairo text-slate-900 tracking-tight">
                     {stats.activeCustomers.toLocaleString('ar-SA')}
                   </span>
                 </div>
@@ -376,7 +376,7 @@ export const ReportsScreen: FC = () => {
           <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-6">
             {/* Chart Header & Legend */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-              <h2 className="text-lg font-bold font-tajawal text-slate-900">
+              <h2 className="text-lg font-bold font-cairo text-slate-900">
                 توجهات الديون والتحصيل
               </h2>
 
@@ -448,7 +448,7 @@ export const ReportsScreen: FC = () => {
                               {/* Hover Tooltip */}
                               {hoveredBar?.index === idx &&
                                 hoveredBar?.type === 'collections' && (
-                                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[11px] font-tajawal py-1 px-2.5 rounded-md whitespace-nowrap shadow-lg z-20 pointer-events-none">
+                                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[11px] font-cairo py-1 px-2.5 rounded-md whitespace-nowrap shadow-lg z-20 pointer-events-none">
                                     تحصيلات: {item.collections.toLocaleString('ar-SA')} شيكل
                                   </div>
                                 )}
@@ -465,7 +465,7 @@ export const ReportsScreen: FC = () => {
                             >
                               {/* Hover Tooltip */}
                               {hoveredBar?.index === idx && hoveredBar?.type === 'debts' && (
-                                <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[11px] font-tajawal py-1 px-2.5 rounded-md whitespace-nowrap shadow-lg z-20 pointer-events-none">
+                                <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[11px] font-cairo py-1 px-2.5 rounded-md whitespace-nowrap shadow-lg z-20 pointer-events-none">
                                   ديون جديدة: {item.debts.toLocaleString('ar-SA')} شيكل
                                 </div>
                               )}
@@ -496,7 +496,7 @@ export const ReportsScreen: FC = () => {
           <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
             {/* Table Header with Archive Link */}
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-lg font-bold font-tajawal text-slate-900">
+              <h2 className="text-lg font-bold font-cairo text-slate-900">
                 قائمة التقارير التفصيلية
               </h2>
 
@@ -591,7 +591,7 @@ export const ReportsScreen: FC = () => {
           <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div>
-                <h3 className="text-lg font-bold font-tajawal text-slate-900">
+                <h3 className="text-lg font-bold font-cairo text-slate-900">
                   أرشيف التقارير السابقة
                 </h3>
                 <p className="text-xs text-slate-500">

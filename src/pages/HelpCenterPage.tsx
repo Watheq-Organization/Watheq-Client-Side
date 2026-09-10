@@ -126,7 +126,7 @@ export const HelpCenterPage: FC = () => {
       <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-10 py-10 lg:py-16 space-y-16">
         {/* Hero Section: Search Header */}
         <section className="text-center max-w-3xl mx-auto space-y-6 pt-4">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#0c2444] font-tajawal tracking-tight">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#0c2444] font-cairo tracking-tight">
             كيف يمكننا مساعدتك اليوم؟
           </h1>
           <p className="text-slate-600 text-sm sm:text-base leading-relaxed max-w-xl mx-auto">
@@ -167,7 +167,7 @@ export const HelpCenterPage: FC = () => {
         {/* Section 2: Browse By Category */}
         <section className="space-y-8">
           <div className="text-center">
-            <h2 className="text-2xl sm:text-3xl font-bold text-[#0c2444] font-tajawal">
+            <h2 className="text-2xl sm:text-3xl font-bold text-[#0c2444] font-cairo">
               تصفح حسب الفئة
             </h2>
           </div>
@@ -191,7 +191,7 @@ export const HelpCenterPage: FC = () => {
                       <IconComp className="w-6 h-6" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-[#0c2444] text-lg font-tajawal group-hover:text-emerald-700 transition-colors mb-2">
+                      <h3 className="font-bold text-[#0c2444] text-lg font-cairo group-hover:text-emerald-700 transition-colors mb-2">
                         {cat.title}
                       </h3>
                       <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
@@ -208,7 +208,7 @@ export const HelpCenterPage: FC = () => {
         {/* Section 3: Popular Articles */}
         <section className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-[#0c2444] font-tajawal">
+            <h2 className="text-2xl font-bold text-[#0c2444] font-cairo">
               المقالات الشائعة
             </h2>
             <button
@@ -256,7 +256,7 @@ export const HelpCenterPage: FC = () => {
               <Headphones className="w-8 h-8 text-sky-300" />
             </div>
 
-            <h2 className="text-2xl sm:text-3xl font-bold font-tajawal text-white">
+            <h2 className="text-2xl sm:text-3xl font-bold font-cairo text-white">
               لم تجد ما تبحث عنه؟
             </h2>
 
@@ -291,7 +291,7 @@ export const HelpCenterPage: FC = () => {
                 <span className="inline-block px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full mb-2">
                   {selectedArticle.category}
                 </span>
-                <h3 className="text-xl font-bold text-[#0c2444] font-tajawal">
+                <h3 className="text-xl font-bold text-[#0c2444] font-cairo">
                   {selectedArticle.title}
                 </h3>
               </div>

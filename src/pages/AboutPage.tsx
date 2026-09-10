@@ -28,7 +28,7 @@ export const AboutPage: FC = () => {
 
             {/* Text Column */}
             <div className="lg:col-span-6 order-1 lg:order-2 text-right space-y-5">
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#0c2444] font-tajawal tracking-tight leading-tight">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#0c2444] font-cairo tracking-tight leading-tight">
                 نبني بيئة مالية{' '}
                 <span className="text-emerald-500 font-bold">آمنة وموثوقة</span>
               </h1>
@@ -48,7 +48,7 @@ export const AboutPage: FC = () => {
               <div className="w-12 h-12 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-sky-400 mb-6">
                 <Eye className="w-6 h-6" />
               </div>
-              <h2 className="text-2xl font-bold font-tajawal text-white mb-4">
+              <h2 className="text-2xl font-bold font-cairo text-white mb-4">
                 رؤيتنا
               </h2>
               <p className="text-slate-200 text-sm sm:text-base leading-relaxed">
@@ -64,7 +64,7 @@ export const AboutPage: FC = () => {
               <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-6">
                 <Scale className="w-6 h-6" />
               </div>
-              <h2 className="text-2xl font-bold font-tajawal text-[#0c2444] mb-4">
+              <h2 className="text-2xl font-bold font-cairo text-[#0c2444] mb-4">
                 تقليل النزاعات
               </h2>
               <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
@@ -85,7 +85,7 @@ export const AboutPage: FC = () => {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#0c2444]/95 via-[#0c2444]/60 to-transparent" />
             <div className="relative z-10 text-right space-y-1">
-              <h2 className="text-2xl sm:text-3xl font-bold text-white font-tajawal">
+              <h2 className="text-2xl sm:text-3xl font-bold text-white font-cairo">
                 قيمنا الأساسية المترسخة
               </h2>
               <p className="text-slate-200 text-sm sm:text-base">
@@ -100,7 +100,7 @@ export const AboutPage: FC = () => {
               <div className="w-12 h-12 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600 mb-6">
                 <RefreshCw className="w-6 h-6" />
               </div>
-              <h2 className="text-2xl font-bold font-tajawal text-[#0c2444] mb-4">
+              <h2 className="text-2xl font-bold font-cairo text-[#0c2444] mb-4">
                 أتمتة التحصيل
               </h2>
               <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
@@ -117,7 +117,7 @@ export const AboutPage: FC = () => {
             <div className="w-14 h-14 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20 mb-6">
               <ShieldCheck className="w-7 h-7" />
             </div>
-            <h3 className="text-xl font-bold font-tajawal text-[#0c2444] mb-3">
+            <h3 className="text-xl font-bold font-cairo text-[#0c2444] mb-3">
               الأمان
             </h3>
             <p className="text-slate-600 text-sm leading-relaxed">
@@ -130,7 +130,7 @@ export const AboutPage: FC = () => {
             <div className="w-14 h-14 rounded-2xl bg-sky-100 text-sky-600 flex items-center justify-center mb-6">
               <Lightbulb className="w-7 h-7" />
             </div>
-            <h3 className="text-xl font-bold font-tajawal text-[#0c2444] mb-3">
+            <h3 className="text-xl font-bold font-cairo text-[#0c2444] mb-3">
               الابتكار
             </h3>
             <p className="text-slate-600 text-sm leading-relaxed">
@@ -143,7 +143,7 @@ export const AboutPage: FC = () => {
             <div className="w-14 h-14 rounded-2xl bg-[#0c2444] text-white flex items-center justify-center shadow-lg shadow-[#0c2444]/20 mb-6">
               <Search className="w-7 h-7" />
             </div>
-            <h3 className="text-xl font-bold font-tajawal text-[#0c2444] mb-3">
+            <h3 className="text-xl font-bold font-cairo text-[#0c2444] mb-3">
               الشفافية
             </h3>
             <p className="text-slate-600 text-sm leading-relaxed">

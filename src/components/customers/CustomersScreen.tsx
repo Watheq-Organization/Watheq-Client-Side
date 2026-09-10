@@ -323,7 +323,7 @@ export const CustomersScreen: FC = () => {
           {/* Header Row: Title & Actions */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold font-tajawal text-[#0c2444] tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-extrabold font-cairo text-[#0c2444] tracking-tight">
                 قائمة العملاء
               </h1>
               <p className="mt-1 text-xs sm:text-sm font-medium text-slate-500">
@@ -501,12 +501,12 @@ export const CustomersScreen: FC = () => {
                         <td className="py-4 px-4 sm:px-6">
                           <div className="flex items-center gap-3">
                             <div
-                              className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm sm:text-base font-tajawal shadow-2xs ${customer.avatarBg}`}
+                              className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm sm:text-base font-cairo shadow-2xs ${customer.avatarBg}`}
                             >
                               {customer.avatarLetter}
                             </div>
                             <div>
-                              <div className="font-bold text-[#0c2444] text-sm sm:text-base font-tajawal group-hover:text-blue-700 transition-colors">
+                              <div className="font-bold text-[#0c2444] text-sm sm:text-base font-cairo group-hover:text-blue-700 transition-colors">
                                 {customer.name}
                               </div>
                               <div className="text-[11px] text-slate-400 font-normal">
@@ -522,7 +522,7 @@ export const CustomersScreen: FC = () => {
                         </td>
 
                         {/* 3. Total Debt */}
-                        <td className="py-4 px-4 sm:px-6 font-bold text-slate-900 font-tajawal text-sm sm:text-base">
+                        <td className="py-4 px-4 sm:px-6 font-bold text-slate-900 font-cairo text-sm sm:text-base">
                           <span>{customer.totalDebt.toLocaleString('ar-SA')}</span>{' '}
                           <span className="text-xs font-normal text-slate-400 font-cairo">ش.إ</span>
                         </td>
@@ -638,7 +638,7 @@ export const CustomersScreen: FC = () => {
           <div className="bg-white rounded-[12px] w-[450px] max-w-[calc(100vw-32px)] shadow-2xl overflow-hidden">
             {/* Header */}
             <div className="h-[68px] flex items-center justify-between px-6 border-b border-slate-200">
-              <h3 className="text-lg font-bold font-tajawal text-[#0c2444]">
+              <h3 className="text-lg font-bold font-cairo text-[#0c2444]">
                 إضافة عميل جديد
               </h3>
               <button

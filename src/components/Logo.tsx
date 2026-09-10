@@ -55,7 +55,7 @@ export const Logo: FC<LogoProps> = ({
       <div className="flex flex-col justify-center text-right leading-none">
         <div className="flex items-baseline gap-1.5">
           <span
-            className={`font-black font-tajawal tracking-tight ${
+            className={`font-black font-cairo tracking-tight ${
               textSizes[size].ar
             } ${isLight ? 'text-white' : 'text-[#0c2444]'}`}
           >

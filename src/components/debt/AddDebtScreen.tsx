@@ -298,7 +298,7 @@ export const AddDebtScreen: FC = () => {
         <main className="p-4 sm:p-6 lg:p-10 flex-1">
           {/* Page Title */}
           <div className="text-center mb-6 sm:mb-8">
-            <h1 className="text-xl sm:text-2xl font-semibold text-[#00204F] font-tajawal">
+            <h1 className="text-xl sm:text-2xl font-semibold text-[#00204F] font-cairo">
               {isEditMode ? 'تعديل الدين' : 'إضافة دين جديد'}
             </h1>
             <p className="text-xs sm:text-sm text-slate-400 mt-1.5">

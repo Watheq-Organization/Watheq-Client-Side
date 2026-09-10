@@ -300,7 +300,7 @@ export const NewPaymentScreen: FC = () => {
           {/* Page Header + Security Badge */}
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold font-tajawal text-[#0c2444] tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-extrabold font-cairo text-[#0c2444] tracking-tight">
                 {isEditMode ? 'تعديل الدفعة' : 'تسجيل دفعة جديدة'}
               </h1>
               <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">

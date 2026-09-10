@@ -283,7 +283,7 @@ export const Header: FC<HeaderProps> = ({
                 {/* Panel Header */}
                 <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-bold font-tajawal text-slate-900 text-base">
+                    <h3 className="font-bold font-cairo text-slate-900 text-base">
                       الإشعارات والتنبيهات
                     </h3>
                     {unreadCount > 0 && (
@@ -460,7 +460,7 @@ export const Header: FC<HeaderProps> = ({
                       />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h4 className="text-sm font-bold font-tajawal text-slate-900 truncate">
+                      <h4 className="text-sm font-bold font-cairo text-slate-900 truncate">
                         {profile.fullName || 'أحمد محمد'}
                       </h4>
                       <p className="text-xs text-slate-500 truncate font-cairo">

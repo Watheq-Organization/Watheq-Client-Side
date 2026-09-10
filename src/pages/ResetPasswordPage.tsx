@@ -116,7 +116,7 @@ export const ResetPasswordPage: FC = () => {
             <div className="relative z-10 bg-white/90 backdrop-blur-md rounded-2xl p-5 border border-slate-200/80 shadow-md text-center">
               <div className="flex items-center justify-center gap-2 mb-1.5">
                 <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                <h4 className="font-tajawal font-bold text-base text-[#0c2444]">
+                <h4 className="font-cairo font-bold text-base text-[#0c2444]">
                   أمان بياناتك أولويتنا
                 </h4>
               </div>
@@ -144,7 +144,7 @@ export const ResetPasswordPage: FC = () => {
 
               {/* Title & Subtitle */}
               <div className="text-right mb-6">
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] font-tajawal tracking-tight mb-2">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] font-cairo tracking-tight mb-2">
                   تعيين كلمة مرور جديدة
                 </h1>
                 <p className="text-slate-500 text-xs sm:text-sm leading-relaxed">

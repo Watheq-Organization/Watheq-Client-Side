@@ -307,7 +307,7 @@ export const PaymentsScreen: FC = () => {
           {/* Top Title & Action Buttons */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="text-right">
-              <h1 className="text-2xl sm:text-3xl font-bold font-tajawal text-slate-900 tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-bold font-cairo text-slate-900 tracking-tight">
                 سجل المدفوعات
               </h1>
               <p className="mt-1 text-sm font-medium text-slate-500 font-cairo">
@@ -351,7 +351,7 @@ export const PaymentsScreen: FC = () => {
               </div>
               <div className="mt-4 text-right">
                 <div className="flex items-baseline gap-1.5 justify-start">
-                  <span className="text-2xl sm:text-3xl font-bold font-tajawal text-[#051838] tracking-tight">
+                  <span className="text-2xl sm:text-3xl font-bold font-cairo text-[#051838] tracking-tight">
                     145,280
                   </span>
                   <span className="text-xs text-slate-400 font-medium font-cairo">شيكل</span>
@@ -371,7 +371,7 @@ export const PaymentsScreen: FC = () => {
                 <span className="text-xs text-slate-400 font-medium">عمليات تم التحقق منها</span>
               </div>
               <div className="mt-4 text-right">
-                <span className="text-2xl sm:text-3xl font-bold font-tajawal text-[#051838] tracking-tight">
+                <span className="text-2xl sm:text-3xl font-bold font-cairo text-[#051838] tracking-tight">
                   342
                 </span>
               </div>
@@ -386,7 +386,7 @@ export const PaymentsScreen: FC = () => {
                 <span className="text-xs text-slate-400 font-medium">عمليات في انتظار التأكيد</span>
               </div>
               <div className="mt-4 text-right">
-                <span className="text-2xl sm:text-3xl font-bold font-tajawal text-[#051838] tracking-tight">
+                <span className="text-2xl sm:text-3xl font-bold font-cairo text-[#051838] tracking-tight">
                   18
                 </span>
               </div>
@@ -519,18 +519,18 @@ export const PaymentsScreen: FC = () => {
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <div
-                              className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs font-tajawal shadow-2xs ${payment.customerAvatarBg}`}
+                              className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs font-cairo shadow-2xs ${payment.customerAvatarBg}`}
                             >
                               {payment.customerInitials}
                             </div>
-                            <span className="font-bold text-[#0c2444] text-sm font-tajawal">
+                            <span className="font-bold text-[#0c2444] text-sm font-cairo">
                               {payment.customerName}
                             </span>
                           </div>
                         </td>
 
                         {/* Amount */}
-                        <td className="px-6 py-4 font-bold font-tajawal text-slate-900 text-base" dir="ltr">
+                        <td className="px-6 py-4 font-bold font-cairo text-slate-900 text-base" dir="ltr">
                           {payment.amount.toLocaleString('en-US', {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
@@ -709,7 +709,7 @@ export const PaymentsScreen: FC = () => {
           <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-lg font-bold font-tajawal text-slate-900">
+                <h3 className="text-lg font-bold font-cairo text-slate-900">
                   تسجيل تحصيل جديد
                 </h3>
                 <p className="text-xs text-slate-500">
@@ -753,7 +753,7 @@ export const PaymentsScreen: FC = () => {
                     className="py-3 px-2 flex items-center justify-between hover:bg-slate-50 rounded-xl cursor-pointer transition-colors group"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-[#edf5ff] text-[#2563eb] flex items-center justify-center font-bold text-xs font-tajawal">
+                      <div className="w-9 h-9 rounded-xl bg-[#edf5ff] text-[#2563eb] flex items-center justify-center font-bold text-xs font-cairo">
                         {cust.avatarLetter}
                       </div>
                       <div>

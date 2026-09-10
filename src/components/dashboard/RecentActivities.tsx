@@ -40,7 +40,7 @@ export const RecentActivities: FC = () => {
       <div>
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold font-tajawal text-slate-900">
+          <h2 className="text-lg font-bold font-cairo text-slate-900">
             أحدث النشاطات
           </h2>
           {activities.length > 0 && (
@@ -71,7 +71,7 @@ export const RecentActivities: FC = () => {
         {isLoading ? (
           <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-2">
             <Loader2 className="w-6 h-6 animate-spin text-[#0f284e]" />
-            <span className="text-xs font-medium font-tajawal">جاري تحميل النشاطات...</span>
+            <span className="text-xs font-medium font-cairo">جاري تحميل النشاطات...</span>
           </div>
         ) : displayedActivities.length > 0 ? (
           <div className="relative pr-4">
@@ -91,7 +91,7 @@ export const RecentActivities: FC = () => {
                     <span className="block text-[11px] font-semibold text-slate-400 mb-0.5">
                       {activity.time}
                     </span>
-                    <h3 className="text-sm font-bold font-tajawal text-slate-900 leading-snug">
+                    <h3 className="text-sm font-bold font-cairo text-slate-900 leading-snug">
                       {activity.title}
                     </h3>
                     <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">

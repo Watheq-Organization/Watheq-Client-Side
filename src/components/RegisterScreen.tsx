@@ -118,7 +118,7 @@ export const RegisterScreen: FC = () => {
             <div className="bg-white rounded-2xl p-6 sm:p-9 shadow-xl shadow-slate-200/70 border border-slate-100">
               {/* Form Heading */}
               <div className="text-right mb-6">
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] font-tajawal tracking-tight">
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] font-cairo tracking-tight">
                   إنشاء حساب جديد
                 </h2>
                 <p className="text-sm text-slate-500 mt-1.5 font-normal">
@@ -342,7 +342,7 @@ export const RegisterScreen: FC = () => {
           <div className="lg:col-span-6 space-y-6 text-right">
             {/* Title & Description */}
             <div>
-              <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0c2444] font-tajawal tracking-tight leading-tight">
+              <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0c2444] font-cairo tracking-tight leading-tight">
                 بناء الثقة يبدأ من{' '}
                 <span className="text-[#008744]">هنا</span>
               </h1>

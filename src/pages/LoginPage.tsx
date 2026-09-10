@@ -88,7 +88,7 @@ export const LoginPage: FC = () => {
             <div className="bg-white rounded-2xl p-6 sm:p-9 shadow-xl shadow-slate-200/70 border border-slate-100">
               {/* Form Heading */}
               <div className="text-right mb-6">
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] font-tajawal tracking-tight">
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] font-cairo tracking-tight">
                   تسجيل الدخول
                 </h2>
                 <p className="text-sm text-slate-500 mt-1.5 font-normal">
@@ -197,7 +197,7 @@ export const LoginPage: FC = () => {
             <Logo variant="emblem-only" size="xl" />
 
             <div>
-              <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0c2444] font-tajawal tracking-tight leading-tight">
+              <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0c2444] font-cairo tracking-tight leading-tight">
                 نظام إدارة الديون الذكي
               </h1>
               <p className="text-slate-600 text-sm sm:text-base mt-3 leading-relaxed max-w-md mx-auto">

@@ -171,7 +171,7 @@ export const SubscriptionsScreen: FC = () => {
           {/* Hero Section */}
           <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-12 relative">
             <div className="flex items-center justify-center gap-2 mb-3">
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold font-tajawal text-[#051838] tracking-tight">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold font-cairo text-[#051838] tracking-tight">
                 اختر الخطة المناسبة لنمو أعمالك
               </h1>
               <button
@@ -252,7 +252,7 @@ export const SubscriptionsScreen: FC = () => {
                   {statusCode ? `HTTP ${statusCode}` : 'خطأ'}
                 </span>
 
-                <h2 className="text-xl sm:text-2xl font-black font-tajawal text-slate-900">
+                <h2 className="text-xl sm:text-2xl font-black font-cairo text-slate-900">
                   {statusCode === 404
                     ? 'لا توجد باقات اشتراك مضافة (404 Not Found)'
                     : 'تعذر تحميل باقات الاشتراك'}
@@ -333,7 +333,7 @@ export const SubscriptionsScreen: FC = () => {
                       <div className="text-center mb-4">
                         <div className="flex items-baseline justify-center gap-1.5">
                           <span
-                            className={`text-3xl sm:text-4xl font-black font-tajawal ${
+                            className={`text-3xl sm:text-4xl font-black font-cairo ${
                               isDark ? 'text-white' : 'text-[#051838]'
                             }`}
                           >
@@ -436,7 +436,7 @@ export const SubscriptionsScreen: FC = () => {
           {/* Comparison Table Section (only if plans exist) */}
           {!isLoading && plans.length > 0 && (
             <div className="max-w-6xl mx-auto mb-14">
-              <h2 className="text-xl sm:text-2xl font-bold font-tajawal text-[#051838] mb-6 text-center sm:text-right">
+              <h2 className="text-xl sm:text-2xl font-bold font-cairo text-[#051838] mb-6 text-center sm:text-right">
                 قارن الميزات بالتفصيل
               </h2>
 
@@ -505,7 +505,7 @@ export const SubscriptionsScreen: FC = () => {
           {/* Custom Solutions / Enterprise Banner */}
           <div className="max-w-6xl mx-auto rounded-3xl border border-emerald-200/80 bg-gradient-to-l from-emerald-50/40 via-white to-blue-50/30 p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xs">
             <div className="text-right space-y-1.5 flex-1">
-              <h3 className="text-lg sm:text-xl font-bold font-tajawal text-[#051838]">
+              <h3 className="text-lg sm:text-xl font-bold font-cairo text-[#051838]">
                 هل تحتاج إلى حلول مخصصة لمؤسستك؟
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
@@ -543,7 +543,7 @@ export const SubscriptionsScreen: FC = () => {
                 <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner animate-bounce">
                   <CheckCircle2 className="w-10 h-10" />
                 </div>
-                <h3 className="text-2xl font-bold font-tajawal text-[#051838]">
+                <h3 className="text-2xl font-bold font-cairo text-[#051838]">
                   تم تفعيل الاشتراك بنجاح!
                 </h3>
                 <p className="text-sm text-slate-600">
@@ -556,7 +556,7 @@ export const SubscriptionsScreen: FC = () => {
                   <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
                     تأكيد الاشتراك
                   </span>
-                  <h3 className="text-xl sm:text-2xl font-bold font-tajawal text-[#051838] mt-2">
+                  <h3 className="text-xl sm:text-2xl font-bold font-cairo text-[#051838] mt-2">
                     الاشتراك في {selectedPlan.name}
                   </h3>
                   <p className="text-xs sm:text-sm text-slate-500 mt-1">
@@ -570,7 +570,7 @@ export const SubscriptionsScreen: FC = () => {
                     <span className="text-xs text-slate-500 font-medium block">
                       المبلغ الإجمالي
                     </span>
-                    <span className="text-2xl font-extrabold text-[#051838] font-tajawal">
+                    <span className="text-2xl font-extrabold text-[#051838] font-cairo">
                       {selectedPlan.price}
                     </span>
                     {selectedPlan.period && (

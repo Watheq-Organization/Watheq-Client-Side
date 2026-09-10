@@ -52,7 +52,7 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
       <div>
         {/* Table Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold font-tajawal text-slate-900">
+          <h2 className="text-lg font-bold font-cairo text-slate-900">
             المدفوعات المتأخرة
           </h2>
           <button
@@ -87,7 +87,7 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
           {isLoading ? (
             <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-2">
               <Loader2 className="w-6 h-6 animate-spin text-[#0f284e]" />
-              <span className="text-xs font-medium font-tajawal">جاري تحميل المدفوعات المتأخرة...</span>
+              <span className="text-xs font-medium font-cairo">جاري تحميل المدفوعات المتأخرة...</span>
             </div>
           ) : (
             <table className="w-full text-right border-collapse">
@@ -110,17 +110,17 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
                       onClick={() => navigate(`/customers/${payment.id}`)}
                     >
                       {/* Customer Name */}
-                      <td className="py-4 pr-2 font-bold font-tajawal text-sm text-slate-800 hover:text-[#0c2444] transition-colors duration-150 underline-offset-2 hover:underline">
+                      <td className="py-4 pr-2 font-bold font-cairo text-sm text-slate-800 hover:text-[#0c2444] transition-colors duration-150 underline-offset-2 hover:underline">
                         {payment.customerName}
                       </td>
 
                       {/* Amount */}
-                      <td className="py-4 text-center font-bold font-tajawal text-sm text-[#e11d48]">
+                      <td className="py-4 text-center font-bold font-cairo text-sm text-[#e11d48]">
                         {payment.amount}
                       </td>
 
                       {/* Due Date */}
-                      <td className="py-4 text-center text-sm font-medium text-slate-600 font-tajawal">
+                      <td className="py-4 text-center text-sm font-medium text-slate-600 font-cairo">
                         {payment.dueDate}
                       </td>
 
@@ -132,7 +132,7 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
                             e.stopPropagation();
                             handleSendReminder(payment.id);
                           }}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold font-tajawal border transition-all duration-200 shadow-2xs ${
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold font-cairo border transition-all duration-200 shadow-2xs ${
                             isSent
                               ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
                               : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400 active:scale-95'

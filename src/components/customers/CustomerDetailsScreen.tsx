@@ -749,7 +749,7 @@ export const CustomerDetailsScreen: FC = () => {
                 <span className="text-slate-300">/</span>
                 <span className="text-slate-700 text-xs font-bold">ملف العميل</span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold font-tajawal text-[#0c2444] tracking-tight mt-1">
+              <h1 className="text-2xl sm:text-3xl font-extrabold font-cairo text-[#0c2444] tracking-tight mt-1">
                 ملف العميل
               </h1>
               <p className="text-xs sm:text-sm font-medium text-slate-500 mt-0.5">
@@ -815,7 +815,7 @@ export const CustomerDetailsScreen: FC = () => {
                         (e.target as HTMLElement).style.display = 'none';
                       }}
                     />
-                    <div className="w-full h-full bg-[#123663] text-white font-bold flex items-center justify-center text-2xl font-tajawal">
+                    <div className="w-full h-full bg-[#123663] text-white font-bold flex items-center justify-center text-2xl font-cairo">
                       {customer.avatarLetter || 'أ'}
                     </div>
                   </div>
@@ -826,7 +826,7 @@ export const CustomerDetailsScreen: FC = () => {
                 </div>
 
                 {/* Name */}
-                <h2 className="text-xl font-extrabold font-tajawal text-[#0c2444]">
+                <h2 className="text-xl font-extrabold font-cairo text-[#0c2444]">
                   {customer.name || 'أحمد الراجحي'}
                 </h2>
 
@@ -968,7 +968,7 @@ export const CustomerDetailsScreen: FC = () => {
                 {/* Print-Only Header with Customer Info */}
                 <div className="hidden print:flex items-center justify-between pb-4 border-b-2 border-slate-200" dir="rtl">
                   <div>
-                    <h2 className="text-xl font-extrabold font-tajawal text-[#0c2444]">
+                    <h2 className="text-xl font-extrabold font-cairo text-[#0c2444]">
                       سجل النشاط المالي وكشف الحساب
                     </h2>
                     <div className="flex items-center gap-3 text-xs text-slate-600 mt-1 font-cairo">
@@ -980,14 +980,14 @@ export const CustomerDetailsScreen: FC = () => {
                     </div>
                   </div>
                   <div className="text-left text-xs text-slate-500 font-mono">
-                    <span className="font-bold text-[#0c2444] block font-tajawal text-sm">منصة وثيق</span>
+                    <span className="font-bold text-[#0c2444] block font-cairo text-sm">منصة وثيق</span>
                     <span>{new Date().toLocaleDateString('ar-SA')}</span>
                   </div>
                 </div>
 
                 {/* Header with Title and Filter Tabs */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5 print:hidden">
-                  <h3 className="text-lg sm:text-xl font-extrabold font-tajawal text-[#0c2444]">
+                  <h3 className="text-lg sm:text-xl font-extrabold font-cairo text-[#0c2444]">
                     سجل النشاط المالي
                   </h3>
 
@@ -1058,7 +1058,7 @@ export const CustomerDetailsScreen: FC = () => {
                         >
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <div className="flex items-center gap-2.5 flex-wrap">
-                            <span className="font-bold text-[#0c2444] text-sm sm:text-base font-tajawal">
+                            <span className="font-bold text-[#0c2444] text-sm sm:text-base font-cairo">
                               {act.title}
                             </span>
                             {act.badgeText && (
@@ -1074,7 +1074,7 @@ export const CustomerDetailsScreen: FC = () => {
                           <div className="flex items-center gap-3">
                             {act.amount && (
                               <div className="text-left" dir="ltr">
-                                <span className={`text-base sm:text-lg font-extrabold font-tajawal ${act.amountColor}`}>
+                                <span className={`text-base sm:text-lg font-extrabold font-cairo ${act.amountColor}`}>
                                   {act.amount}
                                 </span>
                                 <span className="text-[10px] text-slate-400 block font-cairo">
@@ -1151,7 +1151,7 @@ export const CustomerDetailsScreen: FC = () => {
                     إجمالي المديونية الحالية
                   </span>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl sm:text-5xl font-black font-tajawal tracking-tight">
+                    <span className="text-3xl sm:text-5xl font-black font-cairo tracking-tight">
                       {currentBalance.toFixed(2)}
                     </span>
                     <span className="text-sm font-bold text-slate-400 font-cairo">
@@ -1167,7 +1167,7 @@ export const CustomerDetailsScreen: FC = () => {
                     <span className="text-[11px] text-slate-400 font-medium block mb-1">
                       آخر دفعة
                     </span>
-                    <span className="text-sm sm:text-base font-bold text-white font-tajawal">
+                    <span className="text-sm sm:text-base font-bold text-white font-cairo">
                       {lastPaymentAmount.toFixed(2)}
                     </span>
                     <span className="text-[10px] text-slate-400 block font-cairo">
@@ -1180,7 +1180,7 @@ export const CustomerDetailsScreen: FC = () => {
                     <span className="text-[11px] text-slate-400 font-medium block mb-1">
                       عدد المعاملات
                     </span>
-                    <span className="text-xs sm:text-sm font-bold text-white font-tajawal block">
+                    <span className="text-xs sm:text-sm font-bold text-white font-cairo block">
                       {profileTransactions.length}
                     </span>
                   </div>
@@ -1204,7 +1204,7 @@ export const CustomerDetailsScreen: FC = () => {
           <div className="bg-white rounded-[12px] w-[450px] max-w-[calc(100vw-32px)] shadow-2xl overflow-hidden">
             {/* Header */}
             <div className="h-[68px] flex items-center justify-between px-6 border-b border-slate-200">
-              <h3 className="text-lg font-bold font-tajawal text-[#0c2444]">
+              <h3 className="text-lg font-bold font-cairo text-[#0c2444]">
                 تعديل بيانات العميل
               </h3>
               <button
@@ -1360,7 +1360,7 @@ export const CustomerDetailsScreen: FC = () => {
               <Trash2 className="w-7 h-7" />
             </div>
 
-            <h3 className="text-xl font-bold font-tajawal text-slate-900 mb-2">
+            <h3 className="text-xl font-bold font-cairo text-slate-900 mb-2">
               حذف العميل
             </h3>
 
@@ -1414,7 +1414,7 @@ export const CustomerDetailsScreen: FC = () => {
               <Trash2 className="w-7 h-7" />
             </div>
 
-            <h3 className="text-xl font-bold font-tajawal text-slate-900 mb-2">
+            <h3 className="text-xl font-bold font-cairo text-slate-900 mb-2">
               {activityPendingDelete.type === 'debt' ? 'حذف الدين' : 'حذف الدفعة'}
             </h3>
 
@@ -1465,7 +1465,7 @@ export const CustomerDetailsScreen: FC = () => {
               <AlertTriangle className="w-7 h-7" />
             </div>
 
-            <h3 className="text-xl font-bold font-tajawal text-slate-900 mb-2">
+            <h3 className="text-xl font-bold font-cairo text-slate-900 mb-2">
               هذا الدين مرتبط بدفعات
             </h3>
 
