@@ -168,7 +168,7 @@ export const PaymentsScreen: FC = () => {
           }))
         );
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setIsLoadingCustomers(false));
   }, []);
 
@@ -634,7 +634,7 @@ export const PaymentsScreen: FC = () => {
             {/* Pagination Controls */}
             <div className="p-4 sm:p-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs sm:text-sm">
               <span className="text-slate-500 font-medium">
-                عرض {filteredPayments.length === 0 ? 0 : paginatedPayments.length} من أصل 342 عملية تحصيل
+                عرض {filteredPayments.length === 0 ? 0 : paginatedPayments.length} من أصل {filteredPayments.length} عملية تحصيل
               </span>
 
               {/* Numbered Pagination matching design */}
@@ -648,7 +648,7 @@ export const PaymentsScreen: FC = () => {
                   <ChevronLeft className="w-4 h-4" />
                 </button>
 
-                {[1, 2, 3].map((page) => (
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                   <button
                     key={page}
                     type="button"

@@ -71,6 +71,56 @@ interface ActivityItem {
   rawAmount: number;
   /** Raw debt status (tx.status), null for payments. */
   rawStatus: string | null;
+  /** Raw payment method (tx.paymentMethod), null for debts. */
+  rawPaymentMethod?: string | null;
+}
+
+/**
+ * Translates backend payment method enum/string into user-friendly Arabic.
+ * Specifically maps CreditCard to 'محفظة' so it never displays in English.
+ */
+function formatPaymentMethodLabel(method: string | null | undefined): string {
+  if (!method) return '';
+  const normalized = method.trim().toLowerCase().replace(/[\s_-]/g, '');
+  if (
+    normalized.includes('credit') ||
+    normalized.includes('card') ||
+    normalized.includes('محفظة') ||
+    normalized.includes('بطاقة') ||
+    normalized === '3'
+  ) {
+    return 'محفظة';
+  }
+  if (
+    normalized.includes('transfer') ||
+    normalized.includes('bank') ||
+    normalized.includes('تحويل') ||
+    normalized.includes('بنك') ||
+    normalized === '2'
+  ) {
+    return 'تحويل بنكي';
+  }
+  if (
+    normalized.includes('cash') ||
+    normalized.includes('نقدي') ||
+    normalized === '1'
+  ) {
+    return 'نقدي (Cash)';
+  }
+  return method;
+}
+
+/**
+ * Translates backend debt status enum/string into user-friendly Arabic.
+ */
+function formatDebtStatusLabel(status: string | null | undefined): string {
+  if (!status) return '';
+  const normalized = status.trim().toLowerCase();
+  if (normalized === 'paid') return 'مسدد';
+  if (normalized === 'partiallypaid') return 'مسدد جزئياً';
+  if (normalized === 'unpaid') return 'غير مسدد';
+  if (normalized === 'overdue') return 'متأخر';
+  return status;
 }
 
 /**
@@ -277,7 +327,23 @@ export const CustomerDetailsScreen: FC = () => {
    */
   const handleEditActivityClick = (act: ActivityItem) => {
     if (act.type === 'payment') {
-      showToast('تعديل الدفعات سيتوفر قريباً بعد ربطه بواجهة الخادم.');
+      if (!act.recordId) {
+        showToast('تعذر فتح هذه الدفعة للتعديل.');
+        return;
+      }
+      navigate(`/customers/${customer.id}/payments/new`, {
+        state: {
+          editingPayment: {
+            paymentId: act.recordId,
+            customerId: customer.id,
+            customerFullName: customer.name,
+            amount: act.rawAmount,
+            date: act.date,
+            method: act.rawPaymentMethod || act.badgeText,
+            notes: act.description === 'معاملة دفع' ? '' : act.description,
+          },
+        },
+      });
       return;
     }
 
@@ -500,13 +566,21 @@ export const CustomerDetailsScreen: FC = () => {
     return profileTransactions.map((tx, index) => {
       const isDebt = tx.type === 'Debt';
       const sign = isDebt ? '+' : '-';
+      // TODO: Remove debug log after fixing payment method issue
+      if (!isDebt) {
+        // eslint-disable-next-line no-console
+        console.log('[CustomerDetails] Payment tx.paymentMethod raw value:', JSON.stringify(tx.paymentMethod));
+      }
       return {
         id: `${tx.reference || (isDebt ? 'debt' : 'payment')}-${index}`,
         type: isDebt ? 'debt' : 'payment',
         title: isDebt
           ? `دين جديد${tx.reference ? ` - ${tx.reference}` : ''}`
           : `دفعة مستلمة${tx.reference ? ` - ${tx.reference}` : ''}`,
-        badgeText: (isDebt ? tx.status : tx.paymentMethod) ?? undefined,
+        badgeText:
+          (isDebt
+            ? formatDebtStatusLabel(tx.status)
+            : formatPaymentMethodLabel(tx.paymentMethod)) || undefined,
         badgeStyle: isDebt
           ? 'bg-blue-50 text-blue-600 border border-blue-100'
           : 'bg-emerald-50 text-emerald-600 border border-emerald-100',
@@ -519,6 +593,7 @@ export const CustomerDetailsScreen: FC = () => {
         recordId: tx.id,
         rawAmount: tx.amount,
         rawStatus: isDebt ? tx.status : null,
+        rawPaymentMethod: isDebt ? null : tx.paymentMethod,
         iconBg: isDebt ? 'bg-[#0c2444] text-white' : 'bg-emerald-600 text-white',
       };
     });

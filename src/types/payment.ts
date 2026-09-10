@@ -18,7 +18,7 @@ export type PaymentMethod = 'cash' | 'bank_transfer' | 'credit_card';
 export const PAYMENT_METHOD_OPTIONS: { value: PaymentMethod; label: string }[] = [
   { value: 'cash', label: 'نقدي (Cash)' },
   { value: 'bank_transfer', label: 'تحويل بنكي' },
-  { value: 'credit_card', label: 'بطاقة ائتمان' },
+  { value: 'credit_card', label: 'محفظة' },
 ];
 
 /**
@@ -29,7 +29,8 @@ export const PAYMENT_METHOD_OPTIONS: { value: PaymentMethod; label: string }[] =
 export interface NewPaymentFormState {
   amount: string;
   method: PaymentMethod;
-  receiptNumber: string;
+  paymentDate?: string;
+  receiptNumber?: string;
   notes: string;
   receiptFile: File | null;
 }
@@ -72,3 +73,48 @@ export interface DeletePaymentResponseDto {
   debtId: number;
   totalDebt: number;
 }
+
+/**
+ * Request body for PUT /api/Payment/{id}.
+ * Only `newAmount` is sent in the body.
+ */
+export interface UpdatePaymentRequestDto {
+  newAmount: number;
+}
+
+/**
+ * Single debt affected by payment update in UpdatePaymentResponseDto.affectedDebts.
+ */
+export interface UpdatePaymentAffectedDebtDto {
+  debtId: number;
+  paidAmount: number;
+  remainingAmount: number;
+  status: string;
+}
+
+/**
+ * Real backend response shape from PUT /api/Payment/{id}.
+ */
+export interface UpdatePaymentResponseDto {
+  paymentId: number;
+  customerId: number;
+  debtId: number;
+  oldAmount: number;
+  newAmount: number;
+  totalDebt: number;
+  affectedDebts: UpdatePaymentAffectedDebtDto[];
+}
+
+/**
+ * Navigation state passed to NewPaymentScreen when editing an existing payment.
+ */
+export interface EditingPaymentState {
+  paymentId: number;
+  amount: number;
+  customerId?: string;
+  customerFullName?: string;
+  date?: string;
+  method?: string;
+  notes?: string;
+}
+

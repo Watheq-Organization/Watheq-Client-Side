@@ -232,8 +232,8 @@ function normalizeCustomerProfileDto(raw: unknown): CustomerProfileDto {
   const rawTransactions = Array.isArray(r.transactions)
     ? r.transactions
     : Array.isArray(r.Transactions)
-    ? r.Transactions
-    : [];
+      ? r.Transactions
+      : [];
   const normalizedTransactions = rawTransactions.map(normalizeCustomerProfileTransaction);
 
   const customerId = String(r.id ?? r.customerId ?? r.Id ?? r.CustomerId ?? '');

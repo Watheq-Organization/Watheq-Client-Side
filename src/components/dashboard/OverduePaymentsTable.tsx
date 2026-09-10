@@ -106,10 +106,11 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
                   return (
                     <tr
                       key={payment.id}
-                      className="hover:bg-slate-50/60 transition-colors duration-150"
+                      className="hover:bg-slate-50/60 transition-colors duration-150 cursor-pointer"
+                      onClick={() => navigate(`/customers/${payment.id}`)}
                     >
                       {/* Customer Name */}
-                      <td className="py-4 pr-2 font-bold font-tajawal text-sm text-slate-800">
+                      <td className="py-4 pr-2 font-bold font-tajawal text-sm text-slate-800 hover:text-[#0c2444] transition-colors duration-150 underline-offset-2 hover:underline">
                         {payment.customerName}
                       </td>
 
@@ -127,7 +128,10 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
                       <td className="py-4 pl-2 text-left">
                         <button
                           type="button"
-                          onClick={() => handleSendReminder(payment.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSendReminder(payment.id);
+                          }}
                           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold font-tajawal border transition-all duration-200 shadow-2xs ${
                             isSent
                               ? 'bg-emerald-50 border-emerald-300 text-emerald-700'

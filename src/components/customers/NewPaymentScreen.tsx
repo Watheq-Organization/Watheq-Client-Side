@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   ChevronLeft,
   ShieldCheck,
@@ -8,13 +8,12 @@ import {
   ImagePlus,
   Info,
   User,
-  Hash,
+  Calendar,
   Banknote,
   Landmark,
   CreditCard,
   Save,
-  MessageSquareText,
-  CalendarCheck2,
+  CheckCircle2,
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
@@ -27,14 +26,16 @@ import {
 import {
   registerPayment,
   toRegisterPaymentErrorMessage,
+  updatePayment,
+  toUpdatePaymentErrorMessage,
   validatePaymentAmount,
   validatePaymentAmountAgainstBalance,
-  validateReceiptNumber,
   validatePaymentNotes,
   validateReceiptFile,
+  PAYMENT_METHOD_TO_NUMERIC,
 } from '../../services/paymentService';
 import { PAYMENT_METHOD_OPTIONS } from '../../types/payment';
-import type { PaymentMethod } from '../../types/payment';
+import type { PaymentMethod, EditingPaymentState } from '../../types/payment';
 import type { CustomerProfileDto } from '../../types/customer';
 import { PATHS } from '../../routes/paths';
 
@@ -43,6 +44,30 @@ const PAYMENT_METHOD_ICONS: Record<PaymentMethod, typeof Banknote> = {
   bank_transfer: Landmark,
   credit_card: CreditCard,
 };
+
+function parsePaymentMethod(value: string | null | undefined): PaymentMethod {
+  if (!value) return 'cash';
+  const v = value.trim().toLowerCase().replace(/[\s_-]/g, '');
+  if (
+    v.includes('credit') ||
+    v.includes('card') ||
+    v.includes('محفظة') ||
+    v.includes('بطاقة') ||
+    v === '3'
+  ) {
+    return 'credit_card';
+  }
+  if (
+    v.includes('transfer') ||
+    v.includes('bank') ||
+    v.includes('تحويل') ||
+    v.includes('بنك') ||
+    v === '2'
+  ) {
+    return 'bank_transfer';
+  }
+  return 'cash';
+}
 
 export const NewPaymentScreen: FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -75,24 +100,53 @@ export const NewPaymentScreen: FC = () => {
     loadCustomerProfile();
   }, [loadCustomerProfile]);
 
+  const location = useLocation();
+  const navState = location.state as { editingPayment?: EditingPaymentState } | null;
+  const editingPayment = navState?.editingPayment ?? null;
+  const isEditMode = editingPayment !== null;
+
   // Form state
-  const [amount, setAmount] = useState('');
-  const [method, setMethod] = useState<PaymentMethod>('cash');
-  const [receiptNumber, setReceiptNumber] = useState('');
-  const [notes, setNotes] = useState('');
+  const [amount, setAmount] = useState(
+    editingPayment ? String(editingPayment.amount) : ''
+  );
+  const [method, setMethod] = useState<PaymentMethod>(() =>
+    parsePaymentMethod(editingPayment?.method)
+  );
+  const [paymentDate, setPaymentDate] = useState('');
+  const [notes, setNotes] = useState(editingPayment?.notes ?? '');
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [fieldErrors, setFieldErrors] = useState<{
     amount?: string;
-    receiptNumber?: string;
+    paymentDate?: string;
     notes?: string;
     receipt?: string;
   }>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Re-sync form state whenever the navigation state (editingPayment) changes.
+  // useState initialises only once, but if the user navigates between payments
+  // without the component unmounting, the state stays stale.
+  const editingPaymentId = editingPayment?.paymentId;
+  useEffect(() => {
+    if (editingPayment) {
+      setAmount(String(editingPayment.amount));
+      setMethod(parsePaymentMethod(editingPayment.method));
+      setNotes(editingPayment.notes ?? '');
+    } else {
+      setAmount('');
+      setMethod('cash');
+      setNotes('');
+    }
+    setFieldErrors({});
+    setSubmitError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingPaymentId]);
+
   const handleReceiptChange = (file: File | null) => {
+    if (isEditMode) return;
     if (!file) {
       setReceiptFile(null);
       setFieldErrors((prev) => ({ ...prev, receipt: undefined }));
@@ -116,7 +170,11 @@ export const NewPaymentScreen: FC = () => {
   // otherwise shown as "---" exactly as in the reference.
   const parsedAmount = Number(amount);
   const hasValidAmount = amount.trim() !== '' && Number.isFinite(parsedAmount) && parsedAmount > 0;
-  const balanceAfterPayment = hasValidAmount ? Math.max(currentBalance - parsedAmount, 0) : null;
+  const balanceAfterPayment = hasValidAmount
+    ? isEditMode && editingPayment
+      ? Math.max(currentBalance - (parsedAmount - editingPayment.amount), 0)
+      : Math.max(currentBalance - parsedAmount, 0)
+    : null;
 
   // "مدى التزام العميل" has no dedicated field anywhere in the API — the
   // closest real signal already available is how much of the customer's
@@ -129,17 +187,43 @@ export const NewPaymentScreen: FC = () => {
   const handleSave = async () => {
     if (isSaving) return;
 
+    // In Edit Mode, call PUT /api/Payment/{id} with newAmount
+    if (isEditMode && editingPayment) {
+      const amountError = validatePaymentAmount(amount);
+      if (amountError) {
+        setFieldErrors((prev) => ({ ...prev, amount: amountError }));
+        return;
+      }
+
+      setSubmitError(null);
+      setIsSaving(true);
+      try {
+        await updatePayment(
+          editingPayment.paymentId,
+          Number(amount.trim()),
+          PAYMENT_METHOD_TO_NUMERIC[method]
+        );
+        navigate(id ? `/customers/${id}` : '/customers', {
+          state: { toast: 'تم تعديل الدفعة بنجاح.' },
+        });
+      } catch (error) {
+        setSubmitError(toUpdatePaymentErrorMessage(error));
+      } finally {
+        setIsSaving(false);
+      }
+      return;
+    }
+
     const errors: typeof fieldErrors = {
       amount:
         validatePaymentAmount(amount) ??
         (customerProfile
           ? validatePaymentAmountAgainstBalance(amount, currentBalance) ?? undefined
           : undefined),
-      receiptNumber: validateReceiptNumber(receiptNumber) ?? undefined,
       notes: validatePaymentNotes(notes) ?? undefined,
     };
     setFieldErrors((prev) => ({ ...prev, ...errors }));
-    if (errors.amount || errors.receiptNumber || errors.notes || !id) {
+    if (errors.amount || errors.notes || !id) {
       if (!id) setSubmitError('معرّف العميل غير موجود.');
       return;
     }
@@ -150,7 +234,7 @@ export const NewPaymentScreen: FC = () => {
       const res = await registerPayment(id, {
         amount,
         method,
-        receiptNumber: receiptNumber.trim(),
+        paymentDate: paymentDate || undefined,
         notes: notes.trim(),
         receiptFile,
       });
@@ -208,17 +292,21 @@ export const NewPaymentScreen: FC = () => {
               سجل المدفوعات
             </button>
             <ChevronLeft className="w-3.5 h-3.5" />
-            <span className="text-slate-600">تسجيل دفعة جديدة</span>
+            <span className="text-slate-600">
+              {isEditMode ? 'تعديل الدفعة' : 'تسجيل دفعة جديدة'}
+            </span>
           </nav>
 
           {/* Page Header + Security Badge */}
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
             <div>
               <h1 className="text-2xl sm:text-3xl font-extrabold font-tajawal text-[#0c2444] tracking-tight">
-                تسجيل دفعة جديدة
+                {isEditMode ? 'تعديل الدفعة' : 'تسجيل دفعة جديدة'}
               </h1>
               <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
-                قم بتسجيل المبالغ المستلمة من العميل لتحديث رصيده المالي فوراً.
+                {isEditMode
+                  ? 'قم بتعديل قيمة الدفعة للعميل لتحديث رصيده المالي فوراً.'
+                  : 'قم بتسجيل المبالغ المستلمة من العميل لتحديث رصيده المالي فوراً.'}
               </p>
             </div>
 
@@ -252,6 +340,15 @@ export const NewPaymentScreen: FC = () => {
                 </div>
               )}
 
+              {isEditMode && (
+                <div className="rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs px-4 py-2.5 flex items-center gap-2">
+                  <Info className="w-4 h-4 shrink-0 text-blue-600" />
+                  <span>
+                    يتم تعديل قيمة الدفعة الحالية، وسيقوم النظام تلقائياً بإعادة احتساب وتوزيع المبلغ على ديون العميل في قاعدة البيانات.
+                  </span>
+                </div>
+              )}
+
               {/* Customer Name (context only, not selectable) */}
               <div className="space-y-1.5 text-right">
                 <label className="text-xs sm:text-sm font-semibold text-slate-700">اسم العميل</label>
@@ -259,7 +356,11 @@ export const NewPaymentScreen: FC = () => {
                   <User className="absolute right-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
                   <input
                     type="text"
-                    value={isLoadingProfile ? 'جاري التحميل...' : customerProfile?.fullName ?? ''}
+                    value={
+                      isLoadingProfile
+                        ? editingPayment?.customerFullName || 'جاري التحميل...'
+                        : customerProfile?.fullName || editingPayment?.customerFullName || ''
+                    }
                     readOnly
                     disabled
                     dir="rtl"
@@ -269,7 +370,7 @@ export const NewPaymentScreen: FC = () => {
                 <p className="text-xs text-slate-400">تم اختيار العميل من صفحة التفاصيل السابقة.</p>
               </div>
 
-              {/* Amount + Receipt Number, side by side */}
+              {/* Amount + Payment Date, side by side */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Payment Amount */}
                 <div className="space-y-1.5 text-right">
@@ -292,7 +393,7 @@ export const NewPaymentScreen: FC = () => {
                       }}
                       placeholder="0.00"
                       dir="ltr"
-                      className={`w-full pr-10 pl-3.5 py-2.5 bg-slate-50/70 border rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right font-sans ${
+                      className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-50/70 border rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right font-sans ${
                         fieldErrors.amount ? 'border-rose-400' : 'border-slate-200'
                       }`}
                     />
@@ -302,30 +403,31 @@ export const NewPaymentScreen: FC = () => {
                   )}
                 </div>
 
-                {/* Receipt Number (optional) */}
+                {/* Payment Date */}
                 <div className="space-y-1.5 text-right">
                   <label className="text-xs sm:text-sm font-semibold text-slate-700">
-                    رقم الإيصال <span className="font-normal text-slate-400">(اختياري)</span>
+                    تاريخ الدفع
                   </label>
                   <div className="relative flex items-center">
-                    <Hash className="absolute right-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
+                    <Calendar className="absolute right-3.5 w-4 h-4 text-slate-400 pointer-events-none z-10" />
                     <input
-                      type="text"
-                      value={receiptNumber}
+                      type="date"
+                      value={paymentDate}
+                      disabled={isEditMode}
                       onChange={(e) => {
-                        setReceiptNumber(e.target.value);
-                        setFieldErrors((prev) => ({ ...prev, receiptNumber: undefined }));
+                        setPaymentDate(e.target.value);
+                        setFieldErrors((prev) => ({ ...prev, paymentDate: undefined }));
                       }}
-                      placeholder="REC-10025"
-                      dir="rtl"
-                      maxLength={50}
-                      className={`w-full pr-10 pl-3.5 py-2.5 bg-slate-50/70 border rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right font-sans ${
-                        fieldErrors.receiptNumber ? 'border-rose-400' : 'border-slate-200'
-                      }`}
+                      onClick={(e) => !isEditMode && e.currentTarget.showPicker?.()}
+                      dir="ltr"
+                      placeholder="mm/dd/yyyy"
+                      className={`w-full pr-10 pl-3.5 py-2.5 bg-slate-50/70 border rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-left font-sans ${
+                        isEditMode ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                      } ${fieldErrors.paymentDate ? 'border-rose-400' : 'border-slate-200'}`}
                     />
                   </div>
-                  {fieldErrors.receiptNumber && (
-                    <p className="text-xs text-rose-600">{fieldErrors.receiptNumber}</p>
+                  {fieldErrors.paymentDate && (
+                    <p className="text-xs text-rose-600">{fieldErrors.paymentDate}</p>
                   )}
                 </div>
               </div>
@@ -341,8 +443,9 @@ export const NewPaymentScreen: FC = () => {
                       <button
                         key={option.value}
                         type="button"
+                        disabled={isSaving}
                         onClick={() => setMethod(option.value)}
-                        className={`flex flex-col items-center justify-center gap-1.5 py-3 px-2 rounded-xl border-2 text-xs font-bold transition-all cursor-pointer ${
+                        className={`flex flex-col items-center justify-center gap-1.5 py-3 px-2 rounded-xl border-2 text-xs font-bold transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-70 ${
                           isSelected
                             ? 'border-[#0c2444] bg-slate-50 text-[#0c2444] shadow-xs'
                             : 'border-slate-200 text-slate-500 hover:border-slate-300'
@@ -360,14 +463,16 @@ export const NewPaymentScreen: FC = () => {
               <div>
                 <Textarea
                   label="ملاحظات إضافية (اختياري)"
-                  placeholder="أضف تفاصيل أخرى للدفعة..."
+                  placeholder="أضف تفاصيل أخرى عن الدفعة..."
                   value={notes}
+                  disabled={isEditMode}
                   maxLength={500}
                   onChange={(e) => {
                     setNotes(e.target.value);
                     setFieldErrors((prev) => ({ ...prev, notes: undefined }));
                   }}
                   rows={3}
+                  className={isEditMode ? 'opacity-60 cursor-not-allowed' : ''}
                 />
                 {fieldErrors.notes && (
                   <p className="text-xs text-rose-600 text-right mt-1">{fieldErrors.notes}</p>
@@ -400,12 +505,12 @@ export const NewPaymentScreen: FC = () => {
                           d="M4 12a8 8 0 018-8v8H4z"
                         />
                       </svg>
-                      جاري الحفظ...
+                      {isEditMode ? 'جاري تعديل الدفعة...' : 'جاري الحفظ...'}
                     </span>
                   ) : (
                     <>
                       <Save className="w-4 h-4" />
-                      <span>حفظ الدفعة</span>
+                      <span>{isEditMode ? 'تعديل الدفعة' : 'حفظ الدفعة'}</span>
                     </>
                   )}
                 </button>
@@ -438,14 +543,21 @@ export const NewPaymentScreen: FC = () => {
                 />
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 hover:border-slate-300 py-6 px-3 text-center transition-colors cursor-pointer"
+                  disabled={isEditMode}
+                  onClick={() => !isEditMode && fileInputRef.current?.click()}
+                  className={`w-full flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed py-6 px-3 text-center transition-colors ${
+                    isEditMode
+                      ? 'border-slate-200 bg-slate-50/50 cursor-not-allowed opacity-60'
+                      : 'border-slate-200 hover:border-slate-300 cursor-pointer'
+                  }`}
                 >
                   <ImagePlus className="w-6 h-6 text-slate-300" />
                   <span className="text-sm font-semibold text-slate-600">
-                    {receiptFile ? receiptFile.name : 'رفع صورة الإيصال'}
+                    {isEditMode ? 'إثبات الدفع (غير متاح في التعديل)' : receiptFile ? receiptFile.name : 'رفع صورة الإيصال'}
                   </span>
-                  <span className="text-xs text-slate-400">حتى 5 ميجابايت، PNG, JPG</span>
+                  <span className="text-xs text-slate-400">
+                    {isEditMode ? 'تعديل الدفعة يقتصر على تعديل القيمة فقط' : 'حتى 5 ميجابايت، PNG, JPG'}
+                  </span>
                 </button>
                 {fieldErrors.receipt && (
                   <p className="text-xs text-rose-600 text-right">{fieldErrors.receipt}</p>
@@ -498,14 +610,14 @@ export const NewPaymentScreen: FC = () => {
                 <h3 className="text-sm font-bold text-[#0c2444]">مساعدة سريعة</h3>
 
                 <div className="flex items-start gap-2">
-                  <MessageSquareText className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                  <CheckCircle2 className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                   <p className="text-xs text-slate-500 leading-relaxed">
                     سيتم إرسال إشعار SMS للعميل فور حفظ الدفعة.
                   </p>
                 </div>
 
                 <div className="flex items-start gap-2">
-                  <CalendarCheck2 className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                  <CheckCircle2 className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                   <p className="text-xs text-slate-500 leading-relaxed">
                     تأكد من مطابقة تاريخ التحويل البنكي مع تاريخ الإيصال.
                   </p>
