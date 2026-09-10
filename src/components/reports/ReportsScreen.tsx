@@ -317,7 +317,7 @@ export const ReportsScreen: FC = () => {
                   <span className="text-3xl font-bold font-tajawal text-[#047857] tracking-tight">
                     {stats.collections.toLocaleString('ar-SA')}
                   </span>
-                  <span className="text-sm font-semibold text-slate-500 font-cairo">ريال</span>
+                  <span className="text-sm font-semibold text-slate-500 font-cairo">شيكل</span>
                 </div>
                 <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
                   <TrendingUp className="w-3.5 h-3.5" />
@@ -340,7 +340,7 @@ export const ReportsScreen: FC = () => {
                   <span className="text-3xl font-bold font-tajawal text-[#051838] tracking-tight">
                     {stats.debts.toLocaleString('ar-SA')}
                   </span>
-                  <span className="text-sm font-semibold text-slate-500 font-cairo">ريال</span>
+                  <span className="text-sm font-semibold text-slate-500 font-cairo">شيكل</span>
                 </div>
                 <div className="mt-2 flex items-center gap-1.5 text-xs text-rose-500 font-medium">
                   <TrendingUp className="w-3.5 h-3.5" />
@@ -400,7 +400,7 @@ export const ReportsScreen: FC = () => {
                 <div className="w-20 sm:w-24 shrink-0 flex flex-col justify-between text-xs text-slate-400 font-medium pb-8 text-left pl-2 select-none h-64 sm:h-72">
                   {Y_AXIS_VALUES.map((val) => (
                     <span key={val} className="leading-none">
-                      {val.toLocaleString('ar-SA')} ريال
+                      {val.toLocaleString('ar-SA')} شيكل
                     </span>
                   ))}
                 </div>
@@ -449,7 +449,7 @@ export const ReportsScreen: FC = () => {
                               {hoveredBar?.index === idx &&
                                 hoveredBar?.type === 'collections' && (
                                   <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[11px] font-tajawal py-1 px-2.5 rounded-md whitespace-nowrap shadow-lg z-20 pointer-events-none">
-                                    تحصيلات: {item.collections.toLocaleString('ar-SA')} ريال
+                                    تحصيلات: {item.collections.toLocaleString('ar-SA')} شيكل
                                   </div>
                                 )}
                             </div>
@@ -466,7 +466,7 @@ export const ReportsScreen: FC = () => {
                               {/* Hover Tooltip */}
                               {hoveredBar?.index === idx && hoveredBar?.type === 'debts' && (
                                 <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[11px] font-tajawal py-1 px-2.5 rounded-md whitespace-nowrap shadow-lg z-20 pointer-events-none">
-                                  ديون جديدة: {item.debts.toLocaleString('ar-SA')} ريال
+                                  ديون جديدة: {item.debts.toLocaleString('ar-SA')} شيكل
                                 </div>
                               )}
                             </div>

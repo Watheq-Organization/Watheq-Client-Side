@@ -51,7 +51,7 @@ const PLANS: Plan[] = [
     name: 'المتقدمة',
     badge: 'المتقدمة',
     badgeType: 'advanced',
-    price: '99 ر.س',
+    price: '99 ش.إ',
     period: '/شهرياً',
     description: 'للمحلات التجارية المتوسطة والنمو السريع.',
     isPopular: true,
@@ -69,7 +69,7 @@ const PLANS: Plan[] = [
     name: 'الاحترافية',
     badge: 'الاحترافية',
     badgeType: 'professional',
-    price: '899 ر.س',
+    price: '899 ش.إ',
     period: '/سنوياً',
     description: 'حلول متكاملة للمؤسسات والشركات الكبيرة.',
     features: [

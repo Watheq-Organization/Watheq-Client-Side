@@ -46,7 +46,7 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   {
     id: 'n-1',
     title: 'دفعة جديدة مستلمة',
-    message: 'قام العميل خالد السعد بسداد مبلغ 1,200 ريال عبر التحويل البنكي.',
+    message: 'قام العميل خالد السعد بسداد مبلغ 1,200 شيكل عبر التحويل البنكي.',
     time: 'منذ 15 دقيقة',
     isRead: false,
     type: 'payment',
@@ -54,7 +54,7 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   {
     id: 'n-2',
     title: 'تذكير باستحقاق دين',
-    message: 'يستحق اليوم دين بقيمة 4,500 ريال على مؤسسة النور للتجارة.',
+    message: 'يستحق اليوم دين بقيمة 4,500 شيكل على مؤسسة النور للتجارة.',
     time: 'منذ ساعتين',
     isRead: false,
     type: 'debt',

@@ -19,7 +19,7 @@ const CREATE_DEBT_PATH = '/Debt/createDebt';
 /**
  * No currency selector exists anywhere in the app (no CurrencyContext, no
  * currency service/dropdown) and the Add New Debt screenshot doesn't show
- * one either — the UI only ever displays "ريال سعودي" as fixed text. Per
+ * one either — the UI displays "شيكل إسرائيلي" as fixed text. Per
  * the task's instruction to map currencyId under the hood without adding a
  * UI control, this is the single default used until a real currency
  * context is introduced.

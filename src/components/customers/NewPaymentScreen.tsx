@@ -274,11 +274,11 @@ export const NewPaymentScreen: FC = () => {
                 {/* Payment Amount */}
                 <div className="space-y-1.5 text-right">
                   <label className="text-xs sm:text-sm font-semibold text-slate-700">
-                    مبلغ الدفعة (ريال سعودي)
+                    مبلغ الدفعة (شيكل إسرائيلي)
                   </label>
                   <div className="relative flex items-center">
                     <span className="absolute right-3.5 text-xs font-bold text-slate-400 pointer-events-none">
-                      SR
+                      ILS
                     </span>
                     <input
                       type="number"
@@ -466,7 +466,7 @@ export const NewPaymentScreen: FC = () => {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-blue-200/70 font-medium">إجمالي المديونية:</span>
                   <span className="font-bold" dir="ltr">
-                    {isLoadingProfile ? '...' : `${totalDebt.toFixed(2).replace(/\.00$/, '')} SR`}
+                    {isLoadingProfile ? '...' : `${totalDebt.toFixed(2).replace(/\.00$/, '')} ش.إ`}
                   </span>
                 </div>
 
@@ -475,7 +475,7 @@ export const NewPaymentScreen: FC = () => {
                   <span className="font-bold" dir="ltr">
                     {balanceAfterPayment === null
                       ? '---'
-                      : `${balanceAfterPayment.toFixed(2).replace(/\.00$/, '')} SR`}
+                      : `${balanceAfterPayment.toFixed(2).replace(/\.00$/, '')} ش.إ`}
                   </span>
                 </div>
 

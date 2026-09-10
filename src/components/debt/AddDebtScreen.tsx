@@ -411,7 +411,7 @@ export const AddDebtScreen: FC = () => {
               {/* Amount */}
               <div className="space-y-1.5 text-right">
                 <label className="text-xs sm:text-sm font-semibold text-slate-700">
-                  المبلغ (ريال سعودي)
+                  المبلغ (شيكل إسرائيلي)
                 </label>
                 <div
                   className={`w-full flex items-center gap-1 pr-3.5 pl-3 py-2.5 bg-[#F7F7FC] border rounded-lg focus-within:bg-white focus-within:ring-2 focus-within:ring-[#00204F]/20 focus-within:border-[#00204F] transition-all ${
@@ -432,7 +432,7 @@ export const AddDebtScreen: FC = () => {
                     dir="ltr"
                     className="min-w-0 flex-1 bg-transparent text-sm text-slate-800 placeholder-slate-400 outline-none text-right font-sans"
                   />
-                  <span className="text-xs font-bold text-slate-400 shrink-0">ر.س</span>
+                  <span className="text-xs font-bold text-slate-400 shrink-0">ش.إ</span>
                 </div>
                 {fieldErrors.amount && <p className="text-xs text-rose-600">{fieldErrors.amount}</p>}
               </div>

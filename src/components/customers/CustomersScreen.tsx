@@ -283,7 +283,7 @@ export const CustomersScreen: FC = () => {
   const handleWhatsApp = (customer: Customer) => {
     const phone = customer.phone ? customer.phone.replace(/[^0-9]/g, '') : '';
     const text = encodeURIComponent(
-      `مرحباً ${customer.name}، نود تذكيركم بمستحقاتكم المالية لدى منصة وثّق بمبلغ ${customer.totalDebt.toLocaleString('ar-SA')} ر.س.`
+      `مرحباً ${customer.name}، نود تذكيركم بمستحقاتكم المالية لدى منصة وثّق بمبلغ ${customer.totalDebt.toLocaleString('ar-SA')} ش.إ.`
     );
     if (phone) {
       window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
@@ -524,7 +524,7 @@ export const CustomersScreen: FC = () => {
                         {/* 3. Total Debt */}
                         <td className="py-4 px-4 sm:px-6 font-bold text-slate-900 font-tajawal text-sm sm:text-base">
                           <span>{customer.totalDebt.toLocaleString('ar-SA')}</span>{' '}
-                          <span className="text-xs font-normal text-slate-400 font-cairo">ر.س</span>
+                          <span className="text-xs font-normal text-slate-400 font-cairo">ش.إ</span>
                         </td>
 
                         {/* 4. Status Badge */}
@@ -747,7 +747,7 @@ export const CustomersScreen: FC = () => {
                     setNewCustomer((p) => ({ ...p, initialDebt: e.target.value }));
                     setAddFieldErrors((p) => ({ ...p, initialDebt: undefined }));
                   }}
-                  placeholder="0.00 ر.س"
+                  placeholder="0.00 ش.إ"
                   dir="ltr"
                   className={`w-full h-[40px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none transition-colors ${
                     addFieldErrors.initialDebt

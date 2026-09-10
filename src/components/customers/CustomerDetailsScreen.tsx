@@ -514,7 +514,7 @@ export const CustomerDetailsScreen: FC = () => {
         amountColor: isDebt ? 'text-[#e11d48]' : 'text-emerald-600',
         description: tx.description || (isDebt ? 'معاملة دين' : 'معاملة دفع'),
         date: formatApiDate(tx.date, true),
-        balanceLabel: `${tx.balance.toFixed(2)} ${tx.currencyCode || 'ر.س'}`,
+        balanceLabel: `${tx.balance.toFixed(2)} ${tx.currencyCode || 'ش.إ'}`,
         reference: tx.reference,
         recordId: tx.id,
         rawAmount: tx.amount,
@@ -795,7 +795,7 @@ export const CustomerDetailsScreen: FC = () => {
                       <span>إجمالي المدفوع</span>
                     </div>
                     <span className="font-bold text-slate-800 font-mono" dir="ltr">
-                      {computedTotalPaid.toFixed(2)} ر.س
+                      {computedTotalPaid.toFixed(2)} ش.إ
                     </span>
                   </div>
 
@@ -1003,7 +1003,7 @@ export const CustomerDetailsScreen: FC = () => {
                                   {act.amount}
                                 </span>
                                 <span className="text-[10px] text-slate-400 block font-cairo">
-                                  ريال سعودي
+                                  شيكل إسرائيلي
                                 </span>
                               </div>
                             )}
@@ -1080,7 +1080,7 @@ export const CustomerDetailsScreen: FC = () => {
                       {currentBalance.toFixed(2)}
                     </span>
                     <span className="text-sm font-bold text-slate-400 font-cairo">
-                      ر.س
+                      ش.إ
                     </span>
                   </div>
                 </div>
@@ -1096,7 +1096,7 @@ export const CustomerDetailsScreen: FC = () => {
                       {lastPaymentAmount.toFixed(2)}
                     </span>
                     <span className="text-[10px] text-slate-400 block font-cairo">
-                      ر.س
+                      ش.إ
                     </span>
                   </div>
 
@@ -1215,11 +1215,11 @@ export const CustomerDetailsScreen: FC = () => {
                 {/* Field 4: Debt Balance — read-only, not sent to the API */}
                 <div>
                   <label className="block text-sm font-bold text-[#0c2444] mb-1.5">
-                    رصيد المديونية (ريال) <span className="font-normal text-slate-400">(اختياري)</span>
+                    رصيد المديونية (شيكل) <span className="font-normal text-slate-400">(اختياري)</span>
                   </label>
                   <div className="relative flex items-center">
                     <span className="absolute left-3.5 text-sm font-semibold text-slate-400 pointer-events-none">
-                      SAR
+                      ILS
                     </span>
                     <input
                       type="text"

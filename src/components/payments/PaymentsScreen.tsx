@@ -354,7 +354,7 @@ export const PaymentsScreen: FC = () => {
                   <span className="text-2xl sm:text-3xl font-bold font-tajawal text-[#051838] tracking-tight">
                     145,280
                   </span>
-                  <span className="text-xs text-slate-400 font-medium font-cairo">ريال</span>
+                  <span className="text-xs text-slate-400 font-medium font-cairo">شيكل</span>
                 </div>
                 <div className="mt-1 flex items-center gap-1 text-xs text-emerald-600 font-semibold">
                   <span>↗ +12%</span>
@@ -495,7 +495,7 @@ export const PaymentsScreen: FC = () => {
                 <thead>
                   <tr className="border-b border-slate-100 text-slate-400 font-medium text-xs bg-slate-50/60">
                     <th className="px-6 py-4">اسم العميل</th>
-                    <th className="px-6 py-4">المبلغ (ر.س)</th>
+                    <th className="px-6 py-4">المبلغ (ش.إ)</th>
                     <th className="px-6 py-4">التاريخ</th>
                     <th className="px-6 py-4">طريقة الدفع</th>
                     <th className="px-6 py-4">الحالة</th>
