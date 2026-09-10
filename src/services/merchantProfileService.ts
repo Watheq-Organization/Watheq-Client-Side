@@ -132,12 +132,23 @@ export function useMerchantProfile(): MerchantProfile {
   const [profile, setProfile] = useState<MerchantProfile>(() => getStoredMerchantProfile());
 
   useEffect(() => {
+    let isMounted = true;
+    // Fetch fresh profile from API on application launch / component mount
+    getMerchantProfile()
+      .then((fresh) => {
+        if (isMounted) {
+          setProfile(fresh);
+        }
+      })
+      .catch(() => {});
+
     const handleUpdate = () => {
       setProfile(getStoredMerchantProfile());
     };
     window.addEventListener(PROFILE_UPDATED_EVENT, handleUpdate);
     window.addEventListener('storage', handleUpdate);
     return () => {
+      isMounted = false;
       window.removeEventListener(PROFILE_UPDATED_EVENT, handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };
@@ -202,8 +213,12 @@ export async function getMerchantProfile(): Promise<MerchantProfile> {
     if (unwrapped && typeof unwrapped === 'object') {
       const obj = unwrapped as Record<string, unknown>;
       const rawImage =
+        (typeof obj.profileImage === 'string' && obj.profileImage) ||
+        (typeof obj.ProfileImage === 'string' && obj.ProfileImage) ||
         (typeof obj.profileImagePath === 'string' && obj.profileImagePath) ||
         (typeof obj.ProfileImagePath === 'string' && obj.ProfileImagePath) ||
+        (typeof obj.logoPath === 'string' && obj.logoPath) ||
+        (typeof obj.LogoPath === 'string' && obj.LogoPath) ||
         (typeof obj.imagePath === 'string' && obj.imagePath) ||
         (typeof obj.ImagePath === 'string' && obj.ImagePath);
 
@@ -284,8 +299,11 @@ export async function updateMerchantProfile(
     if (unwrapped && typeof unwrapped === 'object') {
       const obj = unwrapped as Record<string, unknown>;
       const serverImage =
+        (typeof obj.profileImage === 'string' && obj.profileImage) ||
+        (typeof obj.ProfileImage === 'string' && obj.ProfileImage) ||
         (typeof obj.profileImagePath === 'string' && obj.profileImagePath) ||
-        (typeof obj.ProfileImagePath === 'string' && obj.ProfileImagePath);
+        (typeof obj.ProfileImagePath === 'string' && obj.ProfileImagePath) ||
+        (typeof obj.logoPath === 'string' && obj.logoPath);
       if (serverImage) {
         setStoredMerchantProfile({
           ...profile,
