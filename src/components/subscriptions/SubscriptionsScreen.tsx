@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -10,118 +10,67 @@ import {
   CreditCard,
   Building2,
   Sparkles,
+  Loader2,
+  RefreshCw,
+  Award,
+  AlertCircle,
+  PackageSearch,
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
 import { PATHS } from '../../routes/paths';
-
-interface Plan {
-  id: 'basic' | 'advanced' | 'professional';
-  name: string;
-  badge: string;
-  badgeType: 'basic' | 'advanced' | 'professional';
-  price: string;
-  period?: string;
-  description: string;
-  isPopular?: boolean;
-  features: { text: string; included: boolean }[];
-  buttonText: string;
-  buttonVariant: 'outline' | 'featured' | 'secondary';
-}
-
-const PLANS: Plan[] = [
-  {
-    id: 'basic',
-    name: 'الأساسية',
-    badge: 'الأساسية',
-    badgeType: 'basic',
-    price: 'مجانية',
-    description: 'للتجار المبتدئين في تنظيم ديونهم.',
-    features: [
-      { text: 'حتى 10 عملاء', included: true },
-      { text: 'توثيق ديون أساسي', included: true },
-      { text: 'تنبيهات واتساب', included: false },
-      { text: 'تقارير متقدمة', included: false },
-    ],
-    buttonText: 'ابدأ الآن',
-    buttonVariant: 'secondary',
-  },
-  {
-    id: 'advanced',
-    name: 'المتقدمة',
-    badge: 'المتقدمة',
-    badgeType: 'advanced',
-    price: '99 ش.إ',
-    period: '/شهرياً',
-    description: 'للمحلات التجارية المتوسطة والنمو السريع.',
-    isPopular: true,
-    features: [
-      { text: 'حتى 100 عميل', included: true },
-      { text: 'تنبيهات واتساب آلية', included: true },
-      { text: 'تقارير مالية شهرية', included: true },
-      { text: 'دعم فني سريع', included: true },
-    ],
-    buttonText: 'اشترك الآن',
-    buttonVariant: 'featured',
-  },
-  {
-    id: 'professional',
-    name: 'الاحترافية',
-    badge: 'الاحترافية',
-    badgeType: 'professional',
-    price: '899 ش.إ',
-    period: '/سنوياً',
-    description: 'حلول متكاملة للمؤسسات والشركات الكبيرة.',
-    features: [
-      { text: 'عملاء غير محدودين', included: true },
-      { text: 'تنبيهات واتساب غير محدودة', included: true },
-      { text: 'تصدير بيانات متقدم (Excel/PDF)', included: true },
-      { text: 'مدير حساب مخصص', included: true },
-    ],
-    buttonText: 'اشترك الآن',
-    buttonVariant: 'outline',
-  },
-];
-
-const COMPARISON_ROWS = [
-  {
-    feature: 'عدد العملاء',
-    basic: '10',
-    advanced: '100',
-    professional: 'غير محدود',
-  },
-  {
-    feature: 'تنبيهات واتساب',
-    basic: false,
-    advanced: true,
-    professional: true,
-  },
-  {
-    feature: 'التقارير المالية',
-    basic: 'أساسية',
-    advanced: 'متقدمة',
-    professional: 'تحليلية كاملة',
-  },
-  {
-    feature: 'الدعم الفني',
-    basic: 'عبر الإيميل',
-    advanced: 'واتساب + هاتف',
-    professional: 'مدير حساب خاص',
-  },
-];
+import { getSubscriptionPlans } from '../../services/subscriptionService';
+import type { SubscriptionPlan } from '../../types/subscription';
 
 export const SubscriptionsScreen: FC = () => {
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  
+
+  // Plans data state from API
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [isFromApi, setIsFromApi] = useState<boolean>(false);
+  const [statusCode, setStatusCode] = useState<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   // Checkout Modal State
-  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'mada' | 'visa' | 'apple_pay' | 'stc_pay'>('mada');
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<
+    'mada' | 'visa' | 'apple_pay' | 'stc_pay'
+  >('mada');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  const handleOpenPlanModal = (plan: Plan) => {
+  const loadPlans = async (showRefreshIndicator = false) => {
+    if (showRefreshIndicator) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+    }
+
+    try {
+      const result = await getSubscriptionPlans();
+      setPlans(result.plans);
+      setIsFromApi(result.fromApi);
+      setStatusCode(result.status);
+      setErrorMessage(result.error || null);
+    } catch {
+      setPlans([]);
+      setStatusCode(500);
+      setErrorMessage('حدث خطأ غير متوقع أثناء محاولة الاتصال بخادم الاشتراكات.');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPlans();
+  }, []);
+
+  const handleOpenPlanModal = (plan: SubscriptionPlan) => {
     setSelectedPlan(plan);
     setIsSuccess(false);
   };
@@ -144,8 +93,63 @@ export const SubscriptionsScreen: FC = () => {
     }, 1200);
   };
 
+  // Dynamic Comparison Table data derived from current plans
+  const comparisonRows = [
+    {
+      feature: 'عدد العملاء',
+      values: plans.map((p) =>
+        p.maxCustomers
+          ? p.maxCustomers >= 99999
+            ? 'غير محدود'
+            : String(p.maxCustomers)
+          : 'غير محدود'
+      ),
+    },
+    {
+      feature: 'تنبيهات واتساب',
+      values: plans.map((p) => {
+        if (!p.maxWhatsAppMessages || p.maxWhatsAppMessages <= 0) return false;
+        if (p.maxWhatsAppMessages >= 99999) return 'غير محدود';
+        return `${p.maxWhatsAppMessages} رسالة`;
+      }),
+    },
+    {
+      feature: 'توثيق الديون الشهرية',
+      values: plans.map((p) =>
+        p.maxDebtsPerMonth
+          ? p.maxDebtsPerMonth >= 99999
+            ? 'غير محدود'
+            : `${p.maxDebtsPerMonth} دين`
+          : 'غير محدود'
+      ),
+    },
+    {
+      feature: 'التقارير المالية',
+      values: plans.map((_, idx) =>
+        idx === 0
+          ? 'أساسية'
+          : idx === plans.length - 1 && plans.length > 2
+          ? 'تحليلية كاملة'
+          : 'متقدمة'
+      ),
+    },
+    {
+      feature: 'الدعم الفني',
+      values: plans.map((_, idx) =>
+        idx === 0
+          ? 'عبر الإيميل'
+          : idx === plans.length - 1 && plans.length > 2
+          ? 'مدير حساب خاص'
+          : 'واتساب + هاتف'
+      ),
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex font-cairo antialiased" dir="rtl">
+    <div
+      className="min-h-screen bg-[#f8fafc] text-slate-800 flex font-cairo antialiased"
+      dir="rtl"
+    >
       {/* Sidebar */}
       <Sidebar
         isOpen={isSidebarOpen}
@@ -165,238 +169,338 @@ export const SubscriptionsScreen: FC = () => {
         {/* Page Body */}
         <main className="flex-1 p-4 sm:p-6 lg:p-10 max-w-7xl w-full mx-auto">
           {/* Hero Section */}
-          <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-12">
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold font-tajawal text-[#051838] tracking-tight mb-3">
-              اختر الخطة المناسبة لنمو أعمالك
-            </h1>
+          <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-12 relative">
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold font-tajawal text-[#051838] tracking-tight">
+                اختر الخطة المناسبة لنمو أعمالك
+              </h1>
+              <button
+                type="button"
+                onClick={() => loadPlans(true)}
+                disabled={isRefreshing || isLoading}
+                title="تحديث الباقات من الخادم"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-[#051838] hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw
+                  className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-[#051838]' : ''}`}
+                />
+              </button>
+            </div>
             <p className="text-slate-500 text-sm sm:text-base font-medium">
-              خطط مرنة مصممة لتلبية احتياجات التجار والمؤسسات باختلاف أحجامها.
+              خطط مرنة ومصممة لتلبية احتياجات التجار والمؤسسات باختلاف أحجامها.
             </p>
+
+            {isFromApi && plans.length > 0 && (
+              <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-100">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>تم تحديث الباقات مباشرة من الخادم</span>
+              </div>
+            )}
           </div>
 
-          {/* Pricing Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch mb-16 max-w-6xl mx-auto">
-            {PLANS.map((plan) => {
-              const isDark = plan.isPopular;
-
-              return (
+          {/* Loading Skeletons */}
+          {isLoading && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch mb-16 max-w-6xl mx-auto">
+              {[1, 2, 3].map((i) => (
                 <div
-                  key={plan.id}
-                  className={`relative rounded-3xl transition-all duration-300 flex flex-col justify-between p-6 sm:p-8 ${
-                    isDark
-                      ? 'bg-[#051838] text-white shadow-2xl ring-4 ring-[#051838]/10 md:-translate-y-3 z-10'
-                      : 'bg-white text-slate-800 border border-slate-200/90 shadow-xs hover:shadow-lg hover:-translate-y-1'
+                  key={i}
+                  className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 animate-pulse flex flex-col justify-between h-96"
+                >
+                  <div className="space-y-4">
+                    <div className="h-6 bg-slate-200 rounded-full w-24 mx-auto" />
+                    <div className="h-10 bg-slate-200 rounded-xl w-36 mx-auto" />
+                    <div className="h-4 bg-slate-100 rounded-lg w-48 mx-auto" />
+                    <div className="h-px bg-slate-100 my-4" />
+                    <div className="space-y-3">
+                      <div className="h-4 bg-slate-100 rounded-lg w-full" />
+                      <div className="h-4 bg-slate-100 rounded-lg w-5/6" />
+                      <div className="h-4 bg-slate-100 rounded-lg w-4/6" />
+                      <div className="h-4 bg-slate-100 rounded-lg w-3/4" />
+                    </div>
+                  </div>
+                  <div className="h-12 bg-slate-200 rounded-xl w-full" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* 404 / Empty / Error State when no plans are in the database */}
+          {!isLoading && plans.length === 0 && (
+            <div className="max-w-2xl mx-auto my-8 text-center bg-white rounded-3xl border border-slate-200/90 p-8 sm:p-12 shadow-xs space-y-5">
+              <div
+                className={`w-20 h-20 rounded-3xl flex items-center justify-center mx-auto shadow-inner ${
+                  statusCode === 404
+                    ? 'bg-amber-50 border border-amber-200 text-amber-600'
+                    : 'bg-rose-50 border border-rose-100 text-rose-600'
+                }`}
+              >
+                {statusCode === 404 ? (
+                  <PackageSearch className="w-10 h-10 stroke-[1.8]" />
+                ) : (
+                  <AlertCircle className="w-10 h-10 stroke-[1.8]" />
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <span
+                  className={`inline-block px-3 py-1 rounded-full text-xs font-bold font-mono ${
+                    statusCode === 404
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-slate-100 text-slate-700'
                   }`}
                 >
-                  <div>
-                    {/* Badges Header */}
-                    <div className="flex items-center justify-between mb-5">
-                      {isDark ? (
-                        <>
-                          <span className="bg-[#22c55e] text-white text-xs font-bold px-3 py-1 rounded-full shadow-xs flex items-center gap-1">
-                            <Sparkles className="w-3.5 h-3.5" />
-                            الأكثر طلباً
-                          </span>
-                          <span className="bg-white/10 text-blue-100 text-xs font-medium px-3.5 py-1 rounded-full border border-white/15">
-                            {plan.badge}
-                          </span>
-                        </>
-                      ) : (
-                        <div className="w-full flex justify-center">
-                          <span
-                            className={`text-xs font-bold px-4 py-1 rounded-full ${
-                              plan.badgeType === 'basic'
-                                ? 'bg-[#e0f2fe] text-[#0284c7]'
-                                : 'bg-[#ede9fe] text-[#6366f1]'
-                            }`}
-                          >
-                            {plan.badge}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                  {statusCode ? `HTTP ${statusCode}` : 'خطأ'}
+                </span>
 
-                    {/* Price & Title */}
-                    <div className="text-center mb-4">
-                      <div className="flex items-baseline justify-center gap-1.5">
-                        <span
-                          className={`text-3xl sm:text-4xl font-black font-tajawal ${
-                            isDark ? 'text-white' : 'text-[#051838]'
-                          }`}
-                        >
-                          {plan.price}
-                        </span>
-                        {plan.period && (
-                          <span
-                            className={`text-sm font-semibold ${
-                              isDark ? 'text-slate-300' : 'text-slate-500'
-                            }`}
-                          >
-                            {plan.period}
-                          </span>
+                <h2 className="text-xl sm:text-2xl font-black font-tajawal text-slate-900">
+                  {statusCode === 404
+                    ? 'لا توجد باقات اشتراك مضافة (404 Not Found)'
+                    : 'تعذر تحميل باقات الاشتراك'}
+                </h2>
+
+                <p className="text-sm sm:text-base text-slate-500 max-w-md mx-auto leading-relaxed">
+                  {errorMessage ||
+                    'لم يتم العثور على أي باقات اشتراك مسجلة على الخادم حالياً. بمجرد إضافة الباقات إلى قاعدة البيانات ستظهر هنا تلقائياً.'}
+                </p>
+              </div>
+
+              <div className="pt-2 flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => loadPlans(true)}
+                  disabled={isRefreshing}
+                  className="bg-[#051838] hover:bg-[#072454] text-white px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 shadow-md transition-all cursor-pointer active:scale-98"
+                >
+                  <RefreshCw
+                    className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`}
+                  />
+                  <span>إعادة الفحص الآن</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Pricing Cards Grid (when plans exist) */}
+          {!isLoading && plans.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch mb-16 max-w-6xl mx-auto">
+              {plans.map((plan) => {
+                const isDark = plan.isPopular;
+
+                return (
+                  <div
+                    key={plan.id}
+                    className={`relative rounded-3xl transition-all duration-300 flex flex-col justify-between p-6 sm:p-8 ${
+                      isDark
+                        ? 'bg-[#051838] text-white shadow-2xl ring-4 ring-[#051838]/10 md:-translate-y-3 z-10'
+                        : 'bg-white text-slate-800 border border-slate-200/90 shadow-xs hover:shadow-lg hover:-translate-y-1'
+                    }`}
+                  >
+                    <div>
+                      {/* Badges Header */}
+                      <div className="flex items-center justify-between mb-5">
+                        {isDark ? (
+                          <>
+                            <span className="bg-[#22c55e] text-white text-xs font-bold px-3 py-1 rounded-full shadow-xs flex items-center gap-1">
+                              <Sparkles className="w-3.5 h-3.5" />
+                              الأكثر طلباً
+                            </span>
+                            <span className="bg-white/10 text-blue-100 text-xs font-medium px-3.5 py-1 rounded-full border border-white/15">
+                              {plan.badge}
+                            </span>
+                          </>
+                        ) : (
+                          <div className="w-full flex items-center justify-between">
+                            <span
+                              className={`text-xs font-bold px-4 py-1 rounded-full ${
+                                plan.badgeType === 'basic'
+                                  ? 'bg-[#e0f2fe] text-[#0284c7]'
+                                  : 'bg-[#ede9fe] text-[#6366f1]'
+                              }`}
+                            >
+                              {plan.badge}
+                            </span>
+                            {plan.isCurrent && (
+                              <span className="text-xs font-bold px-3 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                                <Award className="w-3.5 h-3.5" />
+                                باقتك الحالية
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
-                      <p
-                        className={`text-xs sm:text-sm mt-2 font-medium ${
-                          isDark ? 'text-slate-300' : 'text-slate-500'
-                        }`}
-                      >
-                        {plan.description}
-                      </p>
-                    </div>
 
-                    <div
-                      className={`h-px w-full my-6 ${
-                        isDark ? 'bg-white/10' : 'bg-slate-100'
-                      }`}
-                    />
-
-                    {/* Features List */}
-                    <ul className="space-y-4 mb-8">
-                      {plan.features.map((feat, idx) => (
-                        <li key={idx} className="flex items-center gap-3">
-                          {feat.included ? (
-                            <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center shrink-0">
-                              <Check className="w-3.5 h-3.5 stroke-[3]" />
-                            </div>
-                          ) : (
-                            <div className="w-5 h-5 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center shrink-0">
-                              <X className="w-3.5 h-3.5 stroke-[2.5]" />
-                            </div>
-                          )}
+                      {/* Price & Title */}
+                      <div className="text-center mb-4">
+                        <div className="flex items-baseline justify-center gap-1.5">
                           <span
-                            className={`text-sm ${
-                              feat.included
-                                ? isDark
-                                  ? 'text-white font-medium'
-                                  : 'text-slate-700 font-medium'
-                                : isDark
-                                ? 'text-slate-400 line-through'
-                                : 'text-slate-400'
+                            className={`text-3xl sm:text-4xl font-black font-tajawal ${
+                              isDark ? 'text-white' : 'text-[#051838]'
                             }`}
                           >
-                            {feat.text}
+                            {plan.price}
                           </span>
-                        </li>
-                      ))}
-                    </ul>
+                          {plan.period && (
+                            <span
+                              className={`text-sm font-semibold ${
+                                isDark ? 'text-slate-300' : 'text-slate-500'
+                              }`}
+                            >
+                              {plan.period}
+                            </span>
+                          )}
+                        </div>
+                        <p
+                          className={`text-xs sm:text-sm mt-2 font-medium ${
+                            isDark ? 'text-slate-300' : 'text-slate-500'
+                          }`}
+                        >
+                          {plan.description}
+                        </p>
+                      </div>
+
+                      <div
+                        className={`h-px w-full my-6 ${
+                          isDark ? 'bg-white/10' : 'bg-slate-100'
+                        }`}
+                      />
+
+                      {/* Features List */}
+                      <ul className="space-y-4 mb-8">
+                        {plan.features.map((feat, idx) => (
+                          <li key={idx} className="flex items-center gap-3">
+                            {feat.included ? (
+                              <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center shrink-0">
+                                <Check className="w-3.5 h-3.5 stroke-[3]" />
+                              </div>
+                            ) : (
+                              <div className="w-5 h-5 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center shrink-0">
+                                <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                              </div>
+                            )}
+                            <span
+                              className={`text-sm ${
+                                feat.included
+                                  ? isDark
+                                    ? 'text-white font-medium'
+                                    : 'text-slate-700 font-medium'
+                                  : isDark
+                                  ? 'text-slate-400 line-through'
+                                  : 'text-slate-400'
+                              }`}
+                            >
+                              {feat.text}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Action Button */}
+                    <div>
+                      {plan.buttonVariant === 'featured' && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPlanModal(plan)}
+                          className="w-full bg-[#058b42] hover:bg-[#047738] text-white font-bold py-3.5 rounded-xl shadow-lg shadow-[#058b42]/30 transition-all duration-200 cursor-pointer active:scale-98"
+                        >
+                          {plan.buttonText}
+                        </button>
+                      )}
+
+                      {plan.buttonVariant === 'outline' && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPlanModal(plan)}
+                          className="w-full bg-white hover:bg-slate-50 text-[#051838] border border-[#051838] font-bold py-3 rounded-xl transition-all duration-200 cursor-pointer active:scale-98"
+                        >
+                          {plan.buttonText}
+                        </button>
+                      )}
+
+                      {plan.buttonVariant === 'secondary' && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPlanModal(plan)}
+                          className="w-full bg-white hover:bg-slate-50 text-[#051838] border border-slate-300 font-bold py-3 rounded-xl transition-all duration-200 cursor-pointer active:scale-98"
+                        >
+                          {plan.buttonText}
+                        </button>
+                      )}
+                    </div>
                   </div>
-
-                  {/* Action Button */}
-                  <div>
-                    {plan.buttonVariant === 'featured' && (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenPlanModal(plan)}
-                        className="w-full bg-[#058b42] hover:bg-[#047738] text-white font-bold py-3.5 rounded-xl shadow-lg shadow-[#058b42]/30 transition-all duration-200 cursor-pointer active:scale-98"
-                      >
-                        {plan.buttonText}
-                      </button>
-                    )}
-
-                    {plan.buttonVariant === 'outline' && (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenPlanModal(plan)}
-                        className="w-full bg-white hover:bg-slate-50 text-[#051838] border border-[#051838] font-bold py-3 rounded-xl transition-all duration-200 cursor-pointer active:scale-98"
-                      >
-                        {plan.buttonText}
-                      </button>
-                    )}
-
-                    {plan.buttonVariant === 'secondary' && (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenPlanModal(plan)}
-                        className="w-full bg-white hover:bg-slate-50 text-[#051838] border border-slate-300 font-bold py-3 rounded-xl transition-all duration-200 cursor-pointer active:scale-98"
-                      >
-                        {plan.buttonText}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Comparison Table Section */}
-          <div className="max-w-6xl mx-auto mb-14">
-            <h2 className="text-xl sm:text-2xl font-bold font-tajawal text-[#051838] mb-6 text-center sm:text-right">
-              قارن الميزات
-            </h2>
-
-            <div className="overflow-x-auto rounded-2xl border border-slate-200/90 bg-white shadow-2xs">
-              <table className="w-full text-right border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200/90 divide-x divide-x-reverse divide-slate-100">
-                    <th className="py-4 px-6 bg-slate-50/70 font-bold text-slate-700 w-1/4">
-                      الميزة
-                    </th>
-                    <th className="py-4 px-6 bg-slate-50/70 font-bold text-slate-700 text-center w-1/4">
-                      الأساسية
-                    </th>
-                    <th className="py-4 px-6 bg-[#eff6ff] font-bold text-[#1e40af] text-center w-1/4 border-x border-blue-100">
-                      المتقدمة
-                    </th>
-                    <th className="py-4 px-6 bg-slate-50/70 font-bold text-slate-700 text-center w-1/4">
-                      الاحترافية
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {COMPARISON_ROWS.map((row, idx) => (
-                    <tr
-                      key={idx}
-                      className="hover:bg-slate-50/40 transition-colors divide-x divide-x-reverse divide-slate-100"
-                    >
-                      <td className="py-4 px-6 font-semibold text-slate-800">
-                        {row.feature}
-                      </td>
-
-                      {/* Basic */}
-                      <td className="py-4 px-6 text-center text-slate-600 font-medium">
-                        {typeof row.basic === 'boolean' ? (
-                          row.basic ? (
-                            <Check className="w-5 h-5 text-emerald-600 mx-auto stroke-[2.5]" />
-                          ) : (
-                            <X className="w-5 h-5 text-slate-300 mx-auto stroke-[2.5]" />
-                          )
-                        ) : (
-                          row.basic
-                        )}
-                      </td>
-
-                      {/* Advanced (Highlighted column) */}
-                      <td className="py-4 px-6 text-center bg-[#eff6ff]/50 font-semibold text-[#1e40af] border-x border-blue-100">
-                        {typeof row.advanced === 'boolean' ? (
-                          row.advanced ? (
-                            <Check className="w-5 h-5 text-emerald-600 mx-auto stroke-[2.5]" />
-                          ) : (
-                            <X className="w-5 h-5 text-slate-300 mx-auto stroke-[2.5]" />
-                          )
-                        ) : (
-                          row.advanced
-                        )}
-                      </td>
-
-                      {/* Professional */}
-                      <td className="py-4 px-6 text-center text-slate-800 font-medium">
-                        {typeof row.professional === 'boolean' ? (
-                          row.professional ? (
-                            <Check className="w-5 h-5 text-emerald-600 mx-auto stroke-[2.5]" />
-                          ) : (
-                            <X className="w-5 h-5 text-slate-300 mx-auto stroke-[2.5]" />
-                          )
-                        ) : (
-                          row.professional
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                );
+              })}
             </div>
-          </div>
+          )}
+
+          {/* Comparison Table Section (only if plans exist) */}
+          {!isLoading && plans.length > 0 && (
+            <div className="max-w-6xl mx-auto mb-14">
+              <h2 className="text-xl sm:text-2xl font-bold font-tajawal text-[#051838] mb-6 text-center sm:text-right">
+                قارن الميزات بالتفصيل
+              </h2>
+
+              <div className="overflow-x-auto rounded-2xl border border-slate-200/90 bg-white shadow-2xs">
+                <table className="w-full text-right border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200/90 divide-x divide-x-reverse divide-slate-100">
+                      <th className="py-4 px-6 bg-slate-50/70 font-bold text-slate-700 w-1/4">
+                        الميزة
+                      </th>
+                      {plans.map((p) => (
+                        <th
+                          key={p.id}
+                          className={`py-4 px-6 font-bold text-center ${
+                            p.isPopular
+                              ? 'bg-[#eff6ff] text-[#1e40af] border-x border-blue-100'
+                              : 'bg-slate-50/70 text-slate-700'
+                          }`}
+                        >
+                          {p.name}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {comparisonRows.map((row, idx) => (
+                      <tr
+                        key={idx}
+                        className="hover:bg-slate-50/40 transition-colors divide-x divide-x-reverse divide-slate-100"
+                      >
+                        <td className="py-4 px-6 font-semibold text-slate-800">
+                          {row.feature}
+                        </td>
+
+                        {row.values.map((val, pIdx) => {
+                          const isPop = plans[pIdx]?.isPopular;
+                          return (
+                            <td
+                              key={pIdx}
+                              className={`py-4 px-6 text-center font-medium ${
+                                isPop
+                                  ? 'bg-[#eff6ff]/50 font-semibold text-[#1e40af] border-x border-blue-100'
+                                  : 'text-slate-700'
+                              }`}
+                            >
+                              {typeof val === 'boolean' ? (
+                                val ? (
+                                  <Check className="w-5 h-5 text-emerald-600 mx-auto stroke-[2.5]" />
+                                ) : (
+                                  <X className="w-5 h-5 text-slate-300 mx-auto stroke-[2.5]" />
+                                )
+                              ) : (
+                                val
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Custom Solutions / Enterprise Banner */}
           <div className="max-w-6xl mx-auto rounded-3xl border border-emerald-200/80 bg-gradient-to-l from-emerald-50/40 via-white to-blue-50/30 p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xs">
@@ -463,12 +567,16 @@ export const SubscriptionsScreen: FC = () => {
                 {/* Plan Summary Box */}
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between">
                   <div>
-                    <span className="text-xs text-slate-500 font-medium block">المبلغ الإجمالي</span>
+                    <span className="text-xs text-slate-500 font-medium block">
+                      المبلغ الإجمالي
+                    </span>
                     <span className="text-2xl font-extrabold text-[#051838] font-tajawal">
                       {selectedPlan.price}
                     </span>
                     {selectedPlan.period && (
-                      <span className="text-xs text-slate-500 mr-1">{selectedPlan.period}</span>
+                      <span className="text-xs text-slate-500 mr-1">
+                        {selectedPlan.period}
+                      </span>
                     )}
                   </div>
                   <div className="text-left">
@@ -478,8 +586,8 @@ export const SubscriptionsScreen: FC = () => {
                   </div>
                 </div>
 
-                {/* Payment Methods */}
-                {selectedPlan.id !== 'basic' && (
+                {/* Payment Methods (only for paid plans) */}
+                {selectedPlan.rawPrice > 0 && (
                   <div className="space-y-2.5">
                     <label className="block text-xs font-bold text-slate-700">
                       طريقة الدفع
@@ -546,8 +654,11 @@ export const SubscriptionsScreen: FC = () => {
                     className="w-full bg-[#051838] hover:bg-[#092c63] text-white font-bold py-3.5 rounded-xl shadow-lg transition-all duration-200 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {isProcessing ? (
-                      <span>جاري معالجة الطلب...</span>
-                    ) : selectedPlan.id === 'basic' ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>جاري معالجة الطلب...</span>
+                      </span>
+                    ) : selectedPlan.rawPrice === 0 ? (
                       <span>تأكيد تفعيل الخطة المجانية</span>
                     ) : (
                       <span>إتمام الاشتراك والدفع</span>

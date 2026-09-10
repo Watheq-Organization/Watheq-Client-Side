@@ -413,16 +413,6 @@ export const Header: FC<HeaderProps> = ({
             )}
           </div>
 
-          {/* Help Center Icon Button */}
-          <button
-            type="button"
-            onClick={() => navigate(PATHS.HELP)}
-            className="p-2 rounded-xl text-slate-600 hover:text-[#051838] hover:bg-slate-50 transition-colors duration-200 cursor-pointer"
-            title="مركز المساعدة"
-            aria-label="مركز المساعدة"
-          >
-            <HelpCircle className="w-5 h-5" />
-          </button>
 
           {/* User Profile Dropdown Container */}
           <div className="relative pr-1 sm:pr-2 border-r border-slate-100" ref={profileDropdownRef}>

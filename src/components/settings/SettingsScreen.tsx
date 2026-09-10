@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { PATHS } from '../../routes/paths';
 import {
   Bell,
-  HelpCircle,
   Menu,
   Pencil,
   Award,
@@ -197,15 +196,6 @@ export const SettingsScreen: FC = () => {
               <span className="absolute top-2 left-2 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white"></span>
             </button>
 
-            {/* Help Icon */}
-            <button
-              type="button"
-              className="p-2 rounded-xl text-slate-600 hover:text-[#0c2444] hover:bg-slate-50 transition-colors"
-              title="مركز المساعدة"
-              aria-label="مركز المساعدة"
-            >
-              <HelpCircle className="w-5 h-5" />
-            </button>
 
             {/* User Avatar */}
             <div className="flex items-center gap-2 pr-1 sm:pr-2 border-r border-slate-100">
