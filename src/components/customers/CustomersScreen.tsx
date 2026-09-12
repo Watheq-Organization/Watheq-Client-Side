@@ -10,7 +10,6 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
-  Check,
   RotateCw,
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
@@ -19,17 +18,16 @@ import type { Customer, CustomerStatus } from '../../types/customer';
 import {
   addCustomer,
   getCustomers,
-  isDuplicatePhoneNumberError,
   mapCustomerDtoToCustomer,
-  toAddCustomerErrorMessage,
+  parseAddCustomerApiError,
   toGetCustomersErrorMessage,
   validateCustomerFullName,
   validateCustomerPhoneNumber,
   validateCustomerNationalId,
   validateCustomerInitialDebt,
 } from '../../services/customerService';
-import { ApiError } from '../../api/httpClient';
 import { getDashboardSummary } from '../../services/dashboardService';
+import { Toast, type ToastType } from '../ui/Toast';
 
 export const CustomersScreen: FC = () => {
   const navigate = useNavigate();
@@ -63,7 +61,7 @@ export const CustomersScreen: FC = () => {
   }>({});
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   const [addSubmitError, setAddSubmitError] = useState<string | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type?: ToastType } | null>(null);
 
   // Shows a one-off success toast passed via navigation state (e.g. after
   // deleting a customer from the details screen), then clears it from
@@ -71,8 +69,8 @@ export const CustomersScreen: FC = () => {
   useEffect(() => {
     const state = location.state as { toast?: string } | null;
     if (state?.toast) {
-      setToastMessage(state.toast);
-      setTimeout(() => setToastMessage(null), 3000);
+      setToast({ message: state.toast });
+      setTimeout(() => setToast(null), 4000);
       navigate(location.pathname, { replace: true, state: {} });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -131,9 +129,11 @@ export const CustomersScreen: FC = () => {
     setAddSubmitError(null);
   };
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+  const showToast = (msg: string, type?: ToastType) => {
+    setToast({ message: msg, type });
+    setTimeout(() => {
+      setToast((prev) => (prev?.message === msg ? null : prev));
+    }, 4000);
   };
 
   // Filtered & Sorted Customers
@@ -246,13 +246,13 @@ export const CustomersScreen: FC = () => {
       closeAddModal();
       showToast('تمت إضافة العميل بنجاح.');
     } catch (err) {
-      if (err instanceof ApiError && isDuplicatePhoneNumberError(err)) {
-        setAddFieldErrors((p) => ({ ...p, phoneNumber: 'يوجد عميل آخر مسجل بنفس رقم الجوال.' }));
-      } else {
-        const message = toAddCustomerErrorMessage(err);
-        setAddSubmitError(message);
-        showToast(message);
+      console.error('[handleAddCustomer] API error:', err);
+      const { fieldErrors: backendFieldErrors, generalMessage } = parseAddCustomerApiError(err);
+      if (backendFieldErrors && Object.keys(backendFieldErrors).length > 0) {
+        setAddFieldErrors((prev) => ({ ...prev, ...backendFieldErrors }));
       }
+      setAddSubmitError(generalMessage);
+      showToast(generalMessage);
     } finally {
       setIsAddingCustomer(false);
     }
@@ -311,12 +311,11 @@ export const CustomersScreen: FC = () => {
         />
 
         {/* Toast Notification */}
-        {toastMessage && (
-          <div className="fixed bottom-6 left-6 z-50 bg-[#051838] text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-3 animate-fade-in text-sm font-medium">
-            <Check className="w-5 h-5 text-emerald-400" />
-            <span>{toastMessage}</span>
-          </div>
-        )}
+        <Toast
+          message={toast?.message ?? null}
+          type={toast?.type}
+          onClose={() => setToast(null)}
+        />
 
         {/* Page Content */}
         <main className="p-4 sm:p-6 lg:p-8 space-y-6 flex-1">
@@ -671,6 +670,7 @@ export const CustomersScreen: FC = () => {
                   onChange={(e) => {
                     setNewCustomer((p) => ({ ...p, fullName: e.target.value }));
                     setAddFieldErrors((p) => ({ ...p, fullName: undefined }));
+                    setAddSubmitError(null);
                   }}
                   placeholder="مثال: عبدالله الراجحي"
                   dir="rtl"
@@ -693,11 +693,13 @@ export const CustomersScreen: FC = () => {
                 <input
                   type="text"
                   value={newCustomer.nationalId}
+                  maxLength={9}
                   onChange={(e) => {
                     setNewCustomer((p) => ({ ...p, nationalId: e.target.value }));
                     setAddFieldErrors((p) => ({ ...p, nationalId: undefined }));
+                    setAddSubmitError(null);
                   }}
-                  placeholder="10XXXXXXXX أو 70XXXXXXXX"
+                  placeholder="مثال: 123456789 (9 أرقام)"
                   dir="ltr"
                   className={`w-full h-[40px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none transition-colors ${
                     addFieldErrors.nationalId
@@ -718,11 +720,13 @@ export const CustomersScreen: FC = () => {
                 <input
                   type="tel"
                   value={newCustomer.phoneNumber}
+                  maxLength={10}
                   onChange={(e) => {
                     setNewCustomer((p) => ({ ...p, phoneNumber: e.target.value }));
                     setAddFieldErrors((p) => ({ ...p, phoneNumber: undefined }));
+                    setAddSubmitError(null);
                   }}
-                  placeholder="05XXXXXXXX"
+                  placeholder="05XXXXXXXX (10 أرقام)"
                   dir="ltr"
                   className={`w-full h-[40px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none transition-colors ${
                     addFieldErrors.phoneNumber
@@ -746,6 +750,7 @@ export const CustomersScreen: FC = () => {
                   onChange={(e) => {
                     setNewCustomer((p) => ({ ...p, initialDebt: e.target.value }));
                     setAddFieldErrors((p) => ({ ...p, initialDebt: undefined }));
+                    setAddSubmitError(null);
                   }}
                   placeholder="0.00 ش.إ"
                   dir="ltr"

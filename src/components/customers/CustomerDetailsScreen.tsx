@@ -43,6 +43,7 @@ import {
 import { deletePayment, toDeletePaymentErrorMessage } from '../../services/paymentService';
 import type { Customer, CustomerProfileTransactionDto } from '../../types/customer';
 import { ApiError } from '../../api/httpClient';
+import { Toast, type ToastType } from '../ui/Toast';
 import { PATHS } from '../../routes/paths';
 import { useMerchantProfile } from '../../services/merchantProfileService';
 
@@ -249,11 +250,13 @@ export const CustomerDetailsScreen: FC = () => {
   }>({});
   const [isSavingCustomer, setIsSavingCustomer] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type?: ToastType } | null>(null);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+  const showToast = (msg: string, type?: ToastType) => {
+    setToast({ message: msg, type });
+    setTimeout(() => {
+      setToast((prev) => (prev?.message === msg ? null : prev));
+    }, 4000);
   };
 
   // Shows a one-off success toast passed via navigation state (e.g. after
@@ -457,7 +460,7 @@ export const CustomerDetailsScreen: FC = () => {
     if (customer.totalDebt > DEBT_ZERO_EPSILON) {
       const message = 'لا يمكن حذف هذا العميل، فعليه ديون لم يتم تسديدها بعد.';
       setDeleteError(message);
-      showToast(message);
+      showToast(message, 'error');
       return;
     }
     setIsDeletingCustomer(true);
@@ -509,12 +512,14 @@ export const CustomerDetailsScreen: FC = () => {
 
     if (!trimmedNationalId) {
       errors.nationalOrCrId = 'رقم الهوية الوطنية / السجل التجاري مطلوب.';
+    } else if (!/^\d{9}$/.test(trimmedNationalId)) {
+      errors.nationalOrCrId = 'رقم الهوية يجب أن يتكون من 9 أرقام.';
     }
 
     if (!trimmedPhone) {
       errors.phoneNumber = 'رقم الجوال مطلوب.';
-    } else if (trimmedPhone.length > 20 || !/^\+?[0-9]{8,15}$/.test(trimmedPhone)) {
-      errors.phoneNumber = 'صيغة رقم الجوال غير صحيحة.';
+    } else if (!/^\d{10}$/.test(trimmedPhone)) {
+      errors.phoneNumber = 'رقم الجوال يجب أن يتكون من 10 أرقام (مثال: 05XXXXXXXX).';
     }
 
     setFieldErrors(errors);
@@ -668,12 +673,11 @@ export const CustomerDetailsScreen: FC = () => {
       <div className="flex-1 flex flex-col min-w-0 lg:mr-72 transition-all duration-300 print:mr-0 print:p-0">
 
         {/* Toast Notification */}
-        {toastMessage && (
-          <div className="fixed bottom-6 left-6 z-[60] bg-[#051838] text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-3 animate-fade-in text-sm font-medium print:hidden">
-            <Check className="w-5 h-5 text-emerald-400" />
-            <span>{toastMessage}</span>
-          </div>
-        )}
+        <Toast
+          message={toast?.message ?? null}
+          type={toast?.type}
+          onClose={() => setToast(null)}
+        />
 
         {/* Top Header Bar */}
         <header className="w-full bg-white border-b border-slate-100/80 px-4 sm:px-8 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-2xs print:hidden">
@@ -944,7 +948,7 @@ export const CustomerDetailsScreen: FC = () => {
                     // tell the merchant why — instead of opening the
                     // confirmation modal only to fail on submit.
                     if (customer.totalDebt > DEBT_ZERO_EPSILON) {
-                      showToast('لا يمكن حذف هذا العميل، فعليه ديون لم يتم تسديدها بعد.');
+                      showToast('لا يمكن حذف هذا العميل، فعليه ديون لم يتم تسديدها بعد.', 'error');
                       return;
                     }
                     setDeleteError(null);

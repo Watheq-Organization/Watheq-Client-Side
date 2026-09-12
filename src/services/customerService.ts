@@ -483,14 +483,14 @@ export function validateCustomerFullName(value: string): string | null {
 }
 
 /**
- * Client-side mirror of the backend's phoneNumber rules (section 7 of the
- * API doc): optional leading '+', 8–15 digits, max 20 characters overall.
+ * Client-side mirror of customer phoneNumber rules: exactly 10 digits.
  */
 export function validateCustomerPhoneNumber(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) return 'رقم الجوال مطلوب.';
-  if (trimmed.length > 20) return 'رقم الجوال طويل جداً (الحد الأقصى 20 حرفاً).';
-  if (!/^\+?[0-9]{8,15}$/.test(trimmed)) return 'صيغة رقم الجوال غير صحيحة.';
+  if (!/^\d{10}$/.test(trimmed)) {
+    return 'رقم الجوال يجب أن يتكون من 10 أرقام (مثال: 05XXXXXXXX).';
+  }
   return null;
 }
 
@@ -501,13 +501,13 @@ export function validateCustomerAddress(value: string): string | null {
 }
 
 /**
- * Validation for national ID or Commercial Registration (CR): 10 digits.
+ * Validation for national ID: exactly 9 digits.
  */
 export function validateCustomerNationalId(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) return 'رقم الهوية الوطنية / السجل التجاري مطلوب.';
-  if (!/^\d{10}$/.test(trimmed)) {
-    return 'رقم الهوية أو السجل التجاري يجب أن يتكون من 10 أرقام.';
+  if (!/^\d{9}$/.test(trimmed)) {
+    return 'رقم الهوية يجب أن يتكون من 9 أرقام.';
   }
   return null;
 }
@@ -598,6 +598,227 @@ export function isDuplicatePhoneNumberError(error: unknown): boolean {
   return message.includes('A customer with this phone number already exists');
 }
 
+export interface ParsedCustomerApiError {
+  fieldErrors: {
+    fullName?: string;
+    nationalId?: string;
+    phoneNumber?: string;
+    initialDebt?: string;
+  };
+  generalMessage: string;
+}
+
+/**
+ * Translates known backend error messages to friendly Arabic, or returns
+ * the original backend message if it's already in Arabic or an unmapped message.
+ */
+export function translateBackendCustomerMessage(msg: string): string {
+  const trimmed = msg.trim();
+  if (!trimmed) return '';
+
+  // If message already contains Arabic characters, preserve it as-is
+  if (/[\u0600-\u06FF]/.test(trimmed)) {
+    return trimmed;
+  }
+
+  const lower = trimmed.toLowerCase();
+
+  // Phone number duplicates or formats
+  if (
+    lower.includes('customer with this phone number already exists') ||
+    lower.includes('phone number already exists') ||
+    lower.includes('phone number is already registered') ||
+    lower.includes('duplicate phone')
+  ) {
+    return 'يوجد عميل آخر مسجل بنفس رقم الجوال.';
+  }
+  if (lower.includes('phone') && (lower.includes('invalid') || lower.includes('format') || lower.includes('digits') || lower.includes('length'))) {
+    return 'صيغة رقم الجوال غير صحيحة (يجب أن يتكون من 10 أرقام).';
+  }
+  if (lower.includes('phone') && lower.includes('required')) {
+    return 'رقم الجوال مطلوب.';
+  }
+
+  // National ID duplicates or formats
+  if (
+    lower.includes('customer with this national') ||
+    lower.includes('national id already exists') ||
+    lower.includes('national id is already registered') ||
+    lower.includes('nationalid already exists') ||
+    lower.includes('duplicate national')
+  ) {
+    return 'يوجد عميل آخر مسجل بنفس رقم الهوية الوطنية.';
+  }
+  if (lower.includes('national') && (lower.includes('invalid') || lower.includes('format') || lower.includes('digits') || lower.includes('length'))) {
+    return 'رقم الهوية غير صحيح (يجب أن يتكون من 9 أرقام).';
+  }
+  if (lower.includes('national') && lower.includes('required')) {
+    return 'رقم الهوية الوطنية مطلوب.';
+  }
+
+  // Name validation
+  if (lower.includes('fullname') || lower.includes('full name') || lower.includes('customer name')) {
+    if (lower.includes('required')) return 'اسم العميل مطلوب.';
+    if (lower.includes('length') || lower.includes('least') || lower.includes('short')) return 'اسم العميل يجب ألا يقل عن حرفين.';
+    if (lower.includes('long')) return 'اسم العميل طويل جداً (الحد الأقصى 150 حرفاً).';
+    return 'اسم العميل غير صحيح.';
+  }
+
+  // Initial Debt
+  if (lower.includes('initialdebt') || lower.includes('initial debt') || lower.includes('debt')) {
+    if (lower.includes('negative') || lower.includes('greater') || lower.includes('zero')) {
+      return 'رصيد المديونية الافتتاحي لا يمكن أن يكون بالسالب.';
+    }
+    return 'قيمة رصيد المديونية غير صحيحة.';
+  }
+
+  if (lower.includes('no business found for the current merchant')) {
+    return 'لا يوجد نشاط تجاري مرتبط بحسابك. يرجى التواصل مع الدعم.';
+  }
+
+  if (lower.includes('unauthorized') || lower.includes('invalid token')) {
+    return 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.';
+  }
+
+  // Fallback: return the raw message from backend
+  return trimmed;
+}
+
+/**
+ * Extracts and maps field errors and general error messages returned by
+ * the backend (such as ASP.NET ProblemDetails, ValidationProblemDetails,
+ * or custom API errors) for Add Customer.
+ */
+export function parseAddCustomerApiError(error: unknown): ParsedCustomerApiError {
+  const result: ParsedCustomerApiError = {
+    fieldErrors: {},
+    generalMessage: '',
+  };
+
+  if (!(error instanceof ApiError)) {
+    result.generalMessage = 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.';
+    return result;
+  }
+
+  if (error.status === 0) {
+    result.generalMessage = 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.';
+    return result;
+  }
+  if (error.status === 401) {
+    result.generalMessage = 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.';
+    return result;
+  }
+  if (error.status === 404) {
+    result.generalMessage = 'لا يوجد نشاط تجاري مرتبط بحسابك. يرجى التواصل مع الدعم.';
+    return result;
+  }
+  if (error.status >= 500) {
+    result.generalMessage = 'حدث خطأ في الخادم. يرجى المحاولة لاحقاً.';
+    return result;
+  }
+
+  const body = error.body;
+  let directMessage = '';
+
+  if (typeof body === 'string' && body.trim()) {
+    directMessage = body.trim();
+  } else if (body && typeof body === 'object') {
+    const b = body as Record<string, unknown>;
+
+    // 1. Check ASP.NET ValidationProblemDetails `errors` map or array
+    if (b.errors && typeof b.errors === 'object') {
+      if (Array.isArray(b.errors)) {
+        const first = b.errors.find((e) => typeof e === 'string' && e.trim());
+        if (first) directMessage = first;
+      } else {
+        const errMap = b.errors as Record<string, unknown>;
+        for (const [key, val] of Object.entries(errMap)) {
+          const lowerKey = key.toLowerCase();
+          const rawMsg = Array.isArray(val) ? val[0] : (typeof val === 'string' ? val : '');
+          if (!rawMsg || typeof rawMsg !== 'string') continue;
+
+          const translated = translateBackendCustomerMessage(rawMsg);
+          if (lowerKey.includes('phone')) {
+            result.fieldErrors.phoneNumber = translated;
+          } else if (lowerKey.includes('national')) {
+            result.fieldErrors.nationalId = translated;
+          } else if (lowerKey.includes('name')) {
+            result.fieldErrors.fullName = translated;
+          } else if (lowerKey.includes('debt')) {
+            result.fieldErrors.initialDebt = translated;
+          } else {
+            if (!directMessage) directMessage = translated;
+          }
+        }
+      }
+    }
+
+    // 2. Check message, detail, result.message, or title
+    if (!directMessage) {
+      if (typeof b.message === 'string' && b.message.trim()) {
+        directMessage = b.message.trim();
+      } else if (typeof b.detail === 'string' && b.detail.trim()) {
+        directMessage = b.detail.trim();
+      } else if (
+        b.result &&
+        typeof b.result === 'object' &&
+        typeof (b.result as Record<string, unknown>).message === 'string' &&
+        ((b.result as Record<string, unknown>).message as string).trim()
+      ) {
+        directMessage = ((b.result as Record<string, unknown>).message as string).trim();
+      } else if (
+        typeof b.title === 'string' &&
+        b.title.trim() &&
+        b.title !== 'One or more validation errors occurred.'
+      ) {
+        directMessage = b.title.trim();
+      }
+    }
+  }
+
+  if (directMessage) {
+    const translated = translateBackendCustomerMessage(directMessage);
+    const lower = directMessage.toLowerCase();
+
+    // Route direct message to a field if it mentions the field name
+    if (lower.includes('phone') || directMessage.includes('جوال') || directMessage.includes('هاتف')) {
+      if (!result.fieldErrors.phoneNumber) {
+        result.fieldErrors.phoneNumber = translated;
+      }
+    } else if (lower.includes('national') || directMessage.includes('هوية') || directMessage.includes('سجل')) {
+      if (!result.fieldErrors.nationalId) {
+        result.fieldErrors.nationalId = translated;
+      }
+    } else if (lower.includes('fullname') || lower.includes('full name') || directMessage.includes('اسم العميل')) {
+      if (!result.fieldErrors.fullName) {
+        result.fieldErrors.fullName = translated;
+      }
+    } else if (lower.includes('debt') || directMessage.includes('دين') || directMessage.includes('مديونية')) {
+      if (!result.fieldErrors.initialDebt) {
+        result.fieldErrors.initialDebt = translated;
+      }
+    }
+
+    result.generalMessage = translated;
+  }
+
+  // If no general message was extracted, pick the first field error or a fallback
+  if (!result.generalMessage) {
+    const firstFieldErr = Object.values(result.fieldErrors)[0];
+    if (firstFieldErr) {
+      result.generalMessage = firstFieldErr;
+    } else if (error.status === 400) {
+      result.generalMessage = 'يرجى التحقق من البيانات المدخلة والمحاولة مرة أخرى.';
+    } else if (error.status === 409) {
+      result.generalMessage = 'يوجد عميل مسجل مسبقاً بهذه البيانات.';
+    } else {
+      result.generalMessage = 'تعذر إضافة العميل. يرجى المحاولة مرة أخرى.';
+    }
+  }
+
+  return result;
+}
+
 /** Maps updateCustomer errors to user-friendly Arabic messages. */
 export function toUpdateCustomerErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
@@ -606,12 +827,6 @@ export function toUpdateCustomerErrorMessage(error: unknown): string {
     }
     if (error.status === 408 || error.message === 'TIMEOUT') {
       return 'استغرقت الاستجابة وقتاً طويلاً من الخادم. يرجى المحاولة مرة أخرى.';
-    }
-    if (isDuplicatePhoneNumberError(error)) {
-      return 'يوجد عميل آخر مسجل بنفس رقم الجوال.';
-    }
-    if (error.status === 400) {
-      return 'يرجى التحقق من البيانات المدخلة والمحاولة مرة أخرى.';
     }
     if (error.status === 401) {
       return 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.';
@@ -622,33 +837,19 @@ export function toUpdateCustomerErrorMessage(error: unknown): string {
     if (error.status >= 500) {
       return 'حدث خطأ في الخادم. يرجى المحاولة لاحقاً.';
     }
-    return 'تعذر حفظ التعديلات. يرجى المحاولة مرة أخرى.';
+
+    // Use parseAddCustomerApiError logic to extract exact message
+    const parsed = parseAddCustomerApiError(error);
+    if (parsed.generalMessage && parsed.generalMessage !== 'يرجى التحقق من البيانات المدخلة والمحاولة مرة أخرى.') {
+      return parsed.generalMessage;
+    }
+
+    return 'يرجى التحقق من البيانات المدخلة والمحاولة مرة أخرى.';
   }
   return 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.';
 }
 
-/** Maps addCustomer errors to user-friendly Arabic messages (section 18 of the API doc). */
+/** Maps addCustomer errors to user-friendly Arabic messages matching backend response data. */
 export function toAddCustomerErrorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.status === 0) {
-      return 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.';
-    }
-    if (isDuplicatePhoneNumberError(error)) {
-      return 'يوجد عميل آخر مسجل بنفس رقم الجوال.';
-    }
-    if (error.status === 400) {
-      return 'يرجى التحقق من البيانات المدخلة والمحاولة مرة أخرى.';
-    }
-    if (error.status === 401) {
-      return 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.';
-    }
-    if (error.status === 404) {
-      return 'لا يوجد نشاط تجاري مرتبط بحسابك. يرجى التواصل مع الدعم.';
-    }
-    if (error.status >= 500) {
-      return 'حدث خطأ في الخادم. يرجى المحاولة لاحقاً.';
-    }
-    return 'تعذر إضافة العميل. يرجى المحاولة مرة أخرى.';
-  }
-  return 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.';
+  return parseAddCustomerApiError(error).generalMessage;
 }
