@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -11,7 +11,6 @@ import {
   RotateCcw,
   MoreHorizontal,
   CheckCircle2,
-  Clock,
   Check,
   X,
   FileText,
@@ -19,12 +18,21 @@ import {
   ChevronRight,
   Eye,
   Share2,
+  RotateCw,
+  AlertCircle,
+  Receipt,
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
 import { PATHS } from '../../routes/paths';
 import { getCustomers } from '../../services/customerService';
+import {
+  getCollectionsReport,
+  formatPaymentMethod,
+  toReportErrorMessage,
+} from '../../services/reportService';
 import type { Customer } from '../../types/customer';
+import type { CollectionItem } from '../../types/report';
 
 interface PaymentRecord {
   id: string;
@@ -35,91 +43,10 @@ interface PaymentRecord {
   amount: number;
   date: string;
   time: string;
-  method: 'تحويل بنكي' | 'نقداً' | 'مدى' | 'بطاقة ائتمان';
-  status: 'تم التحقق' | 'قيد الانتظار';
+  method: 'تحويل بنكي' | 'نقداً' | 'مدى' | 'بطاقة ائتمان' | string;
+  status: 'تم التحقق' | 'قيد الانتظار' | string;
   receiptNumber?: string;
 }
-
-const INITIAL_PAYMENTS: PaymentRecord[] = [
-  {
-    id: 'pay-1',
-    customerId: '1',
-    customerName: 'محمد العتيبي',
-    customerInitials: 'مح',
-    customerAvatarBg: 'bg-indigo-100 text-indigo-700',
-    amount: 4500.0,
-    date: '2023-10-24',
-    time: '10:30 ص',
-    method: 'تحويل بنكي',
-    status: 'تم التحقق',
-    receiptNumber: 'REC-98214',
-  },
-  {
-    id: 'pay-2',
-    customerId: '2',
-    customerName: 'سارة الشمري',
-    customerInitials: 'سش',
-    customerAvatarBg: 'bg-purple-100 text-purple-700',
-    amount: 1250.0,
-    date: '2023-10-24',
-    time: '09:15 ص',
-    method: 'نقداً',
-    status: 'قيد الانتظار',
-    receiptNumber: 'REC-98215',
-  },
-  {
-    id: 'pay-3',
-    customerId: '3',
-    customerName: 'فهد الدوسري',
-    customerInitials: 'فه',
-    customerAvatarBg: 'bg-blue-100 text-blue-700',
-    amount: 12000.0,
-    date: '2023-10-23',
-    time: '04:45 م',
-    method: 'مدى',
-    status: 'تم التحقق',
-    receiptNumber: 'REC-98210',
-  },
-  {
-    id: 'pay-4',
-    customerId: '4',
-    customerName: 'عبدالله القحطاني',
-    customerInitials: 'عق',
-    customerAvatarBg: 'bg-emerald-100 text-emerald-700',
-    amount: 3200.0,
-    date: '2023-10-22',
-    time: '01:20 م',
-    method: 'تحويل بنكي',
-    status: 'تم التحقق',
-    receiptNumber: 'REC-98198',
-  },
-  {
-    id: 'pay-5',
-    customerId: '5',
-    customerName: 'ريم المطيري',
-    customerInitials: 'رم',
-    customerAvatarBg: 'bg-rose-100 text-rose-700',
-    amount: 850.0,
-    date: '2023-10-21',
-    time: '11:10 ص',
-    method: 'نقداً',
-    status: 'تم التحقق',
-    receiptNumber: 'REC-98180',
-  },
-  {
-    id: 'pay-6',
-    customerId: '6',
-    customerName: 'خالد السعد',
-    customerInitials: 'خس',
-    customerAvatarBg: 'bg-amber-100 text-amber-700',
-    amount: 6700.0,
-    date: '2023-10-20',
-    time: '03:40 م',
-    method: 'بطاقة ائتمان',
-    status: 'قيد الانتظار',
-    receiptNumber: 'REC-98172',
-  },
-];
 
 export const PaymentsScreen: FC = () => {
   const navigate = useNavigate();
@@ -129,8 +56,18 @@ export const PaymentsScreen: FC = () => {
   // Filters
   const [selectedMethod, setSelectedMethod] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [fromDate, setFromDate] = useState<string>('2023-01-01');
-  const [toDate, setToDate] = useState<string>('2023-12-31');
+  const [fromDate, setFromDate] = useState<string>('');
+  const [toDate, setToDate] = useState<string>('');
+
+  // Real Payments Data from Server
+  const [payments, setPayments] = useState<PaymentRecord[]>([]);
+  const [isLoadingPayments, setIsLoadingPayments] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [summaryStats, setSummaryStats] = useState({
+    totalCollected: 0,
+    totalCount: 0,
+    averagePayment: 0,
+  });
 
   // Customer picker modal for "تسجيل تحصيل جديد"
   const [isNewPaymentModalOpen, setIsNewPaymentModalOpen] = useState(false);
@@ -146,7 +83,53 @@ export const PaymentsScreen: FC = () => {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 3;
+  const ITEMS_PER_PAGE = 10;
+
+  // Load Real Payments from Server
+  const loadPayments = useCallback(async () => {
+    setIsLoadingPayments(true);
+    setServerError(null);
+    try {
+      const res = await getCollectionsReport({
+        fromDate: fromDate ? `${fromDate}T00:00:00Z` : undefined,
+        toDate: toDate ? `${toDate}T23:59:59Z` : undefined,
+      });
+
+      const mapped: PaymentRecord[] = res.items.map((item: CollectionItem) => {
+        const initials = item.customerName.trim().slice(0, 2) || 'عم';
+        return {
+          id: String(item.id || item.paymentId),
+          customerId: String(item.customerId || ''),
+          customerName: item.customerName,
+          customerInitials: initials,
+          customerAvatarBg: 'bg-blue-100 text-blue-700',
+          amount: item.amount,
+          date: item.date,
+          time: '—',
+          method: formatPaymentMethod(item.paymentMethod),
+          status: item.status || 'تم التحقق',
+          receiptNumber: item.receiptNumber,
+        };
+      });
+
+      setPayments(mapped);
+      setSummaryStats({
+        totalCollected: res.totalCollected,
+        totalCount: res.totalRecords,
+        averagePayment: res.totalRecords > 0 ? Math.round(res.totalCollected / res.totalRecords) : 0,
+      });
+    } catch (err) {
+      console.warn('Failed to load collections in PaymentsScreen:', err);
+      setServerError(toReportErrorMessage(err));
+      setPayments([]);
+    } finally {
+      setIsLoadingPayments(false);
+    }
+  }, [fromDate, toDate]);
+
+  useEffect(() => {
+    loadPayments();
+  }, [loadPayments]);
 
   useEffect(() => {
     setIsLoadingCustomers(true);
@@ -180,8 +163,8 @@ export const PaymentsScreen: FC = () => {
   const handleResetFilters = () => {
     setSelectedMethod('all');
     setSelectedStatus('all');
-    setFromDate('2023-01-01');
-    setToDate('2023-12-31');
+    setFromDate('');
+    setToDate('');
     setSearchQuery('');
     setCurrentPage(1);
     showToast('تمت إعادة ضبط خيارات التصفية.');
@@ -209,9 +192,9 @@ export const PaymentsScreen: FC = () => {
     showToast('تم تصدير سجل المدفوعات بنجاح.');
   };
 
-  // Filtered Payments
+  // Filtered Payments from real server data
   const filteredPayments = useMemo(() => {
-    return INITIAL_PAYMENTS.filter((payment) => {
+    return payments.filter((payment) => {
       // Search filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
@@ -241,7 +224,7 @@ export const PaymentsScreen: FC = () => {
 
       return true;
     });
-  }, [searchQuery, selectedMethod, selectedStatus, fromDate, toDate]);
+  }, [payments, searchQuery, selectedMethod, selectedStatus, fromDate, toDate]);
 
   const totalPages = Math.ceil(filteredPayments.length / ITEMS_PER_PAGE) || 1;
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -339,69 +322,109 @@ export const PaymentsScreen: FC = () => {
             </div>
           </div>
 
+          {/* Server Error Alert Banner */}
+          {serverError && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 font-cairo shadow-xs">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+                <div>
+                  <p className="font-bold text-sm">تنبيه من خادم البيانات</p>
+                  <p className="text-xs text-amber-700 mt-0.5">{serverError}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                {serverError.includes('تسجيل الدخول') || serverError.includes('401') ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate('/login')}
+                    className="px-3 py-1.5 bg-[#051838] hover:bg-[#072454] text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    تسجيل الدخول الآن
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={loadPayments}
+                    className="px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+                  >
+                    <RotateCw className="w-3.5 h-3.5" />
+                    <span>إعادة المحاولة</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* 4 Summary Stat Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-            {/* Card 1: إجمالي المحصل (أكتوبر) */}
+            {/* Card 1: إجمالي المحصل */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5 flex flex-col justify-between hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#2563eb] flex items-center justify-center">
                   <CreditCard className="w-5 h-5" />
                 </div>
-                <span className="text-xs text-slate-400 font-medium">إجمالي المحصل (أكتوبر)</span>
+                <span className="text-xs text-slate-400 font-medium">إجمالي المحصل</span>
               </div>
               <div className="mt-4 text-right">
                 <div className="flex items-baseline gap-1.5 justify-start">
                   <span className="text-2xl sm:text-3xl font-bold font-cairo text-[#051838] tracking-tight">
-                    145,280
+                    {summaryStats.totalCollected.toLocaleString('ar-SA')}
                   </span>
                   <span className="text-xs text-slate-400 font-medium font-cairo">شيكل</span>
                 </div>
                 <div className="mt-1 flex items-center gap-1 text-xs text-emerald-600 font-semibold">
-                  <span>↗ +12%</span>
+                  <span>من واقع الخادم المباشر</span>
                 </div>
               </div>
             </div>
 
-            {/* Card 2: عمليات تم التحقق منها */}
+            {/* Card 2: عدد عمليات التحصيل */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5 flex flex-col justify-between hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
                   <CheckCircle2 className="w-5 h-5" />
                 </div>
-                <span className="text-xs text-slate-400 font-medium">عمليات تم التحقق منها</span>
+                <span className="text-xs text-slate-400 font-medium">عدد العمليات</span>
               </div>
               <div className="mt-4 text-right">
                 <span className="text-2xl sm:text-3xl font-bold font-cairo text-[#051838] tracking-tight">
-                  342
+                  {summaryStats.totalCount.toLocaleString('ar-SA')}
                 </span>
+                <span className="text-xs text-slate-400 font-medium mr-1.5 font-cairo">سند قبض</span>
               </div>
             </div>
 
-            {/* Card 3: عمليات في انتظار التأكيد */}
+            {/* Card 3: متوسط قيمة العملية */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5 flex flex-col justify-between hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center">
-                  <Clock className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <Banknote className="w-5 h-5" />
                 </div>
-                <span className="text-xs text-slate-400 font-medium">عمليات في انتظار التأكيد</span>
+                <span className="text-xs text-slate-400 font-medium">متوسط قيمة السند</span>
               </div>
               <div className="mt-4 text-right">
-                <span className="text-2xl sm:text-3xl font-bold font-cairo text-[#051838] tracking-tight">
-                  18
-                </span>
+                <div className="flex items-baseline gap-1.5 justify-start">
+                  <span className="text-2xl sm:text-3xl font-bold font-cairo text-[#051838] tracking-tight">
+                    {summaryStats.averagePayment.toLocaleString('ar-SA')}
+                  </span>
+                  <span className="text-xs text-slate-400 font-medium font-cairo">شيكل</span>
+                </div>
               </div>
             </div>
 
-            {/* Card 4: أضف ملخصاً جديداً (Dashed) */}
+            {/* Card 4: تحديث البيانات */}
             <div
-              onClick={() => showToast('ميزة إضافة ملخصات مخصصة ستتوفر في التحديث القادم.')}
-              className="rounded-2xl border-2 border-dashed border-slate-200 bg-white/50 hover:bg-slate-50/80 hover:border-slate-300 p-5 flex flex-col items-center justify-center text-center cursor-pointer transition-all shadow-2xs group"
+              onClick={loadPayments}
+              className="rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 p-5 flex flex-col items-center justify-center text-center cursor-pointer transition-all shadow-xs group"
             >
-              <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 group-hover:text-slate-700 flex items-center justify-center mb-1.5 transition-colors">
-                <Plus className="w-4 h-4" />
+              <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 group-hover:bg-[#051838] group-hover:text-white flex items-center justify-center mb-1.5 transition-colors">
+                <RotateCw className={`w-4 h-4 ${isLoadingPayments ? 'animate-spin' : ''}`} />
               </div>
-              <span className="text-xs font-bold text-slate-500 group-hover:text-slate-800 transition-colors">
-                أضف ملخصاً جديداً
+              <span className="text-xs font-bold text-slate-700 font-cairo">
+                تحديث البيانات الآن
+              </span>
+              <span className="text-[11px] text-slate-400 mt-0.5 font-cairo">
+                مزامنة مع السيرفر
               </span>
             </div>
           </div>
@@ -503,10 +526,67 @@ export const PaymentsScreen: FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {paginatedPayments.length === 0 ? (
+                  {isLoadingPayments ? (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center text-slate-400 text-sm">
-                        لا توجد عمليات تحصيل مطابقة لخيارات التصفية.
+                      <td colSpan={6} className="py-14 text-center text-slate-400">
+                        <div className="flex flex-col items-center gap-2">
+                          <RotateCw className="w-6 h-6 animate-spin text-[#051838]" />
+                          <span className="text-xs font-cairo">جاري تحميل سندات القبض من السيرفر...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : serverError ? (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-slate-500">
+                        <div className="flex flex-col items-center gap-2.5 max-w-md mx-auto p-4">
+                          <AlertCircle className="w-8 h-8 text-amber-500" />
+                          <p className="font-bold text-slate-800 text-sm font-cairo">
+                            تعذر تحميل سندات القبض من السيرفر
+                          </p>
+                          <p className="text-xs text-slate-500 font-cairo text-center leading-relaxed">
+                            {serverError}
+                          </p>
+                          {serverError.includes('تسجيل الدخول') || serverError.includes('401') ? (
+                            <button
+                              type="button"
+                              onClick={() => navigate('/login')}
+                              className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 bg-[#051838] text-white rounded-xl text-xs font-bold hover:bg-[#072454] transition-colors cursor-pointer"
+                            >
+                              الانتقال لتسجيل الدخول
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={loadPayments}
+                              className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                            >
+                              <RotateCw className="w-3.5 h-3.5" />
+                              <span>إعادة المحاولة</span>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : paginatedPayments.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-14 text-center text-slate-400">
+                        <div className="flex flex-col items-center gap-2.5 max-w-sm mx-auto">
+                          <Receipt className="w-8 h-8 text-slate-300" />
+                          <p className="font-bold text-slate-700 text-sm font-cairo">
+                            لا توجد سندات قبض مسجلة على الخادم
+                          </p>
+                          <p className="text-xs text-slate-400 font-cairo text-center leading-relaxed">
+                            لم يتم العثور على أي عمليات تحصيل مالية مسجلة حالياً. يمكنك تسجيل أول تحصيل جديد عبر الزر أدناه.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setIsNewPaymentModalOpen(true)}
+                            className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-[#007a3d] hover:bg-[#009148] rounded-xl shadow-xs transition-colors cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>تسجيل تحصيل جديد</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ) : (
@@ -591,7 +671,9 @@ export const PaymentsScreen: FC = () => {
                                   type="button"
                                   onClick={() => {
                                     setActiveMenuId(null);
-                                    showToast(`رقم الإيصال: ${payment.receiptNumber}`);
+                                    navigate(`/payments/${payment.id}/receipt`, {
+                                      state: { payment },
+                                    });
                                   }}
                                   className="w-full flex items-center gap-2 px-3.5 py-2 hover:bg-slate-50 text-slate-700 transition-colors cursor-pointer"
                                 >
@@ -613,6 +695,10 @@ export const PaymentsScreen: FC = () => {
                                   type="button"
                                   onClick={() => {
                                     setActiveMenuId(null);
+                                    const receiptUrl = `${window.location.origin}/payments/${payment.id}/receipt`;
+                                    if (navigator.clipboard) {
+                                      navigator.clipboard.writeText(receiptUrl);
+                                    }
                                     showToast('تم نسخ رابط السند للمشاركة.');
                                   }}
                                   className="w-full flex items-center gap-2 px-3.5 py-2 hover:bg-slate-50 text-slate-700 transition-colors cursor-pointer"

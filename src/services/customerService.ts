@@ -1,4 +1,5 @@
 import { httpClient, ApiError } from '../api/httpClient';
+import { normalizeApiDateString } from '../lib/dateUtils';
 import type {
   AddCustomerPayload,
   Customer,
@@ -177,9 +178,9 @@ function normalizeCustomerDto(raw: unknown): CustomerDto {
     totalPaid,
     currentBalance,
     status: rawStatus,
-    createdAt: typeof (r.createdAt ?? r.CreatedAt) === 'string'
-      ? String(r.createdAt ?? r.CreatedAt)
-      : '',
+    createdAt: normalizeApiDateString(
+      typeof (r.createdAt ?? r.CreatedAt) === 'string' ? String(r.createdAt ?? r.CreatedAt) : ''
+    ),
   };
 }
 
@@ -307,7 +308,9 @@ function normalizeCustomerProfileDto(raw: unknown): CustomerProfileDto {
     currentBalance: currentBalance,
     totalDebt: totalDebt,
     totalPaid: effectiveTotalPaid,
-    createdAt: typeof (r.createdAt ?? r.CreatedAt) === 'string' ? String(r.createdAt ?? r.CreatedAt) : '',
+    createdAt: normalizeApiDateString(
+      typeof (r.createdAt ?? r.CreatedAt) === 'string' ? String(r.createdAt ?? r.CreatedAt) : ''
+    ),
     transactions: normalizedTransactions,
   };
 }
@@ -317,7 +320,9 @@ function normalizeCustomerProfileTransaction(raw: unknown): CustomerProfileTrans
   return {
     id: Number(r.id ?? r.Id) || 0,
     type: typeof (r.type ?? r.Type) === 'string' ? String(r.type ?? r.Type) : '',
-    date: typeof (r.date ?? r.Date) === 'string' ? String(r.date ?? r.Date) : '',
+    date: normalizeApiDateString(
+      typeof (r.date ?? r.Date) === 'string' ? String(r.date ?? r.Date) : ''
+    ),
     amount: Number(r.amount ?? r.Amount) || 0,
     description: typeof (r.description ?? r.Description) === 'string' ? String(r.description ?? r.Description) : '',
     reference: typeof (r.reference ?? r.Reference) === 'string' ? String(r.reference ?? r.Reference) : '',

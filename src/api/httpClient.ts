@@ -195,5 +195,23 @@ export const httpClient = {
       body: typeof FormData !== 'undefined' && data instanceof FormData ? data : JSON.stringify(data),
     }),
   get: <TResponse>(path: string) => request<TResponse>(path, { method: 'GET' }),
+  getBlob: async (path: string): Promise<Blob> => {
+    const token = getStoredToken();
+    const url = `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/pdf, application/octet-stream, */*',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+    if (!response.ok) {
+      const contentType = response.headers.get('content-type') ?? '';
+      const isJson = contentType.includes('application/json');
+      const body = isJson ? await response.json().catch(() => null) : await response.text().catch(() => null);
+      throw new ApiError(`HTTP_${response.status}`, response.status, body);
+    }
+    return response.blob();
+  },
   delete: <TResponse>(path: string) => request<TResponse>(path, { method: 'DELETE' }),
 };

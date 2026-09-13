@@ -13,11 +13,13 @@ import { PrivacyPolicyPage } from '../pages/PrivacyPolicyPage.tsx';
 import { CustomersPage } from '../pages/CustomersPage';
 import { CustomerDetailsPage } from '../pages/CustomerDetailsPage';
 import { AddDebtPage } from '../pages/AddDebtPage';
+import { DebtInvoicePage } from '../pages/DebtInvoicePage';
 import { NewPaymentPage } from '../pages/NewPaymentPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { SubscriptionsPage } from '../pages/SubscriptionsPage';
 import { ReportsPage } from '../pages/ReportsPage';
 import { PaymentsPage } from '../pages/PaymentsPage';
+import { PaymentReceiptPage } from '../pages/PaymentReceiptPage';
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { VerifyResetOtpPage } from '../pages/VerifyResetOtpPage';
 import { ResetPasswordPage } from '../pages/ResetPasswordPage';
@@ -69,6 +71,14 @@ export const AppRoutes: FC = () => {
         }
       />
       <Route
+        path={PATHS.DEBT_INVOICE}
+        element={
+          <ProtectedRoute>
+            <DebtInvoicePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path={PATHS.NEW_PAYMENT}
         element={
           <ProtectedRoute>
@@ -101,10 +111,34 @@ export const AppRoutes: FC = () => {
         }
       />
       <Route
+        path={PATHS.COLLECTIONS_REPORT}
+        element={
+          <ProtectedRoute>
+            <ReportsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={PATHS.OVERDUE_DEBTS_REPORT}
+        element={
+          <ProtectedRoute>
+            <ReportsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path={PATHS.PAYMENTS}
         element={
           <ProtectedRoute>
             <PaymentsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={PATHS.PAYMENT_RECEIPT}
+        element={
+          <ProtectedRoute>
+            <PaymentReceiptPage />
           </ProtectedRoute>
         }
       />

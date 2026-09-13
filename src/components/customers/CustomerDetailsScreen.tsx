@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { FC } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
-  Search,
   Check,
   Plus,
   FileText,
@@ -14,13 +13,11 @@ import {
   AlertTriangle,
   ArrowRight,
   Phone,
-  HelpCircle,
-  Bell,
   X,
   Pencil,
-  Menu,
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
+import { Header } from '../dashboard/Header';
 import {
   getCustomerProfile,
   mapCustomerProfileToCustomer,
@@ -45,7 +42,7 @@ import type { Customer, CustomerProfileTransactionDto } from '../../types/custom
 import { ApiError } from '../../api/httpClient';
 import { Toast, type ToastType } from '../ui/Toast';
 import { PATHS } from '../../routes/paths';
-import { useMerchantProfile } from '../../services/merchantProfileService';
+import { formatApiDate } from '../../lib/dateUtils';
 
 interface ActivityItem {
   id: string;
@@ -178,18 +175,6 @@ function setStoredNationalId(customerId: string, value: string): void {
   }
 }
 
-/** Formats an ISO date string (from the API) into an Arabic date, optionally with time. */
-function formatApiDate(iso: string, withTime = false): string {
-  if (!iso) return '';
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return new Intl.DateTimeFormat('ar-EG', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-    ...(withTime ? { hour: '2-digit', minute: '2-digit' } : {}),
-  }).format(date);
-}
 
 export const CustomerDetailsScreen: FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -198,7 +183,6 @@ export const CustomerDetailsScreen: FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeActivityTab, setActiveActivityTab] = useState<'all' | 'debt' | 'payment'>('all');
   const [searchActivityQuery, setSearchActivityQuery] = useState('');
-  const merchantProfile = useMerchantProfile();
 
   // Customer Data — fetched from GET /api/Customer/getCustomerProfile/{customerId}
   const [customer, setCustomer] = useState<Customer>(EMPTY_CUSTOMER);
@@ -679,61 +663,14 @@ export const CustomerDetailsScreen: FC = () => {
           onClose={() => setToast(null)}
         />
 
-        {/* Top Header Bar */}
-        <header className="w-full bg-white border-b border-slate-100/80 px-4 sm:px-8 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-2xs print:hidden">
-          {/* Mobile menu trigger & Search bar */}
-          <div className="flex items-center gap-3 flex-1 max-w-md">
-            <button
-              type="button"
-              onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
-              aria-label="فتح القائمة الجانبية"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-            <div className="relative w-full">
-              <input
-                type="text"
-                value={searchActivityQuery}
-                onChange={(e) => setSearchActivityQuery(e.target.value)}
-                placeholder="بحث عن معاملة..."
-                className="w-full bg-[#f8fafc] border border-slate-200/90 text-slate-800 text-xs sm:text-sm rounded-xl pr-10 pl-4 py-2.5 outline-none focus:border-[#0c2444] focus:bg-white transition-all placeholder:text-slate-400 font-cairo"
-              />
-              <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* User & Actions */}
-          <div className="flex items-center gap-3 sm:gap-4">
-            <button
-              type="button"
-              className="relative p-2 rounded-xl text-slate-600 hover:text-[#0c2444] hover:bg-slate-50 transition-colors"
-            >
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-2 left-2 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white" />
-            </button>
-
-            <button
-              type="button"
-              className="p-2 rounded-xl text-slate-600 hover:text-[#0c2444] hover:bg-slate-50 transition-colors"
-            >
-              <HelpCircle className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-2 pr-1 sm:pr-2 border-r border-slate-100">
-              <div className="w-10 h-10 rounded-full ring-2 ring-slate-100 overflow-hidden shadow-xs cursor-pointer">
-                <img
-                  src={merchantProfile.profileImagePath || '/merchant-avatar.jpg'}
-                  alt={merchantProfile.fullName || 'صورة التاجر'}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        </header>
+        {/* Unified Top Header Bar */}
+        <Header
+          onMenuClick={() => setIsSidebarOpen(true)}
+          searchQuery={searchActivityQuery}
+          onSearchChange={setSearchActivityQuery}
+          searchPlaceholder="بحث عن معاملة..."
+          className="print:hidden"
+        />
 
         {/* Page Main Content */}
         <main className="p-4 sm:p-6 lg:p-8 space-y-6 flex-1 max-w-7xl w-full mx-auto print:p-0 print:m-0 print:max-w-none print:w-full">
@@ -1089,6 +1026,56 @@ export const CustomerDetailsScreen: FC = () => {
 
                             {act.type !== 'alert' && (
                               <div className="flex items-center gap-2">
+                                {act.type === 'debt' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigate(`/debts/${act.recordId || act.reference || '8821'}/invoice`, {
+                                        state: {
+                                          debt: {
+                                            id: String(act.recordId),
+                                            invoiceNumber: `INV-DEBT-${act.reference || act.recordId || '8821'}`,
+                                            customerName: customer.name,
+                                            customerNationalId: customer.nationalOrCrId,
+                                            customerPhone: customer.phone,
+                                            invoiceAmount: act.rawAmount,
+                                            issueDate: act.date,
+                                          },
+                                        },
+                                      });
+                                    }}
+                                    aria-label="عرض سند إثبات الدين"
+                                    title="عرض سند إثبات الدين"
+                                    className="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 flex items-center justify-center transition-colors cursor-pointer"
+                                  >
+                                    <FileText className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                                {act.type === 'payment' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigate(`/payments/${act.recordId || act.reference || '4821'}/receipt`, {
+                                        state: {
+                                          payment: {
+                                            id: String(act.recordId),
+                                            receiptNumber: act.reference,
+                                            customerName: customer.name,
+                                            phone: customer.phone,
+                                            amount: act.rawAmount,
+                                            date: act.date,
+                                            method: act.rawPaymentMethod || 'نقداً',
+                                          },
+                                        },
+                                      });
+                                    }}
+                                    aria-label="عرض سند القبض"
+                                    title="عرض سند القبض"
+                                    className="w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 flex items-center justify-center transition-colors cursor-pointer"
+                                  >
+                                    <FileText className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => setActivityPendingDelete(act)}

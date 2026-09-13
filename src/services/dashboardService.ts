@@ -1,6 +1,7 @@
 import { httpClient, ApiError } from '../api/httpClient';
 import type { DashboardSummary, OverduePaymentItem, RecentActivityItem } from '../types/dashboard';
 import { getCustomers, getCustomerProfile } from './customerService';
+import { parseApiDate, formatRelativeTime } from '../lib/dateUtils';
 
 /**
  * GET http://whateq.runasp.net/api/Dashboard/summary
@@ -43,14 +44,14 @@ export async function getRecentActivities(): Promise<RecentActivityItem[]> {
   const activities: RecentActivityItem[] = [];
 
   const sortedCustomers = [...dtos].sort((a, b) => {
-    const timeA = new Date(a.createdAt).getTime() || 0;
-    const timeB = new Date(b.createdAt).getTime() || 0;
+    const timeA = parseApiDate(a.createdAt).getTime() || 0;
+    const timeB = parseApiDate(b.createdAt).getTime() || 0;
     return timeB - timeA;
   });
 
   // 1. Customer Registration Activities
   for (const c of sortedCustomers.slice(0, 10)) {
-    const timeMs = new Date(c.createdAt).getTime() || Date.now();
+    const timeMs = parseApiDate(c.createdAt).getTime() || Date.now();
     activities.push({
       id: `cust-add-${c.id}`,
       time: formatRelativeTime(c.createdAt),
@@ -69,7 +70,7 @@ export async function getRecentActivities(): Promise<RecentActivityItem[]> {
   profiles.forEach((profile) => {
     if (!profile || !profile.transactions) return;
     profile.transactions.forEach((tx, idx) => {
-      const txTimeMs = new Date(tx.date).getTime() || Date.now();
+      const txTimeMs = parseApiDate(tx.date).getTime() || Date.now();
       const typeStr = String(tx.type || '').toLowerCase();
       const isPayment = typeStr.includes('pay') || typeStr.includes('دفعة') || typeStr.includes('سداد');
       const isDebt = typeStr.includes('debt') || typeStr.includes('دين') || !isPayment;
@@ -96,35 +97,13 @@ export async function getRecentActivities(): Promise<RecentActivityItem[]> {
 function formatArabicDate(dateStr?: string): string {
   if (!dateStr) return '—';
   try {
-    const d = new Date(dateStr);
+    const d = parseApiDate(dateStr);
     if (isNaN(d.getTime())) return dateStr;
     return d.toLocaleDateString('ar-SA', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     });
-  } catch {
-    return dateStr;
-  }
-}
-
-function formatRelativeTime(dateStr?: string): string {
-  if (!dateStr) return 'مؤخراً';
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    const now = new Date();
-    const diffMs = now.getTime() - d.getTime();
-    const diffMinutes = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffMinutes < 5) return 'الآن';
-    if (diffMinutes < 60) return `منذ ${diffMinutes.toLocaleString('ar-SA')} دقيقة`;
-    if (diffHours < 24) return `منذ ${diffHours.toLocaleString('ar-SA')} ساعة`;
-    if (diffDays === 1) return 'أمس';
-    if (diffDays < 7) return `منذ ${diffDays.toLocaleString('ar-SA')} أيام`;
-    return d.toLocaleDateString('ar-SA', { month: 'short', day: 'numeric' });
   } catch {
     return dateStr;
   }

@@ -29,6 +29,9 @@ interface HeaderProps {
   searchQuery?: string;
   onSearchChange?: (val: string) => void;
   searchPlaceholder?: string;
+  title?: string;
+  hideSearch?: boolean;
+  className?: string;
 }
 
 interface NotificationItem {
@@ -82,6 +85,9 @@ export const Header: FC<HeaderProps> = ({
   searchQuery = '',
   onSearchChange,
   searchPlaceholder = 'البحث في العمليات...',
+  title,
+  hideSearch = false,
+  className = '',
 }) => {
   const navigate = useNavigate();
   const profile = useMerchantProfile();
@@ -220,32 +226,38 @@ export const Header: FC<HeaderProps> = ({
   return (
     <>
       <header
-        className="w-full bg-white border-b border-slate-100/80 px-4 sm:px-8 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-xs"
+        className={`w-full bg-white border-b border-slate-100/80 px-4 sm:px-8 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-xs ${className}`}
         dir="rtl"
       >
-        {/* Right Side in RTL: Mobile Toggle & Search Bar */}
+        {/* Right Side in RTL: Mobile Toggle & Search Bar / Title */}
         <div className="flex items-center gap-4 flex-1 max-w-xl">
           {/* Mobile menu trigger */}
           <button
             type="button"
             onClick={onMenuClick}
-            className="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+            className="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
             aria-label="فتح القائمة الجانبية"
           >
             <Menu className="w-6 h-6" />
           </button>
 
-          {/* Search Input Bar */}
-          <div className="relative w-full max-w-md">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => onSearchChange?.(e.target.value)}
-              placeholder={searchPlaceholder}
-              className="w-full bg-[#f8fafc] border border-slate-200/90 text-slate-800 text-sm rounded-xl pr-10 pl-4 py-2.5 outline-hidden focus:border-[#051838] focus:bg-white transition-all duration-200 placeholder:text-slate-400 font-cairo"
-            />
-            <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
+          {title ? (
+            <h1 className="text-xl sm:text-2xl font-extrabold font-cairo text-slate-900 tracking-tight">
+              {title}
+            </h1>
+          ) : !hideSearch ? (
+            /* Search Input Bar */
+            <div className="relative w-full max-w-md">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => onSearchChange?.(e.target.value)}
+                placeholder={searchPlaceholder}
+                className="w-full bg-[#f8fafc] border border-slate-200/90 text-slate-800 text-sm rounded-xl pr-10 pl-4 py-2.5 outline-hidden focus:border-[#051838] focus:bg-white transition-all duration-200 placeholder:text-slate-400 font-cairo"
+              />
+              <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+          ) : null}
         </div>
 
         {/* Left Side in RTL: Actions & User Avatar */}

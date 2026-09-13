@@ -20,8 +20,8 @@ body {
 
 @media print {
   @page {
-    margin: 12mm 15mm;
-    size: auto;
+    margin: 10mm 12mm;
+    size: A4 portrait;
   }
 
   body {
@@ -37,6 +37,19 @@ body {
 
   .print\:hidden {
     display: none !important;
+  }
+
+  /* Reset layout margins and paddings for printing */
+  .lg\:mr-72 {
+    margin-right: 0 !important;
+  }
+
+  #receipt-voucher-card,
+  #debt-invoice-card {
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 }
 

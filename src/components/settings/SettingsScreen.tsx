@@ -3,8 +3,6 @@ import type { FC, FormEvent, ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PATHS } from '../../routes/paths';
 import {
-  Bell,
-  Menu,
   Pencil,
   Award,
   User,
@@ -18,6 +16,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
+import { Header } from '../dashboard/Header';
 import {
   getMerchantProfile,
   updateMerchantProfile,
@@ -166,52 +165,12 @@ export const SettingsScreen: FC = () => {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 lg:mr-72 transition-all duration-300">
-        {/* Top Header */}
-        <header className="w-full bg-white border-b border-slate-100/90 px-4 sm:px-8 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-xs">
-          {/* Right side in RTL: Title & Mobile menu trigger */}
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-              aria-label="فتح القائمة الجانبية"
-            >
-              <Menu className="w-6 h-6" />
-            </button>
-            <h1 className="text-xl sm:text-2xl font-extrabold font-cairo text-slate-900 tracking-tight">
-              الإعدادات
-            </h1>
-          </div>
-
-          {/* Left side in RTL: Actions & User Avatar */}
-          <div className="flex items-center gap-3 sm:gap-4">
-            {/* Notification Bell */}
-            <button
-              type="button"
-              className="relative p-2 rounded-xl text-slate-600 hover:text-[#0c2444] hover:bg-slate-50 transition-colors"
-              title="التنبيهات"
-              aria-label="التنبيهات"
-            >
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-2 left-2 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white"></span>
-            </button>
-
-
-            {/* User Avatar */}
-            <div className="flex items-center gap-2 pr-1 sm:pr-2 border-r border-slate-100">
-              <div className="relative w-10 h-10 rounded-full ring-2 ring-slate-100 overflow-hidden shadow-xs cursor-pointer hover:ring-[#051838]/20 transition-all">
-                <img
-                  src={avatarPreview}
-                  alt="صورة المستخدم"
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        </header>
+        {/* Unified Top Header */}
+        <Header
+          onMenuClick={() => setIsSidebarOpen(true)}
+          title="الإعدادات"
+          hideSearch
+        />
 
         {/* Settings Body */}
         <main className="p-4 sm:p-6 lg:p-8 space-y-6 flex-1 max-w-7xl w-full mx-auto">

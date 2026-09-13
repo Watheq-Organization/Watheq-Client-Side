@@ -38,6 +38,7 @@ import { PAYMENT_METHOD_OPTIONS } from '../../types/payment';
 import type { PaymentMethod, EditingPaymentState } from '../../types/payment';
 import type { CustomerProfileDto } from '../../types/customer';
 import { PATHS } from '../../routes/paths';
+import { getDeviceLocalDateString } from '../../lib/dateUtils';
 
 const PAYMENT_METHOD_ICONS: Record<PaymentMethod, typeof Banknote> = {
   cash: Banknote,
@@ -112,7 +113,12 @@ export const NewPaymentScreen: FC = () => {
   const [method, setMethod] = useState<PaymentMethod>(() =>
     parsePaymentMethod(editingPayment?.method)
   );
-  const [paymentDate, setPaymentDate] = useState('');
+  const [paymentDate, setPaymentDate] = useState(() => {
+    if (editingPayment?.date) {
+      return editingPayment.date.split('T')[0];
+    }
+    return getDeviceLocalDateString();
+  });
   const [notes, setNotes] = useState(editingPayment?.notes ?? '');
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -138,6 +144,7 @@ export const NewPaymentScreen: FC = () => {
     } else {
       setAmount('');
       setMethod('cash');
+      setPaymentDate(getDeviceLocalDateString());
       setNotes('');
     }
     setFieldErrors({});
