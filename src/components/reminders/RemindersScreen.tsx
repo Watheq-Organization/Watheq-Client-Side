@@ -13,8 +13,16 @@ interface ReminderScheduleItem {
   enabled: boolean;
 }
 
-const DEFAULT_MESSAGE_TEMPLATE = `عزيزي [اسم_العميل]، نود تذكيركم بأن هناك مبلغاً مستحقاً وقدره [المبلغ_المستحق] ريال سعودي، يرجى المبادرة بالسداد قبل تاريخ [تاريخ_الاستحقاق] عبر الرابط التالي:
-[رابط_الدفع]. شكراً لتعاونكم مع وثّق.`;
+const DEFAULT_MESSAGE_TEMPLATE = `مرحبًا [اسم_العميل] 👋
+
+تم تسجيل دين جديد في حسابك لدى [اسم_المتجر].
+
+💰 المبلغ: [المبلغ_المستحق] ILS
+📅 تاريخ الاستحقاق: [تاريخ_الاستحقاق]
+🧾 رقم الدين: [رقم_الدين]
+📝 التفاصيل: [التفاصيل]
+
+شكرًا لك، ونتمنى لك يومًا سعيدًا 🌷`;
 
 export const RemindersScreen: FC = () => {
   const navigate = useNavigate();
@@ -102,15 +110,21 @@ export const RemindersScreen: FC = () => {
 
   // Live preview message rendered with placeholder values
   const previewText = messageTemplate
-    .replace(/\[اسم_العميل\]/g, 'محمد أحمد السعيد')
-    .replace(/\[المبلغ_المستحق\]/g, '3,500')
-    .replace(/\[تاريخ_الاستحقاق\]/g, '2026/09/25')
-    .replace(/\[رابط_الدفع\]/g, 'https://watheq.sa/pay/inv-8921');
+    .replace(/\[اسم_العميل\]/g, 'أحمد')
+    .replace(/\[اسم_المتجر\]/g, 'متجر عصام')
+    .replace(/\[المبلغ_المستحق\]/g, '500')
+    .replace(/\[تاريخ_الاستحقاق\]/g, '2026-10-01')
+    .replace(/\[رقم_الدين\]/g, 'D-123456')
+    .replace(/\[التفاصيل\]/g, 'شراء بضاعة')
+    .replace(/\[رابط_الدفع\]/g, 'https://watheq.sa/p/123456');
 
   const availableTags = [
     '[اسم_العميل]',
+    '[اسم_المتجر]',
     '[المبلغ_المستحق]',
     '[تاريخ_الاستحقاق]',
+    '[رقم_الدين]',
+    '[التفاصيل]',
     '[رابط_الدفع]',
   ];
 
@@ -275,8 +289,8 @@ export const RemindersScreen: FC = () => {
                     ref={textareaRef}
                     value={messageTemplate}
                     onChange={(e) => setMessageTemplate(e.target.value)}
-                    rows={4}
-                    className="w-full bg-transparent border-0 resize-none outline-hidden text-sm sm:text-base text-slate-800 leading-relaxed font-cairo text-right placeholder:text-slate-400"
+                    rows={8}
+                    className="w-full min-h-[180px] bg-transparent border-0 resize-none outline-hidden text-sm sm:text-base text-slate-800 leading-relaxed font-cairo text-right placeholder:text-slate-400"
                     placeholder="اكتب قالب رسالة التذكير هنا..."
                   />
                 </div>
