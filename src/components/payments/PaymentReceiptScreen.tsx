@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { FC } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
@@ -18,12 +18,18 @@ import {
   BookOpen,
   History,
   Tag,
+  RotateCw,
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
 import { PATHS } from '../../routes/paths';
 import { useMerchantProfile } from '../../services/merchantProfileService';
 import { tafqeet } from '../../lib/tafqeet';
+import { getInvoiceByPaymentId } from '../../services/invoiceService';
+import { getCustomerProfile, getCustomers } from '../../services/customerService';
+import { formatApiDate, getDeviceLocalDateString } from '../../lib/dateUtils';
+import type { CustomerProfileDto } from '../../types/customer';
+import type { PaymentInvoiceDto } from '../../types/invoice';
 
 interface PaymentState {
   id?: string;
@@ -39,6 +45,9 @@ interface PaymentState {
   receiptNumber?: string;
   nationalId?: string;
   phone?: string;
+  previousDebt?: number;
+  remainingDebt?: number;
+  currency?: string;
 }
 
 export const PaymentReceiptScreen: FC = () => {
@@ -49,23 +58,148 @@ export const PaymentReceiptScreen: FC = () => {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [serverPayment, setServerPayment] = useState<PaymentInvoiceDto | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [customerProfile, setCustomerProfile] = useState<CustomerProfileDto | null>(null);
 
   // Extract payment from navigation state if available
   const statePayment = (location.state as { payment?: PaymentState } | null)?.payment;
 
-  // Fallback / default data matching the design mockup in Image 1
-  const paymentData = useMemo(() => {
-    const amount = statePayment?.amount ?? 0;
-    const customerName = statePayment?.customerName ?? 'العميل';
-    const customerNationalId = statePayment?.nationalId ?? '—';
-    const customerPhone = statePayment?.phone ?? '—';
-    const receiptNumber = statePayment?.receiptNumber ?? (id ? `REC-${id}` : 'REC-001');
-    const paymentDate = statePayment?.date ?? new Date().toLocaleDateString('ar-SA');
-    const paymentTime = statePayment?.time ?? '—';
-    const method = statePayment?.method ?? 'نقداً';
+  const fetchLivePayment = () => {
+    if (!id) return;
+    const cleanId = String(id).replace(/[^0-9]/g, '');
+    if (!cleanId) return;
 
-    const previousDebt = amount + 3000;
-    const remainingDebt = 3000;
+    setIsLoading(true);
+    getInvoiceByPaymentId(cleanId)
+      .then((data) => {
+        if (data) {
+          setServerPayment(data);
+        }
+      })
+      .catch((err) => {
+        console.warn('[PaymentReceiptScreen] getInvoiceByPaymentId error:', err);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    fetchLivePayment();
+  }, [id]);
+
+  // Resolve customer profile for real balance & debt numbers
+  useEffect(() => {
+    let isMounted = true;
+    const targetCustomerId = serverPayment?.customerId ?? statePayment?.customerId;
+    const targetCustomerName = serverPayment?.customerName ?? statePayment?.customerName;
+    const targetCustomerPhone = serverPayment?.customerPhone ?? statePayment?.phone;
+
+    async function fetchCustomerData() {
+      try {
+        if (targetCustomerId) {
+          const profile = await getCustomerProfile(String(targetCustomerId));
+          if (isMounted && profile) {
+            setCustomerProfile(profile);
+            return;
+          }
+        }
+        if (targetCustomerName || targetCustomerPhone) {
+          const customers = await getCustomers();
+          const matched = customers.find((c) => {
+            if (targetCustomerId && String(c.id) === String(targetCustomerId)) return true;
+            if (targetCustomerName && c.fullName && c.fullName.trim() === targetCustomerName.trim()) return true;
+            if (targetCustomerPhone && c.phoneNumber && targetCustomerPhone.includes(c.phoneNumber)) return true;
+            return false;
+          });
+          if (isMounted && matched) {
+            const profile = await getCustomerProfile(String(matched.id));
+            if (isMounted && profile) {
+              setCustomerProfile(profile);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[PaymentReceiptScreen] Could not fetch customer profile:', err);
+      }
+    }
+
+    if (targetCustomerId || targetCustomerName || targetCustomerPhone) {
+      fetchCustomerData();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    serverPayment?.customerId,
+    serverPayment?.customerName,
+    serverPayment?.customerPhone,
+    statePayment?.customerId,
+    statePayment?.customerName,
+    statePayment?.phone,
+  ]);
+
+  // Real data with defensive server fallbacks
+  const paymentData = useMemo(() => {
+    const amount =
+      serverPayment?.amount ?? serverPayment?.paidAmount ?? statePayment?.amount ?? 0;
+    const customerName =
+      serverPayment?.customerName ?? statePayment?.customerName ?? customerProfile?.fullName ?? 'العميل';
+    const customerNationalId =
+      serverPayment?.customerNationalId ?? statePayment?.nationalId ?? '—';
+    const customerPhone =
+      serverPayment?.customerPhone ?? statePayment?.phone ?? customerProfile?.phoneNumber ?? '—';
+    const receiptNumber =
+      serverPayment?.receiptNumber ??
+      serverPayment?.invoiceNumber ??
+      statePayment?.receiptNumber ??
+      (id ? `REC-${id}` : 'REC-001');
+
+    const rawPaymentDate =
+      serverPayment?.paymentDate ?? serverPayment?.date ?? statePayment?.date;
+    const paymentDate = rawPaymentDate
+      ? formatApiDate(rawPaymentDate)
+      : formatApiDate(getDeviceLocalDateString());
+
+    const paymentTime =
+      serverPayment?.paymentTime ?? serverPayment?.time ?? statePayment?.time ?? '—';
+    const method =
+      String(serverPayment?.paymentMethod ?? statePayment?.method ?? 'نقداً');
+
+    // Real accounting calculation (no mock +3000)
+    let previousDebt = 0;
+    let remainingDebt = 0;
+
+    if (serverPayment?.previousDebt !== undefined) {
+      previousDebt = Number(serverPayment.previousDebt) || 0;
+      remainingDebt = serverPayment.remainingDebt !== undefined
+        ? Number(serverPayment.remainingDebt) || 0
+        : Math.max(0, previousDebt - amount);
+    } else if (statePayment?.previousDebt !== undefined) {
+      previousDebt = Number(statePayment.previousDebt) || 0;
+      remainingDebt = statePayment.remainingDebt !== undefined
+        ? Number(statePayment.remainingDebt) || 0
+        : Math.max(0, previousDebt - amount);
+    } else if (customerProfile) {
+      remainingDebt = Math.max(0, customerProfile.currentBalance ?? 0);
+      previousDebt = remainingDebt + amount;
+    } else {
+      previousDebt = amount;
+      remainingDebt = 0;
+    }
+
+    const rawCurrency =
+      serverPayment?.currency ?? serverPayment?.currencyCode ?? statePayment?.currency ?? 'شيكل';
+    const currency = rawCurrency === 'ILS' ? 'شيكل' : rawCurrency === 'SAR' ? 'ر.س' : rawCurrency;
+
+    const rawDueDate = serverPayment?.nextDueDate ?? serverPayment?.dueDate;
+    const nextDueDate = rawDueDate ? formatApiDate(rawDueDate) : null;
+
+    const invoiceId = serverPayment?.invoiceId ? String(serverPayment.invoiceId) : null;
+    const invoiceNumber = serverPayment?.invoiceNumber ?? (invoiceId ? `INV-${invoiceId}` : null);
+    const originalInvoiceDate = serverPayment?.originalInvoiceDate ? formatApiDate(serverPayment.originalInvoiceDate) : null;
 
     return {
       amount,
@@ -76,11 +210,18 @@ export const PaymentReceiptScreen: FC = () => {
       paymentDate,
       paymentTime,
       method,
-      referenceNumber: `WTQ-${receiptNumber.replace(/[^0-9]/g, '').slice(-4) || '0821'}-PAY9`,
+      referenceNumber:
+        serverPayment?.referenceNumber ??
+        `WTQ-${receiptNumber.replace(/[^0-9]/g, '').slice(-4) || '0821'}-PAY9`,
       previousDebt,
       remainingDebt,
+      currency,
+      nextDueDate,
+      invoiceId,
+      invoiceNumber,
+      originalInvoiceDate,
     };
-  }, [statePayment, id]);
+  }, [serverPayment, statePayment, id, customerProfile]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -96,7 +237,7 @@ export const PaymentReceiptScreen: FC = () => {
 
   const handleSendWhatsApp = () => {
     const message = encodeURIComponent(
-      `مرحباً ${paymentData.customerName}،\nتم إصدار سند قبض مالي إلكتروني موثق برقم ${paymentData.receiptNumber} بمبلغ ${paymentData.amount.toLocaleString()} ريال سعودي من ${merchant.businessName}.\nيمكنكم التحقق من السند عبر الرابط: ${window.location.origin}/payments/${id || 'rec-4821'}/receipt`
+      `مرحباً ${paymentData.customerName}،\nتم إصدار سند قبض مالي إلكتروني موثق برقم ${paymentData.receiptNumber} بمبلغ ${paymentData.amount.toLocaleString()} ${paymentData.currency} من ${merchant.businessName}.\nيمكنكم التحقق من السند عبر الرابط: ${window.location.origin}/payments/${id || 'rec-4821'}/receipt`
     );
     window.open(`https://wa.me/?text=${message}`, '_blank');
   };
@@ -177,6 +318,17 @@ export const PaymentReceiptScreen: FC = () => {
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                     <span>مقبوض وموثق</span>
                   </span>
+                  {serverPayment ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                      مربوط بالسيرفر
+                    </span>
+                  ) : isLoading ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                      <RotateCw className="w-2.5 h-2.5 animate-spin text-slate-500" />
+                      جاري التحميل...
+                    </span>
+                  ) : null}
                 </div>
                 <p className="mt-0.5 text-xs sm:text-sm font-medium text-slate-500 font-cairo">
                   سند رسمي صادر عبر منصة واثق للتحصيل وسداد الديون
@@ -184,8 +336,20 @@ export const PaymentReceiptScreen: FC = () => {
               </div>
             </div>
 
-            {/* Left side: Action Buttons (No Print Button as requested, only Export PDF & WhatsApp) */}
-            <div className="flex items-center gap-2.5 self-end sm:self-auto">
+            {/* Left side: Action Buttons */}
+            <div className="flex items-center gap-2.5 self-end sm:self-auto flex-wrap">
+              {/* Refresh Button */}
+              <button
+                type="button"
+                onClick={fetchLivePayment}
+                disabled={isLoading}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                title="تحديث سند القبض من الخادم"
+              >
+                <RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-emerald-600' : ''}`} />
+                <span className="hidden sm:inline">تحديث</span>
+              </button>
+
               {/* WhatsApp Button */}
               <button
                 type="button"
@@ -196,7 +360,7 @@ export const PaymentReceiptScreen: FC = () => {
                 <span>إرسال واتساب</span>
               </button>
 
-              {/* Export PDF Button (Replacing Print Button) */}
+              {/* Export PDF Button */}
               <button
                 type="button"
                 onClick={handleExportPdf}
@@ -360,13 +524,13 @@ export const PaymentReceiptScreen: FC = () => {
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-slate-500 font-medium">رقم السجل التجاري:</span>
-                      <span className="font-bold font-mono text-slate-800">1810874921</span>
+                      <span className="text-slate-500 font-medium">رقم التواصل المعتمد:</span>
+                      <span className="font-bold font-mono text-slate-800" dir="ltr">{merchant.phoneNumber || '—'}</span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-slate-500 font-medium">المحصل المسؤول:</span>
                       <span className="font-bold text-slate-800 font-cairo">
-                        {merchant.fullName || 'عبدالله المحمد (أمين الصندوق)'}
+                        {merchant.fullName || 'أمين الصندوق'}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
@@ -387,29 +551,43 @@ export const PaymentReceiptScreen: FC = () => {
                 </div>
                 <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-3">
                   <p className="text-xs sm:text-sm font-semibold text-slate-800 leading-relaxed font-cairo">
-                    سداد دفعة نقدية جزئية مسجلة لحساب تصفية مديونية المشتريات بموجب الفاتورة الآجلة رقم #8821 (شراء مستلزمات مكتبية وأجهزة تقنية).
+                    {serverPayment?.notes
+                      ? serverPayment.notes
+                      : paymentData.invoiceNumber
+                        ? `سداد دفعة مالية موثقة لحساب تصفية مديونية المشتريات بموجب الفاتورة رقم #${paymentData.invoiceNumber}.`
+                        : `سداد دفعة مالية موثقة ومعتمدة في سجل حساب العميل بسند رقم #${paymentData.receiptNumber}.`}
                   </p>
                   <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-200/60 text-xs">
-                    <div className="flex items-center gap-1.5 text-slate-600 font-medium">
-                      <Tag className="w-3.5 h-3.5 text-slate-400" />
-                      <span>مرتبط بالفاتورة:</span>
-                      <button
-                        type="button"
-                        onClick={() => navigate('/debts/8821/invoice')}
-                        className="font-bold font-mono text-blue-700 hover:text-blue-900 bg-white hover:bg-blue-50 px-2 py-0.5 rounded border border-blue-200 transition-colors cursor-pointer"
-                        title="عرض فاتورة إثبات وقيد الدين"
-                      >
-                        INV-8821
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-slate-600 font-medium">
-                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                      <span>تاريخ الفاتورة الأصلية:</span>
-                      <span className="font-bold text-slate-800">14 فبراير 2024</span>
-                    </div>
+                    {paymentData.invoiceId || paymentData.invoiceNumber ? (
+                      <div className="flex items-center gap-1.5 text-slate-600 font-medium">
+                        <Tag className="w-3.5 h-3.5 text-slate-400" />
+                        <span>مرتبط بالفاتورة:</span>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/debts/${paymentData.invoiceId || 'invoice'}/invoice`)}
+                          className="font-bold font-mono text-blue-700 hover:text-blue-900 bg-white hover:bg-blue-50 px-2 py-0.5 rounded border border-blue-200 transition-colors cursor-pointer"
+                          title="عرض فاتورة إثبات وقيد الدين"
+                        >
+                          {paymentData.invoiceNumber || `INV-${paymentData.invoiceId}`}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 text-slate-600 font-medium">
+                        <Tag className="w-3.5 h-3.5 text-slate-400" />
+                        <span>رقم السند المرجعي:</span>
+                        <span className="font-bold font-mono text-slate-800">{paymentData.referenceNumber}</span>
+                      </div>
+                    )}
+                    {paymentData.originalInvoiceDate && (
+                      <div className="flex items-center gap-1.5 text-slate-600 font-medium">
+                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                        <span>تاريخ الفاتورة الأصلية:</span>
+                        <span className="font-bold text-slate-800">{paymentData.originalInvoiceDate}</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-1.5 text-emerald-700 font-bold">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>إشعار تأكيد العميل: تم الإرسال عبر SMS</span>
+                      <span>إشعار قيد الدفعة: موثق رقمياً بالكامل</span>
                     </div>
                   </div>
                 </div>
@@ -429,7 +607,7 @@ export const PaymentReceiptScreen: FC = () => {
                       {paymentData.previousDebt.toLocaleString('en-US', {
                         minimumFractionDigits: 2,
                       })}{' '}
-                      <span className="text-xs font-cairo">ر.س</span>
+                      <span className="text-xs font-cairo">{paymentData.currency}</span>
                     </div>
                     <div className="text-[11px] text-slate-400 font-medium">رصيد قبل سداد هذا السند</div>
                   </div>
@@ -441,9 +619,9 @@ export const PaymentReceiptScreen: FC = () => {
                       {paymentData.amount.toLocaleString('en-US', {
                         minimumFractionDigits: 2,
                       })}{' '}
-                      <span className="text-xs font-cairo">ر.س</span>
+                      <span className="text-xs font-cairo">{paymentData.currency}</span>
                     </div>
-                    <div className="text-[11px] text-emerald-700 font-bold">سداد نقدي معتمد</div>
+                    <div className="text-[11px] text-emerald-700 font-bold">{methodDetails.label}</div>
                   </div>
 
                   {/* Card 3: Remaining Balance (Navy) */}
@@ -453,9 +631,15 @@ export const PaymentReceiptScreen: FC = () => {
                       {paymentData.remainingDebt.toLocaleString('en-US', {
                         minimumFractionDigits: 2,
                       })}{' '}
-                      <span className="text-xs font-cairo text-blue-200">ر.س</span>
+                      <span className="text-xs font-cairo text-blue-200">{paymentData.currency}</span>
                     </div>
-                    <div className="text-[11px] text-blue-200/80 font-medium">تاريخ الاستحقاق القادم: 25 مارس 2024</div>
+                    <div className="text-[11px] text-blue-200/80 font-medium">
+                      {paymentData.remainingDebt <= 0
+                        ? 'تم سداد كامل المديونية المستحقة ✓'
+                        : paymentData.nextDueDate
+                          ? `تاريخ الاستحقاق القادم: ${paymentData.nextDueDate}`
+                          : 'رصيد متبقي بذمة العميل'}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -467,7 +651,7 @@ export const PaymentReceiptScreen: FC = () => {
                   <div className="space-y-1.5 text-right md:text-center">
                     <span className="text-xs text-slate-400 font-medium block">توقيع واعتماد المحصل:</span>
                     <div className="text-base sm:text-lg font-bold font-cairo text-slate-900">
-                      {merchant.fullName || 'عبدالله المحمد'}
+                      {merchant.fullName || 'أمين الصندوق'}
                     </div>
                     <div className="text-xs text-slate-500 font-medium">الختم الإلكتروني للنظام</div>
                     <div className="text-[10px] font-mono text-slate-400">
@@ -483,7 +667,7 @@ export const PaymentReceiptScreen: FC = () => {
                         <span>منصة وثّق</span>
                       </div>
                       <div className="text-xs font-black tracking-wide my-0.5">معتمد وموثق</div>
-                      <div className="text-[10px] font-mono font-bold text-emerald-700">02/03/2024</div>
+                      <div className="text-[10px] font-mono font-bold text-emerald-700">{paymentData.paymentDate}</div>
                     </div>
                   </div>
 

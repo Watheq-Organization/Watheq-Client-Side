@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { FC } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
@@ -14,6 +14,7 @@ import {
   Check,
   Phone,
   Fingerprint,
+  RotateCw,
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
@@ -23,7 +24,11 @@ import {
   triggerPdfDownload,
   shareInvoiceViaWhatsApp,
   toInvoiceErrorMessage,
+  getInvoiceByDebtId,
 } from '../../services/invoiceService';
+import { getCustomerProfile, getCustomers } from '../../services/customerService';
+import { formatApiDate, getDeviceLocalDateString } from '../../lib/dateUtils';
+import type { DebtInvoiceDto } from '../../types/invoice';
 
 interface DebtItem {
   id: string;
@@ -37,9 +42,11 @@ interface DebtItem {
 interface DebtInvoiceState {
   id?: string;
   invoiceNumber?: string;
+  customerId?: string;
   customerName?: string;
   customerNationalId?: string;
   customerPhone?: string;
+  customerRegistrationDate?: string;
   fileOpenDate?: string;
   issueDate?: string;
   issueTime?: string;
@@ -89,31 +96,166 @@ export const DebtInvoiceScreen: FC = () => {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [serverInvoice, setServerInvoice] = useState<DebtInvoiceDto | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [customerRegistrationDate, setCustomerRegistrationDate] = useState<string | null>(null);
 
   // Extract navigation state if passed
   const navState = (location.state as { debt?: DebtInvoiceState } | null)?.debt;
 
+  const fetchLiveInvoice = () => {
+    if (!id) return;
+    const cleanId = String(id).replace(/[^0-9]/g, '');
+    if (!cleanId) return;
+
+    setIsLoading(true);
+    getInvoiceByDebtId(cleanId)
+      .then((data) => {
+        if (data) {
+          setServerInvoice(data);
+        }
+      })
+      .catch((err) => {
+        console.warn('[DebtInvoiceScreen] getInvoiceByDebtId error:', err);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    fetchLiveInvoice();
+  }, [id]);
+
+  // Resolve customer's real registration date from backend
+  useEffect(() => {
+    let isMounted = true;
+
+    const directDate =
+      serverInvoice?.customerRegistrationDate ??
+      serverInvoice?.fileOpenDate ??
+      navState?.customerRegistrationDate ??
+      navState?.fileOpenDate;
+
+    if (directDate) {
+      setCustomerRegistrationDate(formatApiDate(directDate));
+      return;
+    }
+
+    const targetCustomerId = serverInvoice?.customerId ?? navState?.customerId;
+    const targetCustomerName = serverInvoice?.customerName ?? navState?.customerName;
+    const targetCustomerPhone = serverInvoice?.customerPhone ?? navState?.customerPhone;
+
+    async function fetchCustomerRegistrationDate() {
+      try {
+        if (targetCustomerId) {
+          const profile = await getCustomerProfile(String(targetCustomerId));
+          if (isMounted && profile?.createdAt) {
+            setCustomerRegistrationDate(formatApiDate(profile.createdAt));
+            return;
+          }
+        }
+
+        if (targetCustomerName || targetCustomerPhone) {
+          const customers = await getCustomers();
+          const matched = customers.find((c) => {
+            if (targetCustomerId && String(c.id) === String(targetCustomerId)) return true;
+            if (targetCustomerName && c.fullName && c.fullName.trim() === targetCustomerName.trim()) return true;
+            if (targetCustomerPhone && c.phoneNumber && targetCustomerPhone.includes(c.phoneNumber)) return true;
+            return false;
+          });
+          if (isMounted && matched?.createdAt) {
+            setCustomerRegistrationDate(formatApiDate(matched.createdAt));
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('[DebtInvoiceScreen] Could not fetch customer registration date:', err);
+      }
+    }
+
+    if (targetCustomerId || targetCustomerName || targetCustomerPhone) {
+      fetchCustomerRegistrationDate();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    serverInvoice?.customerId,
+    serverInvoice?.customerName,
+    serverInvoice?.customerPhone,
+    serverInvoice?.customerRegistrationDate,
+    serverInvoice?.fileOpenDate,
+    navState?.customerId,
+    navState?.customerName,
+    navState?.customerPhone,
+    navState?.customerRegistrationDate,
+    navState?.fileOpenDate,
+  ]);
+
   // Invoice Data matching Image 3 with fallback/dynamic support
   const invoiceData = useMemo(() => {
-    const invoiceNumber = navState?.invoiceNumber ?? (id ? `INV-DEBT-${id}` : 'INV-DEBT-8821');
-    const customerName = navState?.customerName ?? 'أحمد الراجحي';
-    const customerNationalId = navState?.customerNationalId ?? '1029384756';
-    const customerPhone = navState?.customerPhone ?? '+966 50 123 4567';
-    const fileOpenDate = navState?.fileOpenDate ?? '12 أكتوبر 2023';
-    const issueDate = navState?.issueDate ?? '14 مارس 2024';
-    const issueTime = navState?.issueTime ?? '04:30 مساءً';
-    const dueDate = navState?.dueDate ?? '25 مارس 2024 م';
-    const status = navState?.status ?? 'غير مسددة';
-    const branch = navState?.branch ?? 'الفرع الرئيسي - الرياض';
-    const items = navState?.items ?? DEFAULT_ITEMS;
+    const invoiceNumber =
+      serverInvoice?.invoiceNumber ?? navState?.invoiceNumber ?? (id ? `INV-DEBT-${id}` : 'INV-DEBT-8821');
+    const customerName =
+      serverInvoice?.customerName ?? navState?.customerName ?? 'العميل';
+    const customerNationalId =
+      serverInvoice?.customerNationalId ?? navState?.customerNationalId ?? '—';
+    const customerPhone =
+      serverInvoice?.customerPhone ?? navState?.customerPhone ?? '—';
+
+    const rawIssueDate =
+      serverInvoice?.issueDate ?? serverInvoice?.date ?? navState?.issueDate;
+    const issueDate = rawIssueDate
+      ? formatApiDate(rawIssueDate)
+      : formatApiDate(getDeviceLocalDateString());
+
+    const fileOpenDate =
+      customerRegistrationDate ??
+      (serverInvoice?.customerRegistrationDate ? formatApiDate(serverInvoice.customerRegistrationDate) : null) ??
+      (serverInvoice?.fileOpenDate ? formatApiDate(serverInvoice.fileOpenDate) : null) ??
+      (navState?.customerRegistrationDate ? formatApiDate(navState.customerRegistrationDate) : null) ??
+      (navState?.fileOpenDate ? formatApiDate(navState.fileOpenDate) : null) ??
+      issueDate;
+
+    const issueTime =
+      serverInvoice?.issueTime ?? navState?.issueTime ?? '—';
+    const rawDueDate = serverInvoice?.dueDate ?? navState?.dueDate;
+    const dueDate = rawDueDate ? formatApiDate(rawDueDate) : 'غير محدد';
+    const status =
+      serverInvoice?.status ?? navState?.status ?? 'غير مسددة';
+    const branch =
+      serverInvoice?.branch ?? navState?.branch ?? merchant.businessName ?? 'الفرع الرئيسي';
+
+    const items =
+      serverInvoice?.items && serverInvoice.items.length > 0
+        ? serverInvoice.items.map((it, idx) => ({
+            id: String(it.id ?? idx + 1).padStart(2, '0'),
+            name: it.name ?? it.description ?? `بند ${idx + 1}`,
+            description: it.description ?? '',
+            quantity: it.quantity ?? 1,
+            unitPrice: it.unitPrice ?? it.price ?? 0,
+            total: it.total ?? ((it.quantity ?? 1) * (it.unitPrice ?? it.price ?? 0)),
+          }))
+        : (navState?.items ?? DEFAULT_ITEMS);
 
     const invoiceAmount =
+      serverInvoice?.invoiceAmount ??
+      serverInvoice?.amount ??
       navState?.invoiceAmount ??
       items.reduce((sum, item) => sum + item.total, 0);
-    const previousDebt = navState?.previousDebt ?? 3000.0;
-    const previousPaid = navState?.previousPaid ?? 500.0;
+    const previousDebt =
+      serverInvoice?.previousDebt ?? navState?.previousDebt ?? 0;
+    const previousPaid =
+      serverInvoice?.previousPaid ?? navState?.previousPaid ?? 0;
     const totalCurrentDebt =
-      navState?.totalCurrentDebt ?? (invoiceAmount + previousDebt - previousPaid);
+      serverInvoice?.totalCurrentDebt ??
+      serverInvoice?.remainingAmount ??
+      navState?.totalCurrentDebt ??
+      (invoiceAmount + previousDebt - previousPaid);
+    const currency =
+      serverInvoice?.currency ?? serverInvoice?.currencyCode ?? 'شيكل';
 
     return {
       invoiceNumber,
@@ -131,9 +273,10 @@ export const DebtInvoiceScreen: FC = () => {
       previousDebt,
       previousPaid,
       totalCurrentDebt,
-      hash: 'f812...49e1-wathq-8821-secure',
+      currency,
+      hash: serverInvoice?.hash ?? (serverInvoice?.invoiceNumber ? `WTQ-${serverInvoice.invoiceNumber}-SECURE` : 'WTQ-SECURE-STAMP'),
     };
-  }, [navState, id]);
+  }, [serverInvoice, navState, id, customerRegistrationDate, merchant.businessName]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -227,6 +370,17 @@ export const DebtInvoiceScreen: FC = () => {
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
                     #{invoiceData.invoiceNumber.replace('INV-DEBT-', 'INV-')}
                   </span>
+                  {serverInvoice ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      مربوط بالسيرفر
+                    </span>
+                  ) : isLoading ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                      <RotateCw className="w-2.5 h-2.5 animate-spin" />
+                      جاري التحميل...
+                    </span>
+                  ) : null}
                 </div>
                 <p className="mt-0.5 text-xs sm:text-sm font-medium text-slate-500 font-cairo">
                   العميل: <span className="font-bold text-slate-700">{invoiceData.customerName}</span> • تاريخ التحرير: {invoiceData.issueDate}
@@ -236,6 +390,18 @@ export const DebtInvoiceScreen: FC = () => {
 
             {/* Left: Action Buttons matching Image 3 */}
             <div className="flex items-center gap-2.5 self-end sm:self-auto flex-wrap">
+              {/* Refresh Live Invoice Button */}
+              <button
+                type="button"
+                onClick={fetchLiveInvoice}
+                disabled={isLoading}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                title="تحديث الفاتورة من الخادم"
+              >
+                <RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
+                <span className="hidden sm:inline">تحديث</span>
+              </button>
+
               {/* WhatsApp Button */}
               <button
                 type="button"

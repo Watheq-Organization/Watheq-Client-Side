@@ -118,3 +118,46 @@ export interface EditingPaymentState {
   notes?: string;
 }
 
+/**
+ * Query parameters for GET /api/Payment/history
+ */
+export interface PaymentHistoryQueryParams {
+  paymentMethod?: number | PaymentMethod | string;
+  status?: number | string;
+  fromDate?: string;
+  toDate?: string;
+  userId?: string;
+}
+
+/**
+ * Shape of individual payment history item returned from backend
+ */
+export interface PaymentHistoryItemDto {
+  id?: number | string;
+  paymentId?: number | string;
+  customerId?: number | string;
+  customerName?: string;
+  amount: number;
+  paymentDate?: string;
+  date?: string;
+  paymentMethod?: number | string | null;
+  method?: string;
+  status?: string;
+  receiptNumber?: string;
+  receiptImageUrl?: string | null;
+  receiptImage?: string | null;
+  notes?: string | null;
+}
+
+/**
+ * Result returned by getPaymentHistory service function
+ */
+export interface PaymentHistoryResult {
+  items: PaymentHistoryItemDto[];
+  totalCount: number;
+  totalAmount: number;
+  fromApi: boolean;
+  status: number;
+  error?: string | null;
+}
+

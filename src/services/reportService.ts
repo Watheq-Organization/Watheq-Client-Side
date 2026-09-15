@@ -509,7 +509,7 @@ function normalizeCollectionsReport(
     };
   }
 
-  const record = obj as Record<string, unknown>;
+  const record = (obj || {}) as Record<string, unknown>;
 
   // Check nested details.items (ASP.NET CollectionsReport verified schema)
   const detailsObj = (record.details ?? record.Details) as Record<string, unknown> | undefined;
@@ -547,8 +547,8 @@ function normalizeCollectionsReport(
   const rawSummary = Array.isArray(record.summary)
     ? record.summary
     : Array.isArray(record.Summary)
-    ? record.Summary
-    : [];
+      ? record.Summary
+      : [];
 
   const summary = rawSummary.map((s: any) => ({
     currency: String(s.currency || s.Currency || 'ILS'),
@@ -561,8 +561,8 @@ function normalizeCollectionsReport(
   const rawChart = Array.isArray(record.chart)
     ? record.chart
     : Array.isArray(record.Chart)
-    ? record.Chart
-    : [];
+      ? record.Chart
+      : [];
 
   const chart = rawChart.map((c: any) => ({
     label: String(c.label || c.Label || ''),
@@ -576,12 +576,12 @@ function normalizeCollectionsReport(
     summaryCollected > 0
       ? summaryCollected
       : typeof (record.totalCollected ?? record.TotalCollected) === 'number'
-      ? Number(record.totalCollected ?? record.TotalCollected)
-      : typeof (record.totalAmount ?? record.TotalAmount) === 'number'
-      ? Number(record.totalAmount ?? record.TotalAmount)
-      : typeof (record.collectedAmount ?? record.CollectedAmount) === 'number'
-      ? Number(record.collectedAmount ?? record.CollectedAmount)
-      : items.reduce((sum, i) => sum + i.amount, 0);
+        ? Number(record.totalCollected ?? record.TotalCollected)
+        : typeof (record.totalAmount ?? record.TotalAmount) === 'number'
+          ? Number(record.totalAmount ?? record.TotalAmount)
+          : typeof (record.collectedAmount ?? record.CollectedAmount) === 'number'
+            ? Number(record.collectedAmount ?? record.CollectedAmount)
+            : items.reduce((sum, i) => sum + i.amount, 0);
 
   // Total records calculation
   const detailsTotalCount = detailsObj ? Number(detailsObj.totalCount ?? detailsObj.TotalCount) : undefined;
@@ -589,10 +589,10 @@ function normalizeCollectionsReport(
     typeof detailsTotalCount === 'number' && !isNaN(detailsTotalCount)
       ? detailsTotalCount
       : typeof (record.totalRecords ?? record.TotalRecords) === 'number'
-      ? Number(record.totalRecords ?? record.TotalRecords)
-      : typeof (record.totalCount ?? record.TotalCount) === 'number'
-      ? Number(record.totalCount ?? record.TotalCount)
-      : items.length;
+        ? Number(record.totalRecords ?? record.TotalRecords)
+        : typeof (record.totalCount ?? record.TotalCount) === 'number'
+          ? Number(record.totalCount ?? record.TotalCount)
+          : items.length;
 
   const pageNumber =
     Number(detailsObj?.pageNumber ?? detailsObj?.PageNumber ?? record.pageNumber ?? record.PageNumber) ||
@@ -667,8 +667,8 @@ function mapToCollectionItem(item: unknown): CollectionItem {
       typeof paymentIdVal === 'number'
         ? paymentIdVal
         : typeof paymentIdVal === 'string' && !isNaN(Number(paymentIdVal))
-        ? Number(paymentIdVal)
-        : undefined,
+          ? Number(paymentIdVal)
+          : undefined,
     customerId: customerIdVal !== undefined ? String(customerIdVal) : undefined,
     customerName: String(customerNameVal),
     amount: Number(amountVal) || 0,
@@ -695,7 +695,16 @@ function normalizeOverdueDebtsReport(
   }
 
   const obj = unwrapResponseData(raw);
-  const record = (obj || {}) as Record<string, unknown>;
+  if (!obj || typeof obj !== 'object') {
+    return {
+      hasData: false,
+      message: 'لا توجد بيانات كافية لعرض التقرير خلال الفترة المحددة.',
+      summary: [],
+      chart: [],
+      details: null,
+    };
+  }
+  const record = obj as Record<string, unknown>;
 
   const hasData = record.hasData !== undefined ? Boolean(record.hasData) : false;
   const message = typeof record.message === 'string' ? record.message : null;
@@ -704,8 +713,8 @@ function normalizeOverdueDebtsReport(
   const rawSummary = Array.isArray(record.summary)
     ? record.summary
     : Array.isArray(record.Summary)
-    ? record.Summary
-    : [];
+      ? record.Summary
+      : [];
 
   const summary: OverdueDebtSummaryItem[] = rawSummary.map((s: any) => ({
     currencyCode: String(s.currencyCode || s.CurrencyCode || 'ILS'),
@@ -720,8 +729,8 @@ function normalizeOverdueDebtsReport(
   const rawChart = Array.isArray(record.chart)
     ? record.chart
     : Array.isArray(record.Chart)
-    ? record.Chart
-    : [];
+      ? record.Chart
+      : [];
 
   const chart: OverdueDebtChartPoint[] = rawChart.map((c: any) => ({
     label: String(c.label || c.Label || ''),
@@ -737,8 +746,8 @@ function normalizeOverdueDebtsReport(
     const rawItems = Array.isArray(detailsRaw.items)
       ? detailsRaw.items
       : Array.isArray(detailsRaw.Items)
-      ? detailsRaw.Items
-      : [];
+        ? detailsRaw.Items
+        : [];
 
     const items: OverdueDebtReportItem[] = rawItems.map((r: any) => ({
       debtId: Number(r.debtId ?? r.DebtId ?? 0),
@@ -795,10 +804,34 @@ function normalizeCustomerPerformanceReport(raw: unknown): CustomerPerformanceRe
 function unwrapResponseData(raw: unknown): unknown {
   if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
     const r = raw as Record<string, unknown>;
+
+    // If wrapped in standard CommandResult envelope: { result: { code, message }, data: ... }
+    if ('result' in r && ('data' in r || 'Data' in r)) {
+      const dataVal = r.data !== undefined ? r.data : r.Data;
+      if (dataVal === null || dataVal === undefined) {
+        return null;
+      }
+      return unwrapResponseData(dataVal);
+    }
+
     if (r.data !== undefined && r.data !== null) return unwrapResponseData(r.data);
     if (r.Data !== undefined && r.Data !== null) return unwrapResponseData(r.Data);
-    if (r.result !== undefined && r.result !== null) return unwrapResponseData(r.result);
-    if (r.Result !== undefined && r.Result !== null) return unwrapResponseData(r.Result);
+
+    // Only unwrap 'result' if it contains actual payload data (not just { code, message })
+    if (r.result !== undefined && r.result !== null) {
+      const res = r.result as Record<string, unknown>;
+      if (
+        typeof res === 'object' &&
+        ('code' in res || 'message' in res) &&
+        !('hasData' in res) &&
+        !('items' in res) &&
+        !('summary' in res) &&
+        !('details' in res)
+      ) {
+        return null;
+      }
+      return unwrapResponseData(r.result);
+    }
   }
   return raw;
 }

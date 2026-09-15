@@ -3,6 +3,10 @@ import type {
   SubscriptionPlan,
   SubscriptionPlanDto,
   SubscriptionPlanFeature,
+  CreateCheckoutRequest,
+  CheckoutSessionDto,
+  CheckoutSessionResponseResult,
+  CreateCheckoutResult,
 } from '../types/subscription';
 
 export const DEFAULT_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
@@ -336,6 +340,80 @@ export async function getSubscriptionPlans(): Promise<SubscriptionPlansResult> {
     return {
       plans: [],
       fromApi: false,
+      status,
+      error: errorMessage,
+    };
+  }
+}
+
+/**
+ * POST http://whateq.runasp.net/api/Subscription/checkout
+ *
+ * Creates a checkout session for subscribing to a plan.
+ * Returns checkoutUrl (e.g. Stripe checkout page) when payment is required.
+ */
+export async function createCheckout(
+  requestData: CreateCheckoutRequest
+): Promise<CreateCheckoutResult> {
+  try {
+    const payload = {
+      planId: requestData.planId,
+      successUrl: requestData.successUrl || null,
+      cancelUrl: requestData.cancelUrl || null,
+    };
+
+    const response = await httpClient.post<
+      CheckoutSessionResponseResult | CheckoutSessionDto | Record<string, unknown>
+    >('/Subscription/checkout', payload);
+
+    let sessionData: CheckoutSessionDto | null = null;
+    if (response && typeof response === 'object') {
+      if ('data' in response && response.data) {
+        sessionData = response.data as CheckoutSessionDto;
+      } else if ('checkoutUrl' in response || 'sessionId' in response) {
+        sessionData = response as CheckoutSessionDto;
+      }
+    }
+
+    const checkoutUrl = sessionData?.checkoutUrl || null;
+
+    return {
+      success: true,
+      data: sessionData,
+      checkoutUrl,
+      status: 200,
+      error: null,
+    };
+  } catch (err: unknown) {
+    let status = 500;
+    let errorMessage = 'حدث خطأ أثناء إنشاء جلسة الدفع والاشتراك.';
+
+    if (err instanceof ApiError) {
+      status = err.status;
+      if (err.status === 401) {
+        errorMessage = 'يرجى تسجيل الدخول أولاً لإتمام عملية الاشتراك (401).';
+      } else if (err.status === 400) {
+        if (err.body && typeof err.body === 'object') {
+          const body = err.body as Record<string, unknown>;
+          if (typeof body.detail === 'string') errorMessage = body.detail;
+          else if (typeof body.title === 'string') errorMessage = body.title;
+          else if (typeof body.message === 'string') errorMessage = body.message;
+        } else if (typeof err.body === 'string') {
+          errorMessage = err.body;
+        } else {
+          errorMessage = 'البيانات المدخلة غير صحيحة أو الخطة المحددة غير صالحة.';
+        }
+      } else if (err.status >= 500) {
+        errorMessage = 'خطأ في خادم الدفع (500). يرجى المحاولة لاحقاً.';
+      } else {
+        errorMessage = `تعذر إتمام طلب الاشتراك (رمز الخطأ: ${err.status}).`;
+      }
+    }
+
+    return {
+      success: false,
+      data: null,
+      checkoutUrl: null,
       status,
       error: errorMessage,
     };

@@ -317,8 +317,47 @@ function normalizeCustomerProfileDto(raw: unknown): CustomerProfileDto {
 
 function normalizeCustomerProfileTransaction(raw: unknown): CustomerProfileTransactionDto {
   const r = (raw ?? {}) as Record<string, unknown>;
+  const rawId =
+    r.id ??
+    r.Id ??
+    r.debtId ??
+    r.DebtId ??
+    r.paymentId ??
+    r.PaymentId ??
+    r.transactionId ??
+    r.TransactionId ??
+    r.referenceId ??
+    r.ReferenceId;
+
+  const rawMethod =
+    r.paymentMethod ??
+    r.PaymentMethod ??
+    r.paymentMethodName ??
+    r.PaymentMethodName ??
+    r.method ??
+    r.Method ??
+    r.paymentType ??
+    r.PaymentType;
+
+  let paymentMethod: string | null = null;
+  if (typeof rawMethod === 'string' || typeof rawMethod === 'number') {
+    paymentMethod = String(rawMethod);
+  }
+
+  const refStr = String(
+    r.reference ??
+    r.Reference ??
+    r.receiptNumber ??
+    r.ReceiptNumber ??
+    r.debtNumber ??
+    r.DebtNumber ??
+    ''
+  );
+  const digitsFromRef = Number(refStr.replace(/\D/g, '')) || 0;
+  const parsedId = Number(rawId) || digitsFromRef || 0;
+
   return {
-    id: Number(r.id ?? r.Id) || 0,
+    id: parsedId,
     type: typeof (r.type ?? r.Type) === 'string' ? String(r.type ?? r.Type) : '',
     date: normalizeApiDateString(
       typeof (r.date ?? r.Date) === 'string' ? String(r.date ?? r.Date) : ''
@@ -328,8 +367,8 @@ function normalizeCustomerProfileTransaction(raw: unknown): CustomerProfileTrans
     reference: typeof (r.reference ?? r.Reference) === 'string' ? String(r.reference ?? r.Reference) : '',
     balance: Number(r.balance ?? r.Balance) || 0,
     currencyCode: typeof (r.currencyCode ?? r.CurrencyCode) === 'string' ? String(r.currencyCode ?? r.CurrencyCode) : '',
-    status: typeof (r.status ?? r.Status) === 'string' ? String(r.status ?? r.Status) : null,
-    paymentMethod: typeof (r.paymentMethod ?? r.PaymentMethod) === 'string' ? String(r.paymentMethod ?? r.PaymentMethod) : null,
+    status: (r.status ?? r.Status) != null ? String(r.status ?? r.Status) : null,
+    paymentMethod,
   };
 }
 

@@ -3,6 +3,9 @@ import type {
   DeletePaymentResponseDto,
   NewPaymentFormState,
   PaymentMethod,
+  PaymentHistoryItemDto,
+  PaymentHistoryQueryParams,
+  PaymentHistoryResult,
   RegisterPaymentResponseDto,
   UpdatePaymentResponseDto,
 } from '../types/payment';
@@ -104,17 +107,24 @@ const REGISTER_PAYMENT_PATH = '/Debt/registerPayment';
  */
 function buildRegisterPaymentFormData(customerId: string, values: NewPaymentFormState): FormData {
   const formData = new FormData();
-  formData.append('customerId', customerId);
-  formData.append('amount', values.amount.trim());
-  formData.append('paymentMethod', String(PAYMENT_METHOD_TO_NUMERIC[values.method]));
+  formData.append('CustomerId', customerId);
+  formData.append('Amount', values.amount.trim());
+  const methodNum = String(PAYMENT_METHOD_TO_NUMERIC[values.method] || 1);
+  formData.append('PaymentMethod', methodNum);
 
   const receiptNumber = values.receiptNumber?.trim();
-  if (receiptNumber) formData.append('receiptNumber', receiptNumber);
+  if (receiptNumber) {
+    formData.append('ReceiptNumber', receiptNumber);
+  }
 
-  const notes = values.notes.trim();
-  if (notes) formData.append('notes', notes);
+  const notes = values.notes?.trim();
+  if (notes) {
+    formData.append('Notes', notes);
+  }
 
-  if (values.receiptFile) formData.append('receiptImage', values.receiptFile);
+  if (values.receiptFile) {
+    formData.append('ReceiptImage', values.receiptFile);
+  }
 
   return formData;
 }
@@ -215,13 +225,18 @@ export function toRegisterPaymentErrorMessage(error: unknown): string {
 const deletePaymentPath = (id: string | number) => `/Payment/${id}`;
 
 export async function deletePayment(paymentId: string | number): Promise<DeletePaymentResponseDto> {
-  return httpClient.delete<DeletePaymentResponseDto>(deletePaymentPath(paymentId));
+  const numericId = Number(paymentId);
+  if (!paymentId || isNaN(numericId) || numericId <= 0) {
+    throw new ApiError('معرّف الدفعة غير صالح أو غير متوفر في السجل.', 400, {
+      message: 'A valid payment is required.',
+    });
+  }
+  return httpClient.delete<DeletePaymentResponseDto>(deletePaymentPath(numericId));
 }
 
 /** Maps deletePayment errors to user-friendly Arabic messages, incl. known backend business errors. */
 export function toDeletePaymentErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
-    // eslint-disable-next-line no-console
     console.error('[deletePayment] backend responded with an error:', {
       status: error.status,
       body: error.body,
@@ -242,11 +257,14 @@ export function toDeletePaymentErrorMessage(error: unknown): string {
       return 'تعذر العثور على هذه الدفعة. قد تكون قد حُذفت بالفعل.';
     }
     if (message.includes('A valid payment is required')) {
-      return 'معرّف الدفعة غير صالح.';
+      return 'معرّف الدفعة غير صالح أو غير متوفر.';
     }
 
     if (error.status === 0) {
       return 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.';
+    }
+    if (error.status === 400) {
+      return message || 'يرجى التحقق من صحة الدفعة والمحاولة مرة أخرى.';
     }
     if (error.status === 401) {
       return 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.';
@@ -258,9 +276,9 @@ export function toDeletePaymentErrorMessage(error: unknown): string {
       return 'تعذر العثور على هذه الدفعة.';
     }
     if (error.status >= 500) {
-      return 'حدث خطأ في الخادم. يرجى المحاولة لاحقاً.';
+      return 'حدث خطأ في الخادم أثناء حذف الدفعة. يرجى المحاولة لاحقاً.';
     }
-    return 'تعذر حذف الدفعة. يرجى المحاولة مرة أخرى.';
+    return message || 'تعذر حذف الدفعة. يرجى المحاولة مرة أخرى.';
   }
   return 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.';
 }
@@ -270,8 +288,7 @@ export function toDeletePaymentErrorMessage(error: unknown): string {
 /*                                                                        */
 /* Allows the merchant to update a previously registered payment amount.  */
 /* Backend distributes overflow across the customer's other debts and     */
-/* recalculates status and totalDebt. No userId or paymentId in the body; */
-/* Payment ID is passed in the URL path.                                  */
+/* recalculates status and totalDebt.                                     */
 /* ---------------------------------------------------------------------- */
 
 const updatePaymentPath = (id: string | number) => `/Payment/${id}`;
@@ -279,13 +296,29 @@ const updatePaymentPath = (id: string | number) => `/Payment/${id}`;
 export async function updatePayment(
   paymentId: string | number,
   newAmount: number,
-  paymentMethod?: number
+  paymentMethod?: number,
+  notes?: string,
+  receiptFile?: File | null
 ): Promise<UpdatePaymentResponseDto> {
-  const payload: { newAmount: number; paymentMethod?: number } = { newAmount };
-  if (paymentMethod !== undefined) {
-    payload.paymentMethod = paymentMethod;
+  const numericId = Number(paymentId);
+  if (!paymentId || isNaN(numericId) || numericId <= 0) {
+    throw new ApiError('معرّف الدفعة غير صالح.', 400, { message: 'A valid payment is required.' });
   }
-  return httpClient.put<UpdatePaymentResponseDto>(updatePaymentPath(paymentId), payload);
+
+  const formData = new FormData();
+  formData.append('PaymentId', String(numericId));
+  formData.append('Amount', String(newAmount));
+  if (paymentMethod !== undefined) {
+    formData.append('PaymentMethod', String(paymentMethod));
+  }
+  if (notes) {
+    formData.append('Notes', notes.trim());
+  }
+  if (receiptFile) {
+    formData.append('ReceiptImage', receiptFile);
+  }
+
+  return httpClient.putForm<UpdatePaymentResponseDto>(updatePaymentPath(numericId), formData);
 }
 
 /** Maps updatePayment errors to user-friendly Arabic messages, incl. known backend business errors. */
@@ -351,5 +384,188 @@ export function toUpdatePaymentErrorMessage(error: unknown): string {
     return message || 'تعذر تعديل الدفعة. يرجى المحاولة مرة أخرى.';
   }
   return 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.';
+}
+
+/* ---------------------------------------------------------------------- */
+/* Payment History — GET /api/Payment/history                             */
+/* ---------------------------------------------------------------------- */
+
+/**
+ * GET http://whateq.runasp.net/api/Payment/history
+ *
+ * Fetches the payment history for the merchant with optional filters:
+ * PaymentMethod, Status, FromDate, ToDate, UserId.
+ */
+export async function getPaymentHistory(
+  params?: PaymentHistoryQueryParams
+): Promise<PaymentHistoryResult> {
+  try {
+    const searchParams = new URLSearchParams();
+
+    if (
+      params?.paymentMethod !== undefined &&
+      params.paymentMethod !== null &&
+      String(params.paymentMethod) !== 'all'
+    ) {
+      let numMethod: number | undefined;
+      if (typeof params.paymentMethod === 'number') {
+        numMethod = params.paymentMethod;
+      } else if (
+        typeof params.paymentMethod === 'string' &&
+        params.paymentMethod in PAYMENT_METHOD_TO_NUMERIC
+      ) {
+        numMethod = PAYMENT_METHOD_TO_NUMERIC[params.paymentMethod as PaymentMethod];
+      }
+      if (numMethod !== undefined) {
+        searchParams.append('PaymentMethod', String(numMethod));
+      }
+    }
+
+    if (
+      params?.status !== undefined &&
+      params.status !== null &&
+      String(params.status) !== 'all'
+    ) {
+      searchParams.append('Status', String(params.status));
+    }
+
+    // Always provide safe default dates if omitted so ASP.NET required DateTime parameters never fail with 400
+    const fromDate = params?.fromDate || '2020-01-01T00:00:00Z';
+    const toDate = params?.toDate || new Date(Date.now() + 86400000).toISOString();
+    searchParams.append('FromDate', fromDate);
+    searchParams.append('ToDate', toDate);
+
+    if (params?.userId) {
+      searchParams.append('UserId', params.userId);
+    }
+
+    const queryString = searchParams.toString();
+    const url = `/Payment/history${queryString ? `?${queryString}` : ''}`;
+    console.log('[getPaymentHistory] Fetching:', url);
+
+    const response = await httpClient.get<unknown>(url);
+    console.log('[getPaymentHistory] Raw API response:', response);
+
+    let rawItems: unknown[] = [];
+    if (Array.isArray(response)) {
+      rawItems = response;
+    } else if (response && typeof response === 'object') {
+      const obj = response as Record<string, unknown>;
+      if (Array.isArray(obj.data)) {
+        rawItems = obj.data;
+      } else if (Array.isArray(obj.items)) {
+        rawItems = obj.items;
+      } else if (Array.isArray(obj.result)) {
+        rawItems = obj.result;
+      } else if (obj.data && typeof obj.data === 'object') {
+        const inner = obj.data as Record<string, unknown>;
+        if (Array.isArray(inner.data)) {
+          rawItems = inner.data;
+        } else if (Array.isArray(inner.items)) {
+          rawItems = inner.items;
+        }
+      }
+    }
+
+    console.log('[getPaymentHistory] Raw items received from /Payment/history:', rawItems);
+
+    const items: PaymentHistoryItemDto[] = rawItems.map((item) => {
+      const it = (item || {}) as Record<string, unknown>;
+      const id = it.id ?? it.paymentId ?? it.PaymentId;
+      const customerId = it.customerId ?? it.CustomerId;
+      const customerName = String(
+        it.customerName ?? it.CustomerName ?? it.customerFullName ?? ''
+      );
+      const amount = Number(it.amount ?? it.Amount ?? 0);
+      const paymentDate = String(
+        it.paymentDate ?? it.PaymentDate ?? it.date ?? it.Date ?? it.createdAt ?? ''
+      );
+      const rawMethod =
+        it.paymentMethod ??
+        it.PaymentMethod ??
+        it.paymentMethodName ??
+        it.PaymentMethodName ??
+        it.paymentType ??
+        it.PaymentType ??
+        it.paymentMode ??
+        it.PaymentMode ??
+        it.method ??
+        it.Method;
+
+      let paymentMethod: string | number | null = null;
+      if (typeof rawMethod === 'number' || typeof rawMethod === 'string') {
+        paymentMethod = rawMethod;
+      } else if (typeof rawMethod === 'object' && rawMethod !== null) {
+        const obj = rawMethod as Record<string, unknown>;
+        const val = obj.name ?? obj.Name ?? obj.value ?? obj.id;
+        if (typeof val === 'string' || typeof val === 'number') {
+          paymentMethod = val;
+        }
+      }
+
+      const status = String(it.status ?? it.Status ?? 'تم التحقق');
+      const receiptNumber = it.receiptNumber ? String(it.receiptNumber) : undefined;
+      const receiptImageUrl = (it.receiptImageUrl ??
+        it.ReceiptImageUrl ??
+        it.receiptImage ??
+        null) as string | null;
+      const notes = it.notes ? String(it.notes) : null;
+
+      return {
+        id: id !== undefined ? String(id) : undefined,
+        paymentId: id !== undefined ? String(id) : undefined,
+        customerId: customerId !== undefined ? String(customerId) : undefined,
+        customerName,
+        amount,
+        paymentDate,
+        date: paymentDate,
+        paymentMethod,
+        status,
+        receiptNumber,
+        receiptImageUrl,
+        notes,
+      };
+    });
+
+    const totalAmount = items.reduce(
+      (acc, curr) => acc + (Number(curr.amount) || 0),
+      0
+    );
+
+    return {
+      items,
+      totalCount: items.length,
+      totalAmount,
+      fromApi: true,
+      status: 200,
+      error: null,
+    };
+  } catch (err: unknown) {
+    console.error('[getPaymentHistory] Server error in getPaymentHistory:', err);
+    let status = 500;
+    let errorMessage = 'حدث خطأ أثناء جلب سجل المدفوعات من الخادم.';
+
+    if (err instanceof ApiError) {
+      status = err.status;
+      if (err.status === 401) {
+        errorMessage = 'يرجى تسجيل الدخول لعرض سجل المدفوعات (401).';
+      } else if (err.status === 404) {
+        errorMessage = 'لا توجد سجلات مدفوعات حالياً (404).';
+      } else if (err.status >= 500) {
+        errorMessage = 'خطأ في خادم المدفوعات (500). يرجى المحاولة لاحقاً.';
+      } else {
+        errorMessage = `تعذر جلب سجل المدفوعات (رمز الخطأ: ${err.status}).`;
+      }
+    }
+
+    return {
+      items: [],
+      totalCount: 0,
+      totalAmount: 0,
+      fromApi: false,
+      status,
+      error: errorMessage,
+    };
+  }
 }
 

@@ -46,3 +46,46 @@ export interface SubscriptionPlansApiResponse {
   data?: SubscriptionPlanDto[];
   testSchema?: unknown;
 }
+
+/**
+ * Request payload for POST /api/Subscription/checkout
+ */
+export interface CreateCheckoutRequest {
+  planId: number;
+  successUrl?: string | null;
+  cancelUrl?: string | null;
+}
+
+/**
+ * Checkout session data returned by the backend
+ */
+export interface CheckoutSessionDto {
+  sessionId?: string | null;
+  checkoutUrl?: string | null;
+  subscriptionId?: number;
+  planId?: number;
+  amount?: number;
+}
+
+/**
+ * Full backend response structure for POST /api/Subscription/checkout
+ */
+export interface CheckoutSessionResponseResult {
+  result?: {
+    code?: string | number;
+    message?: string;
+  };
+  data?: CheckoutSessionDto | null;
+  testSchema?: unknown;
+}
+
+/**
+ * Normalized result object used by UI layers
+ */
+export interface CreateCheckoutResult {
+  success: boolean;
+  data?: CheckoutSessionDto | null;
+  checkoutUrl?: string | null;
+  status: number;
+  error?: string | null;
+}

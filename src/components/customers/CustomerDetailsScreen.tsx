@@ -579,7 +579,10 @@ export const CustomerDetailsScreen: FC = () => {
         date: formatApiDate(tx.date, true),
         balanceLabel: `${tx.balance.toFixed(2)} ${tx.currencyCode || 'ش.إ'}`,
         reference: tx.reference,
-        recordId: tx.id,
+        recordId:
+          tx.id ||
+          (isDebt && tx.reference ? Number(getEditableDebt(customer.id, tx.reference)?.id) : undefined) ||
+          0,
         rawAmount: tx.amount,
         rawStatus: isDebt ? tx.status : null,
         rawPaymentMethod: isDebt ? null : tx.paymentMethod,
@@ -1035,9 +1038,12 @@ export const CustomerDetailsScreen: FC = () => {
                                           debt: {
                                             id: String(act.recordId),
                                             invoiceNumber: `INV-DEBT-${act.reference || act.recordId || '8821'}`,
+                                            customerId: customer.id,
                                             customerName: customer.name,
                                             customerNationalId: customer.nationalOrCrId,
                                             customerPhone: customer.phone,
+                                            customerRegistrationDate: customer.registrationDate,
+                                            fileOpenDate: customer.registrationDate,
                                             invoiceAmount: act.rawAmount,
                                             issueDate: act.date,
                                           },
@@ -1059,12 +1065,16 @@ export const CustomerDetailsScreen: FC = () => {
                                         state: {
                                           payment: {
                                             id: String(act.recordId),
+                                            customerId: customer.id,
                                             receiptNumber: act.reference,
                                             customerName: customer.name,
                                             phone: customer.phone,
+                                            nationalId: customer.nationalOrCrId,
                                             amount: act.rawAmount,
                                             date: act.date,
                                             method: act.rawPaymentMethod || 'نقداً',
+                                            remainingDebt: customer.totalDebt,
+                                            previousDebt: (customer.totalDebt ?? 0) + (act.rawAmount ?? 0),
                                           },
                                         },
                                       });

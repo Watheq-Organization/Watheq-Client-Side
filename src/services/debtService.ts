@@ -221,8 +221,15 @@ export async function deleteDebt(
   debtId: string | number,
   confirmDeleteWithPayments = false
 ): Promise<DeleteDebtResponseDto> {
+  const numericId = Number(debtId);
+  if (!debtId || isNaN(numericId) || numericId <= 0) {
+    throw new ApiError('معرّف الدين غير صالح أو غير متوفر في السجل.', 400, {
+      message: 'A valid debt is required.',
+    });
+  }
   return httpClient.delete<DeleteDebtResponseDto>(
-    deleteDebtPath(debtId, confirmDeleteWithPayments)
+    deleteDebtPath(numericId, confirmDeleteWithPayments),
+    { confirmDeleteWithPayments }
   );
 }
 

@@ -105,6 +105,7 @@ async function request<TResponse>(
   // registerPayment) must NOT get a manually-set Content-Type: the browser
   // has to compute the multipart boundary itself. JSON requests keep the
   // explicit header exactly as before.
+  const hasBody = options.body !== undefined && options.body !== null;
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
 
   let response: Response;
@@ -116,7 +117,7 @@ async function request<TResponse>(
       ...options,
       signal: options.signal || controller.signal,
       headers: {
-        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+        ...(isFormData || !hasBody ? {} : { 'Content-Type': 'application/json' }),
         Accept: 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(options.headers ?? {}),
@@ -213,5 +214,9 @@ export const httpClient = {
     }
     return response.blob();
   },
-  delete: <TResponse>(path: string) => request<TResponse>(path, { method: 'DELETE' }),
+  delete: <TResponse>(path: string, data?: unknown) =>
+    request<TResponse>(path, {
+      method: 'DELETE',
+      ...(data !== undefined ? { body: JSON.stringify(data) } : {}),
+    }),
 };

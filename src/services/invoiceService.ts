@@ -4,7 +4,30 @@ import type {
   CreateInvoiceResponseDto,
   ShareInvoiceRequest,
   ShareInvoiceResponseDto,
+  DebtInvoiceDto,
+  PaymentInvoiceDto,
+  InvoiceItemDto,
 } from '../types/invoice';
+
+/**
+ * GET http://whateq.runasp.net/api/Invoice/debt/{debtId}
+ * Fetches the official electronic invoice data for a debt.
+ */
+export async function getInvoiceByDebtId(debtId: number | string): Promise<DebtInvoiceDto | null> {
+  const cleanId = String(debtId).replace(/[^0-9]/g, '') || String(debtId);
+  const raw = await httpClient.get<unknown>(`/Invoice/debt/${cleanId}`);
+  return normalizeDebtInvoiceResponse(raw, cleanId);
+}
+
+/**
+ * GET http://whateq.runasp.net/api/Invoice/payment/{id}
+ * Fetches the official electronic payment receipt / invoice for a payment.
+ */
+export async function getInvoiceByPaymentId(paymentId: number | string): Promise<PaymentInvoiceDto | null> {
+  const cleanId = String(paymentId).replace(/[^0-9]/g, '') || String(paymentId);
+  const raw = await httpClient.get<unknown>(`/Invoice/payment/${cleanId}`);
+  return normalizePaymentInvoiceResponse(raw, cleanId);
+}
 
 /**
  * POST /api/Invoice
@@ -104,4 +127,147 @@ export function toInvoiceErrorMessage(error: unknown): string {
     }
   }
   return 'تعذر الاتصال بخادم الفواتير، يرجى التحقق من اتصال الإنترنت.';
+}
+
+function unwrapEnvelope(raw: unknown): unknown {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const r = raw as Record<string, unknown>;
+    if ('data' in r && r.data !== undefined && r.data !== null) return unwrapEnvelope(r.data);
+    if ('Data' in r && r.Data !== undefined && r.Data !== null) return unwrapEnvelope(r.Data);
+  }
+  return raw;
+}
+
+function normalizeDebtInvoiceResponse(raw: unknown, debtIdFallback: string): DebtInvoiceDto | null {
+  const obj = unwrapEnvelope(raw);
+  if (!obj || typeof obj !== 'object') return null;
+  const r = obj as Record<string, unknown>;
+
+  const invoiceNumber =
+    r.invoiceNumber ?? r.InvoiceNumber ?? r.invoiceNo ?? r.InvoiceNo ?? `INV-DEBT-${debtIdFallback}`;
+  const customerName =
+    r.customerName ?? r.CustomerName ?? r.customerFullName ?? r.CustomerFullName ?? r.name ?? r.Name;
+  const invoiceAmount =
+    r.invoiceAmount ??
+    r.InvoiceAmount ??
+    r.amount ??
+    r.Amount ??
+    r.totalAmount ??
+    r.TotalAmount ??
+    0;
+
+  return {
+    id: (r.id ?? r.Id ?? debtIdFallback) as string | number,
+    invoiceId: (r.invoiceId ?? r.InvoiceId ?? r.id ?? r.Id) as string | number | undefined,
+    invoiceNumber: String(invoiceNumber),
+    debtId: Number(r.debtId ?? r.DebtId ?? debtIdFallback),
+    customerId: (r.customerId ?? r.CustomerId) as string | number | undefined,
+    customerName: customerName ? String(customerName) : undefined,
+    customerNationalId: (r.customerNationalId ?? r.CustomerNationalId ?? r.nationalId ?? r.NationalId)
+      ? String(r.customerNationalId ?? r.CustomerNationalId ?? r.nationalId ?? r.NationalId)
+      : undefined,
+    customerPhone: (r.customerPhone ?? r.CustomerPhone ?? r.phoneNumber ?? r.PhoneNumber ?? r.phone ?? r.Phone)
+      ? String(r.customerPhone ?? r.CustomerPhone ?? r.phoneNumber ?? r.PhoneNumber ?? r.phone ?? r.Phone)
+      : undefined,
+    amount: Number(invoiceAmount) || 0,
+    invoiceAmount: Number(invoiceAmount) || 0,
+    originalAmount: Number(r.originalAmount ?? r.OriginalAmount ?? invoiceAmount) || 0,
+    remainingAmount:
+      Number(r.remainingAmount ?? r.RemainingAmount ?? r.totalCurrentDebt ?? r.TotalCurrentDebt ?? invoiceAmount) || 0,
+    previousDebt: Number(r.previousDebt ?? r.PreviousDebt ?? 0) || 0,
+    previousPaid: Number(r.previousPaid ?? r.PreviousPaid ?? 0) || 0,
+    totalCurrentDebt:
+      Number(r.totalCurrentDebt ?? r.TotalCurrentDebt ?? r.remainingAmount ?? r.RemainingAmount ?? invoiceAmount) || 0,
+    date: (r.date ?? r.Date ?? r.issueDate ?? r.IssueDate ?? r.createdAt ?? r.CreatedAt)
+      ? String(r.date ?? r.Date ?? r.issueDate ?? r.IssueDate ?? r.createdAt ?? r.CreatedAt)
+      : undefined,
+    fileOpenDate: (r.fileOpenDate ?? r.FileOpenDate ?? r.customerRegistrationDate ?? r.CustomerRegistrationDate ?? r.customerCreatedAt ?? r.CustomerCreatedAt ?? r.registrationDate ?? r.RegistrationDate)
+      ? String(r.fileOpenDate ?? r.FileOpenDate ?? r.customerRegistrationDate ?? r.CustomerRegistrationDate ?? r.customerCreatedAt ?? r.CustomerCreatedAt ?? r.registrationDate ?? r.RegistrationDate)
+      : undefined,
+    customerRegistrationDate: (r.customerRegistrationDate ?? r.CustomerRegistrationDate ?? r.customerCreatedAt ?? r.CustomerCreatedAt ?? r.registrationDate ?? r.RegistrationDate)
+      ? String(r.customerRegistrationDate ?? r.CustomerRegistrationDate ?? r.customerCreatedAt ?? r.CustomerCreatedAt ?? r.registrationDate ?? r.RegistrationDate)
+      : undefined,
+    issueDate: (r.issueDate ?? r.IssueDate ?? r.date ?? r.Date)
+      ? String(r.issueDate ?? r.IssueDate ?? r.date ?? r.Date)
+      : undefined,
+    issueTime: (r.issueTime ?? r.IssueTime) ? String(r.issueTime ?? r.IssueTime) : undefined,
+    dueDate: (r.dueDate ?? r.DueDate) ? String(r.dueDate ?? r.DueDate) : undefined,
+    status: (r.status ?? r.Status) ? String(r.status ?? r.Status) : 'غير مسددة',
+    branch: (r.branch ?? r.Branch) ? String(r.branch ?? r.Branch) : undefined,
+    items: Array.isArray(r.items ?? r.Items) ? ((r.items ?? r.Items) as InvoiceItemDto[]) : undefined,
+    taxRate: Number(r.taxRate ?? r.TaxRate ?? 0),
+    taxAmount: Number(r.taxAmount ?? r.TaxAmount ?? 0),
+    notes: (r.notes ?? r.Notes) ? String(r.notes ?? r.Notes) : undefined,
+    currency: (r.currency ?? r.Currency ?? r.currencyCode ?? r.CurrencyCode)
+      ? String(r.currency ?? r.Currency ?? r.currencyCode ?? r.CurrencyCode)
+      : 'ILS',
+    currencyCode: (r.currencyCode ?? r.CurrencyCode ?? r.currency ?? r.Currency)
+      ? String(r.currencyCode ?? r.CurrencyCode ?? r.currency ?? r.Currency)
+      : 'ILS',
+    hash: (r.hash ?? r.Hash) ? String(r.hash ?? r.Hash) : undefined,
+  };
+}
+
+function normalizePaymentInvoiceResponse(raw: unknown, paymentIdFallback: string): PaymentInvoiceDto | null {
+  const obj = unwrapEnvelope(raw);
+  if (!obj || typeof obj !== 'object') return null;
+  const r = obj as Record<string, unknown>;
+
+  const receiptNumber =
+    r.receiptNumber ?? r.ReceiptNumber ?? r.receiptNo ?? r.ReceiptNo ?? r.invoiceNumber ?? r.InvoiceNumber ?? `REC-${paymentIdFallback}`;
+  const customerName =
+    r.customerName ?? r.CustomerName ?? r.customerFullName ?? r.CustomerFullName ?? r.name ?? r.Name;
+  const amount =
+    r.amount ?? r.Amount ?? r.paidAmount ?? r.PaidAmount ?? r.collectedAmount ?? r.CollectedAmount ?? 0;
+
+  return {
+    id: (r.id ?? r.Id ?? paymentIdFallback) as string | number,
+    paymentId: (r.paymentId ?? r.PaymentId ?? r.id ?? r.Id ?? paymentIdFallback) as string | number,
+    invoiceId: (r.invoiceId ?? r.InvoiceId) as string | number | undefined,
+    invoiceNumber: (r.invoiceNumber ?? r.InvoiceNumber) ? String(r.invoiceNumber ?? r.InvoiceNumber) : undefined,
+    receiptNumber: String(receiptNumber),
+    customerId: (r.customerId ?? r.CustomerId) as string | number | undefined,
+    customerName: customerName ? String(customerName) : undefined,
+    customerNationalId: (r.customerNationalId ?? r.CustomerNationalId ?? r.nationalId ?? r.NationalId)
+      ? String(r.customerNationalId ?? r.CustomerNationalId ?? r.nationalId ?? r.NationalId)
+      : undefined,
+    customerPhone: (r.customerPhone ?? r.CustomerPhone ?? r.phoneNumber ?? r.PhoneNumber ?? r.phone ?? r.Phone)
+      ? String(r.customerPhone ?? r.CustomerPhone ?? r.phoneNumber ?? r.PhoneNumber ?? r.phone ?? r.Phone)
+      : undefined,
+    amount: Number(amount) || 0,
+    paidAmount: Number(amount) || 0,
+    date: (r.date ?? r.Date ?? r.paymentDate ?? r.PaymentDate ?? r.createdAt ?? r.CreatedAt)
+      ? String(r.date ?? r.Date ?? r.paymentDate ?? r.PaymentDate ?? r.createdAt ?? r.CreatedAt)
+      : undefined,
+    paymentDate: (r.paymentDate ?? r.PaymentDate ?? r.date ?? r.Date)
+      ? String(r.paymentDate ?? r.PaymentDate ?? r.date ?? r.Date)
+      : undefined,
+    time: (r.time ?? r.Time ?? r.paymentTime ?? r.PaymentTime)
+      ? String(r.time ?? r.Time ?? r.paymentTime ?? r.PaymentTime)
+      : undefined,
+    paymentTime: (r.paymentTime ?? r.PaymentTime ?? r.time ?? r.Time)
+      ? String(r.paymentTime ?? r.PaymentTime ?? r.time ?? r.Time)
+      : undefined,
+    paymentMethod: (r.paymentMethod ?? r.PaymentMethod ?? 'نقداً') as number | string,
+    status: (r.status ?? r.Status) ? String(r.status ?? r.Status) : 'تم التحقق',
+    previousDebt: (r.previousDebt ?? r.PreviousDebt) !== undefined ? Number(r.previousDebt ?? r.PreviousDebt) : undefined,
+    remainingDebt: (r.remainingDebt ?? r.RemainingDebt) !== undefined ? Number(r.remainingDebt ?? r.RemainingDebt) : undefined,
+    referenceNumber: (r.referenceNumber ?? r.ReferenceNumber) ? String(r.referenceNumber ?? r.ReferenceNumber) : undefined,
+    notes: (r.notes ?? r.Notes) ? String(r.notes ?? r.Notes) : undefined,
+    currency: (r.currency ?? r.Currency ?? r.currencyCode ?? r.CurrencyCode)
+      ? String(r.currency ?? r.Currency ?? r.currencyCode ?? r.CurrencyCode)
+      : 'ILS',
+    currencyCode: (r.currencyCode ?? r.CurrencyCode ?? r.currency ?? r.Currency)
+      ? String(r.currencyCode ?? r.CurrencyCode ?? r.currency ?? r.Currency)
+      : 'ILS',
+    dueDate: (r.dueDate ?? r.DueDate ?? r.nextDueDate ?? r.NextDueDate)
+      ? String(r.dueDate ?? r.DueDate ?? r.nextDueDate ?? r.NextDueDate)
+      : undefined,
+    nextDueDate: (r.nextDueDate ?? r.NextDueDate ?? r.dueDate ?? r.DueDate)
+      ? String(r.nextDueDate ?? r.NextDueDate ?? r.dueDate ?? r.DueDate)
+      : undefined,
+    originalInvoiceDate: (r.originalInvoiceDate ?? r.OriginalInvoiceDate ?? r.invoiceDate ?? r.InvoiceDate)
+      ? String(r.originalInvoiceDate ?? r.OriginalInvoiceDate ?? r.invoiceDate ?? r.InvoiceDate)
+      : undefined,
+  };
 }

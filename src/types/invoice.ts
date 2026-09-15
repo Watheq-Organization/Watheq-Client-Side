@@ -38,3 +38,75 @@ export interface ShareInvoiceResponseDto {
   message?: string;
   whatsappUrl?: string;
 }
+
+export interface InvoiceItemDto {
+  id?: string | number;
+  name?: string;
+  description?: string;
+  quantity?: number;
+  unitPrice?: number;
+  price?: number;
+  total?: number;
+}
+
+export interface DebtInvoiceDto {
+  id?: number | string;
+  invoiceId?: number | string;
+  invoiceNumber?: string;
+  debtId?: number;
+  customerId?: number | string;
+  customerName?: string;
+  customerNationalId?: string;
+  customerPhone?: string;
+  amount?: number;
+  invoiceAmount?: number;
+  originalAmount?: number;
+  remainingAmount?: number;
+  previousDebt?: number;
+  previousPaid?: number;
+  totalCurrentDebt?: number;
+  date?: string;
+  fileOpenDate?: string;
+  customerRegistrationDate?: string;
+  issueDate?: string;
+  issueTime?: string;
+  dueDate?: string;
+  status?: string;
+  branch?: string;
+  items?: InvoiceItemDto[];
+  taxRate?: number;
+  taxAmount?: number;
+  notes?: string;
+  currency?: string;
+  currencyCode?: string;
+  hash?: string;
+}
+
+export interface PaymentInvoiceDto {
+  id?: number | string;
+  paymentId?: number | string;
+  invoiceId?: number | string;
+  invoiceNumber?: string;
+  receiptNumber?: string;
+  customerId?: number | string;
+  customerName?: string;
+  customerNationalId?: string;
+  customerPhone?: string;
+  amount?: number;
+  paidAmount?: number;
+  date?: string;
+  paymentDate?: string;
+  time?: string;
+  paymentTime?: string;
+  paymentMethod?: number | string;
+  status?: string;
+  previousDebt?: number;
+  remainingDebt?: number;
+  referenceNumber?: string;
+  notes?: string;
+  currency?: string;
+  currencyCode?: string;
+  dueDate?: string;
+  nextDueDate?: string;
+  originalInvoiceDate?: string;
+}

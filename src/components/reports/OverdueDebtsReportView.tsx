@@ -666,7 +666,20 @@ export const OverdueDebtsReportView: FC = () => {
                     <td className="px-6 py-4 text-center">
                       <button
                         type="button"
-                        onClick={() => navigate(`/debts/${item.debtId}/invoice`)}
+                        onClick={() =>
+                          navigate(`/debts/${item.debtId}/invoice`, {
+                            state: {
+                              debt: {
+                                id: String(item.debtId),
+                                invoiceNumber: `INV-DEBT-${item.debtId}`,
+                                customerId: String(item.customerId),
+                                customerName: item.customerName,
+                                dueDate: item.dueDate,
+                                invoiceAmount: item.remainingAmount ?? item.originalAmount,
+                              },
+                            },
+                          })
+                        }
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#051838] bg-slate-100 hover:bg-[#051838] hover:text-white rounded-lg transition-colors cursor-pointer"
                         title="عرض الفاتورة وتفاصيل الدين"
                       >

@@ -26,6 +26,7 @@ import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
 import { PATHS } from '../../routes/paths';
 import { getCustomers } from '../../services/customerService';
+import { getPaymentHistory } from '../../services/paymentService';
 import {
   getCollectionsReport,
   formatPaymentMethod,
@@ -90,6 +91,46 @@ export const PaymentsScreen: FC = () => {
     setIsLoadingPayments(true);
     setServerError(null);
     try {
+      // 1. Primary source: /api/Payment/history
+      const historyRes = await getPaymentHistory({
+        paymentMethod: selectedMethod !== 'all' ? selectedMethod : undefined,
+        status: selectedStatus !== 'all' ? selectedStatus : undefined,
+        fromDate: fromDate ? `${fromDate}T00:00:00Z` : undefined,
+        toDate: toDate ? `${toDate}T23:59:59Z` : undefined,
+      });
+
+      if (historyRes.fromApi && !historyRes.error && historyRes.items.length > 0) {
+        const mapped: PaymentRecord[] = historyRes.items.map((item) => {
+          const name = item.customerName || 'عميل';
+          const initials = name.trim().slice(0, 2) || 'عم';
+          return {
+            id: String(item.id || item.paymentId || Math.random()),
+            customerId: String(item.customerId || ''),
+            customerName: name,
+            customerInitials: initials,
+            customerAvatarBg: 'bg-blue-100 text-blue-700',
+            amount: item.amount,
+            date: item.paymentDate || item.date || '—',
+            time: '—',
+            method: formatPaymentMethod(item.paymentMethod || item.method),
+            status: item.status || 'تم التحقق',
+            receiptNumber: item.receiptNumber,
+          };
+        });
+
+        setPayments(mapped);
+        setSummaryStats({
+          totalCollected: historyRes.totalAmount,
+          totalCount: historyRes.totalCount,
+          averagePayment:
+            historyRes.totalCount > 0
+              ? Math.round(historyRes.totalAmount / historyRes.totalCount)
+              : 0,
+        });
+        return;
+      }
+
+      // 2. Fallback to collections report if /Payment/history returns no items or had an error
       const res = await getCollectionsReport({
         fromDate: fromDate ? `${fromDate}T00:00:00Z` : undefined,
         toDate: toDate ? `${toDate}T23:59:59Z` : undefined,
@@ -116,16 +157,17 @@ export const PaymentsScreen: FC = () => {
       setSummaryStats({
         totalCollected: res.totalCollected,
         totalCount: res.totalRecords,
-        averagePayment: res.totalRecords > 0 ? Math.round(res.totalCollected / res.totalRecords) : 0,
+        averagePayment:
+          res.totalRecords > 0 ? Math.round(res.totalCollected / res.totalRecords) : 0,
       });
     } catch (err) {
-      console.warn('Failed to load collections in PaymentsScreen:', err);
+      console.warn('Failed to load payments:', err);
       setServerError(toReportErrorMessage(err));
       setPayments([]);
     } finally {
       setIsLoadingPayments(false);
     }
-  }, [fromDate, toDate]);
+  }, [fromDate, toDate, selectedMethod, selectedStatus]);
 
   useEffect(() => {
     loadPayments();
@@ -233,14 +275,15 @@ export const PaymentsScreen: FC = () => {
   const getMethodIcon = (method: PaymentRecord['method']) => {
     switch (method) {
       case 'تحويل بنكي':
-        return <Landmark className="w-4 h-4 text-slate-500" />;
+        return <Landmark className="w-4 h-4 text-blue-600" />;
       case 'نقداً':
-        return <Banknote className="w-4 h-4 text-slate-500" />;
+        return <Banknote className="w-4 h-4 text-emerald-600" />;
       case 'مدى':
       case 'بطاقة ائتمان':
-        return <CreditCard className="w-4 h-4 text-slate-500" />;
+      case 'بطاقة / محفظة':
+        return <CreditCard className="w-4 h-4 text-purple-600" />;
       default:
-        return <Banknote className="w-4 h-4 text-slate-500" />;
+        return <CreditCard className="w-4 h-4 text-slate-400" />;
     }
   };
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { FC } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Check,
   X,
@@ -19,11 +19,13 @@ import {
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
 import { PATHS } from '../../routes/paths';
-import { getSubscriptionPlans } from '../../services/subscriptionService';
+import { getSubscriptionPlans, createCheckout } from '../../services/subscriptionService';
 import type { SubscriptionPlan } from '../../types/subscription';
+import { Toast } from '../ui/Toast';
 
 export const SubscriptionsScreen: FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -42,6 +44,8 @@ export const SubscriptionsScreen: FC = () => {
   >('mada');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [checkoutRedirecting, setCheckoutRedirecting] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const loadPlans = async (showRefreshIndicator = false) => {
     if (showRefreshIndicator) {
@@ -70,27 +74,70 @@ export const SubscriptionsScreen: FC = () => {
     loadPlans();
   }, []);
 
+  // Handle return from payment gateway (e.g. Stripe checkout)
+  useEffect(() => {
+    const status = searchParams.get('status');
+    if (status === 'success') {
+      setToastMessage('تمت عملية الاشتراك والدفع بنجاح! تم ترقية باقتك.');
+      const next = new URLSearchParams(searchParams);
+      next.delete('status');
+      next.delete('session_id');
+      setSearchParams(next, { replace: true });
+      loadPlans();
+    } else if (status === 'cancelled') {
+      setToastMessage('تم إلغاء عملية الدفع. يمكنك إعادة المحاولة في أي وقت.');
+      const next = new URLSearchParams(searchParams);
+      next.delete('status');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   const handleOpenPlanModal = (plan: SubscriptionPlan) => {
     setSelectedPlan(plan);
     setIsSuccess(false);
+    setCheckoutRedirecting(false);
   };
 
   const handleClosePlanModal = () => {
     setSelectedPlan(null);
     setIsProcessing(false);
     setIsSuccess(false);
+    setCheckoutRedirecting(false);
   };
 
-  const handleConfirmSubscription = () => {
+  const handleConfirmSubscription = async () => {
+    if (!selectedPlan) return;
     setIsProcessing(true);
-    setTimeout(() => {
+
+    const baseUrl = window.location.origin;
+    const successUrl = `${baseUrl}/subscriptions?status=success`;
+    const cancelUrl = `${baseUrl}/subscriptions?status=cancelled`;
+
+    const result = await createCheckout({
+      planId: Number(selectedPlan.id),
+      successUrl,
+      cancelUrl,
+    });
+
+    if (result.success) {
+      if (result.checkoutUrl) {
+        setCheckoutRedirecting(true);
+        // Smooth redirect to payment gateway URL
+        window.location.href = result.checkoutUrl;
+        return;
+      }
+
       setIsProcessing(false);
       setIsSuccess(true);
       setTimeout(() => {
         setIsSuccess(false);
         setSelectedPlan(null);
+        loadPlans();
       }, 2000);
-    }, 1200);
+    } else {
+      setIsProcessing(false);
+      setToastMessage(result.error || 'تعذر إتمام طلب الاشتراك. يرجى المحاولة لاحقاً.');
+    }
   };
 
   // Dynamic Comparison Table data derived from current plans
@@ -656,7 +703,11 @@ export const SubscriptionsScreen: FC = () => {
                     {isProcessing ? (
                       <span className="flex items-center gap-2">
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>جاري معالجة الطلب...</span>
+                        <span>
+                          {checkoutRedirecting
+                            ? 'جاري التحويل لبوابة الدفع الآمنة...'
+                            : 'جاري معالجة الطلب...'}
+                        </span>
                       </span>
                     ) : selectedPlan.rawPrice === 0 ? (
                       <span>تأكيد تفعيل الخطة المجانية</span>
@@ -670,6 +721,9 @@ export const SubscriptionsScreen: FC = () => {
           </div>
         </div>
       )}
+
+      {/* Toast Feedback */}
+      <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
     </div>
   );
 };
