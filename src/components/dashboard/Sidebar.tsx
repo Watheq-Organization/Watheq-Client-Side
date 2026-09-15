@@ -121,8 +121,7 @@ export const Sidebar: FC<SidebarProps> = ({
               const Icon = item.icon;
               const isActive =
                 !isSettingsActive &&
-                ((item.path && location.pathname === item.path) ||
-                  (!item.path && activeTab === item.id));
+                (location.pathname === item.path || activeTab === item.id);
 
               return (
                 <button
