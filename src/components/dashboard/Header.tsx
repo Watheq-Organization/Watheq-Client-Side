@@ -438,15 +438,19 @@ export const Header: FC<HeaderProps> = ({
               aria-expanded={isProfileOpen}
               aria-label="قائمة المستخدم"
             >
-              <div className="relative w-10 h-10 rounded-full ring-2 ring-slate-100 overflow-hidden shadow-xs group-hover:ring-[#051838]/20 transition-all duration-200">
-                <img
-                  src={profile.profileImagePath || '/merchant-avatar.jpg'}
-                  alt={profile.fullName || 'صورة التاجر'}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
-                  }}
-                />
+              <div className="relative w-10 h-10 rounded-full ring-2 ring-slate-100 overflow-hidden shadow-xs group-hover:ring-[#051838]/20 transition-all duration-200 bg-[#051838] text-white flex items-center justify-center font-bold text-sm font-cairo">
+                {profile.profileImagePath && !profile.profileImagePath.includes('merchant-avatar') ? (
+                  <img
+                    src={profile.profileImagePath}
+                    alt={profile.fullName || 'صورة التاجر'}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <span>{profile.fullName?.trim()?.charAt(0) || 'ت'}</span>
+                )}
               </div>
               <ChevronDown
                 className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 transition-transform duration-200 hidden sm:block ${
@@ -464,12 +468,19 @@ export const Header: FC<HeaderProps> = ({
                 {/* User Info Header */}
                 <div className="p-4 bg-slate-50/70 border-b border-slate-100">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl ring-1 ring-slate-200 overflow-hidden shrink-0 shadow-2xs">
-                      <img
-                        src={profile.profileImagePath || '/merchant-avatar.jpg'}
-                        alt={profile.fullName || 'صورة التاجر'}
-                        className="w-full h-full object-cover"
-                      />
+                    <div className="w-12 h-12 rounded-xl ring-1 ring-slate-200 overflow-hidden shrink-0 shadow-2xs bg-[#051838] text-white flex items-center justify-center font-bold text-base font-cairo">
+                      {profile.profileImagePath && !profile.profileImagePath.includes('merchant-avatar') ? (
+                        <img
+                          src={profile.profileImagePath}
+                          alt={profile.fullName || 'صورة التاجر'}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <span>{profile.fullName?.trim()?.charAt(0) || 'ت'}</span>
+                      )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <h4 className="text-sm font-bold font-cairo text-slate-900 truncate">

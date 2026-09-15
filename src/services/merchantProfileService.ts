@@ -25,7 +25,7 @@ export const DEFAULT_MERCHANT_PROFILE: MerchantProfile = {
   email: 'info@alufuq.com',
   phoneNumber: '+966 50 123 4567',
   address: 'الرياض، طريق الملك فهد',
-  profileImagePath: '/merchant-avatar.jpg',
+  profileImagePath: '',
 };
 
 export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
@@ -163,14 +163,13 @@ export function useMerchantProfile(): MerchantProfile {
  * Prevents mixed-content blocking (HTTP on HTTPS) and fixes relative paths from backend.
  */
 export function normalizeProfileImageUrl(path?: string | null): string {
-  if (!path || !path.trim()) return '/merchant-avatar.jpg';
+  if (!path || !path.trim() || path.includes('merchant-avatar')) return '';
   const trimmed = path.trim();
 
-  // If already base64 data URL, blob, or local static asset
+  // If already base64 data URL or blob
   if (
     trimmed.startsWith('data:') ||
-    trimmed.startsWith('blob:') ||
-    trimmed.startsWith('/merchant-avatar')
+    trimmed.startsWith('blob:')
   ) {
     return trimmed;
   }

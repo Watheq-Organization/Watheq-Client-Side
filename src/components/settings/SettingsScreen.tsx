@@ -34,7 +34,7 @@ export const SettingsScreen: FC = () => {
   // Profile state
   const [profile, setProfile] = useState<MerchantProfile>(DEFAULT_MERCHANT_PROFILE);
   const [formData, setFormData] = useState<MerchantProfile>(DEFAULT_MERCHANT_PROFILE);
-  const [avatarPreview, setAvatarPreview] = useState<string>('/merchant-avatar.jpg');
+  const [avatarPreview, setAvatarPreview] = useState<string>('');
   const [selectedFile, setSelectedFile] = useState<File | undefined>(undefined);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -383,15 +383,19 @@ export const SettingsScreen: FC = () => {
 
                 {/* Avatar with Edit Pencil (Left in RTL) */}
                 <div className="relative shrink-0">
-                  <div className="w-16 h-16 rounded-2xl overflow-hidden ring-2 ring-slate-100 shadow-xs bg-slate-100">
-                    <img
-                      src={avatarPreview}
-                      alt={profile.fullName}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLElement).style.display = 'none';
-                      }}
-                    />
+                  <div className="w-16 h-16 rounded-2xl overflow-hidden ring-2 ring-slate-100 shadow-xs bg-[#0c2444] text-white flex items-center justify-center font-bold text-xl font-cairo">
+                    {avatarPreview && !avatarPreview.includes('merchant-avatar') ? (
+                      <img
+                        src={avatarPreview}
+                        alt={profile.fullName}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <span>{profile.fullName?.trim()?.charAt(0) || 'ت'}</span>
+                    )}
                   </div>
                   <button
                     type="button"

@@ -760,18 +760,8 @@ export const CustomerDetailsScreen: FC = () => {
 
                 {/* Avatar with Verified Badge */}
                 <div className="relative mb-4">
-                  <div className="w-24 h-24 rounded-3xl overflow-hidden ring-4 ring-slate-100/80 shadow-md bg-slate-100 flex items-center justify-center">
-                    <img
-                      src="/merchant-avatar.jpg"
-                      alt={customer.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLElement).style.display = 'none';
-                      }}
-                    />
-                    <div className="w-full h-full bg-[#123663] text-white font-bold flex items-center justify-center text-2xl font-cairo">
-                      {customer.avatarLetter || 'أ'}
-                    </div>
+                  <div className="w-24 h-24 rounded-3xl overflow-hidden ring-4 ring-slate-100/80 shadow-md bg-gradient-to-br from-[#123663] to-[#0c2444] text-white font-bold flex items-center justify-center text-3xl font-cairo">
+                    {customer.avatarLetter || customer.name?.trim()?.charAt(0) || 'ع'}
                   </div>
                   {/* Verified Green Shield / Check Badge */}
                   <div className="absolute -bottom-1 -left-1 w-7 h-7 bg-emerald-600 rounded-full border-2 border-white flex items-center justify-center text-white shadow-sm">
