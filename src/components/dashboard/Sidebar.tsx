@@ -43,7 +43,7 @@ export const Sidebar: FC<SidebarProps> = ({
     { id: 'add-debt', label: 'إضافة دين', icon: CreditCard, path: PATHS.DEBT_NEW },
     { id: 'payments', label: 'سجل المدفوعات', icon: Receipt, path: PATHS.PAYMENTS },
     { id: 'reports', label: 'التقارير', icon: BarChart3, path: PATHS.REPORTS },
-    { id: 'reminder-settings', label: 'إعدادات التذكيرات', icon: BellRing },
+    { id: 'reminder-settings', label: 'إعدادات التذكيرات', icon: BellRing, path: PATHS.REMINDERS },
     { id: 'subscriptions', label: 'الاشتراكات', icon: Tv2, path: PATHS.SUBSCRIPTIONS },
   ];
 

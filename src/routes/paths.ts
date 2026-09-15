@@ -19,6 +19,7 @@ export const PATHS = {
   DEBT_NEW: '/add-debt',
   DEBT_INVOICE: '/debts/:id/invoice',
   SETTINGS: '/settings',
+  REMINDERS: '/reminders',
   SUBSCRIPTIONS: '/subscriptions',
   REPORTS: '/reports',
   COLLECTIONS_REPORT: '/reports/collections',

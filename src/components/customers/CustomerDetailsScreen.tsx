@@ -982,7 +982,7 @@ export const CustomerDetailsScreen: FC = () => {
                   <div className="relative space-y-6 before:absolute before:top-4 before:bottom-4 before:right-5 before:w-0.5 before:bg-slate-100">
                     {filteredActivities.map((act) => (
                       <div key={act.id} className="relative flex items-start gap-4 sm:gap-5">
-                        
+
                         {/* Timeline Icon Node */}
                         <div
                           className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 z-10 shadow-2xs ${act.iconBg}`}
@@ -994,144 +994,143 @@ export const CustomerDetailsScreen: FC = () => {
 
                         {/* Content Card */}
                         <div
-                          className={`flex-1 rounded-2xl p-4 sm:p-5 transition-all ${
-                            act.type === 'alert'
+                          className={`flex-1 rounded-2xl p-4 sm:p-5 transition-all ${act.type === 'alert'
                               ? 'bg-[#f8fafc] border-2 border-dashed border-slate-200'
                               : 'bg-white border border-slate-100 shadow-2xs hover:shadow-xs'
-                          }`}
+                            }`}
                         >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                          <div className="flex items-center gap-2.5 flex-wrap">
-                            <span className="font-bold text-[#0c2444] text-sm sm:text-base font-cairo">
-                              {act.title}
-                            </span>
-                            {act.badgeText && (
-                              <span
-                                className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold ${act.badgeStyle}`}
-                              >
-                                {act.badgeText}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div className="flex items-center gap-2.5 flex-wrap">
+                              <span className="font-bold text-[#0c2444] text-sm sm:text-base font-cairo">
+                                {act.title}
+                              </span>
+                              {act.badgeText && (
+                                <span
+                                  className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold ${act.badgeStyle}`}
+                                >
+                                  {act.badgeText}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Amount + Row Actions (Delete / Edit) */}
+                            <div className="flex items-center gap-3">
+                              {act.amount && (
+                                <div className="text-left" dir="ltr">
+                                  <span className={`text-base sm:text-lg font-extrabold font-cairo ${act.amountColor}`}>
+                                    {act.amount}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 block font-cairo">
+                                    شيكل إسرائيلي
+                                  </span>
+                                </div>
+                              )}
+
+                              {act.type !== 'alert' && (
+                                <div className="flex items-center gap-2">
+                                  {act.type === 'debt' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        navigate(`/debts/${act.recordId || act.reference || '8821'}/invoice`, {
+                                          state: {
+                                            debt: {
+                                              id: String(act.recordId),
+                                              invoiceNumber: `INV-DEBT-${act.reference || act.recordId || '8821'}`,
+                                              customerId: customer.id,
+                                              customerName: customer.name,
+                                              customerNationalId: customer.nationalOrCrId,
+                                              customerPhone: customer.phone,
+                                              customerRegistrationDate: customer.registrationDate,
+                                              fileOpenDate: customer.registrationDate,
+                                              invoiceAmount: act.rawAmount,
+                                              issueDate: act.date,
+                                            },
+                                          },
+                                        });
+                                      }}
+                                      aria-label="عرض سند إثبات الدين"
+                                      title="عرض سند إثبات الدين"
+                                      className="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 flex items-center justify-center transition-colors cursor-pointer"
+                                    >
+                                      <FileText className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                  {act.type === 'payment' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        navigate(`/payments/${act.recordId || act.reference || '4821'}/receipt`, {
+                                          state: {
+                                            payment: {
+                                              id: String(act.recordId),
+                                              customerId: customer.id,
+                                              receiptNumber: act.reference,
+                                              customerName: customer.name,
+                                              phone: customer.phone,
+                                              nationalId: customer.nationalOrCrId,
+                                              amount: act.rawAmount,
+                                              date: act.date,
+                                              method: act.rawPaymentMethod || 'نقداً',
+                                              remainingDebt: customer.totalDebt,
+                                              previousDebt: (customer.totalDebt ?? 0) + (act.rawAmount ?? 0),
+                                            },
+                                          },
+                                        });
+                                      }}
+                                      aria-label="عرض سند القبض"
+                                      title="عرض سند القبض"
+                                      className="w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 flex items-center justify-center transition-colors cursor-pointer"
+                                    >
+                                      <FileText className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => setActivityPendingDelete(act)}
+                                    aria-label="حذف العملية"
+                                    title="حذف"
+                                    className="w-8 h-8 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-500 flex items-center justify-center transition-colors cursor-pointer"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditActivityClick(act)}
+                                    aria-label="تعديل العملية"
+                                    title="تعديل"
+                                    className="w-8 h-8 rounded-lg bg-[#0c2444] hover:bg-[#123663] text-white flex items-center justify-center transition-colors cursor-pointer"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Description */}
+                          <p className="text-xs sm:text-sm text-slate-500 mt-2 leading-relaxed font-normal">
+                            {act.description}
+                          </p>
+
+                          {/* Date & Running Balance */}
+                          <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono">
+                              <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                              <span>{act.date}</span>
+                            </div>
+                            {act.balanceLabel && (
+                              <span className="text-[11px] text-slate-400 font-mono" dir="ltr">
+                                الرصيد بعد العملية: {act.balanceLabel}
                               </span>
                             )}
                           </div>
-
-                          {/* Amount + Row Actions (Delete / Edit) */}
-                          <div className="flex items-center gap-3">
-                            {act.amount && (
-                              <div className="text-left" dir="ltr">
-                                <span className={`text-base sm:text-lg font-extrabold font-cairo ${act.amountColor}`}>
-                                  {act.amount}
-                                </span>
-                                <span className="text-[10px] text-slate-400 block font-cairo">
-                                  شيكل إسرائيلي
-                                </span>
-                              </div>
-                            )}
-
-                            {act.type !== 'alert' && (
-                              <div className="flex items-center gap-2">
-                                {act.type === 'debt' && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      navigate(`/debts/${act.recordId || act.reference || '8821'}/invoice`, {
-                                        state: {
-                                          debt: {
-                                            id: String(act.recordId),
-                                            invoiceNumber: `INV-DEBT-${act.reference || act.recordId || '8821'}`,
-                                            customerId: customer.id,
-                                            customerName: customer.name,
-                                            customerNationalId: customer.nationalOrCrId,
-                                            customerPhone: customer.phone,
-                                            customerRegistrationDate: customer.registrationDate,
-                                            fileOpenDate: customer.registrationDate,
-                                            invoiceAmount: act.rawAmount,
-                                            issueDate: act.date,
-                                          },
-                                        },
-                                      });
-                                    }}
-                                    aria-label="عرض سند إثبات الدين"
-                                    title="عرض سند إثبات الدين"
-                                    className="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 flex items-center justify-center transition-colors cursor-pointer"
-                                  >
-                                    <FileText className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                                {act.type === 'payment' && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      navigate(`/payments/${act.recordId || act.reference || '4821'}/receipt`, {
-                                        state: {
-                                          payment: {
-                                            id: String(act.recordId),
-                                            customerId: customer.id,
-                                            receiptNumber: act.reference,
-                                            customerName: customer.name,
-                                            phone: customer.phone,
-                                            nationalId: customer.nationalOrCrId,
-                                            amount: act.rawAmount,
-                                            date: act.date,
-                                            method: act.rawPaymentMethod || 'نقداً',
-                                            remainingDebt: customer.totalDebt,
-                                            previousDebt: (customer.totalDebt ?? 0) + (act.rawAmount ?? 0),
-                                          },
-                                        },
-                                      });
-                                    }}
-                                    aria-label="عرض سند القبض"
-                                    title="عرض سند القبض"
-                                    className="w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 flex items-center justify-center transition-colors cursor-pointer"
-                                  >
-                                    <FileText className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={() => setActivityPendingDelete(act)}
-                                  aria-label="حذف العملية"
-                                  title="حذف"
-                                  className="w-8 h-8 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-500 flex items-center justify-center transition-colors cursor-pointer"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleEditActivityClick(act)}
-                                  aria-label="تعديل العملية"
-                                  title="تعديل"
-                                  className="w-8 h-8 rounded-lg bg-[#0c2444] hover:bg-[#123663] text-white flex items-center justify-center transition-colors cursor-pointer"
-                                >
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            )}
-                          </div>
                         </div>
 
-                        {/* Description */}
-                        <p className="text-xs sm:text-sm text-slate-500 mt-2 leading-relaxed font-normal">
-                          {act.description}
-                        </p>
-
-                        {/* Date & Running Balance */}
-                        <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
-                          <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono">
-                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                            <span>{act.date}</span>
-                          </div>
-                          {act.balanceLabel && (
-                            <span className="text-[11px] text-slate-400 font-mono" dir="ltr">
-                              الرصيد بعد العملية: {act.balanceLabel}
-                            </span>
-                          )}
-                        </div>
                       </div>
-
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
 
                 {/* Footer Note */}
                 <div className="pt-4 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-400 print:hidden">

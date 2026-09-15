@@ -16,6 +16,7 @@ import { AddDebtPage } from '../pages/AddDebtPage';
 import { DebtInvoicePage } from '../pages/DebtInvoicePage';
 import { NewPaymentPage } from '../pages/NewPaymentPage';
 import { SettingsPage } from '../pages/SettingsPage';
+import { RemindersPage } from '../pages/RemindersPage';
 import { SubscriptionsPage } from '../pages/SubscriptionsPage';
 import { ReportsPage } from '../pages/ReportsPage';
 import { PaymentsPage } from '../pages/PaymentsPage';
@@ -91,6 +92,14 @@ export const AppRoutes: FC = () => {
         element={
           <ProtectedRoute>
             <SettingsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={PATHS.REMINDERS}
+        element={
+          <ProtectedRoute>
+            <RemindersPage />
           </ProtectedRoute>
         }
       />

@@ -153,8 +153,8 @@ export function toUpdateDebtErrorMessage(error: unknown): string {
       typeof body === 'object' && body !== null && typeof body.message === 'string'
         ? body.message
         : typeof body === 'string'
-        ? body
-        : '';
+          ? body
+          : '';
 
     if (message.includes('No business found for the current merchant')) {
       return 'لا يوجد نشاط تجاري مرتبط بحسابك. يرجى التواصل مع الدعم.';
@@ -265,8 +265,8 @@ export function toDeleteDebtErrorMessage(error: unknown): string {
       typeof body === 'object' && body !== null && typeof body.message === 'string'
         ? body.message
         : typeof body === 'string'
-        ? body
-        : '';
+          ? body
+          : '';
 
     if (message.includes('No business found for the current merchant')) {
       return 'لا يوجد نشاط تجاري مرتبط بحسابك. يرجى التواصل مع الدعم.';
@@ -462,8 +462,8 @@ export function toCreateDebtErrorMessage(error: unknown): string {
       typeof body === 'object' && body !== null && typeof body.message === 'string'
         ? body.message
         : typeof body === 'string'
-        ? body
-        : '';
+          ? body
+          : '';
 
     if (message.includes('No business found for the current merchant')) {
       return 'لا يوجد نشاط تجاري مرتبط بحسابك. يرجى التواصل مع الدعم.';
