@@ -29,6 +29,8 @@ import {
   toDeleteCustomerErrorMessage,
   getStoredTotalPaid,
   setStoredTotalPaid,
+  parseCustomerPhone,
+  formatFullCustomerPhone,
 } from '../../services/customerService';
 import {
   getEditableDebt,
@@ -41,6 +43,7 @@ import { deletePayment, toDeletePaymentErrorMessage } from '../../services/payme
 import type { Customer, CustomerProfileTransactionDto } from '../../types/customer';
 import { ApiError } from '../../api/httpClient';
 import { Toast, type ToastType } from '../ui/Toast';
+import { PhoneInputWithCountry, type CountryCode } from '../ui/PhoneInputWithCountry';
 import { PATHS } from '../../routes/paths';
 import { formatApiDate } from '../../lib/dateUtils';
 
@@ -226,6 +229,7 @@ export const CustomerDetailsScreen: FC = () => {
     fullName: '',
     nationalOrCrId: '',
     phoneNumber: '',
+    countryCode: '970' as CountryCode,
   });
   const [fieldErrors, setFieldErrors] = useState<{
     fullName?: string;
@@ -464,10 +468,12 @@ export const CustomerDetailsScreen: FC = () => {
   };
 
   const openEditModal = () => {
+    const parsed = parseCustomerPhone(customer.phone);
     setEditForm({
       fullName: customer.name,
       nationalOrCrId: customer.nationalOrCrId,
-      phoneNumber: customer.phone ?? '',
+      phoneNumber: parsed.localNumber,
+      countryCode: parsed.countryCode,
     });
     setFieldErrors({});
     setSubmitError(null);
@@ -502,8 +508,8 @@ export const CustomerDetailsScreen: FC = () => {
 
     if (!trimmedPhone) {
       errors.phoneNumber = 'رقم الجوال مطلوب.';
-    } else if (!/^\d{10}$/.test(trimmedPhone)) {
-      errors.phoneNumber = 'رقم الجوال يجب أن يتكون من 10 أرقام (مثال: 05XXXXXXXX).';
+    } else if (!/^\d{9}$/.test(trimmedPhone)) {
+      errors.phoneNumber = 'رقم الجوال يجب أن يتكون من 9 أرقام (مثال: 59XXXXXXX).';
     }
 
     setFieldErrors(errors);
@@ -512,9 +518,13 @@ export const CustomerDetailsScreen: FC = () => {
     setSubmitError(null);
     setIsSavingCustomer(true);
     try {
+      const fullPhone = trimmedPhone
+        ? formatFullCustomerPhone(editForm.countryCode, trimmedPhone)
+        : '';
+
       const dto = await updateCustomer(targetCustomerId, {
         fullName: trimmedName,
-        phoneNumber: trimmedPhone,
+        phoneNumber: fullPhone,
         address: customer.address ?? '',
         nationalId: trimmedNationalId,
       });
@@ -526,7 +536,7 @@ export const CustomerDetailsScreen: FC = () => {
       setCustomer((prev) => ({
         ...prev,
         name: dto.fullName || trimmedName,
-        phone: dto.phoneNumber || trimmedPhone,
+        phone: dto.phoneNumber || fullPhone,
         address: dto.address || prev.address,
         totalDebt: dto.totalDebt || prev.totalDebt,
         totalPaid: dto.totalPaid || prev.totalPaid,
@@ -1267,24 +1277,21 @@ export const CustomerDetailsScreen: FC = () => {
                   )}
                 </div>
 
-                {/* Field 3: Mobile Number */}
+                {/* Field 3: Mobile Number with Country Code */}
                 <div>
-                  <label className="block text-sm font-bold text-[#0c2444] mb-1.5">
-                    رقم الجوال
-                  </label>
-                  <input
-                    type="tel"
-                    value={editForm.phoneNumber}
-                    onChange={(e) =>
-                      setEditForm((p) => ({ ...p, phoneNumber: e.target.value }))
-                    }
-                    dir="rtl"
-                    className={`w-full h-[38px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none focus:border-[#123663] transition-colors ${fieldErrors.phoneNumber ? 'border-rose-400' : 'border-slate-200'
-                      }`}
+                  <PhoneInputWithCountry
+                    countryCode={editForm.countryCode}
+                    localNumber={editForm.phoneNumber}
+                    onCountryCodeChange={(code) => {
+                      setEditForm((p) => ({ ...p, countryCode: code }));
+                    }}
+                    onLocalNumberChange={(localNumber) => {
+                      setEditForm((p) => ({ ...p, phoneNumber: localNumber }));
+                      setFieldErrors((p) => ({ ...p, phoneNumber: undefined }));
+                      setSubmitError(null);
+                    }}
+                    error={fieldErrors.phoneNumber}
                   />
-                  {fieldErrors.phoneNumber && (
-                    <p className="mt-1 text-xs text-rose-600">{fieldErrors.phoneNumber}</p>
-                  )}
                 </div>
 
                 {/* Field 4: Debt Balance — read-only, not sent to the API */}

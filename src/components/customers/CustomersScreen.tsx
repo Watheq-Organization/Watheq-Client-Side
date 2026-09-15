@@ -25,9 +25,11 @@ import {
   validateCustomerPhoneNumber,
   validateCustomerNationalId,
   validateCustomerInitialDebt,
+  formatFullCustomerPhone,
 } from '../../services/customerService';
 import { getDashboardSummary } from '../../services/dashboardService';
 import { Toast, type ToastType } from '../ui/Toast';
+import { PhoneInputWithCountry, type CountryCode } from '../ui/PhoneInputWithCountry';
 
 export const CustomersScreen: FC = () => {
   const navigate = useNavigate();
@@ -51,6 +53,7 @@ export const CustomersScreen: FC = () => {
     fullName: '',
     nationalId: '',
     phoneNumber: '',
+    countryCode: '970' as CountryCode,
     initialDebt: '',
   });
   const [addFieldErrors, setAddFieldErrors] = useState<{
@@ -124,7 +127,13 @@ export const CustomersScreen: FC = () => {
 
   const closeAddModal = () => {
     setIsAddModalOpen(false);
-    setNewCustomer({ fullName: '', nationalId: '', phoneNumber: '', initialDebt: '' });
+    setNewCustomer({
+      fullName: '',
+      nationalId: '',
+      phoneNumber: '',
+      countryCode: '970',
+      initialDebt: '',
+    });
     setAddFieldErrors({});
     setAddSubmitError(null);
   };
@@ -207,10 +216,14 @@ export const CustomersScreen: FC = () => {
     setIsAddingCustomer(true);
     try {
       const parsedDebt = trimmedDebt ? Number(trimmedDebt) : 0;
+      const formattedPhone = trimmedPhone
+        ? formatFullCustomerPhone(newCustomer.countryCode, trimmedPhone)
+        : null;
+
       const dto = await addCustomer({
         fullName: trimmedName,
         nationalId: trimmedNationalId,
-        phoneNumber: trimmedPhone || null,
+        phoneNumber: formattedPhone,
         initialDebt: parsedDebt,
       });
 
@@ -237,8 +250,8 @@ export const CustomersScreen: FC = () => {
       if (!newCustomerItem.name || newCustomerItem.name === 'عميل بدون اسم') {
         newCustomerItem.name = trimmedName;
       }
-      if (!newCustomerItem.phone && trimmedPhone) {
-        newCustomerItem.phone = trimmedPhone;
+      if (!newCustomerItem.phone && formattedPhone) {
+        newCustomerItem.phone = formattedPhone;
       }
 
       setCustomers((prev) => [newCustomerItem, ...prev]);
@@ -712,31 +725,21 @@ export const CustomersScreen: FC = () => {
                 )}
               </div>
 
-              {/* Field 3: Phone Number */}
+              {/* Field 3: Phone Number with Country Code */}
               <div>
-                <label className="block text-sm font-bold text-[#0c2444] mb-1.5">
-                  رقم الجوال
-                </label>
-                <input
-                  type="tel"
-                  value={newCustomer.phoneNumber}
-                  maxLength={10}
-                  onChange={(e) => {
-                    setNewCustomer((p) => ({ ...p, phoneNumber: e.target.value }));
+                <PhoneInputWithCountry
+                  countryCode={newCustomer.countryCode}
+                  localNumber={newCustomer.phoneNumber}
+                  onCountryCodeChange={(code) => {
+                    setNewCustomer((p) => ({ ...p, countryCode: code }));
+                  }}
+                  onLocalNumberChange={(localNumber) => {
+                    setNewCustomer((p) => ({ ...p, phoneNumber: localNumber }));
                     setAddFieldErrors((p) => ({ ...p, phoneNumber: undefined }));
                     setAddSubmitError(null);
                   }}
-                  placeholder="05XXXXXXXX (10 أرقام)"
-                  dir="ltr"
-                  className={`w-full h-[40px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none transition-colors ${
-                    addFieldErrors.phoneNumber
-                      ? 'border-red-400 focus:border-red-500'
-                      : 'border-slate-200 focus:border-[#123663]'
-                  }`}
+                  error={addFieldErrors.phoneNumber}
                 />
-                {addFieldErrors.phoneNumber && (
-                  <p className="mt-1 text-xs text-red-600">{addFieldErrors.phoneNumber}</p>
-                )}
               </div>
 
               {/* Field 4: Initial Debt Balance (Optional) */}

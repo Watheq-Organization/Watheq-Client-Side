@@ -527,15 +527,62 @@ export function validateCustomerFullName(value: string): string | null {
 }
 
 /**
- * Client-side mirror of customer phoneNumber rules: exactly 10 digits.
+ * Parses any incoming phone number string into country code ('970' | '972') and 9-digit local number.
+ */
+export function parseCustomerPhone(rawPhone: string | null | undefined): {
+  countryCode: '970' | '972';
+  localNumber: string;
+} {
+  if (!rawPhone) {
+    return { countryCode: '970', localNumber: '' };
+  }
+  const digits = rawPhone.replace(/\D/g, '');
+  if (digits.startsWith('972')) {
+    const rest = digits.slice(3).replace(/^0+/, '');
+    return { countryCode: '972', localNumber: rest.slice(0, 9) };
+  }
+  if (digits.startsWith('970')) {
+    const rest = digits.slice(3).replace(/^0+/, '');
+    return { countryCode: '970', localNumber: rest.slice(0, 9) };
+  }
+  // Old format with leading 0 (e.g. 059... or 052...)
+  if (digits.startsWith('0')) {
+    const rest = digits.replace(/^0+/, '');
+    return { countryCode: '970', localNumber: rest.slice(0, 9) };
+  }
+  return { countryCode: '970', localNumber: digits.slice(0, 9) };
+}
+
+/**
+ * Formats country code and 9-digit local number into an international phone string (e.g. +970599123456).
+ */
+export function formatFullCustomerPhone(
+  countryCode: '970' | '972' | string,
+  localNumber: string
+): string {
+  const cleanLocal = localNumber.replace(/\D/g, '').replace(/^0+/, '').slice(0, 9);
+  if (!cleanLocal) return '';
+  const cleanCode = countryCode.replace(/\D/g, '') || '970';
+  return `+${cleanCode}${cleanLocal}`;
+}
+
+/**
+ * Client-side validation for customer local phoneNumber: exactly 9 digits.
  */
 export function validateCustomerPhoneNumber(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) return 'رقم الجوال مطلوب.';
-  if (!/^\d{10}$/.test(trimmed)) {
-    return 'رقم الجوال يجب أن يتكون من 10 أرقام (مثال: 05XXXXXXXX).';
+
+  const cleanDigits = trimmed.replace(/\D/g, '');
+  // Valid if 9 digits (local number) or 12 digits (with 970 / 972 prefix)
+  if (
+    cleanDigits.length === 9 ||
+    ((cleanDigits.startsWith('970') || cleanDigits.startsWith('972')) && cleanDigits.length === 12)
+  ) {
+    return null;
   }
-  return null;
+
+  return 'رقم الجوال يجب أن يتكون من 9 أرقام (مثال: 59XXXXXXX).';
 }
 
 /** Client-side mirror of the backend's address rule (section 8): optional, up to 300 characters. */
@@ -677,7 +724,7 @@ export function translateBackendCustomerMessage(msg: string): string {
     return 'يوجد عميل آخر مسجل بنفس رقم الجوال.';
   }
   if (lower.includes('phone') && (lower.includes('invalid') || lower.includes('format') || lower.includes('digits') || lower.includes('length'))) {
-    return 'صيغة رقم الجوال غير صحيحة (يجب أن يتكون من 10 أرقام).';
+    return 'صيغة رقم الجوال غير صحيحة (يجب أن يتكون من 9 أرقام).';
   }
   if (lower.includes('phone') && lower.includes('required')) {
     return 'رقم الجوال مطلوب.';
