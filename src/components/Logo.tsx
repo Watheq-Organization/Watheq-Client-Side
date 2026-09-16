@@ -17,17 +17,17 @@ export const Logo: FC<LogoProps> = ({
 
   // Dimension mapping for the emblem
   const iconDimensions = {
-    sm: 'w-9 h-9',
-    md: 'w-11 h-11',
-    lg: 'w-16 h-16',
-    xl: 'w-24 h-24 sm:w-28 sm:h-28',
+    sm: 'w-8 h-8 sm:w-9 sm:h-9',
+    md: 'w-8 h-8 sm:w-11 sm:h-11',
+    lg: 'w-12 h-12 sm:w-16 sm:h-16',
+    xl: 'w-20 h-20 sm:w-28 sm:h-28',
   };
 
   const textSizes = {
-    sm: { en: 'text-xs', ar: 'text-base', sub: 'text-[10px]' },
-    md: { en: 'text-sm', ar: 'text-xl', sub: 'text-xs' },
-    lg: { en: 'text-lg', ar: 'text-2xl', sub: 'text-sm' },
-    xl: { en: 'text-2xl', ar: 'text-4xl', sub: 'text-base' },
+    sm: { en: 'text-[11px] sm:text-xs', ar: 'text-sm sm:text-base', sub: 'text-[10px]' },
+    md: { en: 'text-xs sm:text-sm', ar: 'text-base sm:text-xl', sub: 'text-[11px] sm:text-xs' },
+    lg: { en: 'text-base sm:text-lg', ar: 'text-xl sm:text-2xl', sub: 'text-xs sm:text-sm' },
+    xl: { en: 'text-xl sm:text-2xl', ar: 'text-3xl sm:text-4xl', sub: 'text-sm sm:text-base' },
   };
 
   if (variant === 'emblem-only') {
