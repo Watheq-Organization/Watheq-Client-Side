@@ -81,7 +81,7 @@ export function validateReceiptFile(file: File): string | null {
 }
 
 /**
- * POST http://whateq.runasp.net/api/Debt/registerPayment
+ * POST https://whateq.runasp.net/api/Debt/registerPayment
  *
  * Maps the friendly string PaymentMethod the UI works with to the wire
  * enum value (1 = Cash, 2 = BankTransfer, 3 = CreditCard). There is no
@@ -391,7 +391,7 @@ export function toUpdatePaymentErrorMessage(error: unknown): string {
 /* ---------------------------------------------------------------------- */
 
 /**
- * GET http://whateq.runasp.net/api/Payment/history
+ * GET https://whateq.runasp.net/api/Payment/history
  *
  * Fetches the payment history for the merchant with optional filters:
  * PaymentMethod, Status, FromDate, ToDate, UserId.

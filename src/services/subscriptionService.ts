@@ -116,7 +116,7 @@ function formatPeriod(dto: SubscriptionPlanDto): string | undefined {
 }
 
 /**
- * Maps raw DTO from http://whateq.runasp.net/api/Subscription/plans
+ * Maps raw DTO from https://whateq.runasp.net/api/Subscription/plans
  * into frontend SubscriptionPlan model
  */
 export function mapSubscriptionPlanDtoToPlan(
@@ -297,7 +297,7 @@ export interface SubscriptionPlansResult {
 }
 
 /**
- * GET http://whateq.runasp.net/api/Subscription/plans
+ * GET https://whateq.runasp.net/api/Subscription/plans
  *
  * Fetches all available subscription plans from the backend.
  * Returns empty plans array and real HTTP status (e.g. 404) if not found or failed.
@@ -347,7 +347,7 @@ export async function getSubscriptionPlans(): Promise<SubscriptionPlansResult> {
 }
 
 /**
- * POST http://whateq.runasp.net/api/Subscription/checkout
+ * POST https://whateq.runasp.net/api/Subscription/checkout
  *
  * Creates a checkout session for subscribing to a plan.
  * Returns checkoutUrl (e.g. Stripe checkout page) when payment is required.

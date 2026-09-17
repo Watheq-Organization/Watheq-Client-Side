@@ -195,7 +195,7 @@ export async function registerUser(form: RegisterFormData): Promise<AuthResult> 
 }
 
 /**
- * POST http://whateq.runasp.net/api/auth/login
+ * POST https://whateq.runasp.net/api/auth/login
  *
  * Sends the user's phone number and password to the login endpoint.
  * On success, stores the returned token and resolves with success: true.

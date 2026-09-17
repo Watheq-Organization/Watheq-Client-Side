@@ -10,7 +10,7 @@ import type {
 } from '../types/invoice';
 
 /**
- * GET http://whateq.runasp.net/api/Invoice/debt/{debtId}
+ * GET https://whateq.runasp.net/api/Invoice/debt/{debtId}
  * Fetches the official electronic invoice data for a debt.
  */
 export async function getInvoiceByDebtId(debtId: number | string): Promise<DebtInvoiceDto | null> {
@@ -20,7 +20,7 @@ export async function getInvoiceByDebtId(debtId: number | string): Promise<DebtI
 }
 
 /**
- * GET http://whateq.runasp.net/api/Invoice/payment/{id}
+ * GET https://whateq.runasp.net/api/Invoice/payment/{id}
  * Fetches the official electronic payment receipt / invoice for a payment.
  */
 export async function getInvoiceByPaymentId(paymentId: number | string): Promise<PaymentInvoiceDto | null> {
@@ -50,7 +50,7 @@ export async function getInvoicePdfBlob(invoiceId: number | string = 15): Promis
 }
 
 /**
- * GET http://whateq.runasp.net/api/Invoice/15/pdf
+ * GET https://whateq.runasp.net/api/Invoice/15/pdf
  * Explicit helper to fetch invoice 15 PDF directly as requested.
  */
 export async function getInvoice15PdfBlob(): Promise<Blob> {
@@ -58,11 +58,11 @@ export async function getInvoice15PdfBlob(): Promise<Blob> {
 }
 
 /**
- * Returns the direct absolute API URL for the PDF (e.g. http://whateq.runasp.net/api/Invoice/15/pdf).
+ * Returns the direct absolute API URL for the PDF (e.g. https://whateq.runasp.net/api/Invoice/15/pdf).
  */
 export function getInvoicePdfDirectUrl(invoiceId: number | string = 15): string {
   const cleanId = String(invoiceId).replace(/[^0-9]/g, '') || '15';
-  return `http://whateq.runasp.net/api/Invoice/${cleanId}/pdf`;
+  return `https://whateq.runasp.net/api/Invoice/${cleanId}/pdf`;
 }
 
 /**
