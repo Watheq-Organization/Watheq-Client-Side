@@ -24,7 +24,7 @@ export const Footer: FC = () => {
 
         {/* Copyright in Center */}
         <div className="text-center font-normal">
-          © 2024 وثّق - تطبيق إدارة الديون والتوثيق. جميع الحقوق محفوظة.
+          © 2026 وثّق - تطبيق إدارة الديون والتوثيق. جميع الحقوق محفوظة.
         </div>
 
         {/* Footer Links */}

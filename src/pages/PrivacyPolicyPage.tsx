@@ -64,7 +64,7 @@ export const PrivacyPolicyPage: FC = () => {
           <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0c2444] font-cairo tracking-tight">
             سياسة الخصوصية
           </h1>
-          <p className="text-slate-500 text-sm sm:text-base mt-3">تاريخ آخر تحديث: 15 أكتوبر 2024</p>
+          <p className="text-slate-500 text-sm sm:text-base mt-3">تاريخ آخر تحديث: 17 سبتمبر 2026</p>
           <div className="mt-6 border-t border-slate-100" />
         </div>
 

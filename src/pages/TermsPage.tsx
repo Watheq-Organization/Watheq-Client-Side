@@ -53,7 +53,7 @@ export const TermsPage: FC = () => {
             <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] font-cairo tracking-tight">
               شروط الاستخدام
             </h1>
-            <p className="text-slate-500 text-xs sm:text-sm mt-2">آخر تحديث: 24 أكتوبر 2024</p>
+            <p className="text-slate-500 text-xs sm:text-sm mt-2">تاريخ آخر تحديث: 17 سبتمبر 2026</p>
           </div>
 
           {/* Sections */}

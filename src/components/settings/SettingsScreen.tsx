@@ -450,7 +450,7 @@ export const SettingsScreen: FC = () => {
                       تاريخ التجديد
                     </span>
                     <span className="font-bold text-slate-800 font-cairo text-xs sm:text-sm">
-                      15 أكتوبر 2024
+                      17 سبتمبر 2026
                     </span>
                   </div>
                 </div>
