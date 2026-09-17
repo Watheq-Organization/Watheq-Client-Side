@@ -36,7 +36,7 @@ export const Logo: FC<LogoProps> = ({
         <img
           src="/logo-hd.png"
           alt="شعار وثّق"
-          className={`${iconDimensions[size]} object-contain drop-shadow-xl rounded-2xl transition-transform duration-300 hover:scale-105`}
+          className={`${iconDimensions[size]} object-contain transition-transform duration-300 hover:scale-105`}
         />
       </div>
     );
@@ -48,7 +48,7 @@ export const Logo: FC<LogoProps> = ({
       <img
         src="/logo-hd.png"
         alt="شعار وثّق"
-        className={`${iconDimensions[size]} object-contain drop-shadow-md rounded-2xl transition-transform duration-200 hover:scale-105`}
+        className={`${iconDimensions[size]} object-contain transition-transform duration-200 hover:scale-105`}
       />
 
       {/* Brand Typography */}

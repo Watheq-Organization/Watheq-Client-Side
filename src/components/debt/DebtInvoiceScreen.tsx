@@ -708,7 +708,7 @@ export const DebtInvoiceScreen: FC = () => {
                     <span>منظومة وثّق</span>
                   </div>
                   <div className="text-xs font-black tracking-wide my-0.5">معتمد إلكترونياً</div>
-                  <div className="text-[10px] font-mono font-bold text-emerald-700">14-03-2024</div>
+                  <div className="text-[10px] font-mono font-bold text-emerald-700">17-09-2026</div>
                 </div>
 
                 {/* QR Code Verification */}
@@ -733,7 +733,7 @@ export const DebtInvoiceScreen: FC = () => {
 
               {/* Section 6: Document Legal Footer */}
               <div className="border-t border-slate-200/80 pt-4 text-center text-[10px] sm:text-[11px] text-slate-400 font-medium">
-                اتصال مشفر بمعايير التشفير المصرفي 256-bit SSL • سياسة الخصوصية والشروط • الدعم الفني المباشر • وثّق 2024 ©
+                اتصال مشفر بمعايير التشفير المصرفي 256-bit SSL • سياسة الخصوصية والشروط • الدعم الفني المباشر • وثّق 2026 ©
               </div>
             </div>
           </div>

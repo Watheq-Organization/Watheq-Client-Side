@@ -83,11 +83,11 @@ export const Sidebar: FC<SidebarProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {/* Logo Emblem */}
-              <div className="relative w-11 h-11 bg-white/10 rounded-xl flex items-center justify-center p-1.5 border border-white/15 shadow-inner">
+              <div className="relative w-10 h-10 flex items-center justify-center flex-shrink-0">
                 <img
                   src="/logo-hd.png"
                   alt="وثّق"
-                  className="w-full h-full object-contain drop-shadow"
+                  className="w-full h-full object-contain"
                 />
               </div>
 
