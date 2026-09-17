@@ -95,7 +95,7 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
                 <tr className="border-b border-slate-100 text-xs font-semibold text-slate-500">
                   <th className="pb-3 pr-2 font-medium">اسم العميل</th>
                   <th className="pb-3 text-center font-medium">المبلغ (ش.إ)</th>
-                  <th className="pb-3 text-center font-medium">تاريخ التسجيل</th>
+                  <th className="pb-3 text-center font-medium">تاريخ الاستحقاق</th>
                   <th className="pb-3 pl-2 text-left font-medium">الإجراء</th>
                 </tr>
               </thead>

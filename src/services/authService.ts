@@ -1,5 +1,6 @@
 import { httpClient, ApiError } from '../api/httpClient';
 import { clearAllTokens } from '../lib/authToken';
+import { API_BASE_URL } from '../config/env';
 import type {
   RegisterFormData,
   RegisterApiPayload,
@@ -7,6 +8,23 @@ import type {
   AuthResult,
   LoginFormData,
 } from '../types/auth';
+
+/**
+ * Returns the full URL for the backend Google OAuth endpoint:
+ * GET http://whateq.runasp.net/api/Auth/google-login
+ */
+export function getGoogleLoginUrl(): string {
+  const base = (API_BASE_URL || 'http://whateq.runasp.net/api').replace(/\/+$/, '');
+  return `${base}/Auth/google-login`;
+}
+
+/**
+ * Initiates the Google OAuth login flow by redirecting the browser to the backend endpoint.
+ */
+export function initiateGoogleLogin(): void {
+  window.location.href = getGoogleLoginUrl();
+}
+
 
 /**
  * ⚠️ UNVERIFIED BACKEND CONTRACT — see types/auth.ts for full context.

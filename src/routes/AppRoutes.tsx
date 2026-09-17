@@ -27,8 +27,11 @@ import { ResetPasswordPage } from '../pages/ResetPasswordPage';
 import { LogoutPage } from '../pages/LogoutPage';
 import TermsPage from '../pages/TermsPage.tsx';
 import { ProtectedRoute } from './ProtectedRoute';
+import { useOAuthHandler } from '../hooks/useOAuthHandler';
 
 export const AppRoutes: FC = () => {
+  useOAuthHandler();
+
   return (
     <Routes>
       <Route path={PATHS.HOME} element={<Navigate to={PATHS.SPLASH} replace />} />

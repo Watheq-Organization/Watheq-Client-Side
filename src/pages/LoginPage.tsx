@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { FormEvent, FC } from 'react';
 import { Phone, ShieldCheck, Zap, Lock, ArrowLeft, AlertCircle, Apple } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { IconInput, ICON_INPUT_FONT_SANS_CLASSNAME } from '../components/ui/IconInput';
@@ -10,13 +10,14 @@ import { LoadingButton } from '../components/ui/LoadingButton';
 import { SocialAuthButton } from '../components/auth/SocialAuthButton';
 import { GoogleIcon } from '../components/icons/GoogleIcon';
 import { Logo } from '../components/Logo';
-import { loginUser } from '../services/authService';
+import { loginUser, initiateGoogleLogin } from '../services/authService';
 import { PATHS } from '../routes/paths';
 import { useAuth } from '../hooks/useAuth';
 import type { LoginFormData } from '../types/auth';
 
 export const LoginPage: FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
 
   const [formData, setFormData] = useState<LoginFormData>({
@@ -27,6 +28,12 @@ export const LoginPage: FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [infoNotice, setInfoNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (location.state?.error) {
+      setErrorMessage(location.state.error);
+    }
+  }, [location.state]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -55,13 +62,14 @@ export const LoginPage: FC = () => {
     navigate(PATHS.FORGOT_PASSWORD);
   };
 
-
   const handleSocialAuth = (provider: 'Google' | 'Apple') => {
-    // No OAuth integration exists in this project for either provider.
-    // Per project instructions, we don't fabricate credentials or
-    // endpoints — just report that it's not connected yet.
-    setInfoNotice(`تسجيل الدخول عبر ${provider} غير متاح حالياً — يتطلب إعداد OAuth من الخادم.`);
+    if (provider === 'Google') {
+      initiateGoogleLogin();
+      return;
+    }
+    setInfoNotice(`تسجيل الدخول عبر ${provider} غير متاح حالياً.`);
   };
+
 
   return (
     <div className="min-h-screen flex flex-col justify-between bg-white text-slate-800 font-cairo antialiased selection:bg-emerald-100 selection:text-emerald-900">

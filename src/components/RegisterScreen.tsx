@@ -17,7 +17,9 @@ import {
 import { useNavigate, Link } from 'react-router-dom';
 import { Navbar } from './layout/Navbar';
 import { Footer } from './layout/Footer';
-import { registerUser } from '../services/authService';
+import { registerUser, initiateGoogleLogin } from '../services/authService';
+import { SocialAuthButton } from './auth/SocialAuthButton';
+import { GoogleIcon } from './icons/GoogleIcon';
 import { PATHS } from '../routes/paths';
 import type { RegisterFormData } from '../types/auth';
 
@@ -323,8 +325,24 @@ export const RegisterScreen: FC = () => {
                   </button>
                 </div>
 
+                {/* Social Login Divider */}
+                <div className="flex items-center gap-3 pt-1">
+                  <div className="flex-1 h-px bg-slate-200" />
+                  <span className="text-xs text-slate-400 whitespace-nowrap">أو أنشئ حسابك عبر</span>
+                  <div className="flex-1 h-px bg-slate-200" />
+                </div>
+
+                {/* Google Sign-in/Sign-up */}
+                <div>
+                  <SocialAuthButton
+                    label="التسجيل بواسطة Google"
+                    icon={<GoogleIcon className="w-4 h-4" />}
+                    onClick={() => initiateGoogleLogin()}
+                  />
+                </div>
+
                 {/* Sign In Redirect */}
-                <div className="text-center pt-3 text-xs sm:text-sm text-slate-500">
+                <div className="text-center pt-2 text-xs sm:text-sm text-slate-500">
                   <span>لديك حساب بالفعل؟ </span>
                   <button
                     type="button"

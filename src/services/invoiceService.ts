@@ -248,7 +248,7 @@ function normalizePaymentInvoiceResponse(raw: unknown, paymentIdFallback: string
     paymentTime: (r.paymentTime ?? r.PaymentTime ?? r.time ?? r.Time)
       ? String(r.paymentTime ?? r.PaymentTime ?? r.time ?? r.Time)
       : undefined,
-    paymentMethod: (r.paymentMethod ?? r.PaymentMethod ?? 'نقداً') as number | string,
+    paymentMethod: (r.paymentMethod ?? r.PaymentMethod ?? r.paymentMethodName ?? r.PaymentMethodName ?? r.method ?? r.Method) as number | string | undefined,
     status: (r.status ?? r.Status) ? String(r.status ?? r.Status) : 'تم التحقق',
     previousDebt: (r.previousDebt ?? r.PreviousDebt) !== undefined ? Number(r.previousDebt ?? r.PreviousDebt) : undefined,
     remainingDebt: (r.remainingDebt ?? r.RemainingDebt) !== undefined ? Number(r.remainingDebt ?? r.RemainingDebt) : undefined,

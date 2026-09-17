@@ -2,23 +2,23 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "http://whateq.runasp.net/api/:path*"
+      "destination": "https://whateq.runasp.net/api/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "http://whateq.runasp.net/uploads/:path*"
+      "destination": "https://whateq.runasp.net/uploads/:path*"
     },
     {
       "source": "/Uploads/:path*",
-      "destination": "http://whateq.runasp.net/Uploads/:path*"
+      "destination": "https://whateq.runasp.net/Uploads/:path*"
     },
     {
       "source": "/images/:path*",
-      "destination": "http://whateq.runasp.net/images/:path*"
+      "destination": "https://whateq.runasp.net/images/:path*"
     },
     {
       "source": "/files/:path*",
-      "destination": "http://whateq.runasp.net/files/:path*"
+      "destination": "https://whateq.runasp.net/files/:path*"
     },
     {
       "source": "/((?!api/|uploads/|Uploads/|images/|files/).*)",

@@ -252,6 +252,7 @@ export const NewPaymentScreen: FC = () => {
       const prevTotalPaid = Number(customerProfile?.totalPaid) || 0;
       const newTotalPaid = returnedPaid > 0 ? returnedPaid : (prevTotalPaid + numericAmount);
       setStoredTotalPaid(id, newTotalPaid);
+      window.dispatchEvent(new Event('watheq:activity-updated'));
 
       navigate(`/customers/${id}`, { state: { toast: 'تم حفظ الدفعة بنجاح.' } });
     } catch (error) {
@@ -400,9 +401,8 @@ export const NewPaymentScreen: FC = () => {
                       }}
                       placeholder="0.00"
                       dir="ltr"
-                      className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-50/70 border rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right font-sans ${
-                        fieldErrors.amount ? 'border-rose-400' : 'border-slate-200'
-                      }`}
+                      className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-50/70 border rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right font-sans ${fieldErrors.amount ? 'border-rose-400' : 'border-slate-200'
+                        }`}
                     />
                   </div>
                   {fieldErrors.amount && (
@@ -428,9 +428,8 @@ export const NewPaymentScreen: FC = () => {
                       onClick={(e) => !isEditMode && e.currentTarget.showPicker?.()}
                       dir="ltr"
                       placeholder="mm/dd/yyyy"
-                      className={`w-full pr-10 pl-3.5 py-2.5 bg-slate-50/70 border rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-left font-sans ${
-                        isEditMode ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
-                      } ${fieldErrors.paymentDate ? 'border-rose-400' : 'border-slate-200'}`}
+                      className={`w-full pr-10 pl-3.5 py-2.5 bg-slate-50/70 border rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-left font-sans ${isEditMode ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                        } ${fieldErrors.paymentDate ? 'border-rose-400' : 'border-slate-200'}`}
                     />
                   </div>
                   {fieldErrors.paymentDate && (
@@ -452,11 +451,10 @@ export const NewPaymentScreen: FC = () => {
                         type="button"
                         disabled={isSaving}
                         onClick={() => setMethod(option.value)}
-                        className={`flex flex-col items-center justify-center gap-1.5 py-3 px-2 rounded-xl border-2 text-xs font-bold transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-70 ${
-                          isSelected
+                        className={`flex flex-col items-center justify-center gap-1.5 py-3 px-2 rounded-xl border-2 text-xs font-bold transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-70 ${isSelected
                             ? 'border-[#0c2444] bg-slate-50 text-[#0c2444] shadow-xs'
                             : 'border-slate-200 text-slate-500 hover:border-slate-300'
-                        }`}
+                          }`}
                       >
                         <Icon className={`w-5 h-5 ${isSelected ? 'text-[#0c2444]' : 'text-slate-400'}`} />
                         <span>{option.label}</span>
@@ -552,11 +550,10 @@ export const NewPaymentScreen: FC = () => {
                   type="button"
                   disabled={isEditMode}
                   onClick={() => !isEditMode && fileInputRef.current?.click()}
-                  className={`w-full flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed py-6 px-3 text-center transition-colors ${
-                    isEditMode
+                  className={`w-full flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed py-6 px-3 text-center transition-colors ${isEditMode
                       ? 'border-slate-200 bg-slate-50/50 cursor-not-allowed opacity-60'
                       : 'border-slate-200 hover:border-slate-300 cursor-pointer'
-                  }`}
+                    }`}
                 >
                   <ImagePlus className="w-6 h-6 text-slate-300" />
                   <span className="text-sm font-semibold text-slate-600">

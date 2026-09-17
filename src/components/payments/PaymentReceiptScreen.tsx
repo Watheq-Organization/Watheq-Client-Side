@@ -165,8 +165,24 @@ export const PaymentReceiptScreen: FC = () => {
 
     const paymentTime =
       serverPayment?.paymentTime ?? serverPayment?.time ?? statePayment?.time ?? '—';
-    const method =
-      String(serverPayment?.paymentMethod ?? statePayment?.method ?? 'نقداً');
+
+    const matchingTx = customerProfile?.transactions?.find(
+      (tx) => String(tx.id) === String(id) || (receiptNumber && String(tx.reference) === String(receiptNumber))
+    );
+
+    const rawMethod =
+      (serverPayment?.paymentMethod && serverPayment.paymentMethod !== 'نقداً'
+        ? serverPayment.paymentMethod
+        : undefined) ??
+      (statePayment?.method && statePayment.method !== 'نقداً'
+        ? statePayment.method
+        : undefined) ??
+      matchingTx?.paymentMethod ??
+      serverPayment?.paymentMethod ??
+      statePayment?.method ??
+      'نقداً';
+
+    const method = String(rawMethod);
 
     // Real accounting calculation (no mock +3000)
     let previousDebt = 0;
@@ -243,13 +259,27 @@ export const PaymentReceiptScreen: FC = () => {
   };
 
   const getPaymentMethodDetails = (method: string) => {
-    if (method.includes('بنك') || method === 'bank_transfer') {
+    const m = (method || '').trim().toLowerCase().replace(/[\s_-]/g, '');
+    if (
+      m.includes('بنك') ||
+      m.includes('تحويل') ||
+      m.includes('bank') ||
+      m.includes('transfer') ||
+      m === '2'
+    ) {
       return {
         label: 'تحويل بنكي (سداد موثق)',
         icon: Landmark,
       };
     }
-    if (method.includes('مدى') || method.includes('بطاقة') || method === 'credit_card') {
+    if (
+      m.includes('مدى') ||
+      m.includes('بطاقة') ||
+      m.includes('محفظ') ||
+      m.includes('card') ||
+      m.includes('credit') ||
+      m === '3'
+    ) {
       return {
         label: 'مدى (سداد إلكتروني معتمد)',
         icon: CreditCard,

@@ -15,7 +15,7 @@ function resolveApiBaseUrl(): string {
   if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
     const envUrl = import.meta.env.VITE_API_BASE_URL as string | undefined;
     if (!envUrl || envUrl.startsWith('http://')) {
-      return '/api';
+      return (envUrl && envUrl.startsWith('https://')) ? envUrl : 'https://whateq.runasp.net/api';
     }
     return envUrl;
   }
