@@ -1,6 +1,7 @@
 import { httpClient, ApiError } from '../api/httpClient';
 import type { DashboardSummary, OverduePaymentItem, RecentActivityItem } from '../types/dashboard';
 import { getCustomers, getCustomerProfile } from './customerService';
+import { getOverdueDebtsReport } from './reportService';
 import { parseApiDate, formatRelativeTime } from '../lib/dateUtils';
 
 /**
@@ -19,9 +20,25 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
 
 /**
  * Fetches real overdue payments from the merchant's customer records in the database.
- * Filters customers with total debt / outstanding balance or overdue status.
+ * First checks the real overdue debts report to get actual debt due dates.
  */
 export async function getOverduePayments(): Promise<OverduePaymentItem[]> {
+  try {
+    const report = await getOverdueDebtsReport({ pageSize: 15 });
+    if (report.details?.items && report.details.items.length > 0) {
+      return report.details.items.map((item) => ({
+        id: String(item.customerId),
+        customerName: item.customerName || 'عميل بدون اسم',
+        amount: Number(item.remainingAmount || item.originalAmount).toLocaleString('ar-SA'),
+        dueDate: formatArabicDate(item.dueDate),
+        phone: '',
+      }));
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[getOverduePayments] Falling back to customer debts:', err);
+  }
+
   const dtos = await getCustomers();
   const overdueCustomers = dtos.filter(
     (c) => (c.currentBalance ?? c.totalDebt) > 0 || (c.status && c.status.toLowerCase().includes('overdue'))

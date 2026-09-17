@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import type { FC } from 'react';
 import {
   Search,
@@ -14,15 +14,22 @@ import {
   Clock,
   UserPlus,
   FileText,
-  Trash2,
   Check,
   ChevronDown,
+  Loader2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useMerchantProfile } from '../../services/merchantProfileService';
 import { PATHS } from '../../routes/paths';
 import { LogoutModal } from './LogoutModal';
 import { logoutUser } from '../../services/authService';
+import {
+  getNotifications,
+  getUnreadNotificationsCount,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+} from '../../services/notificationService';
+import type { AppNotification } from '../../types/notification';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -33,52 +40,6 @@ interface HeaderProps {
   hideSearch?: boolean;
   className?: string;
 }
-
-interface NotificationItem {
-  id: string;
-  title: string;
-  message: string;
-  time: string;
-  isRead: boolean;
-  type: 'payment' | 'debt' | 'customer' | 'report';
-}
-
-const NOTIFICATIONS_STORAGE_KEY = 'watheq_notifications_list';
-
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: 'n-1',
-    title: 'دفعة جديدة مستلمة',
-    message: 'قام العميل خالد السعد بسداد مبلغ 1,200 شيكل عبر التحويل البنكي.',
-    time: 'منذ 15 دقيقة',
-    isRead: false,
-    type: 'payment',
-  },
-  {
-    id: 'n-2',
-    title: 'تذكير باستحقاق دين',
-    message: 'يستحق اليوم دين بقيمة 4,500 شيكل على مؤسسة النور للتجارة.',
-    time: 'منذ ساعتين',
-    isRead: false,
-    type: 'debt',
-  },
-  {
-    id: 'n-3',
-    title: 'إضافة عميل جديد',
-    message: 'تم إضافة العميل "شركة التقنية الحديثة" بنجاح إلى قاعدة البيانات.',
-    time: 'أمس',
-    isRead: false,
-    type: 'customer',
-  },
-  {
-    id: 'n-4',
-    title: 'تقرير مالي جاهز',
-    message: 'تم إنشاء تقرير التحصيل الأسبوعي وجاهز للتصدير كملف PDF.',
-    time: 'منذ يومين',
-    isRead: true,
-    type: 'report',
-  },
-];
 
 export const Header: FC<HeaderProps> = ({
   onMenuClick,
@@ -101,30 +62,58 @@ export const Header: FC<HeaderProps> = ({
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // Notifications state with localStorage persistence
-  const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
-    try {
-      const saved = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch {
-      // ignore
-    }
-    return INITIAL_NOTIFICATIONS;
-  });
+  // Notifications state from API
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [isLoadingNotifs, setIsLoadingNotifs] = useState(false);
 
   const profileDropdownRef = useRef<HTMLDivElement>(null);
   const notifDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Persist notifications on change
-  useEffect(() => {
+  const loadNotifications = useCallback(async () => {
     try {
-      localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifications));
+      setIsLoadingNotifs(true);
+      const [list, count] = await Promise.all([
+        getNotifications().catch(() => []),
+        getUnreadNotificationsCount().catch(() => 0),
+      ]);
+      setNotifications(list);
+      // If count from API is 0 but list has unread items, calculate from list
+      const calculatedUnread = list.filter((n) => !n.isRead).length;
+      setUnreadCount(count > 0 ? count : calculatedUnread);
     } catch {
       // ignore
+    } finally {
+      setIsLoadingNotifs(false);
     }
-  }, [notifications]);
+  }, []);
+
+  useEffect(() => {
+    loadNotifications();
+
+    // Auto-refresh notifications every 30 seconds
+    const interval = setInterval(loadNotifications, 30000);
+
+    // Listen for app-level activity events (e.g. debt added, payment registered)
+    const handleActivity = () => {
+      loadNotifications();
+    };
+    window.addEventListener('watheq:activity-updated', handleActivity);
+    window.addEventListener('focus', handleActivity);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('watheq:activity-updated', handleActivity);
+      window.removeEventListener('focus', handleActivity);
+    };
+  }, [loadNotifications]);
+
+  // Refresh notifications immediately when opening dropdown
+  useEffect(() => {
+    if (isNotifOpen) {
+      loadNotifications();
+    }
+  }, [isNotifOpen, loadNotifications]);
 
   // Click outside to close dropdowns
   useEffect(() => {
@@ -154,24 +143,30 @@ export const Header: FC<HeaderProps> = ({
     };
   }, []);
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
-
-  const markAsRead = (id: string) => {
+  const handleMarkAsRead = async (id: string) => {
+    // Optimistic UI update
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
     );
+    setUnreadCount((prev) => Math.max(0, prev - 1));
+
+    try {
+      await markNotificationAsRead(id);
+    } catch {
+      // ignore network errors for notification read status
+    }
   };
 
-  const markAllAsRead = () => {
+  const handleMarkAllAsRead = async () => {
+    // Optimistic UI update
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-  };
+    setUnreadCount(0);
 
-  const deleteNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-  };
-
-  const clearAllNotifications = () => {
-    setNotifications([]);
+    try {
+      await markAllNotificationsAsRead();
+    } catch {
+      // ignore
+    }
   };
 
   const handleConfirmLogout = async () => {
@@ -188,7 +183,7 @@ export const Header: FC<HeaderProps> = ({
       ? notifications.filter((n) => !n.isRead)
       : notifications;
 
-  const getNotifIcon = (type: NotificationItem['type']) => {
+  const getNotifIcon = (type: AppNotification['type']) => {
     switch (type) {
       case 'payment':
         return (
@@ -308,7 +303,7 @@ export const Header: FC<HeaderProps> = ({
                   {unreadCount > 0 && (
                     <button
                       type="button"
-                      onClick={markAllAsRead}
+                      onClick={handleMarkAllAsRead}
                       className="text-xs font-semibold text-[#051838] hover:underline cursor-pointer"
                     >
                       تحديد الكل كمقروء
@@ -344,7 +339,12 @@ export const Header: FC<HeaderProps> = ({
 
                 {/* Notifications List */}
                 <div className="max-h-84 overflow-y-auto divide-y divide-slate-100">
-                  {filteredNotifications.length === 0 ? (
+                  {isLoadingNotifs && notifications.length === 0 ? (
+                    <div className="py-10 flex flex-col items-center justify-center text-slate-400 gap-2">
+                      <Loader2 className="w-6 h-6 animate-spin text-[#051838]" />
+                      <span className="text-xs font-medium font-cairo">جاري تحميل الإشعارات...</span>
+                    </div>
+                  ) : filteredNotifications.length === 0 ? (
                     <div className="py-10 text-center text-slate-400">
                       <Bell className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                       <p className="text-sm font-medium">لا توجد إشعارات حالياً</p>
@@ -353,7 +353,7 @@ export const Header: FC<HeaderProps> = ({
                     filteredNotifications.map((notif) => (
                       <div
                         key={notif.id}
-                        onClick={() => markAsRead(notif.id)}
+                        onClick={() => !notif.isRead && handleMarkAsRead(notif.id)}
                         className={`p-3.5 sm:p-4 flex items-start gap-3 transition-colors cursor-pointer group relative ${
                           notif.isRead ? 'bg-white hover:bg-slate-50/80' : 'bg-blue-50/30 hover:bg-blue-50/60'
                         }`}
@@ -369,8 +369,13 @@ export const Header: FC<HeaderProps> = ({
                             >
                               {notif.title}
                             </p>
-                            {!notif.isRead && (
-                              <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0" />
+                            {!notif.isRead ? (
+                              <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0" title="غير مقروء" />
+                            ) : (
+                              <span className="text-[10px] font-medium text-slate-400 shrink-0 flex items-center gap-0.5">
+                                <Check className="w-3 h-3 text-emerald-500" />
+                                <span>مقروء</span>
+                              </span>
                             )}
                           </div>
 
@@ -383,18 +388,6 @@ export const Header: FC<HeaderProps> = ({
                               <Clock className="w-3 h-3" />
                               <span>{notif.time}</span>
                             </span>
-
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteNotification(notif.id);
-                              }}
-                              title="حذف التنبيه"
-                              className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-500 rounded transition-opacity"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
                           </div>
                         </div>
                       </div>
@@ -405,13 +398,9 @@ export const Header: FC<HeaderProps> = ({
                 {/* Panel Footer */}
                 {notifications.length > 0 && (
                   <div className="p-3 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between text-xs">
-                    <button
-                      type="button"
-                      onClick={clearAllNotifications}
-                      className="text-slate-500 hover:text-rose-600 font-medium transition-colors cursor-pointer"
-                    >
-                      مسح كافة الإشعارات
-                    </button>
+                    <span className="text-slate-400 font-medium">
+                      {unreadCount === 0 ? 'جميع الإشعارات مقروءة' : `${unreadCount} إشعار غير مقروء`}
+                    </span>
                     <button
                       type="button"
                       onClick={() => setIsNotifOpen(false)}

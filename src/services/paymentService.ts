@@ -1,4 +1,5 @@
 import { httpClient, ApiError } from '../api/httpClient';
+import { getCustomerProfile } from './customerService';
 import type {
   DeletePaymentResponseDto,
   NewPaymentFormState,
@@ -160,8 +161,8 @@ export function toRegisterPaymentErrorMessage(error: unknown): string {
       typeof body === 'object' && body !== null && typeof body.message === 'string'
         ? body.message
         : typeof body === 'string'
-        ? body
-        : '';
+          ? body
+          : '';
 
     if (message.includes('No business found for the current merchant')) {
       return 'لا يوجد نشاط تجاري مرتبط بحسابك. يرجى التواصل مع الدعم.';
@@ -247,8 +248,8 @@ export function toDeletePaymentErrorMessage(error: unknown): string {
       typeof body === 'object' && body !== null && typeof body.message === 'string'
         ? body.message
         : typeof body === 'string'
-        ? body
-        : '';
+          ? body
+          : '';
 
     if (message.includes('No business found for the current merchant')) {
       return 'لا يوجد نشاط تجاري مرتبط بحسابك. يرجى التواصل مع الدعم.';
@@ -335,8 +336,8 @@ export function toUpdatePaymentErrorMessage(error: unknown): string {
       typeof body === 'object' && body !== null && typeof body.message === 'string'
         ? body.message
         : typeof body === 'string'
-        ? body
-        : '';
+          ? body
+          : '';
 
     if (message.includes('No business found for the current merchant')) {
       return 'لا يوجد نشاط تجاري مرتبط بحسابك. يرجى التواصل مع الدعم.';
@@ -410,11 +411,11 @@ export async function getPaymentHistory(
       let numMethod: number | undefined;
       if (typeof params.paymentMethod === 'number') {
         numMethod = params.paymentMethod;
-      } else if (
-        typeof params.paymentMethod === 'string' &&
-        params.paymentMethod in PAYMENT_METHOD_TO_NUMERIC
-      ) {
-        numMethod = PAYMENT_METHOD_TO_NUMERIC[params.paymentMethod as PaymentMethod];
+      } else {
+        const s = String(params.paymentMethod).trim().toLowerCase().replace(/[\s_-]/g, '');
+        if (s === '1' || s.includes('cash') || s.includes('نقد')) numMethod = 1;
+        else if (s === '2' || s.includes('bank') || s.includes('بنك') || s.includes('تحويل') || s.includes('transfer')) numMethod = 2;
+        else if (s === '3' || s.includes('card') || s.includes('credit') || s.includes('محفظ') || s.includes('مدى') || s.includes('بطاق')) numMethod = 3;
       }
       if (numMethod !== undefined) {
         searchParams.append('PaymentMethod', String(numMethod));
@@ -526,6 +527,44 @@ export async function getPaymentHistory(
         notes,
       };
     });
+
+    // Enrich items with true paymentMethod from customer profile transactions
+    const uniqueCustomerIds = Array.from(
+      new Set(items.map((i) => i.customerId).filter(Boolean))
+    );
+
+    if (uniqueCustomerIds.length > 0) {
+      try {
+        const profiles = await Promise.all(
+          uniqueCustomerIds.map((cid) => getCustomerProfile(String(cid)).catch(() => null))
+        );
+        const txMap = new Map<string, string>();
+        for (const p of profiles) {
+          if (!p || !Array.isArray(p.transactions)) continue;
+          for (const tx of p.transactions) {
+            if (tx.paymentMethod) {
+              if (tx.id) txMap.set(String(tx.id), tx.paymentMethod);
+              if (tx.reference) txMap.set(String(tx.reference), tx.paymentMethod);
+              txMap.set(`${p.id}_${tx.amount}`, tx.paymentMethod);
+            }
+          }
+        }
+
+        for (const it of items) {
+          const matchedMethod =
+            (it.paymentId ? txMap.get(String(it.paymentId)) : undefined) ??
+            (it.id ? txMap.get(String(it.id)) : undefined) ??
+            (it.receiptNumber ? txMap.get(String(it.receiptNumber)) : undefined) ??
+            (it.customerId ? txMap.get(`${it.customerId}_${it.amount}`) : undefined);
+
+          if (matchedMethod) {
+            it.paymentMethod = matchedMethod;
+          }
+        }
+      } catch (enrichErr) {
+        console.warn('[getPaymentHistory] Could not enrich payment methods:', enrichErr);
+      }
+    }
 
     const totalAmount = items.reduce(
       (acc, curr) => acc + (Number(curr.amount) || 0),

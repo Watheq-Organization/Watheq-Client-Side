@@ -74,6 +74,8 @@ interface ActivityItem {
   rawStatus: string | null;
   /** Raw payment method (tx.paymentMethod), null for debts. */
   rawPaymentMethod?: string | null;
+  /** Formatted due date for debts, if available. */
+  dueDate?: string;
 }
 
 /**
@@ -563,13 +565,14 @@ export const CustomerDetailsScreen: FC = () => {
   // getCustomerProfile (already newest-first, per the API contract).
   const activities: ActivityItem[] = useMemo(() => {
     return profileTransactions.map((tx, index) => {
-      const isDebt = tx.type === 'Debt';
+      const isDebt =
+        String(tx.type || '').toLowerCase().includes('debt') ||
+        String(tx.type || '').includes('دين');
       const sign = isDebt ? '+' : '-';
-      // TODO: Remove debug log after fixing payment method issue
-      if (!isDebt) {
-        // eslint-disable-next-line no-console
-        console.log('[CustomerDetails] Payment tx.paymentMethod raw value:', JSON.stringify(tx.paymentMethod));
-      }
+      const cachedDebt = isDebt && tx.reference ? getEditableDebt(customer.id, tx.reference) : null;
+      const rawDueDate = isDebt ? (tx.dueDate || cachedDebt?.dueDate) : null;
+      const formattedDueDate = rawDueDate ? formatApiDate(rawDueDate) : undefined;
+
       return {
         id: `${tx.reference || (isDebt ? 'debt' : 'payment')}-${index}`,
         type: isDebt ? 'debt' : 'payment',
@@ -587,6 +590,7 @@ export const CustomerDetailsScreen: FC = () => {
         amountColor: isDebt ? 'text-[#e11d48]' : 'text-emerald-600',
         description: tx.description || (isDebt ? 'معاملة دين' : 'معاملة دفع'),
         date: formatApiDate(tx.date, true),
+        dueDate: formattedDueDate,
         balanceLabel: `${tx.balance.toFixed(2)} ${tx.currencyCode || 'ش.إ'}`,
         reference: tx.reference,
         recordId:
@@ -995,8 +999,8 @@ export const CustomerDetailsScreen: FC = () => {
                         {/* Content Card */}
                         <div
                           className={`flex-1 rounded-2xl p-4 sm:p-5 transition-all ${act.type === 'alert'
-                              ? 'bg-[#f8fafc] border-2 border-dashed border-slate-200'
-                              : 'bg-white border border-slate-100 shadow-2xs hover:shadow-xs'
+                            ? 'bg-[#f8fafc] border-2 border-dashed border-slate-200'
+                            : 'bg-white border border-slate-100 shadow-2xs hover:shadow-xs'
                             }`}
                         >
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -1113,11 +1117,19 @@ export const CustomerDetailsScreen: FC = () => {
                             {act.description}
                           </p>
 
-                          {/* Date & Running Balance */}
-                          <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
-                            <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono">
-                              <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                              <span>{act.date}</span>
+                          {/* Date & Running Balance & Due Date */}
+                          <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
+                            <div className="flex items-center gap-3.5 flex-wrap">
+                              <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono">
+                                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                <span>{act.date}</span>
+                              </div>
+                              {act.dueDate && (
+                                <div className="flex items-center gap-1.5 text-[11px] text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200/60 font-cairo font-semibold">
+                                  <Clock className="w-3 h-3 text-amber-600" />
+                                  <span>تاريخ الاستحقاق: {act.dueDate}</span>
+                                </div>
+                              )}
                             </div>
                             {act.balanceLabel && (
                               <span className="text-[11px] text-slate-400 font-mono" dir="ltr">

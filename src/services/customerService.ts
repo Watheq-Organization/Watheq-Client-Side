@@ -1,5 +1,5 @@
 import { httpClient, ApiError } from '../api/httpClient';
-import { normalizeApiDateString } from '../lib/dateUtils';
+import { normalizeApiDateString, parseApiDate } from '../lib/dateUtils';
 import type {
   AddCustomerPayload,
   Customer,
@@ -342,6 +342,12 @@ function normalizeCustomerProfileTransaction(raw: unknown): CustomerProfileTrans
   let paymentMethod: string | null = null;
   if (typeof rawMethod === 'string' || typeof rawMethod === 'number') {
     paymentMethod = String(rawMethod);
+  } else if (typeof rawMethod === 'object' && rawMethod !== null) {
+    const obj = rawMethod as Record<string, unknown>;
+    const val = obj.name ?? obj.Name ?? obj.value ?? obj.id;
+    if (typeof val === 'string' || typeof val === 'number') {
+      paymentMethod = String(val);
+    }
   }
 
   const refStr = String(
@@ -356,16 +362,20 @@ function normalizeCustomerProfileTransaction(raw: unknown): CustomerProfileTrans
   const digitsFromRef = Number(refStr.replace(/\D/g, '')) || 0;
   const parsedId = Number(rawId) || digitsFromRef || 0;
 
+  const rawDueDate = r.dueDate ?? r.DueDate ?? r.nextDueDate ?? r.NextDueDate;
+  const dueDate = rawDueDate ? normalizeApiDateString(String(rawDueDate)) : null;
+
   return {
     id: parsedId,
     type: typeof (r.type ?? r.Type) === 'string' ? String(r.type ?? r.Type) : '',
     date: normalizeApiDateString(
       typeof (r.date ?? r.Date) === 'string' ? String(r.date ?? r.Date) : ''
     ),
+    dueDate,
     amount: Number(r.amount ?? r.Amount) || 0,
     description: typeof (r.description ?? r.Description) === 'string' ? String(r.description ?? r.Description) : '',
     reference: typeof (r.reference ?? r.Reference) === 'string' ? String(r.reference ?? r.Reference) : '',
-    balance: Number(r.balance ?? r.Balance) || 0,
+    balance: Number(r.balance ?? r.Balance ?? r.runningBalance ?? r.RunningBalance) || 0,
     currencyCode: typeof (r.currencyCode ?? r.CurrencyCode) === 'string' ? String(r.currencyCode ?? r.CurrencyCode) : '',
     status: (r.status ?? r.Status) != null ? String(r.status ?? r.Status) : null,
     paymentMethod,
@@ -382,7 +392,36 @@ function normalizeCustomerProfileTransaction(raw: unknown): CustomerProfileTrans
  * paid off.
  */
 export function mapCustomerProfileToCustomer(dto: CustomerProfileDto): Customer {
-  const hasOutstandingBalance = dto.currentBalance > 0;
+  const hasOutstandingBalance = dto.currentBalance > 0 || dto.totalDebt > 0;
+
+  const hasOverdueDebt = Array.isArray(dto.transactions) && dto.transactions.some((tx) => {
+    const isDebt =
+      String(tx.type || '').toLowerCase().includes('debt') ||
+      String(tx.type || '').includes('دين');
+    if (!isDebt) return false;
+    const statusStr = String(tx.status || '').toLowerCase();
+    if (statusStr.includes('overdue') || statusStr.includes('متأخر')) return true;
+    if (tx.dueDate) {
+      const due = parseApiDate(tx.dueDate);
+      if (!isNaN(due.getTime()) && due.getTime() < Date.now() && tx.balance > 0) {
+        return true;
+      }
+    }
+    return false;
+  });
+
+  const status: CustomerStatus = hasOverdueDebt
+    ? 'overdue'
+    : hasOutstandingBalance
+      ? 'active_debt'
+      : 'paid';
+
+  const statusLabel = hasOverdueDebt
+    ? 'متأخر'
+    : hasOutstandingBalance
+      ? 'دين نشط'
+      : 'تم السداد';
+
   return {
     id: dto.id,
     name: dto.fullName,
@@ -391,8 +430,8 @@ export function mapCustomerProfileToCustomer(dto: CustomerProfileDto): Customer 
     nationalOrCrId: '',
     totalDebt: dto.totalDebt,
     totalPaid: dto.totalPaid,
-    status: hasOutstandingBalance ? 'active_debt' : 'paid',
-    statusLabel: hasOutstandingBalance ? 'دين نشط' : 'تم السداد',
+    status,
+    statusLabel,
     avatarLetter: dto.fullName.trim().charAt(0) || 'ع',
     avatarBg: 'bg-rose-100 text-rose-600',
     phone: dto.phoneNumber,

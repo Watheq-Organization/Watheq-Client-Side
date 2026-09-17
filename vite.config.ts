@@ -10,8 +10,9 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://whateq.runasp.net',
+        target: 'https://whateq.runasp.net',
         changeOrigin: true,
+        secure: false,
       },
     },
   },

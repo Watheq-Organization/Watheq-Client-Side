@@ -28,6 +28,7 @@ import {
   formatFullCustomerPhone,
 } from '../../services/customerService';
 import { getDashboardSummary } from '../../services/dashboardService';
+import { getOverdueDebtsReport } from '../../services/reportService';
 import { Toast, type ToastType } from '../ui/Toast';
 import { PhoneInputWithCountry, type CountryCode } from '../ui/PhoneInputWithCountry';
 
@@ -106,10 +107,36 @@ export const CustomersScreen: FC = () => {
     setIsLoadingCustomers(true);
     setCustomersLoadError(null);
 
-    getCustomers()
-      .then((dtos) => {
+    Promise.all([
+      getCustomers(),
+      getOverdueDebtsReport().catch(() => null),
+    ])
+      .then(([dtos, overdueReport]) => {
         if (!isMounted) return;
-        setCustomers(dtos.map(mapCustomerDtoToCustomer));
+        const overdueCustomerIds = new Set<string>();
+        const overdueCustomerNames = new Set<string>();
+
+        if (overdueReport?.details?.items) {
+          for (const item of overdueReport.details.items) {
+            if (item.customerId) overdueCustomerIds.add(String(item.customerId));
+            if (item.customerName) overdueCustomerNames.add(item.customerName.trim().toLowerCase());
+          }
+        }
+
+        const mapped = dtos.map((dto, idx) => {
+          const c = mapCustomerDtoToCustomer(dto, idx);
+          const isOverdue =
+            overdueCustomerIds.has(String(c.id)) ||
+            overdueCustomerNames.has(c.name.trim().toLowerCase());
+
+          if (isOverdue && c.totalDebt > 0) {
+            c.status = 'overdue';
+            c.statusLabel = 'متأخر';
+          }
+          return c;
+        });
+
+        setCustomers(mapped);
       })
       .catch((error) => {
         if (!isMounted) return;

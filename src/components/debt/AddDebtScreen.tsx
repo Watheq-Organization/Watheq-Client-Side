@@ -255,12 +255,14 @@ export const AddDebtScreen: FC = () => {
           currencyId: editingDebt.currencyId,
         });
         rememberEditableDebt(customerId, { customerId, amount, dueDate, notes }, dto);
+        window.dispatchEvent(new Event('watheq:activity-updated'));
         navigate(`/customers/${customerId}`, {
           state: { toast: 'تم تحديث الدين بنجاح.' },
         });
       } else {
         const dto = await createDebt({ customerId, amount, dueDate, notes });
         rememberEditableDebt(customerId, { customerId, amount, dueDate, notes }, dto);
+        window.dispatchEvent(new Event('watheq:activity-updated'));
         navigate(`/customers/${customerId}`, {
           state: { toast: 'تم تسجيل الدين بنجاح.' },
         });

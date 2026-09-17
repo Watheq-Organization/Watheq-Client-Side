@@ -195,6 +195,11 @@ export const httpClient = {
       method: 'PUT',
       body: typeof FormData !== 'undefined' && data instanceof FormData ? data : JSON.stringify(data),
     }),
+  patch: <TResponse>(path: string, data?: unknown) =>
+    request<TResponse>(path, {
+      method: 'PATCH',
+      ...(data !== undefined ? { body: JSON.stringify(data) } : {}),
+    }),
   get: <TResponse>(path: string) => request<TResponse>(path, { method: 'GET' }),
   getBlob: async (path: string): Promise<Blob> => {
     const token = getStoredToken();

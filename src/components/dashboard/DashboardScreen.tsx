@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { FC } from 'react';
 import { Calendar } from 'lucide-react';
 import { Sidebar } from './Sidebar';
@@ -7,12 +7,17 @@ import { StatCards } from './StatCards';
 import { OverduePaymentsTable } from './OverduePaymentsTable';
 import { RecentActivities } from './RecentActivities';
 import { useMerchantProfile } from '../../services/merchantProfileService';
+import { formatApiDate, getDeviceLocalDateString } from '../../lib/dateUtils';
 
 export const DashboardScreen: FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
   const merchantProfile = useMerchantProfile();
+
+  const currentDateDisplay = useMemo(() => {
+    return formatApiDate(getDeviceLocalDateString());
+  }, []);
 
   return (
     <div
@@ -52,7 +57,7 @@ export const DashboardScreen: FC = () => {
             {/* Date Badge */}
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold font-cairo text-slate-600 shadow-2xs self-start sm:self-auto">
               <Calendar className="w-4 h-4 text-slate-400" />
-              <span>١٥ أكتوبر ٢٠٢٣</span>
+              <span>{currentDateDisplay}</span>
             </div>
           </div>
 

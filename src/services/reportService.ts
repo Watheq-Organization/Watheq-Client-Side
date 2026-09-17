@@ -34,6 +34,8 @@ function buildQueryString(params?: Record<string, unknown>): string {
  * Fetches collections report with date range and pagination.
  * Sends safe default dates if not provided to prevent ASP.NET 400 Bad Request.
  */
+import { getCustomerProfile } from './customerService';
+
 export async function getCollectionsReport(
   params?: CollectionsReportParams
 ): Promise<CollectionsReportResponse> {
@@ -49,7 +51,50 @@ export async function getCollectionsReport(
   try {
     const raw = await httpClient.get<unknown>(`/Reports/collections${qs}`);
     console.log('[getCollectionsReport] Raw API response from /Reports/collections:', raw);
-    return normalizeCollectionsReport(raw, effectiveParams);
+    const report = normalizeCollectionsReport(raw, effectiveParams);
+
+    // Enrich items with true paymentMethod from customer profile transactions
+    const uniqueCustomerIds = Array.from(
+      new Set(report.items.map((i) => i.customerId).filter(Boolean))
+    );
+
+    if (uniqueCustomerIds.length > 0) {
+      try {
+        const profiles = await Promise.all(
+          uniqueCustomerIds.map((cid) => getCustomerProfile(String(cid)).catch(() => null))
+        );
+        const txMap = new Map<string, string>();
+        for (const p of profiles) {
+          if (!p || !Array.isArray(p.transactions)) continue;
+          for (const tx of p.transactions) {
+            if (tx.paymentMethod) {
+              if (tx.id) txMap.set(String(tx.id), tx.paymentMethod);
+              if (tx.reference) txMap.set(String(tx.reference), tx.paymentMethod);
+              txMap.set(`${p.id}_${tx.amount}`, tx.paymentMethod);
+            }
+          }
+        }
+
+        report.items = report.items.map((item) => {
+          const matchedMethod =
+            (item.paymentId ? txMap.get(String(item.paymentId)) : undefined) ??
+            (item.receiptNumber ? txMap.get(String(item.receiptNumber)) : undefined) ??
+            (item.customerId ? txMap.get(`${item.customerId}_${item.amount}`) : undefined);
+
+          if (matchedMethod) {
+            return {
+              ...item,
+              paymentMethod: formatPaymentMethod(matchedMethod),
+            };
+          }
+          return item;
+        });
+      } catch (enrichErr) {
+        console.warn('[getCollectionsReport] Could not enrich payment methods:', enrichErr);
+      }
+    }
+
+    return report;
   } catch (error) {
     console.error('[getCollectionsReport] Server error:', error);
     throw error;
@@ -66,10 +111,15 @@ export function formatPaymentMethod(val: unknown): string {
     if (val === 2) return 'تحويل بنكي';
     if (val === 3) return 'بطاقة / محفظة';
   }
-  const s = String(val).trim().toLowerCase();
+  if (typeof val === 'object' && val !== null) {
+    const obj = val as Record<string, unknown>;
+    const inner = obj.name ?? obj.Name ?? obj.value ?? obj.id;
+    if (inner !== undefined) return formatPaymentMethod(inner);
+  }
+  const s = String(val).trim().toLowerCase().replace(/[\s_-]/g, '');
   if (s === '1' || s.includes('cash') || s.includes('نقد')) return 'نقداً';
-  if (s === '2' || s.includes('bank') || s.includes('بنك') || s.includes('تحويل')) return 'تحويل بنكي';
-  if (s === '3' || s.includes('card') || s.includes('credit') || s.includes('محفظ') || s.includes('مدى')) return 'بطاقة / محفظة';
+  if (s === '2' || s.includes('bank') || s.includes('بنك') || s.includes('تحويل') || s.includes('transfer')) return 'تحويل بنكي';
+  if (s === '3' || s.includes('card') || s.includes('credit') || s.includes('محفظ') || s.includes('مدى') || s.includes('بطاق')) return 'بطاقة / محفظة';
   return String(val);
 }
 
@@ -674,7 +724,16 @@ function mapToCollectionItem(item: unknown): CollectionItem {
     amount: Number(amountVal) || 0,
     currency: String(r.currency || r.Currency || 'ILS'),
     date: String(dateVal).split('T')[0],
-    paymentMethod: formatPaymentMethod(r.paymentMethod ?? r.PaymentMethod),
+    paymentMethod: formatPaymentMethod(
+      r.paymentMethod ??
+      r.PaymentMethod ??
+      r.paymentMethodName ??
+      r.PaymentMethodName ??
+      r.method ??
+      r.Method ??
+      r.paymentType ??
+      r.PaymentType
+    ),
     receiptNumber: receiptVal ? String(receiptVal) : paymentIdVal ? `REC-${paymentIdVal}` : undefined,
     status: (r.status ?? r.Status) ? String(r.status ?? r.Status) : 'مكتمل',
   };

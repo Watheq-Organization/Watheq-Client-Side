@@ -148,13 +148,38 @@ export function toUpdateDebtErrorMessage(error: unknown): string {
       body: error.body,
     });
 
-    const body = error.body as { message?: unknown } | string | null;
-    const message =
-      typeof body === 'object' && body !== null && typeof body.message === 'string'
-        ? body.message
-        : typeof body === 'string'
-          ? body
-          : '';
+    const body = error.body as Record<string, unknown> | string | null;
+    let message = '';
+    if (typeof body === 'object' && body !== null) {
+      if (typeof body.message === 'string') message = body.message;
+      else if (typeof body.detail === 'string') message = body.detail;
+      else if (typeof body.title === 'string' && body.title !== 'One or more validation errors occurred.') message = body.title;
+      else if (body.errors && typeof body.errors === 'object') {
+        const errorEntries = Object.entries(body.errors as Record<string, string[] | string>);
+        const parts: string[] = [];
+        for (const [field, errs] of errorEntries) {
+          const list = Array.isArray(errs) ? errs : [String(errs)];
+          for (const item of list) {
+            if (typeof item === 'string' && item.trim()) {
+              if (item.toLowerCase().includes('past') || field.toLowerCase().includes('duedate') || item.includes('تاريخ')) {
+                parts.push('تاريخ الاستحقاق يجب أن يكون اليوم أو في المستقبل.');
+              } else if (item.toLowerCase().includes('greater than zero') || field.toLowerCase().includes('amount')) {
+                parts.push('يجب أن يكون مبلغ الدين أكبر من صفر.');
+              } else if (field.toLowerCase().includes('customer')) {
+                parts.push('العميل المحدد غير صالح.');
+              } else {
+                parts.push(item);
+              }
+            }
+          }
+        }
+        if (parts.length > 0) {
+          return parts.join(' - ');
+        }
+      }
+    } else if (typeof body === 'string') {
+      message = body;
+    }
 
     if (message.includes('No business found for the current merchant')) {
       return 'لا يوجد نشاط تجاري مرتبط بحسابك. يرجى التواصل مع الدعم.';
@@ -171,18 +196,21 @@ export function toUpdateDebtErrorMessage(error: unknown): string {
     if (message.includes('A note explaining changes to a confirmed debt is required')) {
       return 'هذا الدين مؤكد — يجب إضافة ملاحظة توضح سبب التعديل.';
     }
-    if (message.includes('Debt amount must be greater than zero')) {
+    if (message.includes('Debt amount must be greater than zero') || message.toLowerCase().includes('amount')) {
       return 'يجب أن يكون مبلغ الدين أكبر من صفر.';
     }
     if (message.includes('A valid customer is required')) {
       return 'يجب اختيار عميل صحيح.';
+    }
+    if (message.toLowerCase().includes('past') || message.toLowerCase().includes('duedate') || message.includes('تاريخ')) {
+      return 'تاريخ الاستحقاق يجب أن يكون اليوم أو تاريخاً مستقبلياً.';
     }
 
     if (error.status === 0) {
       return 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.';
     }
     if (error.status === 400) {
-      return 'يرجى التحقق من البيانات المدخلة والمحاولة مرة أخرى.';
+      return message ? message : 'يرجى التحقق من صحة البيانات (مبلغ الدين وتاريخ الاستحقاق في المستقبل).';
     }
     if (error.status === 401) {
       return 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.';
@@ -457,13 +485,38 @@ export function toCreateDebtErrorMessage(error: unknown): string {
       body: error.body,
     });
 
-    const body = error.body as { message?: unknown } | string | null;
-    const message =
-      typeof body === 'object' && body !== null && typeof body.message === 'string'
-        ? body.message
-        : typeof body === 'string'
-          ? body
-          : '';
+    const body = error.body as Record<string, unknown> | string | null;
+    let message = '';
+    if (typeof body === 'object' && body !== null) {
+      if (typeof body.message === 'string') message = body.message;
+      else if (typeof body.detail === 'string') message = body.detail;
+      else if (typeof body.title === 'string' && body.title !== 'One or more validation errors occurred.') message = body.title;
+      else if (body.errors && typeof body.errors === 'object') {
+        const errorEntries = Object.entries(body.errors as Record<string, string[] | string>);
+        const parts: string[] = [];
+        for (const [field, errs] of errorEntries) {
+          const list = Array.isArray(errs) ? errs : [String(errs)];
+          for (const item of list) {
+            if (typeof item === 'string' && item.trim()) {
+              if (item.toLowerCase().includes('past') || field.toLowerCase().includes('duedate') || item.includes('تاريخ')) {
+                parts.push('تاريخ الاستحقاق يجب أن يكون اليوم أو في المستقبل.');
+              } else if (item.toLowerCase().includes('greater than zero') || field.toLowerCase().includes('amount')) {
+                parts.push('يجب أن يكون مبلغ الدين أكبر من صفر.');
+              } else if (field.toLowerCase().includes('customer')) {
+                parts.push('العميل المحدد غير صالح.');
+              } else {
+                parts.push(item);
+              }
+            }
+          }
+        }
+        if (parts.length > 0) {
+          return parts.join(' - ');
+        }
+      }
+    } else if (typeof body === 'string') {
+      message = body;
+    }
 
     if (message.includes('No business found for the current merchant')) {
       return 'لا يوجد نشاط تجاري مرتبط بحسابك. يرجى التواصل مع الدعم.';
@@ -477,12 +530,18 @@ export function toCreateDebtErrorMessage(error: unknown): string {
     if (message.includes('Could not generate a unique debt number')) {
       return 'تعذر توليد رقم دين فريد. يرجى المحاولة مرة أخرى.';
     }
+    if (message.includes('Debt amount must be greater than zero') || message.toLowerCase().includes('amount')) {
+      return 'يجب أن يكون مبلغ الدين أكبر من صفر.';
+    }
+    if (message.toLowerCase().includes('past') || message.toLowerCase().includes('duedate') || message.includes('تاريخ')) {
+      return 'تاريخ الاستحقاق يجب أن يكون اليوم أو تاريخاً مستقبلياً.';
+    }
 
     if (error.status === 0) {
       return 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.';
     }
     if (error.status === 400) {
-      return 'يرجى التحقق من البيانات المدخلة والمحاولة مرة أخرى.';
+      return message ? message : 'يرجى التحقق من صحة البيانات (مبلغ الدين وتاريخ الاستحقاق في المستقبل).';
     }
     if (error.status === 401) {
       return 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.';
