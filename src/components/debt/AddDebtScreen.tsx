@@ -356,7 +356,7 @@ export const AddDebtScreen: FC = () => {
                   type="text"
                   value={customerQuery}
                   onChange={(e) => handleCustomerQueryChange(e.target.value)}
-                  placeholder="رقم الهوية أو رقم الجوال..."
+                  placeholder="ابحث بالاسم، رقم الهوية أو رقم الجوال..."
                   dir="rtl"
                   disabled={isEditMode}
                   className={`w-full pr-10 pl-9 py-2.5 bg-[#F7F7FC] border rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00204F]/20 focus:border-[#00204F] transition-all text-right disabled:cursor-not-allowed disabled:opacity-70 ${

@@ -15,12 +15,14 @@ import {
   Phone,
   Fingerprint,
   RotateCw,
+  AlertCircle,
+  Loader2,
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
 import { useMerchantProfile } from '../../services/merchantProfileService';
 import {
-  getInvoicePdfBlob,
+  resolveAndDownloadDebtInvoicePdf,
   triggerPdfDownload,
   shareInvoiceViaWhatsApp,
   toInvoiceErrorMessage,
@@ -94,8 +96,9 @@ export const DebtInvoiceScreen: FC = () => {
   const { id } = useParams<{ id: string }>();
   const merchant = useMerchantProfile();
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState<boolean>(false);
   const [serverInvoice, setServerInvoice] = useState<DebtInvoiceDto | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [customerRegistrationDate, setCustomerRegistrationDate] = useState<string | null>(null);
@@ -105,7 +108,7 @@ export const DebtInvoiceScreen: FC = () => {
 
   const fetchLiveInvoice = () => {
     if (!id) return;
-    const cleanId = String(id).replace(/[^0-9]/g, '');
+    const cleanId = String(id).trim();
     if (!cleanId) return;
 
     setIsLoading(true);
@@ -278,33 +281,33 @@ export const DebtInvoiceScreen: FC = () => {
     };
   }, [serverInvoice, navState, id, customerRegistrationDate, merchant.businessName]);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4500);
   };
 
   const handleExportPdf = async () => {
-    const cleanId = id ? String(id).replace(/[^0-9]/g, '') || '15' : '15';
-    showToast(`جاري الاتصال بالخادم وتحميل الفاتورة PDF (Invoice/${cleanId}/pdf)...`);
+    const targetId = serverInvoice?.invoiceId ?? serverInvoice?.id ?? (id ? String(id).trim() : '15');
+    setIsDownloadingPdf(true);
+    showToast(`جاري تحميل ملف الفاتورة PDF من الخادم...`, 'info');
     try {
-      const blob = await getInvoicePdfBlob(cleanId);
+      const blob = await resolveAndDownloadDebtInvoicePdf(targetId);
       if (blob && blob.size > 0) {
-        triggerPdfDownload(blob, `invoice_${cleanId}.pdf`);
-        showToast('تم تنزيل ملف PDF بنجاح من الخادم.');
+        triggerPdfDownload(blob, `invoice_${targetId}.pdf`);
+        showToast('تم تحميل ملف PDF بنجاح من الخادم.', 'success');
         return;
       }
-      throw new Error('الملف المستلم غير صالح');
+      throw new Error('الملف المستلم فارغ أو غير صالح.');
     } catch (err: unknown) {
       const errMsg = toInvoiceErrorMessage(err);
-      showToast(`${errMsg} - جاري تصدير الفاتورة كـ PDF عبر المتصفح...`);
-      setTimeout(() => {
-        window.print();
-      }, 500);
+      showToast(errMsg, 'error');
+    } finally {
+      setIsDownloadingPdf(false);
     }
   };
 
   const handleSendWhatsApp = async () => {
-    const cleanId = id ? String(id).replace(/[^0-9]/g, '') || '15' : '15';
+    const cleanId = id ? String(id).trim() || '15' : '15';
     try {
       const rawPhone = invoiceData.customerPhone.replace(/[^0-9+]/g, '');
       await shareInvoiceViaWhatsApp(cleanId, { phoneNumber: rawPhone });
@@ -323,10 +326,24 @@ export const DebtInvoiceScreen: FC = () => {
       dir="rtl"
     >
       {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-[#0c2444] text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200 border border-white/10 print:hidden">
-          <Check className="w-5 h-5 text-emerald-400 shrink-0" />
-          <span className="text-sm font-medium">{toastMessage}</span>
+      {toast && (
+        <div
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-50 px-5 py-3.5 rounded-xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200 border print:hidden max-w-md text-right ${
+            toast.type === 'error'
+              ? 'bg-rose-900/95 text-white border-rose-700 shadow-rose-950/30'
+              : toast.type === 'success'
+                ? 'bg-[#0c2444] text-white border-emerald-500/40 shadow-slate-950/30'
+                : 'bg-[#0c2444] text-white border-blue-500/40'
+          }`}
+        >
+          {toast.type === 'error' ? (
+            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+          ) : toast.type === 'success' ? (
+            <Check className="w-5 h-5 text-emerald-400 shrink-0" />
+          ) : (
+            <Loader2 className="w-5 h-5 text-blue-400 animate-spin shrink-0" />
+          )}
+          <span className="text-sm font-medium">{toast.message}</span>
         </div>
       )}
 
@@ -416,10 +433,15 @@ export const DebtInvoiceScreen: FC = () => {
               <button
                 type="button"
                 onClick={handleExportPdf}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200/90 rounded-xl text-xs sm:text-sm font-bold shadow-2xs hover:shadow-xs transition-all active:scale-98 cursor-pointer"
+                disabled={isDownloadingPdf}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200/90 rounded-xl text-xs sm:text-sm font-bold shadow-2xs hover:shadow-xs transition-all active:scale-98 cursor-pointer disabled:opacity-60"
               >
-                <FileDown className="w-4 h-4 text-slate-600" />
-                <span>تحميل كـ PDF</span>
+                {isDownloadingPdf ? (
+                  <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+                ) : (
+                  <FileDown className="w-4 h-4 text-slate-600" />
+                )}
+                <span>{isDownloadingPdf ? 'جاري التحميل...' : 'تحميل كـ PDF'}</span>
               </button>
             </div>
           </div>

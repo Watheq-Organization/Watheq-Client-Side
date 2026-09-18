@@ -21,6 +21,7 @@ import { SubscriptionsPage } from '../pages/SubscriptionsPage';
 import { ReportsPage } from '../pages/ReportsPage';
 import { PaymentsPage } from '../pages/PaymentsPage';
 import { PaymentReceiptPage } from '../pages/PaymentReceiptPage';
+import { CashSalePage } from '../pages/CashSalePage';
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { VerifyResetOtpPage } from '../pages/VerifyResetOtpPage';
 import { ResetPasswordPage } from '../pages/ResetPasswordPage';
@@ -151,6 +152,14 @@ export const AppRoutes: FC = () => {
         element={
           <ProtectedRoute>
             <PaymentReceiptPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={PATHS.CASH_SALE}
+        element={
+          <ProtectedRoute>
+            <CashSalePage />
           </ProtectedRoute>
         }
       />

@@ -19,13 +19,20 @@ import {
   History,
   Tag,
   RotateCw,
+  AlertCircle,
+  Loader2,
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
 import { PATHS } from '../../routes/paths';
 import { useMerchantProfile } from '../../services/merchantProfileService';
 import { tafqeet } from '../../lib/tafqeet';
-import { getInvoiceByPaymentId } from '../../services/invoiceService';
+import {
+  getInvoiceByPaymentId,
+  resolveAndDownloadPaymentInvoicePdf,
+  triggerPdfDownload,
+  toInvoiceErrorMessage,
+} from '../../services/invoiceService';
 import { getCustomerProfile, getCustomers } from '../../services/customerService';
 import { formatApiDate, getDeviceLocalDateString } from '../../lib/dateUtils';
 import type { CustomerProfileDto } from '../../types/customer';
@@ -57,7 +64,8 @@ export const PaymentReceiptScreen: FC = () => {
   const merchant = useMerchantProfile();
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState<boolean>(false);
   const [serverPayment, setServerPayment] = useState<PaymentInvoiceDto | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [customerProfile, setCustomerProfile] = useState<CustomerProfileDto | null>(null);
@@ -67,7 +75,7 @@ export const PaymentReceiptScreen: FC = () => {
 
   const fetchLivePayment = () => {
     if (!id) return;
-    const cleanId = String(id).replace(/[^0-9]/g, '');
+    const cleanId = String(id).trim();
     if (!cleanId) return;
 
     setIsLoading(true);
@@ -228,7 +236,7 @@ export const PaymentReceiptScreen: FC = () => {
       method,
       referenceNumber:
         serverPayment?.referenceNumber ??
-        `WTQ-${receiptNumber.replace(/[^0-9]/g, '').slice(-4) || '0821'}-PAY9`,
+        `WTQ-${receiptNumber.replace(/[^0-9A-Z]/ig, '').slice(-4) || '0821'}-PAY9`,
       previousDebt,
       remainingDebt,
       currency,
@@ -239,16 +247,29 @@ export const PaymentReceiptScreen: FC = () => {
     };
   }, [serverPayment, statePayment, id, customerProfile]);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4500);
   };
 
-  const handleExportPdf = () => {
-    showToast('جاري تجهيز سند القبض للتصدير بصيغة PDF...');
-    setTimeout(() => {
-      window.print();
-    }, 400);
+  const handleExportPdf = async () => {
+    const targetId = serverPayment?.invoiceId ?? serverPayment?.id ?? (id ? String(id).trim() : '15');
+    setIsDownloadingPdf(true);
+    showToast(`جاري تحميل سند القبض PDF من الخادم...`, 'info');
+    try {
+      const blob = await resolveAndDownloadPaymentInvoicePdf(targetId);
+      if (blob && blob.size > 0) {
+        triggerPdfDownload(blob, `receipt_${targetId}.pdf`);
+        showToast('تم تحميل ملف PDF بنجاح من الخادم.', 'success');
+        return;
+      }
+      throw new Error('الملف المستلم فارغ أو غير صالح.');
+    } catch (err: unknown) {
+      const errMsg = toInvoiceErrorMessage(err);
+      showToast(errMsg, 'error');
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
   const handleSendWhatsApp = () => {
@@ -300,10 +321,24 @@ export const PaymentReceiptScreen: FC = () => {
       dir="rtl"
     >
       {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-[#051838] text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200 border border-white/10 print:hidden">
-          <Check className="w-5 h-5 text-emerald-400 shrink-0" />
-          <span className="text-sm font-medium">{toastMessage}</span>
+      {toast && (
+        <div
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-50 px-5 py-3.5 rounded-xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200 border print:hidden max-w-md text-right ${
+            toast.type === 'error'
+              ? 'bg-rose-900/95 text-white border-rose-700 shadow-rose-950/30'
+              : toast.type === 'success'
+                ? 'bg-[#0c2444] text-white border-emerald-500/40 shadow-slate-950/30'
+                : 'bg-[#0c2444] text-white border-blue-500/40'
+          }`}
+        >
+          {toast.type === 'error' ? (
+            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+          ) : toast.type === 'success' ? (
+            <Check className="w-5 h-5 text-emerald-400 shrink-0" />
+          ) : (
+            <Loader2 className="w-5 h-5 text-blue-400 animate-spin shrink-0" />
+          )}
+          <span className="text-sm font-medium">{toast.message}</span>
         </div>
       )}
 
@@ -394,10 +429,15 @@ export const PaymentReceiptScreen: FC = () => {
               <button
                 type="button"
                 onClick={handleExportPdf}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200/90 rounded-xl text-xs sm:text-sm font-bold shadow-2xs hover:shadow-xs transition-all active:scale-98 cursor-pointer"
+                disabled={isDownloadingPdf}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200/90 rounded-xl text-xs sm:text-sm font-bold shadow-2xs hover:shadow-xs transition-all active:scale-98 cursor-pointer disabled:opacity-60"
               >
-                <FileDown className="w-4 h-4 text-slate-600" />
-                <span>تصدير PDF</span>
+                {isDownloadingPdf ? (
+                  <Loader2 className="w-4 h-4 text-emerald-600 animate-spin" />
+                ) : (
+                  <FileDown className="w-4 h-4 text-slate-600" />
+                )}
+                <span>{isDownloadingPdf ? 'جاري التحميل...' : 'تصدير PDF'}</span>
               </button>
             </div>
           </div>

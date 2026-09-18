@@ -1,7 +1,7 @@
 import { httpClient, ApiError } from '../api/httpClient';
 import type { CreateDebtPayload, DebtDto, DeleteDebtResponseDto, UpdateDebtPayload } from '../types/debt';
 import type { CustomerDto } from '../types/customer';
-import { getCustomers } from './customerService';
+import { getCustomers, getStoredNationalId } from './customerService';
 
 /**
  * POST http://whateq.runasp.net/api/Debt/createDebt
@@ -462,12 +462,17 @@ export function validateDebtNotes(value: string): string | null {
 /* ---------------------------------------------------------------------- */
 
 export async function searchCustomersByIdOrPhone(query: string): Promise<CustomerDto[]> {
-  const trimmed = query.trim();
+  const trimmed = query.trim().toLowerCase();
   if (!trimmed) return [];
   const all = await getCustomers();
-  return all.filter(
-    (customer) => customer.id.includes(trimmed) || customer.phoneNumber.includes(trimmed)
-  );
+  return all.filter((customer) => {
+    const nameMatch = (customer.fullName || '').toLowerCase().includes(trimmed);
+    const phoneMatch = (customer.phoneNumber || '').includes(trimmed);
+    const idMatch = (customer.id || '').toLowerCase().includes(trimmed);
+    const nationalId = (customer.nationalId || getStoredNationalId(customer.id) || '').toLowerCase();
+    const nationalIdMatch = nationalId.includes(trimmed);
+    return nameMatch || phoneMatch || idMatch || nationalIdMatch;
+  });
 }
 
 /** Maps createDebt errors to user-friendly Arabic messages, incl. known backend business errors. */
