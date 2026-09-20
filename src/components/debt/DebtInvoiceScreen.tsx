@@ -300,7 +300,10 @@ export const DebtInvoiceScreen: FC = () => {
       throw new Error('الملف المستلم فارغ أو غير صالح.');
     } catch (err: unknown) {
       const errMsg = toInvoiceErrorMessage(err);
-      showToast(errMsg, 'error');
+      showToast(`${errMsg} - جاري تجهيز الطباعة المباشرة...`, 'info');
+      setTimeout(() => {
+        window.print();
+      }, 1500);
     } finally {
       setIsDownloadingPdf(false);
     }
@@ -315,7 +318,7 @@ export const DebtInvoiceScreen: FC = () => {
       // Graceful fallback to client direct WhatsApp link
     }
     const message = encodeURIComponent(
-      `مرحباً ${invoiceData.customerName}،\nتم إصدار سند إثبات وقيد دين رقمي #${invoiceData.invoiceNumber} بمبلغ ${invoiceData.invoiceAmount.toLocaleString()} ريال سعودي من ${merchant.businessName}.\nموعد السداد الأقصى: ${invoiceData.dueDate}.\nيمكنكم التحقق من السند عبر الرابط: ${window.location.origin}/debts/${cleanId}/invoice`
+      `مرحباً ${invoiceData.customerName}،\nتم إصدار سند إثبات وقيد دين رقمي #${invoiceData.invoiceNumber} بمبلغ ${invoiceData.invoiceAmount.toLocaleString()} شيكل إسرائيلي من ${merchant.businessName}.\nموعد السداد الأقصى: ${invoiceData.dueDate}.\nيمكنكم التحقق من السند عبر الرابط: ${window.location.origin}/debts/${cleanId}/invoice`
     );
     window.open(`https://wa.me/?text=${message}`, '_blank');
   };
@@ -447,7 +450,7 @@ export const DebtInvoiceScreen: FC = () => {
           </div>
 
           {/* Top Protected Document Notification Banner */}
-          <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-2xs">
+          <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-2xs print:hidden">
             <div className="flex items-center gap-3.5">
               <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm">
                 <Check className="w-6 h-6 stroke-[3]" />
@@ -474,7 +477,7 @@ export const DebtInvoiceScreen: FC = () => {
             className="bg-white rounded-3xl border border-slate-200/90 shadow-lg shadow-slate-200/40 overflow-hidden relative print:border-none print:shadow-none print:rounded-none print:m-0 print:p-0"
           >
             {/* Emerald Top Accent Stripe */}
-            <div className="h-2.5 bg-gradient-to-r from-[#007a3d] via-[#059669] to-[#007a3d] w-full" />
+            <div className="h-2.5 bg-gradient-to-r from-[#007a3d] via-[#059669] to-[#007a3d] w-full print:hidden" />
 
             <div className="p-6 sm:p-8 lg:p-10 space-y-7">
               {/* Section 1: Header (Invoice Code & Merchant Branding) */}
@@ -603,7 +606,7 @@ export const DebtInvoiceScreen: FC = () => {
                 </div>
                 <div className="overflow-x-auto border border-slate-200/90 rounded-2xl relative">
                   {/* Subtle Background Watermark */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] select-none">
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] select-none print:hidden">
                     <span className="text-9xl font-black font-cairo text-[#0c2444]">وثّق</span>
                   </div>
 
@@ -614,7 +617,7 @@ export const DebtInvoiceScreen: FC = () => {
                         <th className="py-3 px-4">البند والبيان</th>
                         <th className="py-3 px-4 text-center">الكمية</th>
                         <th className="py-3 px-4 text-center">سعر الوحدة</th>
-                        <th className="py-3 px-4 text-left">الإجمالي (ر.س)</th>
+                        <th className="py-3 px-4 text-left">الإجمالي (شيكل)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
@@ -688,21 +691,21 @@ export const DebtInvoiceScreen: FC = () => {
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-slate-600 font-medium">قيمة الفاتورة الحالية:</span>
                       <span className="font-extrabold font-mono text-slate-900" dir="ltr">
-                        {invoiceData.invoiceAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })} ر.س
+                        {invoiceData.invoiceAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })} شيكل
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-slate-400 font-medium">المديونية السابقة بذمة العميل:</span>
                       <span className="font-medium font-mono text-slate-400" dir="ltr">
-                        {invoiceData.previousDebt.toLocaleString('en-US', { minimumFractionDigits: 2 })} ر.س
+                        {invoiceData.previousDebt.toLocaleString('en-US', { minimumFractionDigits: 2 })} شيكل
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-slate-400 font-medium">إجمالي المدفوعات السابقة المسددة:</span>
                       <span className="font-medium font-mono text-emerald-600" dir="ltr">
-                        - {invoiceData.previousPaid.toLocaleString('en-US', { minimumFractionDigits: 2 })} ر.س
+                        - {invoiceData.previousPaid.toLocaleString('en-US', { minimumFractionDigits: 2 })} شيكل
                       </span>
                     </div>
                   </div>
@@ -712,7 +715,7 @@ export const DebtInvoiceScreen: FC = () => {
                     <span className="text-xs text-slate-500 font-bold block">إجمالي المديونية الحالية:</span>
                     <div className="text-2xl sm:text-3xl font-black font-mono text-[#0c2444]" dir="ltr">
                       {invoiceData.totalCurrentDebt.toLocaleString('en-US', { minimumFractionDigits: 2 })}{' '}
-                      <span className="text-base font-cairo">ر.س</span>
+                      <span className="text-base font-cairo">شيكل</span>
                     </div>
                     <span className="text-[10px] text-slate-400 block font-medium">
                       المبلغ المطلوب بذمة العميل
@@ -722,7 +725,7 @@ export const DebtInvoiceScreen: FC = () => {
               </div>
 
               {/* Section 5: Verification Stamp & QR Code */}
-              <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-6">
+              <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-6 print:hidden">
                 {/* Official Stamp */}
                 <div className="w-36 h-22 border-2 border-dashed border-emerald-600 rounded-2xl bg-emerald-50/40 flex flex-col items-center justify-center p-2 text-emerald-800 rotate-[-2deg] shadow-2xs shrink-0">
                   <div className="flex items-center gap-1 text-[11px] font-bold">
@@ -754,7 +757,7 @@ export const DebtInvoiceScreen: FC = () => {
               </div>
 
               {/* Section 6: Document Legal Footer */}
-              <div className="border-t border-slate-200/80 pt-4 text-center text-[10px] sm:text-[11px] text-slate-400 font-medium">
+              <div className="border-t border-slate-200/80 pt-4 text-center text-[10px] sm:text-[11px] text-slate-400 font-medium print:hidden">
                 اتصال مشفر بمعايير التشفير المصرفي 256-bit SSL • سياسة الخصوصية والشروط • الدعم الفني المباشر • وثّق 2026 ©
               </div>
             </div>

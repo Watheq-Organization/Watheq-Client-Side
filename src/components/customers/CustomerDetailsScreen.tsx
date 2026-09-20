@@ -76,6 +76,8 @@ interface ActivityItem {
   rawPaymentMethod?: string | null;
   /** Formatted due date for debts, if available. */
   dueDate?: string;
+  /** invoice id for printing pdf */
+  invoiceId?: number | null;
 }
 
 /**
@@ -601,6 +603,7 @@ export const CustomerDetailsScreen: FC = () => {
         rawStatus: isDebt ? tx.status : null,
         rawPaymentMethod: isDebt ? null : tx.paymentMethod,
         iconBg: isDebt ? 'bg-[#0c2444] text-white' : 'bg-emerald-600 text-white',
+        invoiceId: tx.invoiceId,
       };
     });
   }, [profileTransactions]);
@@ -928,7 +931,7 @@ export const CustomerDetailsScreen: FC = () => {
                     </div>
                   </div>
                   <div className="text-left text-xs text-slate-500 font-mono">
-                    <span className="font-bold text-[#0c2444] block font-cairo text-sm">منصة وثيق</span>
+                    <span className="font-bold text-[#0c2444] block font-cairo text-sm">منصة وثّق</span>
                     <span>{new Date().toLocaleDateString('ar-SA')}</span>
                   </div>
                 </div>
@@ -1040,6 +1043,7 @@ export const CustomerDetailsScreen: FC = () => {
                                           state: {
                                             debt: {
                                               id: String(act.recordId),
+                                              invoiceId: act.invoiceId || undefined,
                                               invoiceNumber: `INV-DEBT-${act.reference || act.recordId || '8821'}`,
                                               customerId: customer.id,
                                               customerName: customer.name,
@@ -1068,6 +1072,7 @@ export const CustomerDetailsScreen: FC = () => {
                                           state: {
                                             payment: {
                                               id: String(act.recordId),
+                                              invoiceId: act.invoiceId || undefined,
                                               customerId: customer.id,
                                               receiptNumber: act.reference,
                                               customerName: customer.name,

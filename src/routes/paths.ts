@@ -24,6 +24,7 @@ export const PATHS = {
   REPORTS: '/reports',
   COLLECTIONS_REPORT: '/reports/collections',
   OVERDUE_DEBTS_REPORT: '/reports/overdue-debts',
+  OUTSTANDING_DEBTS_REPORT: '/reports/outstanding-debts',
   PAYMENTS: '/payments',
   PAYMENT_RECEIPT: '/payments/:id/receipt',
   CASH_SALE: '/payments/cash-sale',

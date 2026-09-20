@@ -107,7 +107,7 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
                     <tr
                       key={payment.id}
                       className="hover:bg-slate-50/60 transition-colors duration-150 cursor-pointer"
-                      onClick={() => navigate(`/customers/${payment.id}`)}
+                      onClick={() => navigate(`/customers/${payment.customerId}`)}
                     >
                       {/* Customer Name */}
                       <td className="py-4 pr-2 font-bold font-cairo text-sm text-slate-800 hover:text-[#0c2444] transition-colors duration-150 underline-offset-2 hover:underline">

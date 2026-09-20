@@ -115,3 +115,63 @@ export interface CustomerPerformanceReportResponse {
   totalCustomers: number;
   items: CustomerPerformanceItem[];
 }
+
+export interface OutstandingDebtsReportParams {
+  customerId?: number;
+  status?: string;
+  fromDate?: string;
+  toDate?: string;
+  dueDateFrom?: string;
+  dueDateTo?: string;
+  currencyId?: number;
+  search?: string;
+  isOverdue?: boolean;
+  sortBy?: string;
+  sortDirection?: string;
+  pageNumber?: number;
+  pageSize?: number;
+}
+
+export interface OutstandingDebtSummaryItem {
+  currencyId: number;
+  currencyCode: string;
+  totalOriginalDebtAmount: number;
+  totalPaidAmount: number;
+  totalOutstandingAmount: number;
+  totalOutstandingDebtsCount: number;
+  totalOverdueAmount: number;
+  totalOverdueDebtsCount: number;
+  totalCustomersWithOutstandingDebts: number;
+}
+
+export interface OutstandingDebtReportItem {
+  debtId: number;
+  invoiceId: number;
+  customerId: number;
+  customerName: string;
+  customerPhone: string;
+  customerNationalId: string;
+  amount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  currencyCode: string;
+  reason: string;
+  createdAt: string;
+  dueDate: string;
+  status: string;
+  daysOverdue: number;
+}
+
+export interface OutstandingDebtsReportDetails {
+  items: OutstandingDebtReportItem[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+}
+
+export interface OutstandingDebtsReportResponse {
+  hasData: boolean;
+  message: string | null;
+  summary: OutstandingDebtSummaryItem[];
+  details: OutstandingDebtsReportDetails | null;
+}

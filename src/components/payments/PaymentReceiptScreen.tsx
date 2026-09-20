@@ -216,7 +216,7 @@ export const PaymentReceiptScreen: FC = () => {
 
     const rawCurrency =
       serverPayment?.currency ?? serverPayment?.currencyCode ?? statePayment?.currency ?? 'شيكل';
-    const currency = rawCurrency === 'ILS' ? 'شيكل' : rawCurrency === 'SAR' ? 'ر.س' : rawCurrency;
+    const currency = rawCurrency === 'ILS' ? 'شيكل' : rawCurrency === 'SAR' ? 'شيكل' : rawCurrency;
 
     const rawDueDate = serverPayment?.nextDueDate ?? serverPayment?.dueDate;
     const nextDueDate = rawDueDate ? formatApiDate(rawDueDate) : null;
@@ -266,7 +266,10 @@ export const PaymentReceiptScreen: FC = () => {
       throw new Error('الملف المستلم فارغ أو غير صالح.');
     } catch (err: unknown) {
       const errMsg = toInvoiceErrorMessage(err);
-      showToast(errMsg, 'error');
+      showToast(`${errMsg} - جاري تجهيز الطباعة المباشرة...`, 'info');
+      setTimeout(() => {
+        window.print();
+      }, 1500);
     } finally {
       setIsDownloadingPdf(false);
     }
@@ -450,7 +453,7 @@ export const PaymentReceiptScreen: FC = () => {
             className="bg-white rounded-3xl border border-slate-200/90 shadow-lg shadow-slate-200/40 overflow-hidden relative print:border-none print:shadow-none print:rounded-none print:m-0 print:p-0"
           >
             {/* Emerald Top Border Stripe */}
-            <div className="h-2.5 bg-gradient-to-r from-[#007a3d] via-[#059669] to-[#007a3d] w-full" />
+            <div className="h-2.5 bg-gradient-to-r from-[#007a3d] via-[#059669] to-[#007a3d] w-full print:hidden" />
 
             <div className="p-6 sm:p-8 lg:p-10 space-y-7">
               {/* Section 1: Header (System & Merchant Info + Receipt Meta Box) */}
@@ -514,7 +517,7 @@ export const PaymentReceiptScreen: FC = () => {
                       maximumFractionDigits: 2,
                     })}{' '}
                     <span className="text-xl sm:text-2xl font-bold font-cairo text-slate-800">
-                      ريال سعودي
+                      شيكل إسرائيلي
                     </span>
                   </div>
                   <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs sm:text-sm font-bold text-slate-700 shadow-2xs">
@@ -715,7 +718,7 @@ export const PaymentReceiptScreen: FC = () => {
               </div>
 
               {/* Section 6: Digital Verification & Signatures */}
-              <div className="border border-slate-200/90 rounded-2xl p-6 bg-slate-50/40">
+              <div className="border border-slate-200/90 rounded-2xl p-6 bg-slate-50/40 print:hidden">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center text-center">
                   {/* Column 1 (Collector Signature) */}
                   <div className="space-y-1.5 text-right md:text-center">
@@ -764,7 +767,7 @@ export const PaymentReceiptScreen: FC = () => {
               </div>
 
               {/* Section 7: Legal Disclaimer Footer inside receipt */}
-              <div className="border-t border-slate-200/80 pt-4 text-center text-[10px] sm:text-[11px] text-slate-400 font-medium">
+              <div className="border-t border-slate-200/80 pt-4 text-center text-[10px] sm:text-[11px] text-slate-400 font-medium print:hidden">
                 يعتبر هذا السند إقراراً رسمياً باستلام المبلغ المذكور أعلاه ولا يعتد بأي تعديل يدوي أو كشط على الوثيقة | صفحة 1 من 1 | كود إلكتروني مميز ومحمي بنظام واثق للتشفير المالي
               </div>
             </div>

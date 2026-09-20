@@ -93,7 +93,7 @@ function formatCurrency(currency?: string | null): string {
   if (!currency) return 'ش.إ';
   const c = currency.trim().toUpperCase();
   if (c === 'ILS' || c === 'NIS' || c === 'شيكل' || c === 'ش.إ') return 'ش.إ';
-  if (c === 'SAR' || c === 'ريال' || c === 'ر.س') return 'ر.س';
+  if (c === 'SAR' || c === 'ريال' || c === 'ر.س') return 'شيكل';
   if (c === 'USD' || c === '$') return '$';
   if (c === 'JOD' || c === 'د.أ') return 'د.أ';
   return currency;

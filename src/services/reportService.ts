@@ -12,6 +12,11 @@ import type {
   CustomerPerformanceParams,
   CustomerPerformanceReportResponse,
   CustomerPerformanceItem,
+  OutstandingDebtsReportParams,
+  OutstandingDebtsReportResponse,
+  OutstandingDebtReportItem,
+  OutstandingDebtSummaryItem,
+  OutstandingDebtsReportDetails,
 } from '../types/report';
 
 /**
@@ -157,7 +162,7 @@ export function printCollectionsReportHtml(
     <html dir="rtl" lang="ar">
     <head>
       <meta charset="utf-8">
-      <title>تقرير التحصيلات المالية - وثيق</title>
+      <title>تقرير التحصيلات المالية - وثّق</title>
       <link rel="preconnect" href="https://fonts.googleapis.com">
       <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
       <style>
@@ -186,10 +191,10 @@ export function printCollectionsReportHtml(
       <div class="header">
         <div>
           <h1 class="title">تقرير التحصيلات المالية</h1>
-          <p class="subtitle">نظام وثيق لإدارة الديون والتحصيلات | الفترة: ${dateRangeLabel}</p>
+          <p class="subtitle">نظام وثّق لإدارة الديون والتحصيلات | الفترة: ${dateRangeLabel}</p>
         </div>
         <div style="text-align: left;">
-          <div style="font-weight: 800; font-size: 18px; color: #051838;">وثيق WATHEQ</div>
+          <div style="font-weight: 800; font-size: 18px; color: #051838;">وثّق WATHEQ</div>
           <div style="font-size: 10px; color: #64748b;">تاريخ التقرير: ${new Date().toLocaleDateString('ar-SA')}</div>
         </div>
       </div>
@@ -362,7 +367,7 @@ export function printOverdueDebtsReportHtml(
     <html dir="rtl" lang="ar">
     <head>
       <meta charset="utf-8">
-      <title>تقرير الديون المتأخرة - وثيق</title>
+      <title>تقرير الديون المتأخرة - وثّق</title>
       <link rel="preconnect" href="https://fonts.googleapis.com">
       <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
       <style>
@@ -391,10 +396,10 @@ export function printOverdueDebtsReportHtml(
       <div class="header">
         <div>
           <h1 class="title">تقرير الديون والذمم المتأخرة</h1>
-          <p class="subtitle">نظام وثيق المالي | الفترة: ${dateRangeLabel}</p>
+          <p class="subtitle">نظام وثّق المالي | الفترة: ${dateRangeLabel}</p>
         </div>
         <div style="text-align: left;">
-          <div style="font-weight: 800; font-size: 18px; color: #051838;">وثيق WATHEQ</div>
+          <div style="font-weight: 800; font-size: 18px; color: #051838;">وثّق WATHEQ</div>
           <div style="font-size: 10px; color: #64748b;">تاريخ التقرير: ${new Date().toLocaleDateString('ar-SA')}</div>
         </div>
       </div>
@@ -893,4 +898,312 @@ function unwrapResponseData(raw: unknown): unknown {
     }
   }
   return raw;
+}
+
+/**
+ * GET http://whateq.runasp.net/api/reports/outstanding-debts
+ * Fetches outstanding debts report with optional filters, sorting, and pagination.
+ */
+export async function getOutstandingDebtsReport(
+  params?: OutstandingDebtsReportParams
+): Promise<OutstandingDebtsReportResponse> {
+  // Validate fromDate <= toDate if both provided
+  if (params?.fromDate && params?.toDate && params.fromDate > params.toDate) {
+    throw new Error('تاريخ البداية يجب أن يكون قبل أو يساوي تاريخ النهاية.');
+  }
+  if (params?.dueDateFrom && params?.dueDateTo && params.dueDateFrom > params.dueDateTo) {
+    throw new Error('تاريخ استحقاق البداية يجب أن يكون قبل أو يساوي تاريخ استحقاق النهاية.');
+  }
+
+  const qs = buildQueryString(params as Record<string, unknown>);
+  const raw = await httpClient.get<unknown>(`/reports/outstanding-debts${qs}`);
+  return normalizeOutstandingDebtsReport(raw);
+}
+
+function normalizeOutstandingDebtsReport(
+  raw: unknown
+): OutstandingDebtsReportResponse {
+  if (!raw || typeof raw !== 'object') {
+    return {
+      hasData: false,
+      message: 'لا توجد ديون مستحقة لعرضها.',
+      summary: [],
+      details: null,
+    };
+  }
+
+  const obj = unwrapResponseData(raw);
+  if (!obj || typeof obj !== 'object') {
+    return {
+      hasData: false,
+      message: 'لا توجد ديون مستحقة لعرضها.',
+      summary: [],
+      details: null,
+    };
+  }
+  
+  const record = obj as Record<string, unknown>;
+
+  const hasData = record.hasData !== undefined ? Boolean(record.hasData) : false;
+  const message = typeof record.message === 'string' ? record.message : null;
+
+  // 1. Extract Summary (Grouped by Currency)
+  const rawSummary = Array.isArray(record.summary)
+    ? record.summary
+    : Array.isArray(record.Summary)
+      ? record.Summary
+      : [];
+
+  const summary: OutstandingDebtSummaryItem[] = rawSummary.map((s: any) => ({
+    currencyId: Number(s.currencyId ?? s.CurrencyId ?? 1),
+    currencyCode: String(s.currencyCode || s.CurrencyCode || 'ILS'),
+    totalOriginalDebtAmount: Number(s.totalOriginalDebtAmount ?? s.TotalOriginalDebtAmount ?? 0),
+    totalPaidAmount: Number(s.totalPaidAmount ?? s.TotalPaidAmount ?? 0),
+    totalOutstandingAmount: Number(s.totalOutstandingAmount ?? s.TotalOutstandingAmount ?? 0),
+    totalOutstandingDebtsCount: Number(s.totalOutstandingDebtsCount ?? s.TotalOutstandingDebtsCount ?? 0),
+    totalOverdueAmount: Number(s.totalOverdueAmount ?? s.TotalOverdueAmount ?? 0),
+    totalOverdueDebtsCount: Number(s.totalOverdueDebtsCount ?? s.TotalOverdueDebtsCount ?? 0),
+    totalCustomersWithOutstandingDebts: Number(s.totalCustomersWithOutstandingDebts ?? s.TotalCustomersWithOutstandingDebts ?? 0),
+  }));
+
+  // 2. Extract Details & Items (with Pagination)
+  let detailsRaw = (record.details ?? record.Details) as Record<string, unknown> | null;
+  
+  // Fallback: If details object doesn't exist, maybe items are at the root
+  if (!detailsRaw && (Array.isArray(record.items) || Array.isArray(record.Items))) {
+    detailsRaw = record;
+  }
+  // Fallback: If obj itself is an array
+  if (!detailsRaw && Array.isArray(obj)) {
+    detailsRaw = { items: obj };
+  }
+
+  let details: OutstandingDebtsReportDetails | null = null;
+
+  if (detailsRaw && typeof detailsRaw === 'object') {
+    const rawItems = Array.isArray(detailsRaw.items)
+      ? detailsRaw.items
+      : Array.isArray(detailsRaw.Items)
+        ? detailsRaw.Items
+        : [];
+
+    const items: OutstandingDebtReportItem[] = rawItems.map((r: any) => ({
+      debtId: Number(r.debtId ?? r.DebtId ?? r.id ?? r.Id ?? 0),
+      invoiceId: Number(r.invoiceId ?? r.InvoiceId ?? 0),
+      customerId: Number(r.customerId ?? r.CustomerId ?? 0),
+      customerName: String(r.customerName || r.CustomerName || 'عميل'),
+      customerPhone: String(r.customerPhone || r.CustomerPhone || ''),
+      customerNationalId: String(r.customerNationalId || r.CustomerNationalId || ''),
+      amount: Number(r.amount ?? r.Amount ?? r.totalAmount ?? r.TotalAmount ?? 0),
+      paidAmount: Number(r.paidAmount ?? r.PaidAmount ?? 0),
+      remainingAmount: Number(r.remainingAmount ?? r.RemainingAmount ?? 0),
+      currencyCode: String(r.currencyCode || r.CurrencyCode || r.currency || r.Currency || 'ILS'),
+      reason: String(r.reason || r.Reason || r.description || r.Description || ''),
+      createdAt: String(r.createdAt || r.CreatedAt || r.date || r.Date || ''),
+      dueDate: String(r.dueDate || r.DueDate || ''),
+      status: String(r.status || r.Status || 'Unpaid'),
+      daysOverdue: Number(r.daysOverdue ?? r.DaysOverdue ?? 0),
+    }));
+
+    const totalCount = Number(detailsRaw.totalCount ?? detailsRaw.TotalCount ?? items.length);
+    const pageNumber = Number(detailsRaw.pageNumber ?? detailsRaw.PageNumber ?? 1);
+    const pageSize = Number(detailsRaw.pageSize ?? detailsRaw.PageSize ?? 20);
+
+    details = {
+      items,
+      totalCount,
+      pageNumber,
+      pageSize,
+    };
+  }
+
+  return {
+    hasData: hasData || (details !== null && details.items.length > 0),
+    message,
+    summary,
+    details,
+  };
+}
+
+/**
+ * Exports outstanding debts report data as CSV file.
+ */
+export function exportOutstandingDebtsReportCsv(
+  items: OutstandingDebtReportItem[],
+  filename = 'تقرير_الديون_المستحقة.csv'
+): void {
+  const headers = [
+    'رقم الدين',
+    'اسم العميل',
+    'رقم الجوال',
+    'المبلغ الأصلي',
+    'المبلغ المدفوع',
+    'المبلغ المتبقي',
+    'العملة',
+    'تاريخ الإنشاء',
+    'تاريخ الاستحقاق',
+    'أيام التأخير',
+    'السبب',
+    'الحالة',
+  ];
+  const rows = items.map((item) => [
+    item.debtId,
+    item.customerName,
+    item.customerPhone,
+    item.amount,
+    item.paidAmount,
+    item.remainingAmount,
+    item.currencyCode,
+    item.createdAt ? item.createdAt.split('T')[0] : '—',
+    item.dueDate ? item.dueDate.split('T')[0] : '—',
+    item.daysOverdue,
+    item.reason,
+    item.status === 'Overdue' ? 'متأخر' : item.status === 'PartiallyPaid' ? 'مسدد جزئياً' : 'غير مسدد',
+  ]);
+
+  const csvContent =
+    '\uFEFF' +
+    [headers.join(',')]
+      .concat(rows.map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')))
+      .join('\r\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Formats and prints or exports Outstanding Debts Report to A4 HTML document.
+ */
+export function printOutstandingDebtsReportHtml(
+  data: OutstandingDebtsReportResponse,
+  reportTitle = 'تقرير الديون المستحقة'
+): void {
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    alert('يرجى السماح بالنوافذ المنبثقة لطباعة أو تصدير التقرير.');
+    return;
+  }
+
+  const items = data.details?.items || [];
+  const itemsRows = items
+    .map(
+      (item, idx) => `
+    <tr>
+      <td style="text-align: center;">${idx + 1}</td>
+      <td style="font-weight: bold;">#${item.debtId}</td>
+      <td>${item.customerName}<br><span style="font-size: 10px; color: #64748b;">${item.customerPhone}</span></td>
+      <td style="text-align: left;">${item.amount.toLocaleString('ar-SA')} ${item.currencyCode}</td>
+      <td style="text-align: left; font-weight: bold; color: ${item.daysOverdue > 0 ? '#dc2626' : '#047857'};">${item.remainingAmount.toLocaleString('ar-SA')} ${item.currencyCode}</td>
+      <td style="text-align: center;">${item.dueDate ? item.dueDate.split('T')[0] : '—'}</td>
+      <td style="text-align: center; color: ${item.daysOverdue > 0 ? '#b91c1c' : '#64748b'};">${item.daysOverdue > 0 ? item.daysOverdue + ' يوم' : '—'}</td>
+      <td style="text-align: center;">
+        <span style="background: ${item.daysOverdue > 0 ? '#fee2e2' : item.status === 'PartiallyPaid' ? '#fef3c7' : '#f1f5f9'}; color: ${item.daysOverdue > 0 ? '#991b1b' : item.status === 'PartiallyPaid' ? '#92400e' : '#475569'}; padding: 2px 8px; border-radius: 4px; font-size: 11px;">
+          ${item.daysOverdue > 0 ? 'متأخر' : item.status === 'PartiallyPaid' ? 'مسدد جزئياً' : 'غير مسدد'}
+        </span>
+      </td>
+    </tr>
+  `
+    )
+    .join('');
+
+  const summaryCards = data.summary
+    .map(
+      (s) => `
+    <div class="kpi-card" style="margin-bottom: 10px;">
+      <div class="kpi-label">ملخص الديون (${s.currencyCode})</div>
+      <div class="kpi-val" style="color: #051838;">الإجمالي المتبقي: ${s.totalOutstandingAmount.toLocaleString('ar-SA')} ${s.currencyCode}</div>
+      <div class="kpi-val" style="color: #dc2626; font-size: 14px;">المتأخر: ${s.totalOverdueAmount.toLocaleString('ar-SA')} ${s.currencyCode}</div>
+      <div style="font-size: 10px; color: #64748b; margin-top: 4px;">الديون: ${s.totalOutstandingDebtsCount} | المتأخرة: ${s.totalOverdueDebtsCount} | العملاء: ${s.totalCustomersWithOutstandingDebts}</div>
+    </div>
+  `
+    )
+    .join('');
+
+  const html = `
+    <!DOCTYPE html>
+    <html dir="rtl" lang="ar">
+    <head>
+      <meta charset="utf-8">
+      <title>${reportTitle} - وثّق</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+      <style>
+        @page { size: A4 portrait; margin: 15mm; }
+        body { font-family: 'Cairo', sans-serif; color: #1e293b; margin: 0; padding: 15px; font-size: 12px; background: #fff; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #051838; padding-bottom: 12px; margin-bottom: 16px; }
+        .title { font-size: 22px; font-weight: 800; color: #051838; margin: 0; }
+        .subtitle { font-size: 12px; color: #64748b; margin-top: 4px; }
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .kpi-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; text-align: right; }
+        .kpi-label { font-size: 11px; color: #64748b; font-weight: 600; }
+        .kpi-val { font-size: 16px; font-weight: 800; margin-top: 4px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 11px; }
+        th { background: #051838; color: #fff; padding: 8px 10px; text-align: right; font-weight: 700; border: 1px solid #051838; }
+        td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #f1f5f9; }
+        tr:nth-child(even) { background-color: #f8fafc; }
+        .footer { margin-top: 25px; padding-top: 15px; border-top: 1px dashed #cbd5e1; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8; }
+        @media print {
+          .no-print { display: none; }
+          body { padding: 0; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <div>
+          <h1 class="title">${reportTitle}</h1>
+          <p class="subtitle">نظام وثّق المالي</p>
+        </div>
+        <div style="text-align: left;">
+          <div style="font-weight: 800; font-size: 18px; color: #051838;">وثّق WATHEQ</div>
+          <div style="font-size: 10px; color: #64748b;">تاريخ التقرير: ${new Date().toLocaleDateString('ar-SA')}</div>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        ${summaryCards || '<div class="kpi-card"><div class="kpi-label">الحالة</div><div class="kpi-val">لا توجد ديون مستحقة</div></div>'}
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 30px; text-align: center;">#</th>
+            <th>رقم الدين</th>
+            <th>العميل</th>
+            <th>المبلغ الأصلي</th>
+            <th>المبلغ المتبقي</th>
+            <th style="text-align: center;">تاريخ الاستحقاق</th>
+            <th style="text-align: center;">التأخير</th>
+            <th style="text-align: center;">الحالة</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsRows || '<tr><td colspan="8" style="text-align: center; padding: 30px; color: #94a3b8;">لا توجد سجلات لعرضها.</td></tr>'}
+        </tbody>
+      </table>
+
+      <div class="footer">
+        <div>تم استخراج هذا التقرير آلياً عبر منصة وثّق المالية</div>
+        <div>صفحة 1 من 1</div>
+      </div>
+
+      <script>
+        window.onload = function() {
+          window.print();
+        }
+      </script>
+    </body>
+    </html>
+  `;
+
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
 }

@@ -1,20 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
+import type { CustomerDto } from '../../types/customer';
+import { getCustomers } from '../../services/customerService';
 import {
   ChevronRight,
   ChevronDown,
   User,
   Phone,
   Banknote,
-  CreditCard,
   Landmark,
   Smartphone,
   Receipt,
   CheckCircle2,
   Lock,
   Info,
-  Check
+  Check,
+  Search
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
@@ -23,7 +25,7 @@ import { PATHS } from '../../routes/paths';
 export const CashSaleScreen: FC = () => {
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [customerType, setCustomerType] = useState<'guest' | 'registered' | 'business'>('guest');
+  const [customerType, setCustomerType] = useState<'guest' | 'registered'>('guest');
   const [phonePrefix, setPhonePrefix] = useState<string>('+970');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'pos' | 'transfer' | 'wallet'>('cash');
   const [amount, setAmount] = useState<string>('');
@@ -31,6 +33,48 @@ export const CashSaleScreen: FC = () => {
 
   // Calculations
   const numericAmount = parseFloat(amount) || 0;
+
+  const [currentDateTime, setCurrentDateTime] = useState('');
+
+  useEffect(() => {
+    const updateDateTime = () => {
+      const now = new Date();
+      setCurrentDateTime(
+        now.toLocaleString('ar-EG', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        })
+      );
+    };
+    updateDateTime();
+    const timer = setInterval(updateDateTime, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const [customers, setCustomers] = useState<CustomerDto[]>([]);
+  const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerDto | null>(null);
+
+  const filteredCustomers = customers.filter(c => 
+    c.fullName.toLowerCase().includes(customerSearchQuery.toLowerCase()) || 
+    (c.phoneNumber && c.phoneNumber.includes(customerSearchQuery))
+  );
+
+  useEffect(() => {
+    if (customerType === 'registered' && customers.length === 0) {
+      setIsLoadingCustomers(true);
+      getCustomers()
+        .then((data) => setCustomers(data))
+        .catch((err) => console.error(err))
+        .finally(() => setIsLoadingCustomers(false));
+    }
+  }, [customerType, customers.length]);
 
   return (
     <div
@@ -85,7 +129,7 @@ export const CashSaleScreen: FC = () => {
               <div className="h-10 w-px bg-slate-100 hidden sm:block"></div>
               <div>
                 <p className="text-xs text-slate-400 font-medium mb-1">تاريخ وتوقيت البيع</p>
-                <p className="font-bold text-slate-800">اليوم، 14:32 م</p>
+                <p className="font-bold text-slate-800">{currentDateTime || 'جاري التحميل...'}</p>
               </div>
             </div>
             
@@ -102,8 +146,8 @@ export const CashSaleScreen: FC = () => {
             <div className="lg:col-span-2 space-y-6">
               
               {/* Section 1: Customer Details */}
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
+                <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 rounded-t-2xl">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
                       <User className="w-4 h-4" />
@@ -117,7 +161,7 @@ export const CashSaleScreen: FC = () => {
                 
                 <div className="p-5 space-y-5">
                   {/* Customer Type Selection */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <label 
                       className={`relative flex flex-col p-4 rounded-xl border-2 cursor-pointer transition-all ${
                         customerType === 'guest' 
@@ -165,45 +209,68 @@ export const CashSaleScreen: FC = () => {
                       </div>
                       <span className="text-xs text-slate-500">ربط بسجل العملاء</span>
                     </label>
-
-                    <label 
-                      className={`relative flex flex-col p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                        customerType === 'business' 
-                          ? 'border-[#051838] bg-slate-50' 
-                          : 'border-slate-100 hover:border-slate-200'
-                      }`}
-                    >
-                      <input 
-                        type="radio" 
-                        name="customerType" 
-                        value="business" 
-                        checked={customerType === 'business'} 
-                        onChange={() => setCustomerType('business')}
-                        className="sr-only" 
-                      />
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-bold text-sm text-slate-800">منشأة تجارية / ضريبية</span>
-                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${customerType === 'business' ? 'border-[#051838]' : 'border-slate-300'}`}>
-                          {customerType === 'business' && <div className="w-2 h-2 rounded-full bg-[#051838]"></div>}
-                        </div>
-                      </div>
-                      <span className="text-xs text-slate-500">تسجيل الرقم الضريبي</span>
-                    </label>
                   </div>
 
                   {/* Customer Details Inputs */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700">اسم صاحب الحساب المحول منه</label>
+                      <label className="text-xs font-bold text-slate-700">
+                        {customerType === 'registered' ? 'اختر العميل من السجل' : 'اسم صاحب الحساب المحول منه'}
+                      </label>
                       <div className="relative">
-                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                          <User className="h-4 w-4 text-slate-400" />
-                        </div>
-                        <input
-                          type="text"
-                          defaultValue="زبون نقدي مباشر"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pr-10 pl-4 text-sm font-semibold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-[#051838] focus:border-transparent transition-all"
-                        />
+                        {customerType === 'registered' ? (
+                          <>
+                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                              <Search className="h-4 w-4 text-slate-400" />
+                            </div>
+                            <input
+                              type="text"
+                              value={isCustomerDropdownOpen ? customerSearchQuery : (selectedCustomer ? selectedCustomer.fullName : customerSearchQuery)}
+                              onChange={(e) => {
+                                setCustomerSearchQuery(e.target.value);
+                                setIsCustomerDropdownOpen(true);
+                                if (selectedCustomer) setSelectedCustomer(null);
+                              }}
+                              onFocus={() => setIsCustomerDropdownOpen(true)}
+                              onBlur={() => setTimeout(() => setIsCustomerDropdownOpen(false), 200)}
+                              placeholder={isLoadingCustomers ? 'جاري تحميل العملاء...' : 'ابحث بالاسم أو رقم الجوال...'}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pr-10 pl-4 text-sm font-semibold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-[#051838] focus:border-transparent transition-all"
+                            />
+                            {isCustomerDropdownOpen && !isLoadingCustomers && (
+                              <div className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                                {filteredCustomers.length > 0 ? (
+                                  filteredCustomers.map((c) => (
+                                    <div
+                                      key={c.id}
+                                      onClick={() => {
+                                        setSelectedCustomer(c);
+                                        setCustomerSearchQuery(c.fullName);
+                                        setIsCustomerDropdownOpen(false);
+                                      }}
+                                      className="px-4 py-2 hover:bg-slate-50 cursor-pointer border-b last:border-b-0 border-slate-100 flex flex-col"
+                                    >
+                                      <span className="font-semibold text-sm text-slate-800">{c.fullName}</span>
+                                      {c.phoneNumber && <span className="text-xs text-slate-500">{c.phoneNumber}</span>}
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="px-4 py-3 text-sm text-slate-500 text-center">لا توجد نتائج مطابقة</div>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                              <User className="h-4 w-4 text-slate-400" />
+                            </div>
+                            <input
+                              type="text"
+                              defaultValue="زبون نقدي مباشر"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pr-10 pl-4 text-sm font-semibold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-[#051838] focus:border-transparent transition-all"
+                            />
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="space-y-1.5">
@@ -255,7 +322,7 @@ export const CashSaleScreen: FC = () => {
                       <label className="text-xs font-bold text-slate-700">إجمالي مبلغ البيع (شامل الضريبة)</label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                          <span className="text-slate-400 text-sm font-semibold">ر.س</span>
+                          <span className="text-slate-400 text-sm font-semibold">شيكل</span>
                         </div>
                         <input
                           type="number"
@@ -295,7 +362,7 @@ export const CashSaleScreen: FC = () => {
                 </div>
                 
                 <div className="p-5 space-y-5">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <label 
                       className={`relative flex flex-col items-center justify-center p-4 rounded-xl border-2 cursor-pointer transition-all text-center ${
                         paymentMethod === 'cash' 
@@ -319,31 +386,6 @@ export const CashSaleScreen: FC = () => {
                       <Banknote className={`w-6 h-6 mb-2 ${paymentMethod === 'cash' ? 'text-emerald-600' : 'text-slate-400'}`} />
                       <span className={`font-bold text-sm ${paymentMethod === 'cash' ? 'text-emerald-700' : 'text-slate-700'}`}>نقداً / كاش</span>
                       <span className="text-[10px] text-slate-400 mt-1">استلام الخزينة</span>
-                    </label>
-
-                    <label 
-                      className={`relative flex flex-col items-center justify-center p-4 rounded-xl border-2 cursor-pointer transition-all text-center ${
-                        paymentMethod === 'pos' 
-                          ? 'border-emerald-500 bg-emerald-50' 
-                          : 'border-slate-100 hover:border-slate-200'
-                      }`}
-                    >
-                      <input 
-                        type="radio" 
-                        name="paymentMethod" 
-                        value="pos" 
-                        checked={paymentMethod === 'pos'} 
-                        onChange={() => setPaymentMethod('pos')}
-                        className="sr-only" 
-                      />
-                      {paymentMethod === 'pos' && (
-                        <div className="absolute top-2 right-2 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center">
-                          <Check className="w-2.5 h-2.5 text-white" />
-                        </div>
-                      )}
-                      <CreditCard className={`w-6 h-6 mb-2 ${paymentMethod === 'pos' ? 'text-emerald-600' : 'text-slate-400'}`} />
-                      <span className={`font-bold text-sm ${paymentMethod === 'pos' ? 'text-emerald-700' : 'text-slate-700'}`}>مدى / شبكة</span>
-                      <span className="text-[10px] text-slate-400 mt-1">بطاقة بنكية POS</span>
                     </label>
 
                     <label 
@@ -444,7 +486,7 @@ export const CashSaleScreen: FC = () => {
                       </span>
                     </div>
                   </div>
-                  <p className="text-[10px] text-emerald-600/80 mt-1 text-left" dir="ltr">فقط ألف ومئتان وخمسون ريالاً سعودياً لا غير</p>
+                  <p className="text-[10px] text-emerald-600/80 mt-1 text-left" dir="ltr">فقط ألف ومئتان وخمسون شيكلاً إسرائيلياً لا غير</p>
                 </div>
 
                 <div className="space-y-3 pt-2">

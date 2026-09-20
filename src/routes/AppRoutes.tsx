@@ -140,6 +140,14 @@ export const AppRoutes: FC = () => {
         }
       />
       <Route
+        path={PATHS.OUTSTANDING_DEBTS_REPORT}
+        element={
+          <ProtectedRoute>
+            <ReportsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path={PATHS.PAYMENTS}
         element={
           <ProtectedRoute>
