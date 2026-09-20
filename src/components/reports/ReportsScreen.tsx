@@ -426,7 +426,7 @@ export const ReportsScreen: FC = () => {
               <div className="mt-5 text-right">
                 <div className="flex items-baseline gap-1.5 justify-start">
                   <span className="text-3xl font-bold font-cairo text-[#047857] tracking-tight">
-                    {stats.collections.toLocaleString('ar-SA')}
+                    {stats.collections.toLocaleString('en-US')}
                   </span>
                   <span className="text-sm font-semibold text-slate-500 font-cairo">شيكل</span>
                 </div>
@@ -451,7 +451,7 @@ export const ReportsScreen: FC = () => {
               <div className="mt-5 text-right">
                 <div className="flex items-baseline gap-1.5 justify-start">
                   <span className="text-3xl font-bold font-cairo text-[#051838] tracking-tight">
-                    {stats.debts.toLocaleString('ar-SA')}
+                    {stats.debts.toLocaleString('en-US')}
                   </span>
                   <span className="text-sm font-semibold text-slate-500 font-cairo">شيكل</span>
                 </div>
@@ -476,14 +476,14 @@ export const ReportsScreen: FC = () => {
               <div className="mt-5 text-right">
                 <div className="flex items-baseline gap-1.5 justify-start">
                   <span className="text-3xl font-bold font-cairo text-slate-900 tracking-tight">
-                    {stats.activeCustomers.toLocaleString('ar-SA')}
+                    {stats.activeCustomers.toLocaleString('en-US')}
                   </span>
                 </div>
                 <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>
                     {stats.activeCustomers > 0
-                      ? `${stats.activeCustomers.toLocaleString('ar-SA')} عميل مسجل`
+                      ? `${stats.activeCustomers.toLocaleString('en-US')} عميل مسجل`
                       : 'لا يوجد عملاء مسجلون بعد'}
                   </span>
                 </div>
@@ -603,7 +603,7 @@ export const ReportsScreen: FC = () => {
                               className="w-5 sm:w-8 bg-[#007a3d] hover:bg-[#009148] rounded-t-sm transition-all duration-300 relative cursor-pointer shadow-xs group"
                             >
                               <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[11px] font-cairo py-1 px-2.5 rounded-md whitespace-nowrap shadow-lg z-20 pointer-events-none">
-                                {item.collections.toLocaleString('ar-SA')} شيكل
+                                {item.collections.toLocaleString('en-US')} شيكل
                               </div>
                             </div>
                           </div>
@@ -783,7 +783,7 @@ export const ReportsScreen: FC = () => {
 
                         {/* Collected Amount */}
                         <td className="px-6 py-4 font-bold font-cairo text-[#047857]">
-                          {item.amount.toLocaleString('ar-SA')}{' '}
+                          {item.amount.toLocaleString('en-US')}{' '}
                           <span className="text-xs font-normal text-slate-500">ش.إ</span>
                         </td>
 

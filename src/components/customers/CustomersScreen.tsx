@@ -323,7 +323,7 @@ export const CustomersScreen: FC = () => {
   const handleWhatsApp = (customer: Customer) => {
     const phone = customer.phone ? customer.phone.replace(/[^0-9]/g, '') : '';
     const text = encodeURIComponent(
-      `مرحباً ${customer.name}، نود تذكيركم بمستحقاتكم المالية لدى منصة وثّق بمبلغ ${customer.totalDebt.toLocaleString('ar-SA')} ش.إ.`
+      `مرحباً ${customer.name}، نود تذكيركم بمستحقاتكم المالية لدى منصة وثّق بمبلغ ${customer.totalDebt.toLocaleString('en-US')} ش.إ.`
     );
     if (phone) {
       window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
@@ -562,7 +562,7 @@ export const CustomersScreen: FC = () => {
 
                         {/* 3. Total Debt */}
                         <td className="py-4 px-4 sm:px-6 font-bold text-slate-900 font-cairo text-sm sm:text-base">
-                          <span>{customer.totalDebt.toLocaleString('ar-SA')}</span>{' '}
+                          <span>{customer.totalDebt.toLocaleString('en-US')}</span>{' '}
                           <span className="text-xs font-normal text-slate-400 font-cairo">ش.إ</span>
                         </td>
 
@@ -634,7 +634,7 @@ export const CustomersScreen: FC = () => {
               <span className="text-slate-500 font-medium">
                 {filteredCustomers.length === 0
                   ? 'لا يوجد عملاء'
-                  : `عرض ${(startIndex + 1).toLocaleString('ar-SA')} إلى ${endIndex.toLocaleString('ar-SA')} من ${(totalCustomersCount ?? filteredCustomers.length).toLocaleString('ar-SA')} عميل`}
+                  : `عرض ${(startIndex + 1).toLocaleString('en-US')} إلى ${endIndex.toLocaleString('en-US')} من ${(totalCustomersCount ?? filteredCustomers.length).toLocaleString('en-US')} عميل`}
               </span>
 
               {/* Two arrows (Right and Left) */}

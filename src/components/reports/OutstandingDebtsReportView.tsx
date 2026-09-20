@@ -129,7 +129,7 @@ export const OutstandingDebtsReportView: FC = () => {
             </p>
             <div className="flex items-baseline gap-1.5">
               <span className="text-2xl font-bold font-cairo text-[#051838]">
-                {s.totalOutstandingAmount.toLocaleString('ar-SA')}
+                {s.totalOutstandingAmount.toLocaleString('en-US')}
               </span>
             </div>
 
@@ -137,7 +137,7 @@ export const OutstandingDebtsReportView: FC = () => {
               <div>
                 <p className="text-[10px] text-slate-400 font-medium">المتأخرات</p>
                 <p className="text-sm font-bold text-rose-600">
-                  {s.totalOverdueAmount.toLocaleString('ar-SA')}
+                  {s.totalOverdueAmount.toLocaleString('en-US')}
                 </p>
               </div>
               <div>
@@ -325,10 +325,10 @@ export const OutstandingDebtsReportView: FC = () => {
                       <p className="text-xs text-slate-500 mt-0.5">{item.customerPhone}</p>
                     </td>
                     <td className="px-6 py-4 font-cairo font-semibold text-slate-600">
-                      {item.amount.toLocaleString('ar-SA')} <span className="text-xs">{item.currencyCode}</span>
+                      {item.amount.toLocaleString('en-US')} <span className="text-xs">{item.currencyCode}</span>
                     </td>
                     <td className="px-6 py-4 font-cairo font-bold text-[#051838]">
-                      {item.remainingAmount.toLocaleString('ar-SA')} <span className="text-xs">{item.currencyCode}</span>
+                      {item.remainingAmount.toLocaleString('en-US')} <span className="text-xs">{item.currencyCode}</span>
                     </td>
                     <td className="px-6 py-4 text-center font-cairo text-slate-600">
                       {item.dueDate ? item.dueDate.split('T')[0] : '—'}

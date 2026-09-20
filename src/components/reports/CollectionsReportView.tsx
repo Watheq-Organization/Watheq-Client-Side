@@ -276,7 +276,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
           </div>
           <div className="mt-4 flex items-baseline gap-1.5">
             <span className="text-2xl font-bold font-cairo text-[#047857]">
-              {kpiMetrics.totalCollected.toLocaleString('ar-SA')}
+              {kpiMetrics.totalCollected.toLocaleString('en-US')}
             </span>
             <span className="text-xs font-semibold text-slate-500 font-cairo">شيكل</span>
           </div>
@@ -296,7 +296,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
           </div>
           <div className="mt-4 flex items-baseline gap-1.5">
             <span className="text-2xl font-bold font-cairo text-slate-900">
-              {kpiMetrics.totalCount.toLocaleString('ar-SA')}
+              {kpiMetrics.totalCount.toLocaleString('en-US')}
             </span>
             <span className="text-xs font-semibold text-slate-500 font-cairo">سند</span>
           </div>
@@ -316,7 +316,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
           </div>
           <div className="mt-4 flex items-baseline gap-1.5">
             <span className="text-2xl font-bold font-cairo text-purple-700">
-              {kpiMetrics.avgAmount.toLocaleString('ar-SA')}
+              {kpiMetrics.avgAmount.toLocaleString('en-US')}
             </span>
             <span className="text-xs font-semibold text-slate-500 font-cairo">شيكل / عملية</span>
           </div>
@@ -335,7 +335,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
           </div>
           <div className="mt-4 flex items-baseline gap-1.5">
             <span className="text-2xl font-bold font-cairo text-amber-700">
-              {kpiMetrics.maxAmount.toLocaleString('ar-SA')}
+              {kpiMetrics.maxAmount.toLocaleString('en-US')}
             </span>
             <span className="text-xs font-semibold text-slate-500 font-cairo">شيكل</span>
           </div>
@@ -527,7 +527,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
 
                     {/* Collected Amount */}
                     <td className="px-6 py-4 font-bold font-cairo text-[#047857]">
-                      {item.amount.toLocaleString('ar-SA')} <span className="text-xs font-normal text-slate-500">ش.إ</span>
+                      {item.amount.toLocaleString('en-US')} <span className="text-xs font-normal text-slate-500">ش.إ</span>
                     </td>
 
                     {/* Payment Date */}

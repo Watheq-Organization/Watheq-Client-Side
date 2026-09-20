@@ -109,10 +109,10 @@ export function formatRelativeTime(dateStr?: string | null): string {
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
     if (diffMinutes < 5) return 'الآن';
-    if (diffMinutes < 60) return `منذ ${diffMinutes.toLocaleString('ar-SA')} دقيقة`;
-    if (diffHours < 24) return `منذ ${diffHours.toLocaleString('ar-SA')} ساعة`;
+    if (diffMinutes < 60) return `منذ ${diffMinutes.toLocaleString('en-US')} دقيقة`;
+    if (diffHours < 24) return `منذ ${diffHours.toLocaleString('en-US')} ساعة`;
     if (diffDays === 1) return 'أمس';
-    if (diffDays < 7) return `منذ ${diffDays.toLocaleString('ar-SA')} أيام`;
+    if (diffDays < 7) return `منذ ${diffDays.toLocaleString('en-US')} أيام`;
 
     return d.toLocaleDateString('ar-SA', { month: 'short', day: 'numeric' });
   } catch {
