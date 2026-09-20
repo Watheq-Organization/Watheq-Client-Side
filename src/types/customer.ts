@@ -87,6 +87,7 @@ export interface CustomerProfileTransactionDto {
   status: string | null;
   paymentMethod: string | null;
   dueDate?: string | null;
+  invoiceId?: number | null;
 }
 
 /**

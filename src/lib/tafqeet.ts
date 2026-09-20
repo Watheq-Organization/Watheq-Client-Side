@@ -79,7 +79,7 @@ function convertThreeDigits(n: number): string {
   return parts.join(' و');
 }
 
-export function tafqeet(amount: number, currency: string = 'ريال سعودي'): string {
+export function tafqeet(amount: number, currency: string = 'شيكل إسرائيلي'): string {
   if (amount === 0) return `صفر ${currency}`;
 
   const integerPart = Math.floor(Math.abs(amount));

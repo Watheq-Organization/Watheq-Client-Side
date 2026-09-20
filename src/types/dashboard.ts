@@ -23,6 +23,7 @@ export interface DashboardSummaryResult {
 
 export interface OverduePaymentItem {
   id: string;
+  customerId: string;
   customerName: string;
   amount: string;
   dueDate: string;

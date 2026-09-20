@@ -14,7 +14,7 @@ import type {
  * Fetches the official electronic invoice data for a debt.
  */
 export async function getInvoiceByDebtId(debtId: number | string): Promise<DebtInvoiceDto | null> {
-  const cleanId = String(debtId).replace(/[^0-9]/g, '') || String(debtId);
+  const cleanId = String(debtId).trim();
   const raw = await httpClient.get<unknown>(`/Invoice/debt/${cleanId}`);
   return normalizeDebtInvoiceResponse(raw, cleanId);
 }
@@ -24,7 +24,7 @@ export async function getInvoiceByDebtId(debtId: number | string): Promise<DebtI
  * Fetches the official electronic payment receipt / invoice for a payment.
  */
 export async function getInvoiceByPaymentId(paymentId: number | string): Promise<PaymentInvoiceDto | null> {
-  const cleanId = String(paymentId).replace(/[^0-9]/g, '') || String(paymentId);
+  const cleanId = String(paymentId).trim();
   const raw = await httpClient.get<unknown>(`/Invoice/payment/${cleanId}`);
   return normalizePaymentInvoiceResponse(raw, cleanId);
 }
@@ -45,7 +45,101 @@ export async function createInvoice(
  * Defaults to 15 if no ID provided.
  */
 export async function getInvoicePdfBlob(invoiceId: number | string = 15): Promise<Blob> {
-  const cleanId = String(invoiceId).replace(/[^0-9]/g, '') || '15';
+  const cleanId = String(invoiceId).trim() || '15';
+  return httpClient.getBlob(`/Invoice/${cleanId}/pdf`);
+}
+
+/**
+ * Resolves or auto-creates the invoice for a debt on the server, then fetches its PDF blob.
+ */
+export async function resolveAndDownloadDebtInvoicePdf(debtIdOrInvoiceId: number | string): Promise<Blob> {
+  const cleanId = String(debtIdOrInvoiceId).trim();
+  if (!cleanId) {
+    throw new Error('معرّف الفاتورة أو الدين غير صالح.');
+  }
+
+  // 1. Try direct PDF fetch with the ID
+  try {
+    const directBlob = await httpClient.getBlob(`/Invoice/${cleanId}/pdf`);
+    if (directBlob && directBlob.size > 0) return directBlob;
+  } catch (directErr) {
+    if (!(directErr instanceof ApiError) || directErr.status !== 404) {
+      throw directErr;
+    }
+  }
+
+  // 2. If 404, check if there is an existing invoice for this debt via /Invoice/debt/{debtId}
+  try {
+    const debtInvoice = await getInvoiceByDebtId(cleanId);
+    const resolvedInvoiceId = debtInvoice?.invoiceId ?? debtInvoice?.id;
+    if (resolvedInvoiceId && String(resolvedInvoiceId) !== cleanId) {
+      const debtBlob = await httpClient.getBlob(`/Invoice/${resolvedInvoiceId}/pdf`);
+      if (debtBlob && debtBlob.size > 0) return debtBlob;
+    }
+  } catch {
+    // continue to auto-create
+  }
+
+  // 3. If no invoice exists on the server for this debt, create it via POST /api/Invoice
+  try {
+    const createRes = await createInvoice({ debtId: Number(cleanId) });
+    const newInvoiceId = createRes?.id ?? createRes?.invoiceId;
+    if (newInvoiceId) {
+      const createdBlob = await httpClient.getBlob(`/Invoice/${newInvoiceId}/pdf`);
+      if (createdBlob && createdBlob.size > 0) return createdBlob;
+    }
+  } catch (createErr) {
+    // If auto-create failed, rethrow
+    throw createErr;
+  }
+
+  // Final direct attempt
+  return httpClient.getBlob(`/Invoice/${cleanId}/pdf`);
+}
+
+/**
+ * Resolves or auto-creates the invoice for a payment on the server, then fetches its PDF blob.
+ */
+export async function resolveAndDownloadPaymentInvoicePdf(paymentIdOrInvoiceId: number | string): Promise<Blob> {
+  const cleanId = String(paymentIdOrInvoiceId).trim();
+  if (!cleanId) {
+    throw new Error('معرّف سند القبض أو الدفعة غير صالح.');
+  }
+
+  // 1. Try direct PDF fetch
+  try {
+    const directBlob = await httpClient.getBlob(`/Invoice/${cleanId}/pdf`);
+    if (directBlob && directBlob.size > 0) return directBlob;
+  } catch (directErr) {
+    if (!(directErr instanceof ApiError) || directErr.status !== 404) {
+      throw directErr;
+    }
+  }
+
+  // 2. Check /Invoice/payment/{id}
+  try {
+    const paymentInvoice = await getInvoiceByPaymentId(cleanId);
+    const resolvedInvoiceId = paymentInvoice?.invoiceId ?? paymentInvoice?.id;
+    if (resolvedInvoiceId && String(resolvedInvoiceId) !== cleanId) {
+      const paymentBlob = await httpClient.getBlob(`/Invoice/${resolvedInvoiceId}/pdf`);
+      if (paymentBlob && paymentBlob.size > 0) return paymentBlob;
+    }
+  } catch {
+    // continue to auto-create
+  }
+
+  // 3. Auto-create via POST /api/Invoice with debtPaymentId
+  try {
+    const createRes = await createInvoice({ debtPaymentId: Number(cleanId) });
+    const newInvoiceId = createRes?.id ?? createRes?.invoiceId;
+    if (newInvoiceId) {
+      const createdBlob = await httpClient.getBlob(`/Invoice/${newInvoiceId}/pdf`);
+      if (createdBlob && createdBlob.size > 0) return createdBlob;
+    }
+  } catch (createErr) {
+    throw createErr;
+  }
+
   return httpClient.getBlob(`/Invoice/${cleanId}/pdf`);
 }
 
@@ -61,8 +155,8 @@ export async function getInvoice15PdfBlob(): Promise<Blob> {
  * Returns the direct absolute API URL for the PDF (e.g. https://whateq.runasp.net/api/Invoice/15/pdf).
  */
 export function getInvoicePdfDirectUrl(invoiceId: number | string = 15): string {
-  const cleanId = String(invoiceId).replace(/[^0-9]/g, '') || '15';
-  return `https://whateq.runasp.net/api/Invoice/${cleanId}/pdf`;
+  const cleanId = String(invoiceId).trim() || '15';
+  return `http://whateq.runasp.net/api/Invoice/${cleanId}/pdf`;
 }
 
 /**
@@ -87,7 +181,7 @@ export async function shareInvoiceViaWhatsApp(
   invoiceId: number | string,
   request: ShareInvoiceRequest
 ): Promise<ShareInvoiceResponseDto> {
-  const cleanId = String(invoiceId).replace(/[^0-9]/g, '') || '15';
+  const cleanId = String(invoiceId).trim() || '15';
   return httpClient.post<ShareInvoiceResponseDto>(`/Invoice/${cleanId}/share/whatsapp`, request);
 }
 
@@ -99,6 +193,8 @@ export function toInvoiceErrorMessage(error: unknown): string {
     const body = error.body as {
       result?: { code?: number; message?: string };
       message?: string;
+      title?: string;
+      detail?: string;
       errors?: Record<string, string[]>;
     } | null;
 
@@ -107,6 +203,12 @@ export function toInvoiceErrorMessage(error: unknown): string {
     }
     if (body?.message) {
       return body.message;
+    }
+    if (body?.detail) {
+      return body.detail;
+    }
+    if (body?.title && body.title !== 'One or more validation errors occurred.') {
+      return body.title;
     }
     if (body?.errors) {
       const first = Object.values(body.errors).flat()[0];
@@ -117,16 +219,16 @@ export function toInvoiceErrorMessage(error: unknown): string {
       return 'الفاتورة المحددة غير موجودة في سجلات الخادم (The specified invoice does not exist).';
     }
     if (error.status === 400) {
-      return 'بيانات الفاتورة غير صحيحة، يرجى مراجعة المدخلات.';
+      return 'بيانات الفاتورة غير صحيحة.';
     }
     if (error.status === 401) {
-      return 'انتهت جلستك، يرجى إعادة تسجيل الدخول.';
+      return 'انتهت صلاحية الجلسة، يرجى تسجيل الدخول مرة أخرى.';
     }
     if (error.status === 500) {
-      return 'حدث خطأ في خادم الفواتير، يرجى المحاولة لاحقاً.';
+      return 'حدث خطأ في خادم الفواتير (500 Internal Server Error).';
     }
   }
-  return 'تعذر الاتصال بخادم الفواتير، يرجى التحقق من اتصال الإنترنت.';
+  return 'تعذر الاتصال بالخادم، يرجى التحقق من اتصال الإنترنت.';
 }
 
 function unwrapEnvelope(raw: unknown): unknown {

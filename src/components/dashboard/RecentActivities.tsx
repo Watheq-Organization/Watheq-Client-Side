@@ -1,7 +1,6 @@
-
 import { useCallback, useEffect, useState } from 'react';
 import type { FC } from 'react';
-import { Loader2, AlertCircle} from 'lucide-react';
+import { Loader2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { getRecentActivities, toDashboardSummaryErrorMessage } from '../../services/dashboardService';
 import type { RecentActivityItem } from '../../types/dashboard';
 
@@ -9,6 +8,7 @@ export const RecentActivities: FC = () => {
   const [activities, setActivities] = useState<RecentActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const loadData = useCallback(() => {
     setIsLoading(true);
@@ -29,8 +29,8 @@ export const RecentActivities: FC = () => {
     loadData();
   }, [loadData]);
 
-  // Always display only the latest 5 activities
-  const displayedActivities = activities.slice(0, 5);
+  // When expanded: show all activities; otherwise show the first 5
+  const displayedActivities = isExpanded ? activities : activities.slice(0, 5);
 
   return (
     <div
@@ -40,14 +40,16 @@ export const RecentActivities: FC = () => {
       <div>
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold font-cairo text-slate-900">
-            أحدث النشاطات
-          </h2>
-          {activities.length > 0 && (
-            <span className="text-xs font-semibold text-slate-400 font-cairo">
-              ({activities.length})
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold font-cairo text-slate-900">
+              أحدث النشاطات
+            </h2>
+            {activities.length > 0 && (
+              <span className="text-xs font-bold text-slate-400 font-cairo">
+                ({activities.length})
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Error State */}
@@ -74,27 +76,41 @@ export const RecentActivities: FC = () => {
             <span className="text-xs font-medium font-cairo">جاري تحميل النشاطات...</span>
           </div>
         ) : displayedActivities.length > 0 ? (
-          <div className="relative pr-4">
+          <div
+            className={`relative pr-4 transition-all duration-300 ${
+              isExpanded
+                ? 'max-h-[440px] overflow-y-auto pl-2 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent hover:scrollbar-thumb-slate-300'
+                : ''
+            }`}
+            style={
+              isExpanded
+                ? {
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: '#cbd5e1 transparent',
+                  }
+                : undefined
+            }
+          >
             {/* Vertical continuous line */}
-            <div className="absolute top-2.5 bottom-6 right-[7px] w-0.5 bg-slate-200" />
+            <div className="absolute top-2.5 bottom-6 right-[7px] w-0.5 bg-slate-200 pointer-events-none" />
 
             <div className="space-y-6">
               {displayedActivities.map((activity) => (
-                <div key={activity.id} className="relative flex items-start gap-4">
+                <div key={activity.id} className="relative flex items-start gap-4 group">
                   {/* Dot */}
                   <div
-                    className={`relative z-10 mt-1 w-3.5 h-3.5 rounded-full ${activity.dotColor} ring-4 ring-white shrink-0`}
+                    className={`relative z-10 mt-1 w-3.5 h-3.5 rounded-full ${activity.dotColor} ring-4 ring-white shrink-0 shadow-xs`}
                   />
 
                   {/* Content */}
                   <div className="flex-1 text-right">
-                    <span className="block text-[11px] font-semibold text-slate-400 mb-0.5">
+                    <span className="block text-[11px] font-semibold text-slate-400 mb-0.5 font-cairo">
                       {activity.time}
                     </span>
-                    <h3 className="text-sm font-bold font-cairo text-slate-900 leading-snug">
+                    <h3 className="text-sm font-bold font-cairo text-slate-900 leading-snug group-hover:text-emerald-700 transition-colors">
                       {activity.title}
                     </h3>
-                    <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                    <p className="text-xs text-slate-500 mt-0.5 leading-relaxed font-cairo">
                       {activity.description}
                     </p>
                   </div>
@@ -103,13 +119,29 @@ export const RecentActivities: FC = () => {
             </div>
           </div>
         ) : (
-          <div className="py-10 text-center text-slate-400 text-sm">
+          <div className="py-10 text-center text-slate-400 text-sm font-cairo">
             لا توجد نشاطات حديثة حالياً في قاعدة البيانات
           </div>
         )}
       </div>
+
+      {/* Bottom Button "عرض الكل" / "عرض أقل" under the list */}
+      {!isLoading && activities.length > 5 && (
+        <div className="pt-4 mt-4 border-t border-slate-100">
+          <button
+            type="button"
+            onClick={() => setIsExpanded((prev) => !prev)}
+            className="w-full text-center py-2.5 px-4 text-xs sm:text-sm font-bold font-cairo text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50/60 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs border border-emerald-100 active:scale-[0.99]"
+          >
+            <span>{isExpanded ? 'عرض أقل (طي النشاطات)' : `عرض الكل (${activities.length})`}</span>
+            {isExpanded ? (
+              <ChevronUp className="w-4 h-4" />
+            ) : (
+              <ChevronDown className="w-4 h-4" />
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 };
-
-

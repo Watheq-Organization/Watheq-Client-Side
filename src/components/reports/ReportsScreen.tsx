@@ -23,6 +23,7 @@ import { PATHS } from '../../routes/paths';
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
 import { OverdueDebtsReportView } from './OverdueDebtsReportView';
+import { OutstandingDebtsReportView } from './OutstandingDebtsReportView';
 import { getDashboardSummary } from '../../services/dashboardService';
 import {
   getCollectionsReport,
@@ -40,24 +41,29 @@ export const ReportsScreen: FC = () => {
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Tab: 'collections' | 'overdue'
+  // Tab: 'collections' | 'overdue' | 'outstanding'
   const isOverdueInitial = location.pathname === PATHS.OVERDUE_DEBTS_REPORT;
-  const [activeReportTab, setActiveReportTab] = useState<'collections' | 'overdue'>(
-    isOverdueInitial ? 'overdue' : 'collections'
+  const isOutstandingInitial = location.pathname === PATHS.OUTSTANDING_DEBTS_REPORT;
+  const [activeReportTab, setActiveReportTab] = useState<'collections' | 'overdue' | 'outstanding'>(
+    isOutstandingInitial ? 'outstanding' : isOverdueInitial ? 'overdue' : 'collections'
   );
 
   useEffect(() => {
     if (location.pathname === PATHS.OVERDUE_DEBTS_REPORT) {
       setActiveReportTab('overdue');
+    } else if (location.pathname === PATHS.OUTSTANDING_DEBTS_REPORT) {
+      setActiveReportTab('outstanding');
     } else if (location.pathname === PATHS.COLLECTIONS_REPORT) {
       setActiveReportTab('collections');
     }
   }, [location.pathname]);
 
-  const handleTabChange = (tab: 'collections' | 'overdue') => {
+  const handleTabChange = (tab: 'collections' | 'overdue' | 'outstanding') => {
     setActiveReportTab(tab);
     if (tab === 'overdue') {
       navigate(PATHS.OVERDUE_DEBTS_REPORT);
+    } else if (tab === 'outstanding') {
+      navigate(PATHS.OUTSTANDING_DEBTS_REPORT);
     } else {
       navigate(PATHS.COLLECTIONS_REPORT);
     }
@@ -321,6 +327,19 @@ export const ReportsScreen: FC = () => {
 
             <button
               type="button"
+              onClick={() => handleTabChange('outstanding')}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                activeReportTab === 'outstanding'
+                  ? 'bg-[#051838] text-white shadow-xs'
+                  : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <Receipt className="w-4 h-4 text-amber-500" />
+              <span>تقرير الديون المستحقة (Outstanding Debts)</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => handleTabChange('overdue')}
               className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 activeReportTab === 'overdue'
@@ -336,7 +355,9 @@ export const ReportsScreen: FC = () => {
             </button>
           </div>
 
-          {activeReportTab === 'overdue' ? (
+          {activeReportTab === 'outstanding' ? (
+            <OutstandingDebtsReportView />
+          ) : activeReportTab === 'overdue' ? (
             <OverdueDebtsReportView />
           ) : (
             <>

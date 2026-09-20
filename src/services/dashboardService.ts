@@ -27,7 +27,8 @@ export async function getOverduePayments(): Promise<OverduePaymentItem[]> {
     const report = await getOverdueDebtsReport({ pageSize: 15 });
     if (report.details?.items && report.details.items.length > 0) {
       return report.details.items.map((item) => ({
-        id: String(item.customerId),
+        id: String(item.debtId ?? `${item.customerId}-${Math.random()}`),
+        customerId: String(item.customerId),
         customerName: item.customerName || 'عميل بدون اسم',
         amount: Number(item.remainingAmount || item.originalAmount).toLocaleString('ar-SA'),
         dueDate: formatArabicDate(item.dueDate),
@@ -45,7 +46,8 @@ export async function getOverduePayments(): Promise<OverduePaymentItem[]> {
   );
 
   return overdueCustomers.map((c) => ({
-    id: String(c.id),
+    id: String(c.id), // Fallback uses customer ID since it's grouped by customer
+    customerId: String(c.id),
     customerName: c.fullName || 'عميل بدون اسم',
     amount: (c.currentBalance ?? c.totalDebt).toLocaleString('ar-SA'),
     dueDate: formatArabicDate(c.createdAt),

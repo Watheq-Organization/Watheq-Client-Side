@@ -365,6 +365,9 @@ function normalizeCustomerProfileTransaction(raw: unknown): CustomerProfileTrans
   const rawDueDate = r.dueDate ?? r.DueDate ?? r.nextDueDate ?? r.NextDueDate;
   const dueDate = rawDueDate ? normalizeApiDateString(String(rawDueDate)) : null;
 
+  const rawInvoiceId = r.invoiceId ?? r.InvoiceId;
+  const invoiceId = rawInvoiceId != null && !isNaN(Number(rawInvoiceId)) ? Number(rawInvoiceId) : null;
+
   return {
     id: parsedId,
     type: typeof (r.type ?? r.Type) === 'string' ? String(r.type ?? r.Type) : '',
@@ -379,6 +382,7 @@ function normalizeCustomerProfileTransaction(raw: unknown): CustomerProfileTrans
     currencyCode: typeof (r.currencyCode ?? r.CurrencyCode) === 'string' ? String(r.currencyCode ?? r.CurrencyCode) : '',
     status: (r.status ?? r.Status) != null ? String(r.status ?? r.Status) : null,
     paymentMethod,
+    invoiceId,
   };
 }
 

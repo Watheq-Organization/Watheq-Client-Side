@@ -19,13 +19,20 @@ import {
   History,
   Tag,
   RotateCw,
+  AlertCircle,
+  Loader2,
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
 import { PATHS } from '../../routes/paths';
 import { useMerchantProfile } from '../../services/merchantProfileService';
 import { tafqeet } from '../../lib/tafqeet';
-import { getInvoiceByPaymentId } from '../../services/invoiceService';
+import {
+  getInvoiceByPaymentId,
+  resolveAndDownloadPaymentInvoicePdf,
+  triggerPdfDownload,
+  toInvoiceErrorMessage,
+} from '../../services/invoiceService';
 import { getCustomerProfile, getCustomers } from '../../services/customerService';
 import { formatApiDate, getDeviceLocalDateString } from '../../lib/dateUtils';
 import type { CustomerProfileDto } from '../../types/customer';
@@ -57,7 +64,8 @@ export const PaymentReceiptScreen: FC = () => {
   const merchant = useMerchantProfile();
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState<boolean>(false);
   const [serverPayment, setServerPayment] = useState<PaymentInvoiceDto | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [customerProfile, setCustomerProfile] = useState<CustomerProfileDto | null>(null);
@@ -67,7 +75,7 @@ export const PaymentReceiptScreen: FC = () => {
 
   const fetchLivePayment = () => {
     if (!id) return;
-    const cleanId = String(id).replace(/[^0-9]/g, '');
+    const cleanId = String(id).trim();
     if (!cleanId) return;
 
     setIsLoading(true);
@@ -208,7 +216,7 @@ export const PaymentReceiptScreen: FC = () => {
 
     const rawCurrency =
       serverPayment?.currency ?? serverPayment?.currencyCode ?? statePayment?.currency ?? 'شيكل';
-    const currency = rawCurrency === 'ILS' ? 'شيكل' : rawCurrency === 'SAR' ? 'ر.س' : rawCurrency;
+    const currency = rawCurrency === 'ILS' ? 'شيكل' : rawCurrency === 'SAR' ? 'شيكل' : rawCurrency;
 
     const rawDueDate = serverPayment?.nextDueDate ?? serverPayment?.dueDate;
     const nextDueDate = rawDueDate ? formatApiDate(rawDueDate) : null;
@@ -228,7 +236,7 @@ export const PaymentReceiptScreen: FC = () => {
       method,
       referenceNumber:
         serverPayment?.referenceNumber ??
-        `WTQ-${receiptNumber.replace(/[^0-9]/g, '').slice(-4) || '0821'}-PAY9`,
+        `WTQ-${receiptNumber.replace(/[^0-9A-Z]/ig, '').slice(-4) || '0821'}-PAY9`,
       previousDebt,
       remainingDebt,
       currency,
@@ -239,16 +247,32 @@ export const PaymentReceiptScreen: FC = () => {
     };
   }, [serverPayment, statePayment, id, customerProfile]);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4500);
   };
 
-  const handleExportPdf = () => {
-    showToast('جاري تجهيز سند القبض للتصدير بصيغة PDF...');
-    setTimeout(() => {
-      window.print();
-    }, 400);
+  const handleExportPdf = async () => {
+    const targetId = serverPayment?.invoiceId ?? serverPayment?.id ?? (id ? String(id).trim() : '15');
+    setIsDownloadingPdf(true);
+    showToast(`جاري تحميل سند القبض PDF من الخادم...`, 'info');
+    try {
+      const blob = await resolveAndDownloadPaymentInvoicePdf(targetId);
+      if (blob && blob.size > 0) {
+        triggerPdfDownload(blob, `receipt_${targetId}.pdf`);
+        showToast('تم تحميل ملف PDF بنجاح من الخادم.', 'success');
+        return;
+      }
+      throw new Error('الملف المستلم فارغ أو غير صالح.');
+    } catch (err: unknown) {
+      const errMsg = toInvoiceErrorMessage(err);
+      showToast(`${errMsg} - جاري تجهيز الطباعة المباشرة...`, 'info');
+      setTimeout(() => {
+        window.print();
+      }, 1500);
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
   const handleSendWhatsApp = () => {
@@ -300,10 +324,24 @@ export const PaymentReceiptScreen: FC = () => {
       dir="rtl"
     >
       {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-[#051838] text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200 border border-white/10 print:hidden">
-          <Check className="w-5 h-5 text-emerald-400 shrink-0" />
-          <span className="text-sm font-medium">{toastMessage}</span>
+      {toast && (
+        <div
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-50 px-5 py-3.5 rounded-xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200 border print:hidden max-w-md text-right ${
+            toast.type === 'error'
+              ? 'bg-rose-900/95 text-white border-rose-700 shadow-rose-950/30'
+              : toast.type === 'success'
+                ? 'bg-[#0c2444] text-white border-emerald-500/40 shadow-slate-950/30'
+                : 'bg-[#0c2444] text-white border-blue-500/40'
+          }`}
+        >
+          {toast.type === 'error' ? (
+            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+          ) : toast.type === 'success' ? (
+            <Check className="w-5 h-5 text-emerald-400 shrink-0" />
+          ) : (
+            <Loader2 className="w-5 h-5 text-blue-400 animate-spin shrink-0" />
+          )}
+          <span className="text-sm font-medium">{toast.message}</span>
         </div>
       )}
 
@@ -394,10 +432,15 @@ export const PaymentReceiptScreen: FC = () => {
               <button
                 type="button"
                 onClick={handleExportPdf}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200/90 rounded-xl text-xs sm:text-sm font-bold shadow-2xs hover:shadow-xs transition-all active:scale-98 cursor-pointer"
+                disabled={isDownloadingPdf}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200/90 rounded-xl text-xs sm:text-sm font-bold shadow-2xs hover:shadow-xs transition-all active:scale-98 cursor-pointer disabled:opacity-60"
               >
-                <FileDown className="w-4 h-4 text-slate-600" />
-                <span>تصدير PDF</span>
+                {isDownloadingPdf ? (
+                  <Loader2 className="w-4 h-4 text-emerald-600 animate-spin" />
+                ) : (
+                  <FileDown className="w-4 h-4 text-slate-600" />
+                )}
+                <span>{isDownloadingPdf ? 'جاري التحميل...' : 'تصدير PDF'}</span>
               </button>
             </div>
           </div>
@@ -410,7 +453,7 @@ export const PaymentReceiptScreen: FC = () => {
             className="bg-white rounded-3xl border border-slate-200/90 shadow-lg shadow-slate-200/40 overflow-hidden relative print:border-none print:shadow-none print:rounded-none print:m-0 print:p-0"
           >
             {/* Emerald Top Border Stripe */}
-            <div className="h-2.5 bg-gradient-to-r from-[#007a3d] via-[#059669] to-[#007a3d] w-full" />
+            <div className="h-2.5 bg-gradient-to-r from-[#007a3d] via-[#059669] to-[#007a3d] w-full print:hidden" />
 
             <div className="p-6 sm:p-8 lg:p-10 space-y-7">
               {/* Section 1: Header (System & Merchant Info + Receipt Meta Box) */}
@@ -474,7 +517,7 @@ export const PaymentReceiptScreen: FC = () => {
                       maximumFractionDigits: 2,
                     })}{' '}
                     <span className="text-xl sm:text-2xl font-bold font-cairo text-slate-800">
-                      ريال سعودي
+                      شيكل إسرائيلي
                     </span>
                   </div>
                   <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs sm:text-sm font-bold text-slate-700 shadow-2xs">
@@ -675,7 +718,7 @@ export const PaymentReceiptScreen: FC = () => {
               </div>
 
               {/* Section 6: Digital Verification & Signatures */}
-              <div className="border border-slate-200/90 rounded-2xl p-6 bg-slate-50/40">
+              <div className="border border-slate-200/90 rounded-2xl p-6 bg-slate-50/40 print:hidden">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center text-center">
                   {/* Column 1 (Collector Signature) */}
                   <div className="space-y-1.5 text-right md:text-center">
@@ -724,7 +767,7 @@ export const PaymentReceiptScreen: FC = () => {
               </div>
 
               {/* Section 7: Legal Disclaimer Footer inside receipt */}
-              <div className="border-t border-slate-200/80 pt-4 text-center text-[10px] sm:text-[11px] text-slate-400 font-medium">
+              <div className="border-t border-slate-200/80 pt-4 text-center text-[10px] sm:text-[11px] text-slate-400 font-medium print:hidden">
                 يعتبر هذا السند إقراراً رسمياً باستلام المبلغ المذكور أعلاه ولا يعتد بأي تعديل يدوي أو كشط على الوثيقة | صفحة 1 من 1 | كود إلكتروني مميز ومحمي بنظام واثق للتشفير المالي
               </div>
             </div>

@@ -350,7 +350,16 @@ export const PaymentsScreen: FC = () => {
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#007a3d] hover:bg-[#006633] text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs hover:shadow-md transition-all active:scale-98 cursor-pointer"
               >
                 <Banknote className="w-4 h-4" />
-                <span>تسجيل تحصيل جديد</span>
+                <span>تسجيل تحصيل ديون</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate(PATHS.CASH_SALE)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#051838] hover:bg-[#072454] text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs hover:shadow-md transition-all active:scale-98 cursor-pointer"
+              >
+                <Banknote className="w-4 h-4" />
+                <span>تسجيل بيع نقدي فوري</span>
               </button>
 
               {/* Export Data Button */}
