@@ -420,7 +420,7 @@ export const PaymentsScreen: FC = () => {
               <div className="mt-4 text-right">
                 <div className="flex items-baseline gap-1.5 justify-start">
                   <span className="text-2xl sm:text-3xl font-bold font-cairo text-[#051838] tracking-tight">
-                    {summaryStats.totalCollected.toLocaleString('ar-SA')}
+                    {summaryStats.totalCollected.toLocaleString('en-US')}
                   </span>
                   <span className="text-xs text-slate-400 font-medium font-cairo">شيكل</span>
                 </div>
@@ -440,7 +440,7 @@ export const PaymentsScreen: FC = () => {
               </div>
               <div className="mt-4 text-right">
                 <span className="text-2xl sm:text-3xl font-bold font-cairo text-[#051838] tracking-tight">
-                  {summaryStats.totalCount.toLocaleString('ar-SA')}
+                  {summaryStats.totalCount.toLocaleString('en-US')}
                 </span>
                 <span className="text-xs text-slate-400 font-medium mr-1.5 font-cairo">سند قبض</span>
               </div>
@@ -457,7 +457,7 @@ export const PaymentsScreen: FC = () => {
               <div className="mt-4 text-right">
                 <div className="flex items-baseline gap-1.5 justify-start">
                   <span className="text-2xl sm:text-3xl font-bold font-cairo text-[#051838] tracking-tight">
-                    {summaryStats.averagePayment.toLocaleString('ar-SA')}
+                    {summaryStats.averagePayment.toLocaleString('en-US')}
                   </span>
                   <span className="text-xs text-slate-400 font-medium font-cairo">شيكل</span>
                 </div>

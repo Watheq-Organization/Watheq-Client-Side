@@ -52,7 +52,7 @@ export const StatCards: FC = () => {
   const formatValue = (value: number) => {
     if (isLoading) return '...';
     if (!hasData) return '—';
-    return Number(value).toLocaleString('ar-SA');
+    return Number(value).toLocaleString('en-US');
   };
 
   return (

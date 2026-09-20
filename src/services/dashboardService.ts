@@ -30,7 +30,7 @@ export async function getOverduePayments(): Promise<OverduePaymentItem[]> {
         id: String(item.debtId ?? `${item.customerId}-${Math.random()}`),
         customerId: String(item.customerId),
         customerName: item.customerName || 'عميل بدون اسم',
-        amount: Number(item.remainingAmount || item.originalAmount).toLocaleString('ar-SA'),
+        amount: Number(item.remainingAmount || item.originalAmount).toLocaleString('en-US'),
         dueDate: formatArabicDate(item.dueDate),
         phone: '',
       }));
@@ -49,7 +49,7 @@ export async function getOverduePayments(): Promise<OverduePaymentItem[]> {
     id: String(c.id), // Fallback uses customer ID since it's grouped by customer
     customerId: String(c.id),
     customerName: c.fullName || 'عميل بدون اسم',
-    amount: (c.currentBalance ?? c.totalDebt).toLocaleString('ar-SA'),
+    amount: (c.currentBalance ?? c.totalDebt).toLocaleString('en-US'),
     dueDate: formatArabicDate(c.createdAt),
     phone: c.phoneNumber,
   }));
@@ -99,8 +99,8 @@ export async function getRecentActivities(): Promise<RecentActivityItem[]> {
         time: formatRelativeTime(tx.date),
         title: isPayment ? 'تم استلام دفعة' : isDebt ? 'إضافة دين جديد' : 'معاملة مالية',
         description: isPayment
-          ? `قام ${profile.fullName} بسداد مبلغ ${Number(tx.amount).toLocaleString('ar-SA')} ش.إ.`
-          : `تم تسجيل دين بقيمة ${Number(tx.amount).toLocaleString('ar-SA')} ش.إ على ${profile.fullName}`,
+          ? `قام ${profile.fullName} بسداد مبلغ ${Number(tx.amount).toLocaleString('en-US')} ش.إ.`
+          : `تم تسجيل دين بقيمة ${Number(tx.amount).toLocaleString('en-US')} ش.إ على ${profile.fullName}`,
         dotColor: isPayment ? 'bg-[#22c55e]' : 'bg-[#0f284e]',
         timestamp: txTimeMs,
       });

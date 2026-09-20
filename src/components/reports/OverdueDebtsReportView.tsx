@@ -303,7 +303,7 @@ export const OverdueDebtsReportView: FC = () => {
                   <div className="text-xs font-medium text-slate-500">إجمالي المبالغ المتأخرة</div>
                   <div className="mt-1 flex items-baseline gap-1.5">
                     <span className="text-2xl sm:text-3xl font-bold font-cairo text-rose-600 tracking-tight">
-                      {sumItem.totalOverdueAmount.toLocaleString('ar-SA')}
+                      {sumItem.totalOverdueAmount.toLocaleString('en-US')}
                     </span>
                     <span className="text-sm font-semibold text-slate-600">
                       {sumItem.currencyCode}
@@ -475,7 +475,7 @@ export const OverdueDebtsReportView: FC = () => {
                         >
                           {/* Tooltip */}
                           <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[11px] font-cairo py-1 px-2.5 rounded-md whitespace-nowrap shadow-lg z-20 pointer-events-none">
-                            {point.amount.toLocaleString('ar-SA')} {point.currencyCode}
+                            {point.amount.toLocaleString('en-US')} {point.currencyCode}
                           </div>
                         </div>
                       </div>
@@ -626,12 +626,12 @@ export const OverdueDebtsReportView: FC = () => {
 
                     {/* Original Amount */}
                     <td className="px-6 py-4 text-slate-600 font-medium">
-                      {item.originalAmount.toLocaleString('ar-SA')}
+                      {item.originalAmount.toLocaleString('en-US')}
                     </td>
 
                     {/* Remaining Amount */}
                     <td className="px-6 py-4 font-bold font-cairo text-rose-600">
-                      {item.remainingAmount.toLocaleString('ar-SA')}
+                      {item.remainingAmount.toLocaleString('en-US')}
                     </td>
 
                     {/* Currency Code */}

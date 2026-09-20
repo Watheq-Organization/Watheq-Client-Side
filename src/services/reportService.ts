@@ -148,7 +148,7 @@ export function printCollectionsReportHtml(
       <td style="text-align: center;">${idx + 1}</td>
       <td style="font-weight: bold;">${item.receiptNumber || item.id}</td>
       <td>${item.customerName}</td>
-      <td style="text-align: left; font-weight: bold; color: #047857;">${item.amount.toLocaleString('ar-SA')} ش.إ</td>
+      <td style="text-align: left; font-weight: bold; color: #047857;">${item.amount.toLocaleString('en-US')} ش.إ</td>
       <td style="text-align: center;">${item.date}</td>
       <td style="text-align: center;">${formatPaymentMethod(item.paymentMethod)}</td>
       <td style="text-align: center;"><span style="background: #dcfce7; color: #15803d; padding: 2px 8px; border-radius: 4px; font-size: 11px;">${item.status || 'مكتمل'}</span></td>
@@ -202,15 +202,15 @@ export function printCollectionsReportHtml(
       <div class="kpi-grid">
         <div class="kpi-card">
           <div class="kpi-label">إجمالي التحصيلات</div>
-          <div class="kpi-val emerald">${data.totalCollected.toLocaleString('ar-SA')} ش.إ</div>
+          <div class="kpi-val emerald">${data.totalCollected.toLocaleString('en-US')} ش.إ</div>
         </div>
         <div class="kpi-card">
           <div class="kpi-label">عدد عمليات التحصيل</div>
-          <div class="kpi-val">${data.totalRecords.toLocaleString('ar-SA')} عملية</div>
+          <div class="kpi-val">${data.totalRecords.toLocaleString('en-US')} عملية</div>
         </div>
         <div class="kpi-card">
           <div class="kpi-label">متوسط قيمة السند</div>
-          <div class="kpi-val">${(data.totalRecords > 0 ? Math.round(data.totalCollected / data.totalRecords) : 0).toLocaleString('ar-SA')} ش.إ</div>
+          <div class="kpi-val">${(data.totalRecords > 0 ? Math.round(data.totalCollected / data.totalRecords) : 0).toLocaleString('en-US')} ش.إ</div>
         </div>
       </div>
 
@@ -340,8 +340,8 @@ export function printOverdueDebtsReportHtml(
       <td style="text-align: center;">${idx + 1}</td>
       <td style="font-weight: bold;">#${item.debtId}</td>
       <td>${item.customerName}</td>
-      <td style="text-align: left;">${item.originalAmount.toLocaleString('ar-SA')} ${item.currencyCode}</td>
-      <td style="text-align: left; font-weight: bold; color: #dc2626;">${item.remainingAmount.toLocaleString('ar-SA')} ${item.currencyCode}</td>
+      <td style="text-align: left;">${item.originalAmount.toLocaleString('en-US')} ${item.currencyCode}</td>
+      <td style="text-align: left; font-weight: bold; color: #dc2626;">${item.remainingAmount.toLocaleString('en-US')} ${item.currencyCode}</td>
       <td style="text-align: center;">${item.dueDate ? item.dueDate.split('T')[0] : '—'}</td>
       <td style="text-align: center; color: #b91c1c; font-weight: bold;">${item.daysOverdue} يوم</td>
       <td style="text-align: center;"><span style="background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 4px; font-size: 11px;">متأخر</span></td>
@@ -355,7 +355,7 @@ export function printOverdueDebtsReportHtml(
       (s) => `
     <div class="kpi-card">
       <div class="kpi-label">إجمالي المتأخرات (${s.currencyCode})</div>
-      <div class="kpi-val red">${s.totalOverdueAmount.toLocaleString('ar-SA')} ${s.currencyCode}</div>
+      <div class="kpi-val red">${s.totalOverdueAmount.toLocaleString('en-US')} ${s.currencyCode}</div>
       <div style="font-size: 10px; color: #64748b; margin-top: 4px;">${s.numberOfOverdueDebts} ديون متأخرة | ${s.numberOfCustomersWithOverdueDebts} عملاء</div>
     </div>
   `
@@ -1099,8 +1099,8 @@ export function printOutstandingDebtsReportHtml(
       <td style="text-align: center;">${idx + 1}</td>
       <td style="font-weight: bold;">#${item.debtId}</td>
       <td>${item.customerName}<br><span style="font-size: 10px; color: #64748b;">${item.customerPhone}</span></td>
-      <td style="text-align: left;">${item.amount.toLocaleString('ar-SA')} ${item.currencyCode}</td>
-      <td style="text-align: left; font-weight: bold; color: ${item.daysOverdue > 0 ? '#dc2626' : '#047857'};">${item.remainingAmount.toLocaleString('ar-SA')} ${item.currencyCode}</td>
+      <td style="text-align: left;">${item.amount.toLocaleString('en-US')} ${item.currencyCode}</td>
+      <td style="text-align: left; font-weight: bold; color: ${item.daysOverdue > 0 ? '#dc2626' : '#047857'};">${item.remainingAmount.toLocaleString('en-US')} ${item.currencyCode}</td>
       <td style="text-align: center;">${item.dueDate ? item.dueDate.split('T')[0] : '—'}</td>
       <td style="text-align: center; color: ${item.daysOverdue > 0 ? '#b91c1c' : '#64748b'};">${item.daysOverdue > 0 ? item.daysOverdue + ' يوم' : '—'}</td>
       <td style="text-align: center;">
@@ -1118,8 +1118,8 @@ export function printOutstandingDebtsReportHtml(
       (s) => `
     <div class="kpi-card" style="margin-bottom: 10px;">
       <div class="kpi-label">ملخص الديون (${s.currencyCode})</div>
-      <div class="kpi-val" style="color: #051838;">الإجمالي المتبقي: ${s.totalOutstandingAmount.toLocaleString('ar-SA')} ${s.currencyCode}</div>
-      <div class="kpi-val" style="color: #dc2626; font-size: 14px;">المتأخر: ${s.totalOverdueAmount.toLocaleString('ar-SA')} ${s.currencyCode}</div>
+      <div class="kpi-val" style="color: #051838;">الإجمالي المتبقي: ${s.totalOutstandingAmount.toLocaleString('en-US')} ${s.currencyCode}</div>
+      <div class="kpi-val" style="color: #dc2626; font-size: 14px;">المتأخر: ${s.totalOverdueAmount.toLocaleString('en-US')} ${s.currencyCode}</div>
       <div style="font-size: 10px; color: #64748b; margin-top: 4px;">الديون: ${s.totalOutstandingDebtsCount} | المتأخرة: ${s.totalOverdueDebtsCount} | العملاء: ${s.totalCustomersWithOutstandingDebts}</div>
     </div>
   `
