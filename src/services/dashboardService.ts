@@ -5,7 +5,7 @@ import { getOverdueDebtsReport } from './reportService';
 import { parseApiDate, formatRelativeTime } from '../lib/dateUtils';
 
 /**
- * GET http://whateq.runasp.net/api/Dashboard/summary
+ * GET https://whateq.runasp.net/api/Dashboard/summary
  *
  * Fetches the current merchant's real dashboard statistics
  * (customersCount / totalDebt / collectedAmount / remainingAmount /

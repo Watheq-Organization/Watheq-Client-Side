@@ -35,7 +35,7 @@ function buildQueryString(params?: Record<string, unknown>): string {
 }
 
 /**
- * GET http://whateq.runasp.net/api/Reports/collections
+ * GET https://whateq.runasp.net/api/Reports/collections
  * Fetches collections report with date range and pagination.
  * Sends safe default dates if not provided to prevent ASP.NET 400 Bad Request.
  */
@@ -251,7 +251,7 @@ export function printCollectionsReportHtml(
 }
 
 /**
- * GET http://whateq.runasp.net/api/reports/overdue-debts
+ * GET https://whateq.runasp.net/api/reports/overdue-debts
  * Fetches overdue debts report with optional date range and pagination.
  * If fromDate & toDate are omitted, the backend defaults to the last 30 days.
  */
@@ -446,7 +446,7 @@ export function printOverdueDebtsReportHtml(
 }
 
 /**
- * GET http://whateq.runasp.net/api/Reports/customer-performance
+ * GET https://whateq.runasp.net/api/Reports/customer-performance
  * Fetches customer commitment and payment performance report.
  */
 export async function getCustomerPerformanceReport(

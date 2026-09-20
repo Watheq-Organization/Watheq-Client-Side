@@ -182,7 +182,7 @@ export function normalizeProfileImageUrl(path?: string | null): string {
     if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
       return pathWithSlash;
     }
-    return `http://whateq.runasp.net${pathWithSlash}`;
+    return `https://whateq.runasp.net${pathWithSlash}`;
   }
 
   // If it's an absolute external URL
@@ -195,11 +195,11 @@ export function normalizeProfileImageUrl(path?: string | null): string {
   if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
     return pathWithSlash;
   }
-  return `http://whateq.runasp.net${pathWithSlash}`;
+  return `https://whateq.runasp.net${pathWithSlash}`;
 }
 
 /**
- * GET http://whateq.runasp.net/api/MerchantProfile/getProfile
+ * GET https://whateq.runasp.net/api/MerchantProfile/getProfile
  * Fetches merchant profile from backend, falling back to stored registration data
  */
 export async function getMerchantProfile(): Promise<MerchantProfile> {
@@ -256,7 +256,7 @@ export async function getMerchantProfile(): Promise<MerchantProfile> {
 }
 
 /**
- * PUT http://whateq.runasp.net/api/MerchantProfile/UpdateProfile
+ * PUT https://whateq.runasp.net/api/MerchantProfile/UpdateProfile
  * Updates merchant profile on backend and updates local cache
  */
 export async function updateMerchantProfile(
