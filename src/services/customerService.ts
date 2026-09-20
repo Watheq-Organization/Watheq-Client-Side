@@ -11,7 +11,7 @@ import type {
 } from '../types/customer';
 
 /**
- * GET http://whateq.runasp.net/api/customer/getCustomers
+ * GET https://whateq.runasp.net/api/customer/getCustomers
  *
  * Fetches every customer belonging to the current merchant. No UserId or
  * BusinessId is sent — the backend derives the current user from the JWT
@@ -202,7 +202,7 @@ export function toGetCustomersErrorMessage(error: unknown): string {
 }
 
 /**
- * GET http://whateq.runasp.net/api/Customer/getCustomerProfile/{customerId}
+ * GET https://whateq.runasp.net/api/Customer/getCustomerProfile/{customerId}
  *
  * Fetches the full profile of a single customer for the authenticated
  * merchant: basic info, current balance, total debt/paid, and the complete
@@ -468,7 +468,7 @@ export function toGetCustomerProfileErrorMessage(error: unknown): string {
 }
 
 /**
- * PUT http://whateq.runasp.net/api/Customer/updateCustomer/{customerId}
+ * PUT https://whateq.runasp.net/api/Customer/updateCustomer/{customerId}
  *
  * Updates a customer's name, phone, and address. `customerId` is sent in
  * the URL only (never the body). The backend derives UserId from the JWT
@@ -493,7 +493,7 @@ export async function updateCustomer(
 }
 
 /**
- * POST http://whateq.runasp.net/api/customer/addCustomer
+ * POST https://whateq.runasp.net/api/customer/addCustomer
  *
  * Creates a new customer under the current merchant's business. Only
  * fullName/phoneNumber/address are sent — the backend derives the
@@ -518,7 +518,7 @@ export async function addCustomer(payload: AddCustomerPayload): Promise<Customer
 }
 
 /**
- * DELETE http://whateq.runasp.net/api/customer/deleteCustomer/{customerId}
+ * DELETE https://whateq.runasp.net/api/customer/deleteCustomer/{customerId}
  *
  * Deletes a customer belonging to the current merchant. `customerId` is
  * sent as a route parameter only — no request body. The backend verifies

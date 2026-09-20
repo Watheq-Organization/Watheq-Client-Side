@@ -7,7 +7,7 @@
  *
  * If VITE_API_BASE_URL is not set (e.g. .env missing at build time), we fall
  * back to the confirmed real backend base URL so the required endpoint
- *   POST http://whateq.runasp.net/api/auth/register
+ *   POST https://whateq.runasp.net/api/auth/register
  * always resolves correctly.
  */
 

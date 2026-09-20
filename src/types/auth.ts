@@ -26,7 +26,7 @@ export interface LoginFormData {
  *
  * This project has no backend code, OpenAPI/Swagger spec, or Postman
  * collection checked into the repo, and no publicly discoverable API
- * documentation was found for http://whateq.runasp.net. The exact
+ * documentation was found for https://whateq.runasp.net. The exact
  * property names the backend expects for POST /api/auth/register are
  * therefore NOT confirmed.
  *

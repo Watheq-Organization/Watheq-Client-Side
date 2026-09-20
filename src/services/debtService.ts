@@ -4,7 +4,7 @@ import type { CustomerDto } from '../types/customer';
 import { getCustomers, getStoredNationalId } from './customerService';
 
 /**
- * POST http://whateq.runasp.net/api/Debt/createDebt
+ * POST https://whateq.runasp.net/api/Debt/createDebt
  *
  * Confirmed directly from the backend's Swagger/OpenAPI listing (Debt
  * section): `POST /api/Debt/createDebt` creates a debt, and
