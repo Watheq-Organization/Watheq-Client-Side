@@ -16,6 +16,7 @@ body {
 
 * {
   font-family: "Cairo", var(--font-cairo), sans-serif;
+  font-feature-settings: "locl" 0;
 }
 
 @media print {

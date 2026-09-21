@@ -25,6 +25,7 @@ import {
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
 import { PATHS } from '../../routes/paths';
+import { InstantSalesLogView } from './InstantSalesLogView';
 import { getCustomers } from '../../services/customerService';
 import { getPaymentHistory } from '../../services/paymentService';
 import {
@@ -51,6 +52,7 @@ interface PaymentRecord {
 
 export const PaymentsScreen: FC = () => {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'debts' | 'instant'>('debts');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -407,8 +409,37 @@ export const PaymentsScreen: FC = () => {
             </div>
           )}
 
-          {/* 4 Summary Stat Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+          {/* Modern Segmented Control Tabs */}
+          <div className="flex items-center gap-1.5 p-1.5 bg-white border border-slate-200/80 rounded-2xl mb-6 w-fit shadow-xs">
+            <button
+              onClick={() => setActiveTab('debts')}
+              className={`relative px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 flex items-center gap-2.5 cursor-pointer select-none ${
+                activeTab === 'debts' 
+                  ? 'bg-[#051838] text-white shadow-md' 
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+              }`}
+            >
+              <Receipt className={`w-4 h-4 ${activeTab === 'debts' ? 'text-white' : 'text-slate-400'}`} />
+              <span>سندات القبض (تسديد الديون)</span>
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('instant')}
+              className={`relative px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 flex items-center gap-2.5 cursor-pointer select-none ${
+                activeTab === 'instant' 
+                  ? 'bg-[#051838] text-white shadow-md' 
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+              }`}
+            >
+              <Banknote className={`w-4 h-4 ${activeTab === 'instant' ? 'text-emerald-400' : 'text-slate-400'}`} />
+              <span>سجل المبيعات النقدية</span>
+            </button>
+          </div>
+
+          {activeTab === 'debts' ? (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              {/* 4 Summary Stat Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
             {/* Card 1: إجمالي المحصل */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5 flex flex-col justify-between hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
@@ -838,6 +869,12 @@ export const PaymentsScreen: FC = () => {
               </div>
             </div>
           </div>
+          </div>
+          ) : (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <InstantSalesLogView />
+            </div>
+          )}
         </main>
       </div>
 
