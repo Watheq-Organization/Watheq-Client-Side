@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
+import { parseVoiceDebt } from '../../lib/voiceDebtParser';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   UserSearch,
@@ -197,15 +198,19 @@ export const AddDebtScreen: FC = () => {
       const transcript = event.results[0]?.[0]?.transcript ?? '';
       if (!transcript) return;
 
-      // Best-effort auto-fill: pull the first number mentioned into the
-      // amount field, and drop the full transcript into notes so nothing
-      // said is lost even if it couldn't be mapped to a specific field.
-      const numberMatch = transcript.match(/\d+(\.\d+)?/);
-      if (numberMatch) {
-        setAmount(numberMatch[0]);
+      const parsed = parseVoiceDebt(transcript);
+
+      if (parsed.amount !== null) {
+        setAmount(String(parsed.amount));
         setFieldErrors((prev) => ({ ...prev, amount: undefined }));
       }
-      setNotes((prev) => (prev ? `${prev} ${transcript}` : transcript));
+      if (parsed.dueDate) {
+        setDueDate(parsed.dueDate);
+        setFieldErrors((prev) => ({ ...prev, dueDate: undefined }));
+      }
+      if (parsed.notes) {
+        setNotes(parsed.notes);
+      }
     };
     recognition.onerror = () => setIsListening(false);
     recognition.onend = () => setIsListening(false);
