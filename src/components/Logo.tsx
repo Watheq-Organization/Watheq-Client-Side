@@ -57,7 +57,7 @@ export const Logo: FC<LogoProps> = ({
           <span
             className={`font-black font-cairo tracking-tight ${
               textSizes[size].ar
-            } ${isLight ? 'text-white' : 'text-[#0c2444]'}`}
+            } ${isLight ? 'text-white' : 'text-[#0c2444] dark:text-blue-400'}`}
           >
             وثَّـق
           </span>
@@ -73,7 +73,7 @@ export const Logo: FC<LogoProps> = ({
         {showSubtitle && (
           <span
             className={`font-medium mt-1 ${textSizes[size].sub} ${
-              isLight ? 'text-blue-300/80' : 'text-slate-500'
+              isLight ? 'text-blue-300/80' : 'text-slate-500 dark:text-slate-400'
             }`}
           >
             تطبيق إدارة الديون والتوثيق

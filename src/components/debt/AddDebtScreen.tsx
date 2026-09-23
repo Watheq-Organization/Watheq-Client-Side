@@ -284,7 +284,7 @@ export const AddDebtScreen: FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F9F9FF] text-slate-800 font-cairo antialiased flex" dir="rtl">
+    <div className="min-h-screen bg-[#F9F9FF] dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-cairo antialiased flex" dir="rtl">
       <Sidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -309,7 +309,7 @@ export const AddDebtScreen: FC = () => {
         <main className="p-4 sm:p-6 lg:p-10 flex-1">
           {/* Page Title */}
           <div className="text-center mb-6 sm:mb-8">
-            <h1 className="text-xl sm:text-2xl font-semibold text-[#00204F] font-cairo">
+            <h1 className="text-xl sm:text-2xl font-semibold text-[#00204F] dark:text-white font-cairo">
               {isEditMode ? 'تعديل الدين' : 'إضافة دين جديد'}
             </h1>
             <p className="text-xs sm:text-sm text-slate-400 mt-1.5">
@@ -320,7 +320,7 @@ export const AddDebtScreen: FC = () => {
           </div>
 
           {/* Main Form Card */}
-          <div className="max-w-[485px] mx-auto bg-white rounded-2xl border border-slate-100 shadow-sm border-t-[3px] border-t-[#00204F] p-7 space-y-5">
+          <div className="max-w-[485px] mx-auto bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm border-t-[3px] border-t-[#00204F] p-7 space-y-5">
             {submitError && (
               <div className="rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-sm px-3.5 py-2.5 text-right">
                 {submitError}
@@ -328,7 +328,7 @@ export const AddDebtScreen: FC = () => {
             )}
 
             {/* Voice Input Section */}
-            <div className="flex items-center justify-between gap-3 bg-[#F2F4F6] border border-slate-200/70 rounded-xl px-4 py-3">
+            <div className="flex items-center justify-between gap-3 bg-[#F2F4F6] dark:bg-slate-800/50 border border-slate-200/70 rounded-xl px-4 py-3">
               <div className="flex items-center gap-3">
                 <button
                   type="button"
@@ -341,7 +341,7 @@ export const AddDebtScreen: FC = () => {
                   <Mic className="w-4 h-4" />
                 </button>
                 <div className="text-right">
-                  <p className="text-sm font-semibold text-[#00204F]">
+                  <p className="text-sm font-semibold text-[#00204F] dark:text-white">
                     {isListening ? 'جاري الاستماع...' : 'إدخال صوتي سريع'}
                   </p>
                   <p className="text-xs text-slate-400">تحدث وسيتم تعبئة النموذج تلقائياً</p>
@@ -350,11 +350,11 @@ export const AddDebtScreen: FC = () => {
               <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
             </div>
 
-            <div className="border-t border-slate-100" />
+            <div className="border-t border-slate-100 dark:border-slate-700" />
 
             {/* Customer Search */}
             <div className="space-y-1.5 text-right relative">
-              <label className="text-xs sm:text-sm font-semibold text-slate-700">بحث عن عميل</label>
+              <label className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">بحث عن عميل</label>
               <div className="relative flex items-center">
                 <UserSearch className="absolute right-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
                 {isSearchingCustomers && (
@@ -367,7 +367,7 @@ export const AddDebtScreen: FC = () => {
                   placeholder="ابحث بالاسم، رقم الهوية أو رقم الجوال..."
                   dir="rtl"
                   disabled={isEditMode}
-                  className={`w-full pr-10 pl-9 py-2.5 bg-[#F7F7FC] border rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00204F]/20 focus:border-[#00204F] transition-all text-right disabled:cursor-not-allowed disabled:opacity-70 ${fieldErrors.customer ? 'border-rose-400' : 'border-slate-200'
+                  className={`w-full pr-10 pl-9 py-2.5 bg-[#F7F7FC] dark:bg-slate-900 border rounded-lg text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#00204F]/20 dark:focus:ring-blue-500/20 focus:border-[#00204F] dark:focus:border-blue-500 transition-all text-right disabled:cursor-not-allowed disabled:opacity-70 ${fieldErrors.customer ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'
                     }`}
                 />
               </div>
@@ -380,15 +380,15 @@ export const AddDebtScreen: FC = () => {
 
               {/* Results dropdown */}
               {!selectedCustomer && customerQuery.trim() && customerResults.length > 0 && (
-                <div className="absolute z-10 top-full mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                <div className="absolute z-10 top-full mt-1 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                   {customerResults.map((customer) => (
                     <button
                       key={customer.id}
                       type="button"
                       onClick={() => handleSelectCustomer(customer)}
-                      className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 text-sm text-right hover:bg-slate-50 transition-colors cursor-pointer"
+                      className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 text-sm text-right hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 transition-colors cursor-pointer"
                     >
-                      <span className="font-medium text-slate-700">{customer.fullName}</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-300">{customer.fullName}</span>
                       <span className="text-xs text-slate-400" dir="ltr">
                         {customer.phoneNumber}
                       </span>
@@ -409,8 +409,8 @@ export const AddDebtScreen: FC = () => {
               )}
 
               {selectedCustomer && (
-                <p className="text-sm text-slate-600 pt-0.5">
-                  اسم العميل : <span className="font-semibold text-slate-800">{selectedCustomer.fullName}</span>
+                <p className="text-sm text-slate-600 dark:text-slate-400 pt-0.5">
+                  اسم العميل : <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedCustomer.fullName}</span>
                 </p>
               )}
             </div>
@@ -419,11 +419,11 @@ export const AddDebtScreen: FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Amount */}
               <div className="space-y-1.5 text-right">
-                <label className="text-xs sm:text-sm font-semibold text-slate-700">
+                <label className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">
                   المبلغ (شيكل إسرائيلي)
                 </label>
                 <div
-                  className={`w-full flex items-center gap-1 pr-3.5 pl-3 py-2.5 bg-[#F7F7FC] border rounded-lg focus-within:bg-white focus-within:ring-2 focus-within:ring-[#00204F]/20 focus-within:border-[#00204F] transition-all ${fieldErrors.amount ? 'border-rose-400' : 'border-slate-200'
+                  className={`w-full flex items-center gap-1 pr-3.5 pl-3 py-2.5 bg-[#F7F7FC] dark:bg-slate-900 border rounded-lg focus-within:bg-white dark:bg-slate-800 focus-within:ring-2 focus-within:ring-[#00204F]/20 dark:focus-within:ring-blue-500/20 focus-within:border-[#00204F] dark:focus-within:border-blue-500 transition-all ${fieldErrors.amount ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'
                     }`}
                 >
                   <input
@@ -438,7 +438,7 @@ export const AddDebtScreen: FC = () => {
                     }}
                     placeholder="0.00"
                     dir="ltr"
-                    className="min-w-0 flex-1 bg-transparent text-sm text-slate-800 placeholder-slate-400 outline-none text-right font-sans"
+                    className="min-w-0 flex-1 bg-transparent text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none text-right font-sans"
                   />
                   <span className="text-xs font-bold text-slate-400 shrink-0">ش.إ</span>
                 </div>
@@ -447,7 +447,7 @@ export const AddDebtScreen: FC = () => {
 
               {/* Due Date */}
               <div className="space-y-1.5 text-right">
-                <label className="text-xs sm:text-sm font-semibold text-slate-700">تاريخ الاستحقاق</label>
+                <label className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">تاريخ الاستحقاق</label>
                 <div className="relative flex items-center">
                   <Calendar className="absolute right-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
                   <input
@@ -458,7 +458,7 @@ export const AddDebtScreen: FC = () => {
                       setFieldErrors((prev) => ({ ...prev, dueDate: undefined }));
                     }}
                     dir="ltr"
-                    className={`w-full pr-10 pl-3.5 py-2.5 bg-[#F7F7FC] border rounded-lg text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00204F]/20 focus:border-[#00204F] transition-all text-right font-sans ${fieldErrors.dueDate ? 'border-rose-400' : 'border-slate-200'
+                    className={`w-full pr-10 pl-3.5 py-2.5 bg-[#F7F7FC] dark:bg-slate-900 border rounded-lg text-sm text-slate-800 dark:text-slate-200 focus:bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#00204F]/20 dark:focus:ring-blue-500/20 focus:border-[#00204F] dark:focus:border-blue-500 transition-all text-right font-sans ${fieldErrors.dueDate ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'
                       }`}
                   />
                 </div>
@@ -477,20 +477,20 @@ export const AddDebtScreen: FC = () => {
                   setNotes(e.target.value);
                   setFieldErrors((prev) => ({ ...prev, notes: undefined }));
                 }}
-                className={`w-full px-3.5 py-2.5 bg-[#F7F7FC] border rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00204F]/20 focus:border-[#00204F] transition-all text-right resize-none h-[75px] ${fieldErrors.notes ? 'border-rose-400' : 'border-slate-200'
+                className={`w-full px-3.5 py-2.5 bg-[#F7F7FC] dark:bg-slate-900 border rounded-lg text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#00204F]/20 dark:focus:ring-blue-500/20 focus:border-[#00204F] dark:focus:border-blue-500 transition-all text-right resize-none h-[75px] ${fieldErrors.notes ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'
                   }`}
               />
               {fieldErrors.notes && <p className="text-xs text-rose-600 text-right mt-1">{fieldErrors.notes}</p>}
             </div>
 
             {/* WhatsApp Confirmation */}
-            <div className="flex items-center justify-between gap-3 bg-[#F4F6FF] rounded-xl px-4 py-3">
+            <div className="flex items-center justify-between gap-3 bg-[#F4F6FF] dark:bg-slate-800/50 rounded-xl px-4 py-3">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 shrink-0 rounded-lg bg-emerald-100 flex items-center justify-center">
                   <MessageCircle className="w-4 h-4 text-emerald-600" />
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-semibold text-slate-700">إرسال تأكيد عبر واتساب</p>
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">إرسال تأكيد عبر واتساب</p>
                   <p className="text-xs text-slate-400">سيتم إشعار العميل فور تسجيل الدين</p>
                 </div>
               </div>
@@ -499,7 +499,7 @@ export const AddDebtScreen: FC = () => {
                 role="switch"
                 aria-checked={whatsappEnabled}
                 onClick={() => setWhatsappEnabled((prev) => !prev)}
-                className="relative w-11 h-6 shrink-0 rounded-full bg-white border border-slate-200 shadow-inner transition-colors cursor-pointer"
+                className="relative w-11 h-6 shrink-0 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-inner transition-colors cursor-pointer"
               >
                 <span
                   className={`absolute top-0 w-6 h-6 rounded-full shadow flex items-center justify-center transition-all ${whatsappEnabled ? 'left-0 bg-blue-600' : 'right-0 bg-slate-300'
@@ -510,7 +510,7 @@ export const AddDebtScreen: FC = () => {
               </button>
             </div>
 
-            <div className="border-t border-slate-100" />
+            <div className="border-t border-slate-100 dark:border-slate-700" />
 
             {/* Action Buttons */}
             <div className="flex items-center gap-3">
@@ -536,7 +536,7 @@ export const AddDebtScreen: FC = () => {
                 type="button"
                 onClick={handleCancel}
                 disabled={isSaving}
-                className="py-2.5 px-6 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-lg text-sm font-semibold transition-all cursor-pointer disabled:opacity-60"
+                className="py-2.5 px-6 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold transition-all cursor-pointer disabled:opacity-60"
               >
                 إلغاء
               </button>

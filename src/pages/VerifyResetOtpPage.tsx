@@ -138,11 +138,11 @@ export const VerifyResetOtpPage: FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-white text-slate-800 font-cairo antialiased selection:bg-[#0c2444] selection:text-white">
+    <div className="min-h-screen flex flex-col justify-between bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-cairo antialiased selection:bg-[#0c2444] selection:text-white">
       <Navbar />
 
       <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-14 flex items-center justify-center">
-        <div className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row border border-slate-100 min-h-[580px]">
+        <div className="w-full max-w-5xl bg-white dark:bg-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row border border-slate-100 dark:border-slate-700 min-h-[580px]">
           
           {/* Left Side - Visual Banner */}
           <div className="hidden lg:flex lg:w-1/2 bg-[#102a4e] p-10 flex-col justify-between relative overflow-hidden text-white">
@@ -159,8 +159,8 @@ export const VerifyResetOtpPage: FC = () => {
 
             {/* Center Phone Graphic Card */}
             <div className="relative z-10 my-auto flex flex-col items-center justify-center">
-              <div className="w-full max-w-xs bg-white rounded-2xl p-6 shadow-2xl flex flex-col items-center text-center border border-slate-100">
-                <div className="text-slate-800 font-bold text-sm mb-4 font-cairo">
+              <div className="w-full max-w-xs bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-2xl flex flex-col items-center text-center border border-slate-100 dark:border-slate-700">
+                <div className="text-slate-800 dark:text-slate-200 font-bold text-sm mb-4 font-cairo">
                   التحقق من الحد - تأكيد السجل المالي
                 </div>
                 
@@ -177,7 +177,7 @@ export const VerifyResetOtpPage: FC = () => {
                   </div>
                 </div>
 
-                <p className="text-[11px] text-slate-500 mt-4 leading-relaxed">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-4 leading-relaxed">
                   نظام حماية التحقق الثنائي المتقدم لحماية حسابك ومعاملاتك
                 </p>
               </div>
@@ -199,7 +199,7 @@ export const VerifyResetOtpPage: FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate(PATHS.FORGOT_PASSWORD)}
-                  className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-500 hover:text-[#0c2444] transition-colors group"
+                  className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 hover:text-[#0c2444] dark:text-blue-400 transition-colors group"
                 >
                   <ArrowLeft className="w-4 h-4 transform group-hover:-translate-x-0.5 transition-transform" />
                   <span>تغيير البريد الإلكتروني</span>
@@ -208,15 +208,15 @@ export const VerifyResetOtpPage: FC = () => {
 
               {/* Title & Subtitle */}
               <div className="text-center mb-8">
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] font-cairo tracking-tight mb-2">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] dark:text-blue-400 font-cairo tracking-tight mb-2">
                   التحقق من الرمز
                 </h1>
-                <p className="text-slate-500 text-xs sm:text-sm leading-relaxed">
+                <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm leading-relaxed">
                   الرجاء إدخال رمز التحقق المرسل إلى البريد الإلكتروني الخاص بك
                 </p>
                 {email && (
                   <div className="mt-3">
-                    <span className="inline-block bg-slate-50 text-[#0c2444] font-semibold text-xs px-3 py-1.5 rounded-lg border border-slate-200 font-sans" dir="ltr">
+                    <span className="inline-block bg-slate-50 dark:bg-slate-800/50 text-[#0c2444] dark:text-blue-400 font-semibold text-xs px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 font-sans" dir="ltr">
                       {email}
                     </span>
                   </div>
@@ -263,7 +263,7 @@ export const VerifyResetOtpPage: FC = () => {
                       onChange={(e) => handleChange(index, e.target.value)}
                       onKeyDown={(e) => handleKeyDown(index, e)}
                       onPaste={handlePaste}
-                      className="w-11 h-14 sm:w-13 sm:h-16 text-center text-xl sm:text-2xl font-bold text-[#0c2444] bg-slate-50/70 border-2 border-slate-200 rounded-xl focus:border-[#0c2444] focus:bg-white focus:ring-4 focus:ring-[#0c2444]/10 transition-all outline-none"
+                      className="w-11 h-14 sm:w-13 sm:h-16 text-center text-xl sm:text-2xl font-bold text-[#0c2444] dark:text-blue-400 bg-slate-50/70 dark:bg-slate-800/70 border-2 border-slate-200 dark:border-slate-700 rounded-xl focus:border-[#0c2444] dark:border-blue-400 focus:bg-white dark:bg-slate-800 focus:ring-4 focus:ring-[#0c2444]/10 transition-all outline-none"
                     />
                   ))}
                 </div>
@@ -271,9 +271,9 @@ export const VerifyResetOtpPage: FC = () => {
                 {/* Resend Timer & Action */}
                 <div className="text-center text-xs sm:text-sm font-medium">
                   {timeLeft > 0 ? (
-                    <div className="text-slate-500 flex items-center justify-center gap-1.5">
+                    <div className="text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1.5">
                       <span>إعادة الإرسال بعد</span>
-                      <span className="text-[#0c2444] font-bold tracking-widest font-sans" dir="ltr">
+                      <span className="text-[#0c2444] dark:text-blue-400 font-bold tracking-widest font-sans" dir="ltr">
                         {formatTime(timeLeft)}
                       </span>
                     </div>

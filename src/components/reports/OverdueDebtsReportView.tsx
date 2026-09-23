@@ -221,7 +221,7 @@ export const OverdueDebtsReportView: FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <h2 className="text-xl sm:text-2xl font-bold font-cairo text-slate-900 tracking-tight">
+            <h2 className="text-xl sm:text-2xl font-bold font-cairo text-slate-900 dark:text-white tracking-tight">
               تقرير الديون والذمم المتأخرة
             </h2>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200/60">
@@ -229,7 +229,7 @@ export const OverdueDebtsReportView: FC = () => {
               مباشر من الخادم
             </span>
           </div>
-          <p className="mt-1 text-xs sm:text-sm font-medium text-slate-500 font-cairo">
+          <p className="mt-1 text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 font-cairo">
             متابعة دقيقة لمستحقات الديون المتأخرة، عدد أيام التأخير، ومبالغ الذمم المتبقية لكل عميل
           </p>
         </div>
@@ -240,7 +240,7 @@ export const OverdueDebtsReportView: FC = () => {
             type="button"
             onClick={fetchReport}
             disabled={isLoading}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold border border-slate-200 transition-colors cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-600 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer disabled:opacity-50"
             title="تحديث التقرير"
           >
             <RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
@@ -250,7 +250,7 @@ export const OverdueDebtsReportView: FC = () => {
           <button
             type="button"
             onClick={handleExportCsv}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold border border-slate-200 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-600 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
             title="تصدير كملف CSV"
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
@@ -271,7 +271,7 @@ export const OverdueDebtsReportView: FC = () => {
       {/* Summary Cards: Grouped by Currency (Backend rule: Never sum different currencies) */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold text-slate-700 font-cairo flex items-center gap-2">
+          <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 font-cairo flex items-center gap-2">
             <Coins className="w-4 h-4 text-rose-600" />
             <span>ملخص الديون المتأخرة حسب العملة</span>
           </h3>
@@ -287,41 +287,41 @@ export const OverdueDebtsReportView: FC = () => {
             {report.summary.map((sumItem) => (
               <div
                 key={sumItem.currencyCode}
-                className="bg-white rounded-2xl border border-rose-100 shadow-xs p-5 hover:shadow-md transition-shadow relative overflow-hidden group"
+                className="bg-white dark:bg-slate-800 rounded-2xl border border-rose-100 shadow-xs p-5 hover:shadow-md transition-shadow relative overflow-hidden group"
               >
                 <div className="absolute top-0 right-0 w-2 h-full bg-rose-500" />
                 <div className="flex items-center justify-between">
                   <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
                     <TrendingDown className="w-5 h-5" />
                   </div>
-                  <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-slate-100 text-slate-700">
+                  <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
                     عملة {sumItem.currencyCode}
                   </span>
                 </div>
 
                 <div className="mt-4 text-right">
-                  <div className="text-xs font-medium text-slate-500">إجمالي المبالغ المتأخرة</div>
+                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400">إجمالي المبالغ المتأخرة</div>
                   <div className="mt-1 flex items-baseline gap-1.5">
                     <span className="text-2xl sm:text-3xl font-bold font-cairo text-rose-600 tracking-tight">
                       {sumItem.totalOverdueAmount.toLocaleString('en-US')}
                     </span>
-                    <span className="text-sm font-semibold text-slate-600">
+                    <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">
                       {sumItem.currencyCode}
                     </span>
                   </div>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs">
-                  <div className="flex items-center gap-1.5 text-slate-600">
+                <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700 grid grid-cols-2 gap-2 text-xs">
+                  <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
                     <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                     <span>
-                      <strong className="text-slate-900 font-bold">{sumItem.numberOfOverdueDebts}</strong> ديون متأخرة
+                      <strong className="text-slate-900 dark:text-white font-bold">{sumItem.numberOfOverdueDebts}</strong> ديون متأخرة
                     </span>
                   </div>
-                  <div className="flex items-center gap-1.5 text-slate-600">
+                  <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
                     <Users className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                     <span>
-                      <strong className="text-slate-900 font-bold">{sumItem.numberOfCustomersWithOverdueDebts}</strong> عملاء
+                      <strong className="text-slate-900 dark:text-white font-bold">{sumItem.numberOfCustomersWithOverdueDebts}</strong> عملاء
                     </span>
                   </div>
                 </div>
@@ -329,11 +329,11 @@ export const OverdueDebtsReportView: FC = () => {
             ))}
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-slate-100 p-6 text-center">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-6 text-center">
             <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3">
               <Coins className="w-6 h-6" />
             </div>
-            <h4 className="text-sm font-bold text-slate-800">لا توجد ديون متأخرة مسجلة في هذا النطاق</h4>
+            <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">لا توجد ديون متأخرة مسجلة في هذا النطاق</h4>
             <p className="text-xs text-slate-400 mt-1">
               جميع الديون مستوفاة أو غير متأخرة خلال الفترة المحددة.
             </p>
@@ -342,9 +342,9 @@ export const OverdueDebtsReportView: FC = () => {
       </div>
 
       {/* Date Filters & Controls */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Quick Period Buttons */}
-        <div className="inline-flex p-1 bg-slate-100 rounded-xl overflow-x-auto">
+        <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-700 rounded-xl overflow-x-auto">
           {(
             [
               { id: '30days', label: 'آخر 30 يوماً (الافتراضي)' },
@@ -359,8 +359,8 @@ export const OverdueDebtsReportView: FC = () => {
               onClick={() => handleQuickPeriodChange(chip.id)}
               className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
                 quickPeriod === chip.id && !fromDate && !toDate
-                  ? 'bg-white text-[#051838] font-bold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white dark:bg-slate-800 text-[#051838] dark:text-white font-bold shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'
               }`}
             >
               {chip.label}
@@ -372,7 +372,7 @@ export const OverdueDebtsReportView: FC = () => {
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1.5 text-xs">
             <Calendar className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-slate-500 font-medium">من:</span>
+            <span className="text-slate-500 dark:text-slate-400 font-medium">من:</span>
             <input
               type="date"
               value={fromDate}
@@ -381,13 +381,13 @@ export const OverdueDebtsReportView: FC = () => {
                 setQuickPeriod('custom');
                 setPageNumber(1);
               }}
-              className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#051838]"
+              className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#051838] dark:focus:ring-blue-500"
             />
           </div>
 
           <div className="flex items-center gap-1.5 text-xs">
             <Calendar className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-slate-500 font-medium">إلى:</span>
+            <span className="text-slate-500 dark:text-slate-400 font-medium">إلى:</span>
             <input
               type="date"
               value={toDate}
@@ -396,18 +396,18 @@ export const OverdueDebtsReportView: FC = () => {
                 setQuickPeriod('custom');
                 setPageNumber(1);
               }}
-              className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#051838]"
+              className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#051838] dark:focus:ring-blue-500"
             />
           </div>
 
           {/* Currency Filter if multi-currency */}
           {availableCurrencies.length > 1 && (
             <div className="flex items-center gap-1.5 text-xs">
-              <span className="text-slate-500 font-medium">العملة:</span>
+              <span className="text-slate-500 dark:text-slate-400 font-medium">العملة:</span>
               <select
                 value={selectedCurrency}
                 onChange={(e) => setSelectedCurrency(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#051838]"
+                className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#051838] dark:focus:ring-blue-500"
               >
                 <option value="all">كافة العملات</option>
                 {availableCurrencies.map((c) => (
@@ -430,13 +430,13 @@ export const OverdueDebtsReportView: FC = () => {
       )}
 
       {/* Chart Section: مبالغ الديون المتأخرة حسب تاريخ الاستحقاق */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-6">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
-            <h3 className="text-base sm:text-lg font-bold font-cairo text-slate-900">
+            <h3 className="text-base sm:text-lg font-bold font-cairo text-slate-900 dark:text-white">
               توزيع الديون المتأخرة زمنياً
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               بيانات الرسم البياني المستلمة مباشرة من حقل Chart في الـ API
             </p>
           </div>
@@ -448,9 +448,9 @@ export const OverdueDebtsReportView: FC = () => {
         </div>
 
         {!report?.chart || report.chart.length === 0 ? (
-          <div className="h-56 flex flex-col items-center justify-center text-center p-6 bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
+          <div className="h-56 flex flex-col items-center justify-center text-center p-6 bg-slate-50/6 dark:bg-slate-800/60 dark:bg-slate-800/60 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
             <Clock className="w-10 h-10 text-slate-300 mb-2" />
-            <p className="text-sm font-bold text-slate-700 font-cairo">
+            <p className="text-sm font-bold text-slate-700 dark:text-slate-300 font-cairo">
               لا توجد نقاط بيانية كافية لعرض الرسم البياني خلال هذه الفترة
             </p>
             <p className="text-xs text-slate-400 mt-1 font-cairo">
@@ -488,7 +488,7 @@ export const OverdueDebtsReportView: FC = () => {
                   {report.chart.map((point, idx) => (
                     <span
                       key={`od-lbl-${point.label}-${point.currencyCode}-${idx}`}
-                      className="text-[11px] text-slate-500 font-medium flex-1 text-center truncate"
+                      className="text-[11px] text-slate-500 dark:text-slate-400 font-medium flex-1 text-center truncate"
                       title={point.label}
                     >
                       {point.label}
@@ -523,14 +523,14 @@ export const OverdueDebtsReportView: FC = () => {
       )}
 
       {/* Details Table: تفاصيل كل دين متأخر مع Pagination */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
-        <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs overflow-hidden">
+        <div className="p-5 border-b border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h3 className="text-base sm:text-lg font-bold font-cairo text-slate-900 flex items-center gap-2">
-              <ReceiptText className="w-4 h-4 text-slate-700" />
+            <h3 className="text-base sm:text-lg font-bold font-cairo text-slate-900 dark:text-white flex items-center gap-2">
+              <ReceiptText className="w-4 h-4 text-slate-700 dark:text-slate-300" />
               <span>جدول تفاصيل الديون المتأخرة (Details)</span>
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               تفاصيل الديون المتأخرة مع المبلغ الأصلي، المبلغ المتبقي، وأيام التأخير
             </p>
           </div>
@@ -543,7 +543,7 @@ export const OverdueDebtsReportView: FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="البحث باسم العميل أو رقم الدين..."
-              className="bg-slate-50 border border-slate-200 rounded-xl pr-9 pl-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#051838]"
+              className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl pr-9 pl-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#051838] dark:focus:ring-blue-500"
             />
           </div>
         </div>
@@ -552,7 +552,7 @@ export const OverdueDebtsReportView: FC = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-right text-xs sm:text-sm">
             <thead>
-              <tr className="border-b border-slate-100 text-slate-400 font-medium text-xs bg-slate-50/50">
+              <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-medium text-xs bg-slate-50/50 dark:bg-slate-800/50">
                 <th className="px-6 py-4">رقم الدين</th>
                 <th className="px-6 py-4">اسم العميل</th>
                 <th className="px-6 py-4">المبلغ الأصلي</th>
@@ -564,7 +564,7 @@ export const OverdueDebtsReportView: FC = () => {
                 <th className="px-6 py-4 text-center">إجراء</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
               {isLoading ? (
                 <tr>
                   <td colSpan={9} className="py-14 text-center text-slate-400">
@@ -578,10 +578,10 @@ export const OverdueDebtsReportView: FC = () => {
                 <tr>
                   <td colSpan={9} className="py-14 text-center text-slate-400">
                     <div className="flex flex-col items-center gap-2.5 max-w-md mx-auto">
-                      <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                      <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-400">
                         <Clock className="w-6 h-6" />
                       </div>
-                      <p className="font-bold text-slate-700 text-sm font-cairo">
+                      <p className="font-bold text-slate-700 dark:text-slate-300 text-sm font-cairo">
                         {report.message || 'لا توجد بيانات كافية لعرض التقرير خلال الفترة المحددة.'}
                       </p>
                       <p className="text-xs text-slate-400 font-cairo text-center leading-relaxed">
@@ -593,7 +593,7 @@ export const OverdueDebtsReportView: FC = () => {
               ) : filteredItems.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-12 text-center text-slate-400">
-                    <div className="text-xs text-slate-500 font-cairo">
+                    <div className="text-xs text-slate-500 dark:text-slate-400 font-cairo">
                       لا توجد نتائج تطابق معايير البحث أو التصفية الحالية.
                     </div>
                   </td>
@@ -602,15 +602,15 @@ export const OverdueDebtsReportView: FC = () => {
                 filteredItems.map((item) => (
                   <tr
                     key={item.debtId}
-                    className="hover:bg-slate-50/80 transition-colors group"
+                    className="hover:bg-slate-50/80 dark:hover:bg-slate-700/80 transition-colors group"
                   >
                     {/* Debt ID */}
-                    <td className="px-6 py-4 font-mono font-bold text-xs text-[#051838]">
+                    <td className="px-6 py-4 font-mono font-bold text-xs text-[#051838] dark:text-white">
                       #{item.debtId}
                     </td>
 
                     {/* Customer Name */}
-                    <td className="px-6 py-4 font-semibold text-slate-800">
+                    <td className="px-6 py-4 font-semibold text-slate-800 dark:text-slate-200">
                       {item.customerId ? (
                         <button
                           type="button"
@@ -625,7 +625,7 @@ export const OverdueDebtsReportView: FC = () => {
                     </td>
 
                     {/* Original Amount */}
-                    <td className="px-6 py-4 text-slate-600 font-medium">
+                    <td className="px-6 py-4 text-slate-600 dark:text-slate-400 font-medium">
                       {item.originalAmount.toLocaleString('en-US')}
                     </td>
 
@@ -636,13 +636,13 @@ export const OverdueDebtsReportView: FC = () => {
 
                     {/* Currency Code */}
                     <td className="px-6 py-4">
-                      <span className="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700">
+                      <span className="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
                         {item.currencyCode}
                       </span>
                     </td>
 
                     {/* Due Date */}
-                    <td className="px-6 py-4 text-slate-500 font-medium">
+                    <td className="px-6 py-4 text-slate-500 dark:text-slate-400 font-medium">
                       {formatDate(item.dueDate)}
                     </td>
 
@@ -680,7 +680,7 @@ export const OverdueDebtsReportView: FC = () => {
                             },
                           })
                         }
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#051838] bg-slate-100 hover:bg-[#051838] hover:text-white rounded-lg transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#051838] dark:text-white bg-slate-100 dark:bg-slate-700 hover:bg-[#051838] hover:text-white rounded-lg transition-colors cursor-pointer"
                         title="عرض الفاتورة وتفاصيل الدين"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
@@ -695,7 +695,7 @@ export const OverdueDebtsReportView: FC = () => {
         </div>
 
         {/* Table Footer with Pagination */}
-        <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+        <div className="p-4 border-t border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
           <div>
             عرض {filteredItems.length} من إجمالي {totalCount} دين متأخر
           </div>
@@ -705,13 +705,13 @@ export const OverdueDebtsReportView: FC = () => {
               type="button"
               onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
               disabled={pageNumber <= 1 || isLoading}
-              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
               title="الصفحة السابقة"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
 
-            <span className="px-2 font-semibold text-slate-700">
+            <span className="px-2 font-semibold text-slate-700 dark:text-slate-300">
               صفحة {pageNumber} من {totalPages}
             </span>
 
@@ -719,7 +719,7 @@ export const OverdueDebtsReportView: FC = () => {
               type="button"
               onClick={() => setPageNumber((p) => p + 1)}
               disabled={pageNumber >= totalPages || isLoading}
-              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
               title="الصفحة التالية"
             >
               <ChevronLeft className="w-4 h-4" />

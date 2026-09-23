@@ -130,7 +130,7 @@ export const RemindersScreen: FC = () => {
 
   return (
     <div
-      className="min-h-screen bg-[#f8fafc] text-slate-800 flex font-cairo antialiased"
+      className="min-h-screen bg-[#f8fafc] dark:bg-slate-900 text-slate-800 dark:text-slate-200 flex font-cairo antialiased"
       dir="rtl"
     >
       {/* Sidebar */}
@@ -153,7 +153,7 @@ export const RemindersScreen: FC = () => {
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl w-full mx-auto space-y-6">
           {/* Page Title */}
           <div className="text-right">
-            <h1 className="text-2xl sm:text-3xl font-extrabold font-cairo text-[#051838] tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold font-cairo text-[#051838] dark:text-white tracking-tight">
               الأتمتة والتنبيهات
             </h1>
           </div>
@@ -180,12 +180,12 @@ export const RemindersScreen: FC = () => {
             {/* Right Column: Main Automation Settings (8 cols on lg) */}
             <div className="lg:col-span-8 space-y-6 order-1 lg:order-1">
               {/* Card 1: Comprehensive Automation Toggle */}
-              <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs flex items-center justify-between gap-4 transition-all">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs flex items-center justify-between gap-4 transition-all">
                 <div className="space-y-1 text-right">
-                  <h3 className="text-base sm:text-lg font-bold font-cairo text-[#051838]">
+                  <h3 className="text-base sm:text-lg font-bold font-cairo text-[#051838] dark:text-white">
                     تفعيل الأتمتة الشاملة
                   </h3>
-                  <p className="text-xs sm:text-sm text-slate-500">
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                     تمكين النظام من إرسال الرسائل تلقائياً بناءً على الجدولة المحددة
                   </p>
                 </div>
@@ -201,7 +201,7 @@ export const RemindersScreen: FC = () => {
                   }`}
                 >
                   <span
-                    className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                    className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white dark:bg-slate-800 shadow-md ring-0 transition duration-200 ease-in-out ${
                       isGlobalAutomationActive ? '-translate-x-6' : 'translate-x-0'
                     }`}
                   />
@@ -209,12 +209,12 @@ export const RemindersScreen: FC = () => {
               </div>
 
               {/* Card 2: Reminder Scheduling */}
-              <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs space-y-5">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs space-y-5">
                 <div className="text-right pb-1">
-                  <h3 className="text-base sm:text-lg font-bold font-cairo text-[#051838]">
+                  <h3 className="text-base sm:text-lg font-bold font-cairo text-[#051838] dark:text-white">
                     جدولة التذكيرات
                   </h3>
-                  <div className="h-px bg-slate-100 w-full mt-3" />
+                  <div className="h-px bg-slate-100 dark:bg-slate-700 w-full mt-3" />
                 </div>
 
                 {/* Schedule Items List */}
@@ -223,16 +223,16 @@ export const RemindersScreen: FC = () => {
                     <div
                       key={item.id}
                       onClick={() => handleToggleSchedule(item.id)}
-                      className="w-full bg-[#f8faff] hover:bg-[#f1f6ff] border border-slate-200/70 rounded-xl p-4 flex items-center justify-between gap-3 transition-colors cursor-pointer select-none"
+                      className="w-full bg-[#f8faff] dark:bg-slate-800/50 hover:bg-[#f1f6ff] dark:hover:bg-slate-700/50 border border-slate-200/70 dark:border-slate-700 rounded-xl p-4 flex items-center justify-between gap-3 transition-colors cursor-pointer select-none"
                     >
                       {/* Left: Status Badge */}
                       <div>
                         {item.enabled ? (
-                          <span className="inline-flex items-center px-3.5 py-1 rounded-lg text-xs font-bold bg-[#dcfce7] text-[#15803d]">
+                          <span className="inline-flex items-center px-3.5 py-1 rounded-lg text-xs font-bold bg-[#dcfce7] dark:bg-emerald-900/30 text-[#15803d] dark:text-emerald-400">
                             نشط الآن
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-3.5 py-1 rounded-lg text-xs font-bold bg-[#f1f5f9] text-slate-500">
+                          <span className="inline-flex items-center px-3.5 py-1 rounded-lg text-xs font-bold bg-[#f1f5f9] dark:bg-slate-700 text-slate-500 dark:text-slate-400">
                             معطل حالياً
                           </span>
                         )}
@@ -240,7 +240,7 @@ export const RemindersScreen: FC = () => {
 
                       {/* Right: Custom Checkbox and Label */}
                       <div className="flex items-center gap-3">
-                        <span className="text-sm font-bold text-slate-800">
+                        <span className="text-sm font-bold text-slate-800 dark:text-slate-200">
                           {item.title}
                         </span>
 
@@ -248,7 +248,7 @@ export const RemindersScreen: FC = () => {
                           className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${
                             item.enabled
                               ? 'bg-[#058b42] border-[#058b42] text-white shadow-2xs'
-                              : 'bg-white border-slate-300 hover:border-slate-400'
+                              : 'bg-white dark:bg-slate-800 border-slate-300 hover:border-slate-400'
                           }`}
                         >
                           {item.enabled && <Check className="w-3.5 h-3.5 stroke-[3]" />}
@@ -260,12 +260,12 @@ export const RemindersScreen: FC = () => {
               </div>
 
               {/* Card 3: Custom Message Template */}
-              <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs space-y-4">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs space-y-4">
                 <div className="text-right pb-1">
-                  <h3 className="text-base sm:text-lg font-bold font-cairo text-[#051838]">
+                  <h3 className="text-base sm:text-lg font-bold font-cairo text-[#051838] dark:text-white">
                     قالب الرسالة المخصص
                   </h3>
-                  <div className="h-px bg-slate-100 w-full mt-3" />
+                  <div className="h-px bg-slate-100 dark:bg-slate-700 w-full mt-3" />
                 </div>
 
                 {/* Interactive Dynamic Variables Chips */}
@@ -276,7 +276,7 @@ export const RemindersScreen: FC = () => {
                       type="button"
                       onClick={() => handleInsertTag(tag)}
                       title="انقر لإدراج هذا الوسم في نص الرسالة"
-                      className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#eff6ff] hover:bg-[#dbeafe] text-[#1d4ed8] border border-[#bfdbfe] transition-all cursor-pointer active:scale-95"
+                      className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#eff6ff] dark:bg-slate-700 hover:bg-[#dbeafe] dark:hover:bg-slate-600 text-[#1d4ed8] dark:text-blue-300 border border-[#bfdbfe] dark:border-slate-600 transition-all cursor-pointer active:scale-95"
                     >
                       {tag}
                     </button>
@@ -284,13 +284,13 @@ export const RemindersScreen: FC = () => {
                 </div>
 
                 {/* Message Editor Box */}
-                <div className="relative bg-[#f6f9fe] border border-blue-100/90 rounded-2xl p-4 sm:p-5 focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
+                <div className="relative bg-[#f6f9fe] dark:bg-slate-900 border border-blue-100/90 dark:border-slate-700 rounded-2xl p-4 sm:p-5 focus-within:border-blue-300 dark:focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 dark:focus-within:ring-blue-500/20 transition-all">
                   <textarea
                     ref={textareaRef}
                     value={messageTemplate}
                     onChange={(e) => setMessageTemplate(e.target.value)}
                     rows={8}
-                    className="w-full min-h-[180px] bg-transparent border-0 resize-none outline-hidden text-sm sm:text-base text-slate-800 leading-relaxed font-cairo text-right placeholder:text-slate-400"
+                    className="w-full min-h-[180px] bg-transparent border-0 resize-none outline-hidden text-sm sm:text-base text-slate-800 dark:text-slate-200 leading-relaxed font-cairo text-right placeholder:text-slate-400"
                     placeholder="اكتب قالب رسالة التذكير هنا..."
                   />
                 </div>
@@ -314,7 +314,7 @@ export const RemindersScreen: FC = () => {
                 <button
                   type="button"
                   onClick={handleResetSettings}
-                  className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-6 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer active:scale-98"
+                  className="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 px-6 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer active:scale-98"
                 >
                   إلغاء التغييرات
                 </button>
@@ -325,29 +325,29 @@ export const RemindersScreen: FC = () => {
             <div className="lg:col-span-4 space-y-4 order-2 lg:order-2">
               {/* Top Header Label */}
               <div className="text-right">
-                <span className="text-xs font-bold text-slate-500">
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
                   معاينة حية لشكل الرسالة المرسلة
                 </span>
               </div>
 
               {/* Card: Message Consumption Statistics */}
-              <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs space-y-4">
-                <h4 className="text-sm font-bold font-cairo text-slate-800 text-right">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs space-y-4">
+                <h4 className="text-sm font-bold font-cairo text-slate-800 dark:text-slate-200 text-right">
                   إحصائيات استهلاك الرسائل
                 </h4>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs font-semibold">
-                    <span className="text-[#051838] font-bold text-sm font-cairo">
+                    <span className="text-[#051838] dark:text-white font-bold text-sm font-cairo">
                       {sentCount.toLocaleString()} / {totalCount.toLocaleString()}
                     </span>
-                    <span className="text-slate-500">الرسائل المرسلة</span>
+                    <span className="text-slate-500 dark:text-slate-400">الرسائل المرسلة</span>
                   </div>
 
                   {/* Progress Bar */}
-                  <div className="w-full bg-[#e2e8f0] h-2 rounded-full overflow-hidden">
+                  <div className="w-full bg-[#e2e8f0] dark:bg-slate-700 h-2 rounded-full overflow-hidden">
                     <div
-                      className="bg-[#051838] h-full rounded-full transition-all duration-500"
+                      className="bg-[#051838] dark:bg-blue-500 h-full rounded-full transition-all duration-500"
                       style={{ width: `${progressPercent}%` }}
                     />
                   </div>
@@ -360,7 +360,7 @@ export const RemindersScreen: FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate(PATHS.SUBSCRIPTIONS)}
-                  className="w-full py-2.5 px-4 bg-[#f8fafc] hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  className="w-full py-2.5 px-4 bg-[#f8fafc] dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-600 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   <span>ترقية باقة الرسائل</span>
                   <ArrowUpRight className="w-3.5 h-3.5 text-slate-400" />
@@ -368,9 +368,9 @@ export const RemindersScreen: FC = () => {
               </div>
 
               {/* Interactive WhatsApp Live Chat Bubble Mockup */}
-              <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2.5">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2.5 py-1 rounded-full">
                     <Sparkles className="w-3 h-3" />
                     <span>معاينة واتساب للعميل</span>
                   </div>
@@ -378,13 +378,13 @@ export const RemindersScreen: FC = () => {
                 </div>
 
                 {/* WhatsApp Chat Balloon */}
-                <div className="bg-[#e7f8ec] rounded-2xl p-4 text-right space-y-2 border border-emerald-100 shadow-2xs">
-                  <div className="flex items-center gap-1.5 text-emerald-800 font-bold text-xs">
+                <div className="bg-[#e7f8ec] dark:bg-emerald-900/20 rounded-2xl p-4 text-right space-y-2 border border-emerald-100 dark:border-emerald-800/30 shadow-2xs">
+                  <div className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-400 font-bold text-xs">
                     <MessageSquare className="w-3.5 h-3.5" />
                     <span>وثّق - إشعار سداد</span>
                   </div>
 
-                  <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-line font-cairo">
+                  <p className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-line font-cairo">
                     {previewText}
                   </p>
 

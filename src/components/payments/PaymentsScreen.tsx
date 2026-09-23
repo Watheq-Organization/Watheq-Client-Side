@@ -302,7 +302,7 @@ export const PaymentsScreen: FC = () => {
 
   return (
     <div
-      className="min-h-screen bg-[#f4f7fb] text-slate-800 font-cairo antialiased flex"
+      className="min-h-screen bg-[#f4f7fb] dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-cairo antialiased flex"
       dir="rtl"
     >
       {/* Toast Notification */}
@@ -335,10 +335,10 @@ export const PaymentsScreen: FC = () => {
           {/* Top Title & Action Buttons */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="text-right">
-              <h1 className="text-2xl sm:text-3xl font-bold font-cairo text-slate-900 tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-bold font-cairo text-slate-900 dark:text-white tracking-tight">
                 سجل المدفوعات
               </h1>
-              <p className="mt-1 text-sm font-medium text-slate-500 font-cairo">
+              <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400 font-cairo">
                 تتبع وإدارة جميع التحصيلات المالية من العملاء بدقة.
               </p>
             </div>
@@ -368,9 +368,9 @@ export const PaymentsScreen: FC = () => {
               <button
                 type="button"
                 onClick={handleExportData}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-xl text-xs sm:text-sm font-bold shadow-2xs hover:shadow-xs transition-all active:scale-98 cursor-pointer"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border border-slate-200/90 rounded-xl text-xs sm:text-sm font-bold shadow-2xs hover:shadow-xs transition-all active:scale-98 cursor-pointer"
               >
-                <Download className="w-4 h-4 text-slate-500" />
+                <Download className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                 <span>تصدير البيانات</span>
               </button>
             </div>
@@ -410,13 +410,13 @@ export const PaymentsScreen: FC = () => {
           )}
 
           {/* Modern Segmented Control Tabs */}
-          <div className="flex items-center gap-1.5 p-1.5 bg-white border border-slate-200/80 rounded-2xl mb-6 w-fit shadow-xs">
+          <div className="flex items-center gap-1.5 p-1.5 bg-white dark:bg-slate-800 border border-slate-200/80 rounded-2xl mb-6 w-fit shadow-xs">
             <button
               onClick={() => setActiveTab('debts')}
               className={`relative px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 flex items-center gap-2.5 cursor-pointer select-none ${
                 activeTab === 'debts' 
-                  ? 'bg-[#051838] text-white shadow-md' 
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                  ? 'bg-[#051838] dark:bg-blue-600 text-white shadow-md' 
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50'
               }`}
             >
               <Receipt className={`w-4 h-4 ${activeTab === 'debts' ? 'text-white' : 'text-slate-400'}`} />
@@ -427,8 +427,8 @@ export const PaymentsScreen: FC = () => {
               onClick={() => setActiveTab('instant')}
               className={`relative px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 flex items-center gap-2.5 cursor-pointer select-none ${
                 activeTab === 'instant' 
-                  ? 'bg-[#051838] text-white shadow-md' 
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                  ? 'bg-[#051838] dark:bg-blue-600 text-white shadow-md' 
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50'
               }`}
             >
               <Banknote className={`w-4 h-4 ${activeTab === 'instant' ? 'text-emerald-400' : 'text-slate-400'}`} />
@@ -441,7 +441,7 @@ export const PaymentsScreen: FC = () => {
               {/* 4 Summary Stat Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
             {/* Card 1: إجمالي المحصل */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5 flex flex-col justify-between hover:shadow-md transition-shadow">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-5 flex flex-col justify-between hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#2563eb] flex items-center justify-center">
                   <CreditCard className="w-5 h-5" />
@@ -450,7 +450,7 @@ export const PaymentsScreen: FC = () => {
               </div>
               <div className="mt-4 text-right">
                 <div className="flex items-baseline gap-1.5 justify-start">
-                  <span className="text-2xl sm:text-3xl font-bold font-cairo text-[#051838] tracking-tight">
+                  <span className="text-2xl sm:text-3xl font-bold font-cairo text-[#051838] dark:text-white tracking-tight">
                     {summaryStats.totalCollected.toLocaleString('en-US')}
                   </span>
                   <span className="text-xs text-slate-400 font-medium font-cairo">شيكل</span>
@@ -462,7 +462,7 @@ export const PaymentsScreen: FC = () => {
             </div>
 
             {/* Card 2: عدد عمليات التحصيل */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5 flex flex-col justify-between hover:shadow-md transition-shadow">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-5 flex flex-col justify-between hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
                   <CheckCircle2 className="w-5 h-5" />
@@ -470,7 +470,7 @@ export const PaymentsScreen: FC = () => {
                 <span className="text-xs text-slate-400 font-medium">عدد العمليات</span>
               </div>
               <div className="mt-4 text-right">
-                <span className="text-2xl sm:text-3xl font-bold font-cairo text-[#051838] tracking-tight">
+                <span className="text-2xl sm:text-3xl font-bold font-cairo text-[#051838] dark:text-white tracking-tight">
                   {summaryStats.totalCount.toLocaleString('en-US')}
                 </span>
                 <span className="text-xs text-slate-400 font-medium mr-1.5 font-cairo">سند قبض</span>
@@ -478,7 +478,7 @@ export const PaymentsScreen: FC = () => {
             </div>
 
             {/* Card 3: متوسط قيمة العملية */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5 flex flex-col justify-between hover:shadow-md transition-shadow">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-5 flex flex-col justify-between hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
                   <Banknote className="w-5 h-5" />
@@ -487,7 +487,7 @@ export const PaymentsScreen: FC = () => {
               </div>
               <div className="mt-4 text-right">
                 <div className="flex items-baseline gap-1.5 justify-start">
-                  <span className="text-2xl sm:text-3xl font-bold font-cairo text-[#051838] tracking-tight">
+                  <span className="text-2xl sm:text-3xl font-bold font-cairo text-[#051838] dark:text-white tracking-tight">
                     {summaryStats.averagePayment.toLocaleString('en-US')}
                   </span>
                   <span className="text-xs text-slate-400 font-medium font-cairo">شيكل</span>
@@ -498,12 +498,12 @@ export const PaymentsScreen: FC = () => {
             {/* Card 4: تحديث البيانات */}
             <div
               onClick={loadPayments}
-              className="rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 p-5 flex flex-col items-center justify-center text-center cursor-pointer transition-all shadow-xs group"
+              className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 p-5 flex flex-col items-center justify-center text-center cursor-pointer transition-all shadow-xs group"
             >
-              <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 group-hover:bg-[#051838] group-hover:text-white flex items-center justify-center mb-1.5 transition-colors">
+              <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 group-hover:bg-[#051838] group-hover:text-white flex items-center justify-center mb-1.5 transition-colors">
                 <RotateCw className={`w-4 h-4 ${isLoadingPayments ? 'animate-spin' : ''}`} />
               </div>
-              <span className="text-xs font-bold text-slate-700 font-cairo">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 font-cairo">
                 تحديث البيانات الآن
               </span>
               <span className="text-[11px] text-slate-400 mt-0.5 font-cairo">
@@ -513,9 +513,9 @@ export const PaymentsScreen: FC = () => {
           </div>
 
           {/* Filter Bar: تصفية حسب */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-4 flex flex-wrap items-center justify-between gap-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-4 flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="text-xs text-slate-500 font-bold whitespace-nowrap">
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-bold whitespace-nowrap">
                 تصفية حسب:
               </span>
 
@@ -527,7 +527,7 @@ export const PaymentsScreen: FC = () => {
                     setSelectedMethod(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="appearance-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl px-3.5 py-2 pr-4 pl-8 text-xs font-semibold text-slate-700 outline-hidden cursor-pointer"
+                  className="appearance-none bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100/80 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 pr-4 pl-8 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-hidden cursor-pointer"
                 >
                   <option value="all">جميع طرق الدفع</option>
                   <option value="تحويل بنكي">تحويل بنكي</option>
@@ -546,7 +546,7 @@ export const PaymentsScreen: FC = () => {
                     setSelectedStatus(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="appearance-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl px-3.5 py-2 pr-4 pl-8 text-xs font-semibold text-slate-700 outline-hidden cursor-pointer"
+                  className="appearance-none bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100/80 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 pr-4 pl-8 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-hidden cursor-pointer"
                 >
                   <option value="all">جميع الحالات</option>
                   <option value="تم التحقق">تم التحقق</option>
@@ -565,7 +565,7 @@ export const PaymentsScreen: FC = () => {
                       setFromDate(e.target.value);
                       setCurrentPage(1);
                     }}
-                    className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700 outline-hidden font-sans cursor-pointer"
+                    className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 outline-hidden font-sans cursor-pointer"
                   />
                 </div>
                 <span className="text-xs text-slate-400 font-medium">إلى</span>
@@ -577,7 +577,7 @@ export const PaymentsScreen: FC = () => {
                       setToDate(e.target.value);
                       setCurrentPage(1);
                     }}
-                    className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700 outline-hidden font-sans cursor-pointer"
+                    className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 outline-hidden font-sans cursor-pointer"
                   />
                 </div>
               </div>
@@ -587,7 +587,7 @@ export const PaymentsScreen: FC = () => {
             <button
               type="button"
               onClick={handleResetFilters}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-[#051838] transition-colors cursor-pointer py-1 px-2.5 rounded-lg hover:bg-slate-100"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-[#051838] dark:text-white transition-colors cursor-pointer py-1 px-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-600 dark:bg-slate-700"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>إعادة ضبط</span>
@@ -595,11 +595,11 @@ export const PaymentsScreen: FC = () => {
           </div>
 
           {/* Payments Table Card */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-right text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100 text-slate-400 font-medium text-xs bg-slate-50/60">
+                  <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-medium text-xs bg-slate-50/6 dark:bg-slate-800/60 dark:bg-slate-800/60">
                     <th className="px-6 py-4">اسم العميل</th>
                     <th className="px-6 py-4">المبلغ (ش.إ)</th>
                     <th className="px-6 py-4">التاريخ</th>
@@ -608,25 +608,25 @@ export const PaymentsScreen: FC = () => {
                     <th className="px-6 py-4 text-center">الإجراءات</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                   {isLoadingPayments ? (
                     <tr>
                       <td colSpan={6} className="py-14 text-center text-slate-400">
                         <div className="flex flex-col items-center gap-2">
-                          <RotateCw className="w-6 h-6 animate-spin text-[#051838]" />
+                          <RotateCw className="w-6 h-6 animate-spin text-[#051838] dark:text-white" />
                           <span className="text-xs font-cairo">جاري تحميل سندات القبض من السيرفر...</span>
                         </div>
                       </td>
                     </tr>
                   ) : serverError ? (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center text-slate-500">
+                      <td colSpan={6} className="py-12 text-center text-slate-500 dark:text-slate-400">
                         <div className="flex flex-col items-center gap-2.5 max-w-md mx-auto p-4">
                           <AlertCircle className="w-8 h-8 text-amber-500" />
-                          <p className="font-bold text-slate-800 text-sm font-cairo">
+                          <p className="font-bold text-slate-800 dark:text-slate-200 text-sm font-cairo">
                             تعذر تحميل سندات القبض من السيرفر
                           </p>
-                          <p className="text-xs text-slate-500 font-cairo text-center leading-relaxed">
+                          <p className="text-xs text-slate-500 dark:text-slate-400 font-cairo text-center leading-relaxed">
                             {serverError}
                           </p>
                           {serverError.includes('تسجيل الدخول') || serverError.includes('401') ? (
@@ -641,7 +641,7 @@ export const PaymentsScreen: FC = () => {
                             <button
                               type="button"
                               onClick={loadPayments}
-                              className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                              className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                             >
                               <RotateCw className="w-3.5 h-3.5" />
                               <span>إعادة المحاولة</span>
@@ -655,7 +655,7 @@ export const PaymentsScreen: FC = () => {
                       <td colSpan={6} className="py-14 text-center text-slate-400">
                         <div className="flex flex-col items-center gap-2.5 max-w-sm mx-auto">
                           <Receipt className="w-8 h-8 text-slate-300" />
-                          <p className="font-bold text-slate-700 text-sm font-cairo">
+                          <p className="font-bold text-slate-700 dark:text-slate-300 text-sm font-cairo">
                             لا توجد سندات قبض مسجلة على الخادم
                           </p>
                           <p className="text-xs text-slate-400 font-cairo text-center leading-relaxed">
@@ -676,7 +676,7 @@ export const PaymentsScreen: FC = () => {
                     paginatedPayments.map((payment) => (
                       <tr
                         key={payment.id}
-                        className="hover:bg-slate-50/70 transition-colors group relative"
+                        className="hover:bg-slate-50/70 dark:hover:bg-slate-700/70 transition-colors group relative"
                       >
                         {/* Customer Info */}
                         <td className="px-6 py-4">
@@ -686,14 +686,14 @@ export const PaymentsScreen: FC = () => {
                             >
                               {payment.customerInitials}
                             </div>
-                            <span className="font-bold text-[#0c2444] text-sm font-cairo">
+                            <span className="font-bold text-[#0c2444] dark:text-blue-400 text-sm font-cairo">
                               {payment.customerName}
                             </span>
                           </div>
                         </td>
 
                         {/* Amount */}
-                        <td className="px-6 py-4 font-bold font-cairo text-slate-900 text-base" dir="ltr">
+                        <td className="px-6 py-4 font-bold font-cairo text-slate-900 dark:text-white text-base" dir="ltr">
                           {payment.amount.toLocaleString('en-US', {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
@@ -701,7 +701,7 @@ export const PaymentsScreen: FC = () => {
                         </td>
 
                         {/* Date & Time */}
-                        <td className="px-6 py-4 text-xs text-slate-500 font-medium">
+                        <td className="px-6 py-4 text-xs text-slate-500 dark:text-slate-400 font-medium">
                           <div className="space-y-0.5">
                             <p>{payment.date}</p>
                             <p className="text-[11px] text-slate-400">{payment.time}</p>
@@ -710,7 +710,7 @@ export const PaymentsScreen: FC = () => {
 
                         {/* Payment Method */}
                         <td className="px-6 py-4">
-                          <div className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
+                          <div className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
                             {getMethodIcon(payment.method)}
                             <span>{payment.method}</span>
                           </div>
@@ -739,7 +739,7 @@ export const PaymentsScreen: FC = () => {
                               onClick={() =>
                                 setActiveMenuId(activeMenuId === payment.id ? null : payment.id)
                               }
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600 dark:bg-slate-700 transition-colors cursor-pointer"
                             >
                               <MoreHorizontal className="w-4 h-4" />
                             </button>
@@ -747,7 +747,7 @@ export const PaymentsScreen: FC = () => {
                             {/* Dropdown Action Menu */}
                             {activeMenuId === payment.id && (
                               <div
-                                className="absolute left-0 mt-1 w-44 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-30 text-right text-xs animate-in fade-in zoom-in-95 duration-150"
+                                className="absolute left-0 mt-1 w-44 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 py-1.5 z-30 text-right text-xs animate-in fade-in zoom-in-95 duration-150"
                                 dir="rtl"
                               >
                                 <button
@@ -758,7 +758,7 @@ export const PaymentsScreen: FC = () => {
                                       state: { payment },
                                     });
                                   }}
-                                  className="w-full flex items-center gap-2 px-3.5 py-2 hover:bg-slate-50 text-slate-700 transition-colors cursor-pointer"
+                                  className="w-full flex items-center gap-2 px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
                                 >
                                   <FileText className="w-3.5 h-3.5 text-slate-400" />
                                   <span>عرض سند القبض</span>
@@ -769,7 +769,7 @@ export const PaymentsScreen: FC = () => {
                                     setActiveMenuId(null);
                                     navigate(PATHS.CUSTOMERS);
                                   }}
-                                  className="w-full flex items-center gap-2 px-3.5 py-2 hover:bg-slate-50 text-slate-700 transition-colors cursor-pointer"
+                                  className="w-full flex items-center gap-2 px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
                                 >
                                   <Eye className="w-3.5 h-3.5 text-slate-400" />
                                   <span>ملف العميل</span>
@@ -784,7 +784,7 @@ export const PaymentsScreen: FC = () => {
                                     }
                                     showToast('تم نسخ رابط السند للمشاركة.');
                                   }}
-                                  className="w-full flex items-center gap-2 px-3.5 py-2 hover:bg-slate-50 text-slate-700 transition-colors cursor-pointer"
+                                  className="w-full flex items-center gap-2 px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
                                 >
                                   <Share2 className="w-3.5 h-3.5 text-slate-400" />
                                   <span>مشاركة السند</span>
@@ -801,8 +801,8 @@ export const PaymentsScreen: FC = () => {
             </div>
 
             {/* Pagination Controls */}
-            <div className="p-4 sm:p-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs sm:text-sm">
-              <span className="text-slate-500 font-medium">
+            <div className="p-4 sm:p-5 border-t border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs sm:text-sm">
+              <span className="text-slate-500 dark:text-slate-400 font-medium">
                 عرض {filteredPayments.length === 0 ? 0 : paginatedPayments.length} من أصل {filteredPayments.length} عملية تحصيل
               </span>
 
@@ -812,7 +812,7 @@ export const PaymentsScreen: FC = () => {
                   type="button"
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+                  className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 disabled:opacity-40 cursor-pointer"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -824,8 +824,8 @@ export const PaymentsScreen: FC = () => {
                     onClick={() => setCurrentPage(page)}
                     className={`w-8 h-8 rounded-lg font-bold text-xs transition-colors cursor-pointer ${
                       currentPage === page
-                        ? 'bg-[#051838] text-white shadow-xs'
-                        : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+                        ? 'bg-[#051838] dark:bg-blue-600 text-white shadow-xs'
+                        : 'border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50'
                     }`}
                   >
                     {page}
@@ -836,7 +836,7 @@ export const PaymentsScreen: FC = () => {
                   type="button"
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage >= totalPages}
-                  className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+                  className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 disabled:opacity-40 cursor-pointer"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -881,20 +881,20 @@ export const PaymentsScreen: FC = () => {
       {/* Quick Customer Picker Modal for "تسجيل تحصيل جديد" */}
       {isNewPaymentModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 dark:border-slate-700 space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3">
               <div>
-                <h3 className="text-lg font-bold font-cairo text-slate-900">
+                <h3 className="text-lg font-bold font-cairo text-slate-900 dark:text-white">
                   تسجيل تحصيل جديد
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   اختر العميل المراد تسجيل دفعة مالية له
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsNewPaymentModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
+                className="p-1.5 text-slate-400 hover:text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-600 dark:bg-slate-700 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -907,12 +907,12 @@ export const PaymentsScreen: FC = () => {
                 placeholder="البحث باسم العميل أو رقم الهاتف..."
                 value={customerSearch}
                 onChange={(e) => setCustomerSearch(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 placeholder:text-slate-400 outline-hidden focus:border-[#051838]"
+                className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-hidden focus:border-[#051838]"
               />
             </div>
 
             {/* Customer List */}
-            <div className="max-h-64 overflow-y-auto divide-y divide-slate-100">
+            <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700">
               {isLoadingCustomers ? (
                 <div className="py-8 text-center text-xs text-slate-400">جاري تحميل العملاء...</div>
               ) : filteredCustomerList.length === 0 ? (
@@ -925,14 +925,14 @@ export const PaymentsScreen: FC = () => {
                       setIsNewPaymentModalOpen(false);
                       navigate(`/customers/${cust.id}/payments/new`);
                     }}
-                    className="py-3 px-2 flex items-center justify-between hover:bg-slate-50 rounded-xl cursor-pointer transition-colors group"
+                    className="py-3 px-2 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 rounded-xl cursor-pointer transition-colors group"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl bg-[#edf5ff] text-[#2563eb] flex items-center justify-center font-bold text-xs font-cairo">
                         {cust.avatarLetter}
                       </div>
                       <div>
-                        <p className="font-bold text-xs text-slate-900 group-hover:text-blue-700">
+                        <p className="font-bold text-xs text-slate-900 dark:text-white group-hover:text-blue-700">
                           {cust.name}
                         </p>
                         <p className="text-[11px] text-slate-400">{cust.phone || 'بدون هاتف'}</p>
@@ -950,11 +950,11 @@ export const PaymentsScreen: FC = () => {
               )}
             </div>
 
-            <div className="pt-2 border-t border-slate-100 flex justify-end">
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-700 flex justify-end">
               <button
                 type="button"
                 onClick={() => setIsNewPaymentModalOpen(false)}
-                className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-medium rounded-xl hover:bg-slate-200 transition-colors cursor-pointer"
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium rounded-xl hover:bg-slate-200 transition-colors cursor-pointer"
               >
                 إلغاء
               </button>

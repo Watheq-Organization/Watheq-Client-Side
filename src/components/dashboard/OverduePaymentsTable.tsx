@@ -48,17 +48,17 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
   );
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-6 flex flex-col justify-between" dir="rtl">
+    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-6 flex flex-col justify-between" dir="rtl">
       <div>
         {/* Table Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold font-cairo text-slate-900">
+          <h2 className="text-lg font-bold font-cairo text-slate-900 dark:text-white">
             المدفوعات المتأخرة
           </h2>
           <button
             type="button"
             onClick={() => navigate(PATHS.CUSTOMERS)}
-            className="text-sm font-semibold text-slate-600 hover:text-[#051838] flex items-center gap-1 transition-colors duration-150 cursor-pointer"
+            className="text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-[#051838] dark:text-white flex items-center gap-1 transition-colors duration-150 cursor-pointer"
           >
             <span>عرض الكل</span>
             <ChevronLeft className="w-4 h-4" />
@@ -92,7 +92,7 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
           ) : (
             <table className="w-full text-right border-collapse">
               <thead>
-                <tr className="border-b border-slate-100 text-xs font-semibold text-slate-500">
+                <tr className="border-b border-slate-100 dark:border-slate-700 text-xs font-semibold text-slate-500 dark:text-slate-400">
                   <th className="pb-3 pr-2 font-medium">اسم العميل</th>
                   <th className="pb-3 text-center font-medium">المبلغ (ش.إ)</th>
                   <th className="pb-3 text-center font-medium">تاريخ الاستحقاق</th>
@@ -106,11 +106,11 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
                   return (
                     <tr
                       key={payment.id}
-                      className="hover:bg-slate-50/60 transition-colors duration-150 cursor-pointer"
+                      className="hover:bg-slate-50/6 dark:hover:bg-slate-700/60 dark:hover:bg-slate-700/60 transition-colors duration-150 cursor-pointer"
                       onClick={() => navigate(`/customers/${payment.customerId}`)}
                     >
                       {/* Customer Name */}
-                      <td className="py-4 pr-2 font-bold font-cairo text-sm text-slate-800 hover:text-[#0c2444] transition-colors duration-150 underline-offset-2 hover:underline">
+                      <td className="py-4 pr-2 font-bold font-cairo text-sm text-slate-800 dark:text-slate-200 hover:text-[#0c2444] dark:text-blue-400 transition-colors duration-150 underline-offset-2 hover:underline">
                         {payment.customerName}
                       </td>
 
@@ -120,7 +120,7 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
                       </td>
 
                       {/* Due Date */}
-                      <td className="py-4 text-center text-sm font-medium text-slate-600 font-cairo">
+                      <td className="py-4 text-center text-sm font-medium text-slate-600 dark:text-slate-400 font-cairo">
                         {payment.dueDate}
                       </td>
 
@@ -135,7 +135,7 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
                           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold font-cairo border transition-all duration-200 shadow-2xs ${
                             isSent
                               ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
-                              : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400 active:scale-95'
+                              : 'bg-white dark:bg-slate-800 border-slate-300 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 hover:border-slate-400 active:scale-95'
                           }`}
                         >
                           {isSent ? (
@@ -145,7 +145,7 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
                             </>
                           ) : (
                             <>
-                              <Bell className="w-3.5 h-3.5 text-slate-600" />
+                              <Bell className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
                               <span>تذكير</span>
                             </>
                           )}

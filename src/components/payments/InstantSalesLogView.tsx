@@ -125,7 +125,7 @@ export const InstantSalesLogView: FC = () => {
       case 3:
         return <div className="flex items-center gap-1.5"><CreditCard className="w-4 h-4 text-purple-600" /><span className="text-purple-700">محفظة</span></div>;
       default:
-        return <div className="flex items-center gap-1.5"><CreditCard className="w-4 h-4 text-slate-400" /><span className="text-slate-600">غير محدد</span></div>;
+        return <div className="flex items-center gap-1.5"><CreditCard className="w-4 h-4 text-slate-400" /><span className="text-slate-600 dark:text-slate-400">غير محدد</span></div>;
     }
   };
 
@@ -141,7 +141,7 @@ export const InstantSalesLogView: FC = () => {
       />
       {/* Summary Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5 flex flex-col justify-between">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
               <Banknote className="w-5 h-5" />
@@ -150,7 +150,7 @@ export const InstantSalesLogView: FC = () => {
           </div>
           <div className="mt-4 text-right">
             <div className="flex items-baseline gap-1.5 justify-start">
-              <span className="text-2xl sm:text-3xl font-bold font-cairo text-[#051838] tracking-tight">
+              <span className="text-2xl sm:text-3xl font-bold font-cairo text-[#051838] dark:text-white tracking-tight">
                 {totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
               </span>
               <span className="text-xs text-slate-400 font-medium font-cairo">شيكل</span>
@@ -158,7 +158,7 @@ export const InstantSalesLogView: FC = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5 flex flex-col justify-between">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
               <Calendar className="w-5 h-5" />
@@ -166,7 +166,7 @@ export const InstantSalesLogView: FC = () => {
             <span className="text-xs text-slate-400 font-medium">عدد العمليات</span>
           </div>
           <div className="mt-4 text-right">
-            <span className="text-2xl sm:text-3xl font-bold font-cairo text-[#051838] tracking-tight">
+            <span className="text-2xl sm:text-3xl font-bold font-cairo text-[#051838] dark:text-white tracking-tight">
               {safeSales.length}
             </span>
             <span className="text-xs text-slate-400 font-medium mr-1.5 font-cairo">عملية</span>
@@ -175,23 +175,23 @@ export const InstantSalesLogView: FC = () => {
 
         <div
           onClick={loadData}
-          className="rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 p-5 flex flex-col items-center justify-center text-center cursor-pointer transition-all shadow-xs group"
+          className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 p-5 flex flex-col items-center justify-center text-center cursor-pointer transition-all shadow-xs group"
         >
-          <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 group-hover:bg-[#051838] group-hover:text-white flex items-center justify-center mb-1.5 transition-colors">
+          <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 group-hover:bg-[#051838] group-hover:text-white flex items-center justify-center mb-1.5 transition-colors">
             <RotateCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           </div>
-          <span className="text-xs font-bold text-slate-700 font-cairo">
+          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 font-cairo">
             تحديث البيانات الآن
           </span>
         </div>
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-right text-sm">
             <thead>
-              <tr className="border-b border-slate-100 text-slate-400 font-medium text-xs bg-slate-50/60">
+              <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-medium text-xs bg-slate-50/6 dark:bg-slate-800/60 dark:bg-slate-800/60">
                 <th className="px-6 py-4">رقم الفاتورة</th>
                 <th className="px-6 py-4">العميل / الزبون</th>
                 <th className="px-6 py-4">رقم الجوال</th>
@@ -202,22 +202,22 @@ export const InstantSalesLogView: FC = () => {
                 <th className="px-6 py-4">الإجراءات</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
               {isLoading ? (
                 <tr>
                   <td colSpan={8} className="py-14 text-center text-slate-400">
                     <div className="flex flex-col items-center gap-2">
-                      <RotateCw className="w-6 h-6 animate-spin text-[#051838]" />
+                      <RotateCw className="w-6 h-6 animate-spin text-[#051838] dark:text-white" />
                       <span className="text-xs font-cairo">جاري تحميل مبيعات الكاش من السيرفر...</span>
                     </div>
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-500">
+                  <td colSpan={8} className="py-12 text-center text-slate-500 dark:text-slate-400">
                     <div className="flex flex-col items-center gap-2.5 max-w-md mx-auto p-4">
                       <AlertCircle className="w-8 h-8 text-amber-500" />
-                      <p className="font-bold text-slate-800 text-sm font-cairo">
+                      <p className="font-bold text-slate-800 dark:text-slate-200 text-sm font-cairo">
                         {error}
                       </p>
                     </div>
@@ -225,21 +225,21 @@ export const InstantSalesLogView: FC = () => {
                 </tr>
               ) : safeSales.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-500 font-cairo text-sm">
+                  <td colSpan={8} className="py-12 text-center text-slate-500 dark:text-slate-400 font-cairo text-sm">
                     لا توجد مبيعات نقدية مسجلة حالياً
                   </td>
                 </tr>
               ) : (
                 safeSales.map((sale) => (
-                  <tr key={sale.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="px-6 py-4 font-bold text-[#051838]">#{sale.id}</td>
-                    <td className="px-6 py-4 font-semibold text-slate-800">
+                  <tr key={sale.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/80 transition-colors">
+                    <td className="px-6 py-4 font-bold text-[#051838] dark:text-white">#{sale.id}</td>
+                    <td className="px-6 py-4 font-semibold text-slate-800 dark:text-slate-200">
                       {sale.customerName || 'زبون نقدي مباشر'}
                       {sale.customerId && (
                         <span className="block text-[10px] text-slate-400 mt-0.5">مسجل بالقائمة</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-slate-600 text-xs" dir="ltr">{sale.phoneNumber || '—'}</td>
+                    <td className="px-6 py-4 text-slate-600 dark:text-slate-400 text-xs" dir="ltr">{sale.phoneNumber || '—'}</td>
                     <td className="px-6 py-4">
                       <span className="font-bold text-emerald-600 font-sans tracking-tight">
                         {sale.amount?.toLocaleString('en-US')}
@@ -248,10 +248,10 @@ export const InstantSalesLogView: FC = () => {
                     <td className="px-6 py-4">
                       {getMethodIcon(sale.paymentMethod)}
                     </td>
-                    <td className="px-6 py-4 text-slate-500 text-xs whitespace-nowrap">
+                    <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">
                       {sale.createdAt ? new Date(sale.createdAt).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
                     </td>
-                    <td className="px-6 py-4 text-slate-500 text-xs max-w-[200px] truncate">
+                    <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-xs max-w-[200px] truncate">
                       {sale.description || '—'}
                     </td>
                     <td className="px-6 py-4">
@@ -283,12 +283,12 @@ export const InstantSalesLogView: FC = () => {
       {/* Edit Modal */}
       {editingSale && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200" dir="rtl">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <h3 className="font-bold text-lg text-[#051838]">تعديل الفاتورة النقدية #{editingSale.id}</h3>
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200" dir="rtl">
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/50">
+              <h3 className="font-bold text-lg text-[#051838] dark:text-white">تعديل الفاتورة النقدية #{editingSale.id}</h3>
               <button 
                 onClick={() => setEditingSale(null)} 
-                className="text-slate-400 hover:text-slate-700 hover:bg-slate-200 p-1.5 rounded-lg transition-colors cursor-pointer"
+                className="text-slate-400 hover:text-slate-700 dark:text-slate-300 hover:bg-slate-200 p-1.5 rounded-lg transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -299,18 +299,18 @@ export const InstantSalesLogView: FC = () => {
               {/* Customer Details */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                  <label className="text-xs font-bold text-slate-700">اسم العميل / الزبون</label>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">اسم العميل / الزبون</label>
                   <input
                     type="text"
                     value={editCustomerName}
                     onChange={(e) => setEditCustomerName(e.target.value)}
                     disabled={!!editingSale.customerId}
                     placeholder="زبون عابر"
-                    className="w-full bg-white border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-semibold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-[#051838] transition-all disabled:bg-slate-50 disabled:text-slate-500"
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 px-4 text-sm font-semibold text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#051838] dark:focus:ring-blue-500 transition-all disabled:bg-slate-50 dark:bg-slate-800/50 disabled:text-slate-500 dark:text-slate-400"
                   />
                 </div>
                 <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                  <label className="text-xs font-bold text-slate-700">رقم الجوال</label>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">رقم الجوال</label>
                   {!!editingSale.customerId ? (
                     <div className="relative" dir="ltr">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -320,21 +320,21 @@ export const InstantSalesLogView: FC = () => {
                         type="text"
                         value={editCustomerPhone}
                         disabled
-                        className="w-full bg-slate-100/70 border border-slate-200 rounded-xl py-2.5 px-10 text-sm font-bold text-slate-500 cursor-not-allowed text-center"
+                        className="w-full bg-slate-100/70 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 px-10 text-sm font-bold text-slate-500 dark:text-slate-400 cursor-not-allowed text-center"
                       />
                     </div>
                   ) : (
-                    <div className="flex items-center bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-[#051838] focus-within:border-transparent transition-all shadow-xs" dir="ltr">
+                    <div className="flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:ring-2 focus-within:ring-[#051838] dark:focus-within:ring-blue-500 focus-within:border-transparent transition-all shadow-xs" dir="ltr">
                       <div className="relative shrink-0 h-full">
                         <select
                           value={editPhonePrefix}
                           onChange={(e) => setEditPhonePrefix(e.target.value)}
-                          className="appearance-none bg-slate-50/80 hover:bg-slate-100 rounded-l-xl pl-2 pr-6 py-2.5 text-sm font-bold text-slate-700 outline-none cursor-pointer border-r border-slate-200 h-full w-[65px] transition-colors text-center"
+                          className="appearance-none bg-slate-50/80 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-600 dark:bg-slate-700 rounded-l-xl pl-2 pr-6 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-300 outline-none cursor-pointer border-r border-slate-200 dark:border-slate-700 h-full w-[65px] transition-colors text-center"
                         >
                           <option value="+970">+970</option>
                           <option value="+972">+972</option>
                         </select>
-                        <div className="absolute inset-y-0 right-0 pr-1.5 flex items-center pointer-events-none text-slate-500">
+                        <div className="absolute inset-y-0 right-0 pr-1.5 flex items-center pointer-events-none text-slate-500 dark:text-slate-400">
                           <ChevronDown className="w-3.5 h-3.5" />
                         </div>
                       </div>
@@ -347,7 +347,7 @@ export const InstantSalesLogView: FC = () => {
                           value={editCustomerPhone}
                           onChange={(e) => setEditCustomerPhone(e.target.value.replace(/\D/g, ''))}
                           placeholder="599 000 000"
-                          className="w-full bg-transparent py-2.5 pr-4 pl-10 text-sm font-semibold text-slate-800 outline-none placeholder:text-slate-300"
+                          className="w-full bg-transparent py-2.5 pr-4 pl-10 text-sm font-semibold text-slate-800 dark:text-slate-200 outline-none placeholder:text-slate-300"
                         />
                       </div>
                     </div>
@@ -366,28 +366,28 @@ export const InstantSalesLogView: FC = () => {
               {/* Amount & Payment Method */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">المبلغ الإجمالي</label>
-                  <div className="flex items-center bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-[#051838] focus-within:border-transparent transition-all shadow-xs" dir="ltr">
-                    <div className="px-4 py-2.5 bg-slate-50/80 border-r border-slate-200 text-slate-500 text-sm font-bold shrink-0 rounded-l-xl select-none">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">المبلغ الإجمالي</label>
+                  <div className="flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:ring-2 focus-within:ring-[#051838] dark:focus-within:ring-blue-500 focus-within:border-transparent transition-all shadow-xs" dir="ltr">
+                    <div className="px-4 py-2.5 bg-slate-50/80 dark:bg-slate-800/80 border-r border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-sm font-bold shrink-0 rounded-l-xl select-none">
                       شيكل
                     </div>
                     <input
                       type="number"
                       value={editAmount}
                       onChange={(e) => setEditAmount(e.target.value)}
-                      className="flex-1 bg-transparent py-2.5 px-4 text-sm font-semibold text-slate-800 outline-none border-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="flex-1 bg-transparent py-2.5 px-4 text-sm font-semibold text-slate-800 dark:text-slate-200 outline-none border-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       placeholder="0.00"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">طريقة الدفع</label>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">طريقة الدفع</label>
                   <div className="relative">
                     <select
                       value={editPaymentMethod}
                       onChange={(e) => setEditPaymentMethod(Number(e.target.value))}
-                      className="w-full bg-white border border-slate-200 rounded-xl py-2.5 px-4 pr-10 text-sm font-semibold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-[#051838] transition-all appearance-none cursor-pointer"
+                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 px-4 pr-10 text-sm font-semibold text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#051838] dark:focus:ring-blue-500 transition-all appearance-none cursor-pointer"
                     >
                       <option value={1}>نقداً</option>
                       <option value={2}>تحويل بنكي</option>
@@ -401,21 +401,21 @@ export const InstantSalesLogView: FC = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">الوصف (اختياري)</label>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">الوصف (اختياري)</label>
                 <textarea
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
                   rows={3}
-                  className="w-full bg-white border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-semibold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-[#051838] transition-all resize-none"
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 px-4 text-sm font-semibold text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#051838] dark:focus:ring-blue-500 transition-all resize-none"
                 />
               </div>
             </div>
 
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-700 flex items-center justify-end gap-3">
               <button 
                 onClick={() => setEditingSale(null)}
                 disabled={isSaving}
-                className="px-5 py-2.5 rounded-xl font-bold text-sm text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+                className="px-5 py-2.5 rounded-xl font-bold text-sm text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 transition-colors cursor-pointer disabled:opacity-50"
               >
                 إلغاء
               </button>
@@ -444,23 +444,23 @@ export const InstantSalesLogView: FC = () => {
       {/* Delete Confirmation Modal */}
       {deleteConfirmId !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200" dir="rtl">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200" dir="rtl">
             <div className="p-8 text-center space-y-5">
               <div className="w-20 h-20 bg-rose-50 border-[6px] border-rose-100/50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-2">
                 <Trash2 className="w-10 h-10" />
               </div>
               <div>
-                <h3 className="font-bold text-xl text-[#051838]">تأكيد الحذف</h3>
-                <p className="text-sm text-slate-500 font-medium mt-2 leading-relaxed">
+                <h3 className="font-bold text-xl text-[#051838] dark:text-white">تأكيد الحذف</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mt-2 leading-relaxed">
                   هل أنت متأكد من رغبتك في حذف الفاتورة رقم #{deleteConfirmId}؟ <br/> لا يمكن التراجع عن هذا الإجراء بعد تنفيذه.
                 </p>
               </div>
             </div>
-            <div className="px-6 py-5 bg-slate-50 border-t border-slate-100 flex items-center gap-3">
+            <div className="px-6 py-5 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-700 flex items-center gap-3">
               <button 
                 onClick={() => setDeleteConfirmId(null)}
                 disabled={isDeleting}
-                className="flex-1 py-3 rounded-xl font-bold text-sm text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 hover:text-slate-800 transition-colors disabled:opacity-50 cursor-pointer"
+                className="flex-1 py-3 rounded-xl font-bold text-sm text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 dark:bg-slate-700 hover:text-slate-800 dark:text-slate-200 transition-colors disabled:opacity-50 cursor-pointer"
               >
                 تراجع
               </button>

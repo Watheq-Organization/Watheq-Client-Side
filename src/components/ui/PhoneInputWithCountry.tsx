@@ -77,27 +77,27 @@ export const PhoneInputWithCountry: FC<PhoneInputWithCountryProps> = ({
   return (
     <div className="w-full">
       {label && (
-        <label htmlFor={id} className="block text-sm font-bold text-[#0c2444] mb-1.5 text-right">
+        <label htmlFor={id} className="block text-sm font-bold text-[#0c2444] dark:text-blue-400 mb-1.5 text-right">
           {label} {required && <span className="text-red-600">*</span>}
         </label>
       )}
 
       <div
-        className={`flex items-center rounded-lg border bg-white overflow-hidden transition-colors ${
+        className={`flex items-center rounded-lg border bg-white dark:bg-slate-800 overflow-hidden transition-colors ${
           error
             ? 'border-red-400 focus-within:border-red-500'
-            : 'border-slate-200 focus-within:border-[#123663]'
-        } ${disabled ? 'opacity-60 bg-slate-50 cursor-not-allowed' : ''}`}
+            : 'border-slate-200 dark:border-slate-700 focus-within:border-[#123663]'
+        } ${disabled ? 'opacity-60 bg-slate-50 dark:bg-slate-800/50 cursor-not-allowed' : ''}`}
         dir="rtl"
       >
         {/* Country Code Dropdown */}
-        <div className="relative bg-slate-50 border-l border-slate-200 flex-shrink-0">
+        <div className="relative bg-slate-50 dark:bg-slate-800/50 border-l border-slate-200 dark:border-slate-700 flex-shrink-0">
           <select
             value={countryCode}
             onChange={(e) => onCountryCodeChange(e.target.value as CountryCode)}
             disabled={disabled}
             aria-label="مقدمة الدولة"
-            className="h-[40px] appearance-none bg-transparent pl-7 pr-3 text-xs sm:text-sm font-semibold text-slate-700 outline-none cursor-pointer text-right hover:bg-slate-100 transition-colors"
+            className="h-[40px] appearance-none bg-transparent pl-7 pr-3 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 outline-none cursor-pointer text-right hover:bg-slate-100 dark:hover:bg-slate-600 dark:bg-slate-700 transition-colors"
           >
             {COUNTRIES.map((c) => (
               <option key={c.code} value={c.code}>
@@ -125,7 +125,7 @@ export const PhoneInputWithCountry: FC<PhoneInputWithCountryProps> = ({
           placeholder={placeholder}
           disabled={disabled}
           dir="ltr"
-          className="flex-1 h-[40px] px-3.5 text-sm text-right sm:text-left font-mono text-slate-800 placeholder-slate-400 outline-none bg-transparent"
+          className="flex-1 h-[40px] px-3.5 text-sm text-right sm:text-left font-mono text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none bg-transparent"
         />
       </div>
 

@@ -665,7 +665,7 @@ export const CustomerDetailsScreen: FC = () => {
   }, [activities, activeActivityTab, searchActivityQuery]);
 
   return (
-    <div className="min-h-screen bg-[#f4f7fb] text-slate-800 font-cairo antialiased flex print:bg-white print:block" dir="rtl">
+    <div className="min-h-screen bg-[#f4f7fb] dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-cairo antialiased flex print:bg-white dark:bg-slate-800 print:block" dir="rtl">
       {/* Sidebar */}
       <Sidebar
         isOpen={isSidebarOpen}
@@ -702,18 +702,18 @@ export const CustomerDetailsScreen: FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate(PATHS.CUSTOMERS)}
-                  className="text-slate-400 hover:text-[#0c2444] transition-colors inline-flex items-center gap-1 text-xs font-semibold"
+                  className="text-slate-400 hover:text-[#0c2444] dark:text-blue-400 transition-colors inline-flex items-center gap-1 text-xs font-semibold"
                 >
                   <ArrowRight className="w-3.5 h-3.5" />
                   <span>العملاء</span>
                 </button>
                 <span className="text-slate-300">/</span>
-                <span className="text-slate-700 text-xs font-bold">ملف العميل</span>
+                <span className="text-slate-700 dark:text-slate-300 text-xs font-bold">ملف العميل</span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold font-cairo text-[#0c2444] tracking-tight mt-1">
+              <h1 className="text-2xl sm:text-3xl font-extrabold font-cairo text-[#0c2444] dark:text-blue-400 tracking-tight mt-1">
                 ملف العميل
               </h1>
-              <p className="text-xs sm:text-sm font-medium text-slate-500 mt-0.5">
+              <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 mt-0.5">
                 عرض وإدارة سجل المديونية الخاص بالعميل
               </p>
             </div>
@@ -730,7 +730,7 @@ export const CustomerDetailsScreen: FC = () => {
 
               <button
                 type="button"
-                className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer"
+                className="px-4 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer"
               >
                 تحميل السجل
               </button>
@@ -751,7 +751,7 @@ export const CustomerDetailsScreen: FC = () => {
             </div>
           )}
           {isLoadingProfile && !loadError && (
-            <div className="rounded-2xl bg-slate-50 border border-slate-200 text-slate-500 text-sm px-4 py-3 text-center print:hidden">
+            <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-sm px-4 py-3 text-center print:hidden">
               جاري تحميل بيانات العميل...
             </div>
           )}
@@ -763,7 +763,7 @@ export const CustomerDetailsScreen: FC = () => {
             <div className="lg:col-span-4 space-y-4 print:hidden">
 
               {/* Profile Card */}
-              <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-100 shadow-xs flex flex-col items-center text-center">
+              <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-7 border border-slate-100 dark:border-slate-700 shadow-xs flex flex-col items-center text-center">
 
                 {/* Avatar with Verified Badge */}
                 <div className="relative mb-4">
@@ -777,57 +777,57 @@ export const CustomerDetailsScreen: FC = () => {
                 </div>
 
                 {/* Name */}
-                <h2 className="text-xl font-extrabold font-cairo text-[#0c2444]">
+                <h2 className="text-xl font-extrabold font-cairo text-[#0c2444] dark:text-blue-400">
                   {customer.name || 'أحمد الراجحي'}
                 </h2>
 
                 {/* National ID Pill */}
-                <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-semibold font-mono" dir="rtl">
+                <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-full text-xs font-semibold font-mono" dir="rtl">
                   <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
                   <span>هوية: {customer.nationalOrCrId || 'غير متوفر'}</span>
                 </div>
 
                 {/* Divider */}
-                <div className="w-full border-t border-slate-100 my-5" />
+                <div className="w-full border-t border-slate-100 dark:border-slate-700 my-5" />
 
                 {/* Info List */}
                 <div className="w-full space-y-4 text-xs sm:text-sm">
                   {/* Phone */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-slate-500 font-medium">
+                    <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium">
                       <Phone className="w-4 h-4 text-slate-400" />
                       <span>رقم الهاتف</span>
                     </div>
-                    <span className="font-bold text-slate-800 font-mono" dir="ltr">
+                    <span className="font-bold text-slate-800 dark:text-slate-200 font-mono" dir="ltr">
                       {customer.phone || 'غير متوفر'}
                     </span>
                   </div>
 
                   {/* Registration Date */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-slate-500 font-medium">
+                    <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium">
                       <Clock className="w-4 h-4 text-slate-400" />
                       <span>تاريخ التسجيل</span>
                     </div>
-                    <span className="font-bold text-slate-800">
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
                       {customer.registrationDate ? formatApiDate(customer.registrationDate) : 'غير متوفر'}
                     </span>
                   </div>
 
                   {/* Total Paid */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-slate-500 font-medium">
+                    <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium">
                       <Check className="w-4 h-4 text-slate-400" />
                       <span>إجمالي المدفوع</span>
                     </div>
-                    <span className="font-bold text-slate-800 font-mono" dir="ltr">
+                    <span className="font-bold text-slate-800 dark:text-slate-200 font-mono" dir="ltr">
                       {computedTotalPaid.toFixed(2)} ش.إ
                     </span>
                   </div>
 
                   {/* Credit Status */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-slate-500 font-medium">
+                    <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium">
                       <ShieldCheck className="w-4 h-4 text-slate-400" />
                       <span>حالة الائتمان</span>
                     </div>
@@ -880,9 +880,9 @@ export const CustomerDetailsScreen: FC = () => {
                 {/* 3. Export Statement PDF */}
                 <button
                   type="button"
-                  className="w-full py-3 px-4 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 shadow-2xs hover:shadow-xs transition-all cursor-pointer"
+                  className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border border-slate-200/90 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 shadow-2xs hover:shadow-xs transition-all cursor-pointer"
                 >
-                  <FileText className="w-4 h-4 text-slate-500" />
+                  <FileText className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                   <span>تصدير كشف حساب (PDF)</span>
                 </button>
 
@@ -914,15 +914,15 @@ export const CustomerDetailsScreen: FC = () => {
             <div className="lg:col-span-8 space-y-6 print:w-full print:space-y-4 print:m-0 print:p-0">
 
               {/* Financial Activity Log Card */}
-              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-xs space-y-6 print:border print:border-slate-200 print:rounded-2xl print:p-6 print:shadow-none">
+              <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 border border-slate-100 dark:border-slate-700 shadow-xs space-y-6 print:border print:border-slate-200 dark:border-slate-700 print:rounded-2xl print:p-6 print:shadow-none">
 
                 {/* Print-Only Header with Customer Info */}
-                <div className="hidden print:flex items-center justify-between pb-4 border-b-2 border-slate-200" dir="rtl">
+                <div className="hidden print:flex items-center justify-between pb-4 border-b-2 border-slate-200 dark:border-slate-700" dir="rtl">
                   <div>
-                    <h2 className="text-xl font-extrabold font-cairo text-[#0c2444]">
+                    <h2 className="text-xl font-extrabold font-cairo text-[#0c2444] dark:text-blue-400">
                       سجل النشاط المالي وكشف الحساب
                     </h2>
-                    <div className="flex items-center gap-3 text-xs text-slate-600 mt-1 font-cairo">
+                    <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 mt-1 font-cairo">
                       <span><strong>العميل:</strong> {customer.name || 'عميل'}</span>
                       <span>•</span>
                       <span><strong>الهاتف:</strong> <span dir="ltr">{customer.phone || 'غير متوفر'}</span></span>
@@ -930,26 +930,26 @@ export const CustomerDetailsScreen: FC = () => {
                       <span><strong>معرف/هوية:</strong> {customer.nationalOrCrId || 'غير متوفر'}</span>
                     </div>
                   </div>
-                  <div className="text-left text-xs text-slate-500 font-mono">
-                    <span className="font-bold text-[#0c2444] block font-cairo text-sm">منصة وثّق</span>
+                  <div className="text-left text-xs text-slate-500 dark:text-slate-400 font-mono">
+                    <span className="font-bold text-[#0c2444] dark:text-blue-400 block font-cairo text-sm">منصة وثّق</span>
                     <span>{new Date().toLocaleDateString('ar-SA')}</span>
                   </div>
                 </div>
 
                 {/* Header with Title and Filter Tabs */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5 print:hidden">
-                  <h3 className="text-lg sm:text-xl font-extrabold font-cairo text-[#0c2444]">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-700 pb-5 print:hidden">
+                  <h3 className="text-lg sm:text-xl font-extrabold font-cairo text-[#0c2444] dark:text-blue-400">
                     سجل النشاط المالي
                   </h3>
 
                   {/* Filter Tabs */}
-                  <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+                  <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-700 p-1 rounded-xl">
                     <button
                       type="button"
                       onClick={() => setActiveActivityTab('all')}
                       className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeActivityTab === 'all'
-                        ? 'bg-white text-[#0c2444] shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
+                        ? 'bg-white dark:bg-slate-800 text-[#0c2444] dark:text-blue-400 shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'
                         }`}
                     >
                       الكل
@@ -959,8 +959,8 @@ export const CustomerDetailsScreen: FC = () => {
                       type="button"
                       onClick={() => setActiveActivityTab('debt')}
                       className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeActivityTab === 'debt'
-                        ? 'bg-white text-[#0c2444] shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
+                        ? 'bg-white dark:bg-slate-800 text-[#0c2444] dark:text-blue-400 shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'
                         }`}
                     >
                       الديون
@@ -970,8 +970,8 @@ export const CustomerDetailsScreen: FC = () => {
                       type="button"
                       onClick={() => setActiveActivityTab('payment')}
                       className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeActivityTab === 'payment'
-                        ? 'bg-white text-[#0c2444] shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
+                        ? 'bg-white dark:bg-slate-800 text-[#0c2444] dark:text-blue-400 shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'
                         }`}
                     >
                       المدفوعات
@@ -986,7 +986,7 @@ export const CustomerDetailsScreen: FC = () => {
                     <p className="text-sm font-semibold">لا توجد معاملات مسجلة لهذا العميل حتى الآن</p>
                   </div>
                 ) : (
-                  <div className="relative space-y-6 before:absolute before:top-4 before:bottom-4 before:right-5 before:w-0.5 before:bg-slate-100">
+                  <div className="relative space-y-6 before:absolute before:top-4 before:bottom-4 before:right-5 before:w-0.5 before:bg-slate-100 dark:bg-slate-700">
                     {filteredActivities.map((act) => (
                       <div key={act.id} className="relative flex items-start gap-4 sm:gap-5">
 
@@ -996,19 +996,19 @@ export const CustomerDetailsScreen: FC = () => {
                         >
                           {act.type === 'debt' && <Plus className="w-5 h-5 stroke-[2.5]" />}
                           {act.type === 'payment' && <Check className="w-5 h-5 stroke-[2.5]" />}
-                          {act.type === 'alert' && <AlertTriangle className="w-5 h-5 text-slate-600" />}
+                          {act.type === 'alert' && <AlertTriangle className="w-5 h-5 text-slate-600 dark:text-slate-400" />}
                         </div>
 
                         {/* Content Card */}
                         <div
                           className={`flex-1 rounded-2xl p-4 sm:p-5 transition-all ${act.type === 'alert'
-                            ? 'bg-[#f8fafc] border-2 border-dashed border-slate-200'
-                            : 'bg-white border border-slate-100 shadow-2xs hover:shadow-xs'
+                            ? 'bg-[#f8fafc] dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-700'
+                            : 'bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-2xs hover:shadow-xs'
                             }`}
                         >
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div className="flex items-center gap-2.5 flex-wrap">
-                              <span className="font-bold text-[#0c2444] text-sm sm:text-base font-cairo">
+                              <span className="font-bold text-[#0c2444] dark:text-blue-400 text-sm sm:text-base font-cairo">
                                 {act.title}
                               </span>
                               {act.badgeText && (
@@ -1118,7 +1118,7 @@ export const CustomerDetailsScreen: FC = () => {
                           </div>
 
                           {/* Description */}
-                          <p className="text-xs sm:text-sm text-slate-500 mt-2 leading-relaxed font-normal">
+                          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2 leading-relaxed font-normal">
                             {act.description}
                           </p>
 
@@ -1150,7 +1150,7 @@ export const CustomerDetailsScreen: FC = () => {
                 )}
 
                 {/* Footer Note */}
-                <div className="pt-4 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-400 print:hidden">
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-center gap-2 text-xs text-slate-400 print:hidden">
                   <Clock className="w-4 h-4" />
                   <span>يتم تحديث السجل تلقائياً عند كل عملية إضافة أو سداد موثقة.</span>
                 </div>
@@ -1218,10 +1218,10 @@ export const CustomerDetailsScreen: FC = () => {
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in print:hidden"
           dir="rtl"
         >
-          <div className="bg-white rounded-[12px] w-[450px] max-w-[calc(100vw-32px)] shadow-2xl overflow-hidden">
+          <div className="bg-white dark:bg-slate-800 rounded-[12px] w-[450px] max-w-[calc(100vw-32px)] shadow-2xl overflow-hidden">
             {/* Header */}
-            <div className="h-[68px] flex items-center justify-between px-6 border-b border-slate-200">
-              <h3 className="text-lg font-bold font-cairo text-[#0c2444]">
+            <div className="h-[68px] flex items-center justify-between px-6 border-b border-slate-200 dark:border-slate-700">
+              <h3 className="text-lg font-bold font-cairo text-[#0c2444] dark:text-blue-400">
                 تعديل بيانات العميل
               </h3>
               <button
@@ -1232,7 +1232,7 @@ export const CustomerDetailsScreen: FC = () => {
                   setSubmitError(null);
                   setFieldErrors({});
                 }}
-                className="text-slate-900 hover:opacity-60 transition-opacity cursor-pointer"
+                className="text-slate-900 dark:text-white hover:opacity-60 transition-opacity cursor-pointer"
                 aria-label="إغلاق"
               >
                 <X className="w-5 h-5" strokeWidth={2} />
@@ -1248,7 +1248,7 @@ export const CustomerDetailsScreen: FC = () => {
                 )}
                 {/* Field 1: Customer Name */}
                 <div>
-                  <label className="block text-sm font-bold text-[#0c2444] mb-1.5">
+                  <label className="block text-sm font-bold text-[#0c2444] dark:text-blue-400 mb-1.5">
                     اسم العميل <span className="text-red-600">*</span>
                   </label>
                   <input
@@ -1256,7 +1256,7 @@ export const CustomerDetailsScreen: FC = () => {
                     value={editForm.fullName}
                     onChange={(e) => setEditForm((p) => ({ ...p, fullName: e.target.value }))}
                     dir="rtl"
-                    className={`w-full h-[38px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none focus:border-[#123663] transition-colors ${fieldErrors.fullName ? 'border-rose-400' : 'border-slate-200'
+                    className={`w-full h-[38px] bg-white dark:bg-slate-800 border rounded-lg px-3.5 text-sm text-right text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none focus:border-[#123663] transition-colors ${fieldErrors.fullName ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'
                       }`}
                   />
                   {fieldErrors.fullName && (
@@ -1266,7 +1266,7 @@ export const CustomerDetailsScreen: FC = () => {
 
                 {/* Field 2: National ID / CR Number (display only — not sent to the API) */}
                 <div>
-                  <label className="block text-sm font-bold text-[#0c2444] mb-1.5">
+                  <label className="block text-sm font-bold text-[#0c2444] dark:text-blue-400 mb-1.5">
                     رقم الهوية الوطنية <span className="text-red-600">*</span>
                   </label>
                   <input
@@ -1276,7 +1276,7 @@ export const CustomerDetailsScreen: FC = () => {
                       setEditForm((p) => ({ ...p, nationalOrCrId: e.target.value }))
                     }
                     dir="rtl"
-                    className={`w-full h-[38px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none focus:border-[#123663] transition-colors ${fieldErrors.nationalOrCrId ? 'border-rose-400' : 'border-slate-200'
+                    className={`w-full h-[38px] bg-white dark:bg-slate-800 border rounded-lg px-3.5 text-sm text-right text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none focus:border-[#123663] transition-colors ${fieldErrors.nationalOrCrId ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'
                       }`}
                   />
                   {fieldErrors.nationalOrCrId && (
@@ -1303,7 +1303,7 @@ export const CustomerDetailsScreen: FC = () => {
 
                 {/* Field 4: Debt Balance — read-only, not sent to the API */}
                 <div>
-                  <label className="block text-sm font-bold text-[#0c2444] mb-1.5">
+                  <label className="block text-sm font-bold text-[#0c2444] dark:text-blue-400 mb-1.5">
                     رصيد المديونية (شيكل) <span className="font-normal text-slate-400">(اختياري)</span>
                   </label>
                   <div className="relative flex items-center">
@@ -1316,7 +1316,7 @@ export const CustomerDetailsScreen: FC = () => {
                       disabled
                       readOnly
                       dir="rtl"
-                      className="w-full h-[38px] bg-slate-50 border border-slate-200 rounded-lg pr-3.5 pl-12 text-sm text-right text-slate-500 outline-none cursor-not-allowed"
+                      className="w-full h-[38px] bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg pr-3.5 pl-12 text-sm text-right text-slate-500 dark:text-slate-400 outline-none cursor-not-allowed"
                     />
                   </div>
                   <p className="mt-1.5 text-xs text-slate-400">القيمة الحالية للمديونية.</p>
@@ -1324,7 +1324,7 @@ export const CustomerDetailsScreen: FC = () => {
               </div>
 
               {/* Footer */}
-              <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
+              <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
                 <button
                   type="button"
                   onClick={() => {
@@ -1333,7 +1333,7 @@ export const CustomerDetailsScreen: FC = () => {
                     setSubmitError(null);
                     setFieldErrors({});
                   }}
-                  className="h-9 px-4 rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors cursor-pointer"
+                  className="h-9 px-4 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 transition-colors cursor-pointer"
                 >
                   إلغاء
                 </button>
@@ -1368,17 +1368,17 @@ export const CustomerDetailsScreen: FC = () => {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 text-center transform transition-all duration-200 scale-100 animate-in fade-in zoom-in-95"
+            className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 dark:border-slate-700 text-center transform transition-all duration-200 scale-100 animate-in fade-in zoom-in-95"
           >
             <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 shadow-xs">
               <Trash2 className="w-7 h-7" />
             </div>
 
-            <h3 className="text-xl font-bold font-cairo text-slate-900 mb-2">
+            <h3 className="text-xl font-bold font-cairo text-slate-900 dark:text-white mb-2">
               حذف العميل
             </h3>
 
-            <p className="text-xs sm:text-sm text-slate-500 leading-relaxed mb-6 font-cairo">
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6 font-cairo">
               هل أنت متأكد من حذف {customer.name || 'هذا العميل'}؟ لا يمكن التراجع عن هذا الإجراء.
             </p>
 
@@ -1402,7 +1402,7 @@ export const CustomerDetailsScreen: FC = () => {
                 type="button"
                 disabled={isDeletingCustomer}
                 onClick={() => setIsDeleteModalOpen(false)}
-                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-50"
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-50"
               >
                 إلغاء
               </button>
@@ -1422,17 +1422,17 @@ export const CustomerDetailsScreen: FC = () => {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 text-center transform transition-all duration-200 scale-100 animate-in fade-in zoom-in-95"
+            className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 dark:border-slate-700 text-center transform transition-all duration-200 scale-100 animate-in fade-in zoom-in-95"
           >
             <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 shadow-xs">
               <Trash2 className="w-7 h-7" />
             </div>
 
-            <h3 className="text-xl font-bold font-cairo text-slate-900 mb-2">
+            <h3 className="text-xl font-bold font-cairo text-slate-900 dark:text-white mb-2">
               {activityPendingDelete.type === 'debt' ? 'حذف الدين' : 'حذف الدفعة'}
             </h3>
 
-            <p className="text-xs sm:text-sm text-slate-500 leading-relaxed mb-6 font-cairo">
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6 font-cairo">
               هل أنت متأكد من حذف "{activityPendingDelete.title}"؟ لا يمكن التراجع عن هذا الإجراء.
             </p>
 
@@ -1450,7 +1450,7 @@ export const CustomerDetailsScreen: FC = () => {
                 type="button"
                 onClick={() => setActivityPendingDelete(null)}
                 disabled={isDeletingActivity}
-                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 إلغاء
               </button>
@@ -1473,17 +1473,17 @@ export const CustomerDetailsScreen: FC = () => {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 text-center transform transition-all duration-200 scale-100 animate-in fade-in zoom-in-95"
+            className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 dark:border-slate-700 text-center transform transition-all duration-200 scale-100 animate-in fade-in zoom-in-95"
           >
             <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 shadow-xs">
               <AlertTriangle className="w-7 h-7" />
             </div>
 
-            <h3 className="text-xl font-bold font-cairo text-slate-900 mb-2">
+            <h3 className="text-xl font-bold font-cairo text-slate-900 dark:text-white mb-2">
               هذا الدين مرتبط بدفعات
             </h3>
 
-            <p className="text-xs sm:text-sm text-slate-500 leading-relaxed mb-6 font-cairo">
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6 font-cairo">
               يحتوي هذا الدين على{' '}
               {debtPendingHardDelete.paymentsCount > 0
                 ? `${debtPendingHardDelete.paymentsCount} دفعة/دفعات مرتبطة به`
@@ -1506,7 +1506,7 @@ export const CustomerDetailsScreen: FC = () => {
                 type="button"
                 onClick={() => setDebtPendingHardDelete(null)}
                 disabled={isDeletingActivity}
-                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 إلغاء
               </button>

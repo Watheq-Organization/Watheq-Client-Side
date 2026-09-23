@@ -27,7 +27,7 @@ export const LogoutModal: FC<LogoutModalProps> = ({
       {/* Modal Container */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 text-center transform transition-all duration-200 scale-100 animate-in fade-in zoom-in-95"
+        className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 dark:border-slate-700 text-center transform transition-all duration-200 scale-100 animate-in fade-in zoom-in-95"
       >
         {/* Top Icon Box */}
         <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 shadow-xs">
@@ -35,12 +35,12 @@ export const LogoutModal: FC<LogoutModalProps> = ({
         </div>
 
         {/* Modal Heading */}
-        <h3 className="text-xl font-bold font-cairo text-slate-900 mb-2">
+        <h3 className="text-xl font-bold font-cairo text-slate-900 dark:text-white mb-2">
           تسجيل الخروج
         </h3>
 
         {/* Modal Subtitle / Description */}
-        <p className="text-xs sm:text-sm text-slate-500 leading-relaxed mb-6 font-cairo">
+        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6 font-cairo">
           هل أنت متأكد من تسجيل الخروج؟ ستحتاج إلى تسجيل الدخول مرة أخرى للوصول إلى لوحة التحكم
         </p>
 
@@ -59,7 +59,7 @@ export const LogoutModal: FC<LogoutModalProps> = ({
             type="button"
             disabled={isLoading}
             onClick={onClose}
-            className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-50"
+            className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-50"
           >
             إلغاء
           </button>

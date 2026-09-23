@@ -42,11 +42,11 @@ export const ForgotPasswordPage: FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-white text-slate-800 font-cairo antialiased selection:bg-[#0c2444] selection:text-white">
+    <div className="min-h-screen flex flex-col justify-between bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-cairo antialiased selection:bg-[#0c2444] selection:text-white">
       <Navbar />
 
       <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-14 flex items-center justify-center">
-        <div className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row border border-slate-100 min-h-[580px]">
+        <div className="w-full max-w-5xl bg-white dark:bg-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row border border-slate-100 dark:border-slate-700 min-h-[580px]">
           
           {/* Left Side: Security Illustration & Branding */}
           <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#0c2444] via-[#123663] to-[#0a1b32] p-10 flex-col justify-between relative overflow-hidden text-white">
@@ -118,7 +118,7 @@ export const ForgotPasswordPage: FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate(PATHS.LOGIN)}
-                  className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-500 hover:text-[#0c2444] transition-colors group"
+                  className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 hover:text-[#0c2444] dark:text-blue-400 transition-colors group"
                 >
                   <ArrowLeft className="w-4 h-4 transform group-hover:-translate-x-0.5 transition-transform" />
                   <span>العودة لتسجيل الدخول</span>
@@ -127,10 +127,10 @@ export const ForgotPasswordPage: FC = () => {
 
               {/* Header Title */}
               <div className="text-right mb-8">
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] font-cairo tracking-tight mb-2">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] dark:text-blue-400 font-cairo tracking-tight mb-2">
                   استعادة كلمة المرور
                 </h1>
-                <p className="text-slate-500 text-xs sm:text-sm leading-relaxed">
+                <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm leading-relaxed">
                   أدخل بريدك الإلكتروني المسجل لدينا لإرسال رمز التحقق وإعادة تعيين كلمة المرور.
                 </p>
               </div>
@@ -178,7 +178,7 @@ export const ForgotPasswordPage: FC = () => {
               </form>
 
               {/* Help tip */}
-              <div className="mt-8 pt-6 border-t border-slate-100 text-center text-xs text-slate-400">
+              <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-700 text-center text-xs text-slate-400">
                 <span>تواجه صعوبة في الاستعادة؟ </span>
                 <a href="#help" className="text-emerald-700 font-semibold hover:underline">
                   تواصل مع الدعم الفني

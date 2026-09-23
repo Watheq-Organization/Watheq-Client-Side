@@ -136,11 +136,11 @@ export const VerifyOtpScreen: FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-white text-slate-800 font-cairo antialiased selection:bg-[#0c2444] selection:text-white">
+    <div className="min-h-screen flex flex-col justify-between bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-cairo antialiased selection:bg-[#0c2444] selection:text-white">
       <Navbar />
 
       <main className="flex-grow max-w-[1400px] w-full mx-auto p-4 sm:p-6 lg:p-10 flex items-center justify-center">
-        <div className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row border border-slate-100">
+        <div className="w-full max-w-5xl bg-white dark:bg-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row border border-slate-100 dark:border-slate-700">
           
           {/* Left Side - Illustration / Branding */}
           <div className="hidden lg:flex lg:w-1/2 bg-[#1a365d] p-12 flex-col items-center justify-center relative overflow-hidden">
@@ -153,7 +153,7 @@ export const VerifyOtpScreen: FC = () => {
                 <div className="text-white font-bold text-xl font-cairo text-center">
                    التحقق من الرمز - وثّق (سطح المكتب)
                 </div>
-                <div className="w-24 h-40 bg-white rounded-3xl border-8 border-slate-800 shadow-inner flex flex-col items-center justify-center relative">
+                <div className="w-24 h-40 bg-white dark:bg-slate-800 rounded-3xl border-8 border-slate-800 shadow-inner flex flex-col items-center justify-center relative">
                    <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/40">
                       <CheckCircle2 className="w-8 h-8 text-white" />
                    </div>
@@ -170,14 +170,14 @@ export const VerifyOtpScreen: FC = () => {
             
             <div className="max-w-md w-full mx-auto">
               <div className="text-center mb-10">
-                <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0c2444] font-cairo tracking-tight mb-3">
+                <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0c2444] dark:text-blue-400 font-cairo tracking-tight mb-3">
                   التحقق من الرمز
                 </h1>
-                <p className="text-slate-500 text-sm sm:text-base">
+                <p className="text-slate-500 dark:text-slate-400 text-sm sm:text-base">
                   الرجاء إدخال رمز التحقق المرسل إلى البريد الالكتروني الخاص بك
                 </p>
                 {email && (
-                   <p className="text-[#0c2444] font-semibold text-sm mt-2 bg-slate-50 p-2 rounded-lg inline-block mx-auto border border-slate-100">
+                   <p className="text-[#0c2444] dark:text-blue-400 font-semibold text-sm mt-2 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg inline-block mx-auto border border-slate-100 dark:border-slate-700">
                       {email}
                    </p>
                 )}
@@ -221,7 +221,7 @@ export const VerifyOtpScreen: FC = () => {
                       onChange={(e) => handleChange(index, e.target.value)}
                       onKeyDown={(e) => handleKeyDown(index, e)}
                       onPaste={handlePaste}
-                      className="w-10 h-12 sm:w-12 sm:h-14 md:w-16 md:h-16 text-center text-xl sm:text-2xl font-bold text-[#0c2444] bg-white border-2 border-slate-200 rounded-xl focus:border-[#0c2444] focus:ring-4 focus:ring-[#0c2444]/10 transition-all outline-none"
+                      className="w-10 h-12 sm:w-12 sm:h-14 md:w-16 md:h-16 text-center text-xl sm:text-2xl font-bold text-[#0c2444] dark:text-blue-400 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl focus:border-[#0c2444] dark:border-blue-400 focus:ring-4 focus:ring-[#0c2444]/10 transition-all outline-none"
                     />
                   ))}
                 </div>
@@ -229,9 +229,9 @@ export const VerifyOtpScreen: FC = () => {
                 {/* Resend Timer */}
                 <div className="text-center text-sm font-medium">
                   {timeLeft > 0 ? (
-                    <div className="text-slate-500 flex items-center justify-center gap-1.5 flex-row-reverse">
+                    <div className="text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1.5 flex-row-reverse">
                       <span>إعادة الإرسال بعد</span>
-                      <span className="text-[#0c2444] font-bold tracking-widest font-sans" dir="ltr">
+                      <span className="text-[#0c2444] dark:text-blue-400 font-bold tracking-widest font-sans" dir="ltr">
                         {formatTime(timeLeft)}
                       </span>
                     </div>

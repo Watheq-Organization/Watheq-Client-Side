@@ -72,7 +72,7 @@ export const LoginPage: FC = () => {
 
 
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-white text-slate-800 font-cairo antialiased selection:bg-emerald-100 selection:text-emerald-900">
+    <div className="min-h-screen flex flex-col justify-between bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-cairo antialiased selection:bg-emerald-100 selection:text-emerald-900">
       <Navbar />
 
       <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-14">
@@ -84,8 +84,8 @@ export const LoginPage: FC = () => {
         )}
 
         {infoNotice && (
-          <div className="mb-6 p-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 flex items-center gap-3 shadow-sm animate-fade-in">
-            <AlertCircle className="w-5 h-5 text-slate-500 flex-shrink-0" />
+          <div className="mb-6 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 flex items-center gap-3 shadow-sm animate-fade-in">
+            <AlertCircle className="w-5 h-5 text-slate-500 dark:text-slate-400 flex-shrink-0" />
             <span className="font-medium text-sm">{infoNotice}</span>
           </div>
         )}
@@ -93,13 +93,13 @@ export const LoginPage: FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center">
           {/* Left Column (In visual layout): Login Card */}
           <div className="lg:col-span-6 w-full max-w-xl mx-auto lg:mx-0">
-            <div className="bg-white rounded-2xl p-6 sm:p-9 shadow-xl shadow-slate-200/70 border border-slate-100">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 sm:p-9 shadow-xl shadow-slate-200/70 dark:shadow-slate-900/50 border border-slate-100 dark:border-slate-700">
               {/* Form Heading */}
               <div className="text-right mb-6">
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] font-cairo tracking-tight">
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] dark:text-blue-400 font-cairo tracking-tight">
                   تسجيل الدخول
                 </h2>
-                <p className="text-sm text-slate-500 mt-1.5 font-normal">
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5 font-normal">
                   مرحباً بك مجدداً، أدخل بياناتك للوصول إلى لوحة التحكم
                 </p>
               </div>
@@ -145,7 +145,7 @@ export const LoginPage: FC = () => {
                     }
                     className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-emerald-600"
                   />
-                  <label htmlFor="rememberMe" className="text-xs sm:text-sm text-slate-600 cursor-pointer">
+                  <label htmlFor="rememberMe" className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 cursor-pointer">
                     تذكرني على هذا الجهاز
                   </label>
                 </div>
@@ -180,12 +180,12 @@ export const LoginPage: FC = () => {
                 </div>
 
                 {/* Sign Up Redirect */}
-                <div className="text-center pt-3 text-xs sm:text-sm text-slate-500">
+                <div className="text-center pt-3 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                   <span>ليس لديك حساب؟ </span>
                   <button
                     type="button"
                     onClick={() => navigate(PATHS.REGISTER)}
-                    className="text-[#0c2444] font-bold hover:underline hover:text-emerald-700 transition-colors"
+                    className="text-[#0c2444] dark:text-blue-400 font-bold hover:underline hover:text-emerald-700 transition-colors"
                   >
                     إنشاء حساب جديد
                   </button>
@@ -205,27 +205,27 @@ export const LoginPage: FC = () => {
             <Logo variant="emblem-only" size="xl" />
 
             <div>
-              <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0c2444] font-cairo tracking-tight leading-tight">
+              <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0c2444] dark:text-blue-400 font-cairo tracking-tight leading-tight">
                 نظام إدارة الديون الذكي
               </h1>
-              <p className="text-slate-600 text-sm sm:text-base mt-3 leading-relaxed max-w-md mx-auto">
+              <p className="text-slate-600 dark:text-slate-400 text-sm sm:text-base mt-3 leading-relaxed max-w-md mx-auto">
                 وثّق يوفر لك منصة آمنة وموثوقة لتوثيق ومتابعة التحصيلات المالية بكل سهولة وكفاءة. انضم الآن لآلاف التجار والمؤسسات.
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4 w-full max-w-md">
-              <div className="bg-white rounded-xl p-4 sm:p-5 border border-slate-100 shadow-sm flex flex-col items-center gap-2 text-center transition-all duration-200 hover:shadow-md hover:border-slate-200">
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col items-center gap-2 text-center transition-all duration-200 hover:shadow-md hover:border-slate-200 dark:border-slate-700">
                 <div className="w-11 h-11 rounded-xl bg-blue-500 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
                   <Zap className="w-6 h-6" />
                 </div>
-                <h3 className="font-bold text-[#0c2444] text-sm sm:text-base">سرعة التنفيذ</h3>
+                <h3 className="font-bold text-[#0c2444] dark:text-blue-400 text-sm sm:text-base">سرعة التنفيذ</h3>
               </div>
 
-              <div className="bg-white rounded-xl p-4 sm:p-5 border border-slate-100 shadow-sm flex flex-col items-center gap-2 text-center transition-all duration-200 hover:shadow-md hover:border-slate-200">
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col items-center gap-2 text-center transition-all duration-200 hover:shadow-md hover:border-slate-200 dark:border-slate-700">
                 <div className="w-11 h-11 rounded-xl bg-emerald-500 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
                   <ShieldCheck className="w-6 h-6" />
                 </div>
-                <h3 className="font-bold text-[#0c2444] text-sm sm:text-base">أمان عالٍ</h3>
+                <h3 className="font-bold text-[#0c2444] dark:text-blue-400 text-sm sm:text-base">أمان عالٍ</h3>
               </div>
             </div>
           </div>

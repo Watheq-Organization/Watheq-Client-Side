@@ -17,7 +17,7 @@ export const Navbar: FC = () => {
   const isRegisterPage = location.pathname === PATHS.REGISTER;
 
   return (
-    <header className="w-full bg-white border-b border-slate-100 sticky top-0 z-30 shadow-xs">
+    <header className="w-full bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 sticky top-0 z-30 shadow-xs">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-10 h-16 sm:h-20 flex items-center justify-between gap-2">
         {/* Logo Right in RTL */}
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
@@ -33,7 +33,7 @@ export const Navbar: FC = () => {
             className={`transition-colors duration-200 py-1.5 ${
               isHomeActive
                 ? 'text-emerald-600 font-bold border-b-2 border-emerald-500'
-                : 'text-slate-600 hover:text-emerald-600'
+                : 'text-slate-600 dark:text-slate-400 hover:text-emerald-600'
             }`}
           >
             الرئيسية
@@ -43,7 +43,7 @@ export const Navbar: FC = () => {
             className={`transition-colors duration-200 py-1.5 ${
               isHelpActive
                 ? 'text-emerald-600 font-bold border-b-2 border-emerald-500'
-                : 'text-slate-600 hover:text-emerald-600'
+                : 'text-slate-600 dark:text-slate-400 hover:text-emerald-600'
             }`}
           >
             المساعدة
@@ -53,7 +53,7 @@ export const Navbar: FC = () => {
             className={`transition-colors duration-200 py-1.5 ${
               isAboutActive
                 ? 'text-emerald-600 font-bold border-b-2 border-emerald-500'
-                : 'text-slate-600 hover:text-emerald-600'
+                : 'text-slate-600 dark:text-slate-400 hover:text-emerald-600'
             }`}
           >
             حول النظام
@@ -70,7 +70,7 @@ export const Navbar: FC = () => {
               className={`whitespace-nowrap px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 active:scale-95 cursor-pointer ${
                 isLoginPage
                   ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
-                  : 'border border-slate-200 text-slate-700 hover:bg-slate-50'
+                  : 'border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50'
               }`}
             >
               إنشاء حساب

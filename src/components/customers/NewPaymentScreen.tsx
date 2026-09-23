@@ -267,7 +267,7 @@ export const NewPaymentScreen: FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f4f7fb] text-slate-800 font-cairo antialiased flex" dir="rtl">
+    <div className="min-h-screen bg-[#f4f7fb] dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-cairo antialiased flex" dir="rtl">
       <Sidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -287,7 +287,7 @@ export const NewPaymentScreen: FC = () => {
             <button
               type="button"
               onClick={() => navigate(PATHS.DASHBOARD)}
-              className="hover:text-[#0c2444] transition-colors cursor-pointer"
+              className="hover:text-[#0c2444] dark:text-blue-400 transition-colors cursor-pointer"
             >
               الرئيسية
             </button>
@@ -295,12 +295,12 @@ export const NewPaymentScreen: FC = () => {
             <button
               type="button"
               onClick={() => navigate(id ? `/customers/${id}` : '/customers')}
-              className="hover:text-[#0c2444] transition-colors cursor-pointer"
+              className="hover:text-[#0c2444] dark:text-blue-400 transition-colors cursor-pointer"
             >
               سجل المدفوعات
             </button>
             <ChevronLeft className="w-3.5 h-3.5" />
-            <span className="text-slate-600">
+            <span className="text-slate-600 dark:text-slate-400">
               {isEditMode ? 'تعديل الدفعة' : 'تسجيل دفعة جديدة'}
             </span>
           </nav>
@@ -308,10 +308,10 @@ export const NewPaymentScreen: FC = () => {
           {/* Page Header + Security Badge */}
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold font-cairo text-[#0c2444] tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-extrabold font-cairo text-[#0c2444] dark:text-blue-400 tracking-tight">
                 {isEditMode ? 'تعديل الدفعة' : 'تسجيل دفعة جديدة'}
               </h1>
-              <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
+              <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">
                 {isEditMode
                   ? 'قم بتعديل قيمة الدفعة للعميل لتحديث رصيده المالي فوراً.'
                   : 'قم بتسجيل المبالغ المستلمة من العميل لتحديث رصيده المالي فوراً.'}
@@ -341,7 +341,7 @@ export const NewPaymentScreen: FC = () => {
           {/* Main 2-Column Grid: form (right/main, wider) + summary cards (left) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
             {/* MAIN: Payment Form Card */}
-            <div className="lg:col-span-8 bg-white rounded-3xl border border-slate-100 shadow-xs p-6 sm:p-8 space-y-5">
+            <div className="lg:col-span-8 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-xs p-6 sm:p-8 space-y-5">
               {submitError && (
                 <div className="rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-sm px-3.5 py-2.5 text-right">
                   {submitError}
@@ -359,7 +359,7 @@ export const NewPaymentScreen: FC = () => {
 
               {/* Customer Name (context only, not selectable) */}
               <div className="space-y-1.5 text-right">
-                <label className="text-xs sm:text-sm font-semibold text-slate-700">اسم العميل</label>
+                <label className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">اسم العميل</label>
                 <div className="relative flex items-center">
                   <User className="absolute right-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
                   <input
@@ -372,7 +372,7 @@ export const NewPaymentScreen: FC = () => {
                     readOnly
                     disabled
                     dir="rtl"
-                    className="w-full pr-10 pl-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 text-right cursor-not-allowed"
+                    className="w-full pr-10 pl-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 text-right cursor-not-allowed"
                   />
                 </div>
                 <p className="text-xs text-slate-400">تم اختيار العميل من صفحة التفاصيل السابقة.</p>
@@ -382,7 +382,7 @@ export const NewPaymentScreen: FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Payment Amount */}
                 <div className="space-y-1.5 text-right">
-                  <label className="text-xs sm:text-sm font-semibold text-slate-700">
+                  <label className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">
                     مبلغ الدفعة (شيكل إسرائيلي)
                   </label>
                   <div className="relative flex items-center">
@@ -401,7 +401,7 @@ export const NewPaymentScreen: FC = () => {
                       }}
                       placeholder="0.00"
                       dir="ltr"
-                      className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-50/70 border rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right font-sans ${fieldErrors.amount ? 'border-rose-400' : 'border-slate-200'
+                      className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-50/70 dark:bg-slate-800/70 border rounded-lg text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right font-sans ${fieldErrors.amount ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'
                         }`}
                     />
                   </div>
@@ -412,7 +412,7 @@ export const NewPaymentScreen: FC = () => {
 
                 {/* Payment Date */}
                 <div className="space-y-1.5 text-right">
-                  <label className="text-xs sm:text-sm font-semibold text-slate-700">
+                  <label className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">
                     تاريخ الدفع
                   </label>
                   <div className="relative flex items-center">
@@ -428,8 +428,8 @@ export const NewPaymentScreen: FC = () => {
                       onClick={(e) => !isEditMode && e.currentTarget.showPicker?.()}
                       dir="ltr"
                       placeholder="mm/dd/yyyy"
-                      className={`w-full pr-10 pl-3.5 py-2.5 bg-slate-50/70 border rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-left font-sans ${isEditMode ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
-                        } ${fieldErrors.paymentDate ? 'border-rose-400' : 'border-slate-200'}`}
+                      className={`w-full pr-10 pl-3.5 py-2.5 bg-slate-50/70 dark:bg-slate-800/70 border rounded-lg text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-left font-sans ${isEditMode ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                        } ${fieldErrors.paymentDate ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'}`}
                     />
                   </div>
                   {fieldErrors.paymentDate && (
@@ -440,7 +440,7 @@ export const NewPaymentScreen: FC = () => {
 
               {/* Payment Method */}
               <div className="space-y-1.5 text-right">
-                <label className="text-xs sm:text-sm font-semibold text-slate-700">طريقة الدفع</label>
+                <label className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">طريقة الدفع</label>
                 <div className="grid grid-cols-3 gap-3">
                   {PAYMENT_METHOD_OPTIONS.map((option) => {
                     const Icon = PAYMENT_METHOD_ICONS[option.value];
@@ -452,11 +452,11 @@ export const NewPaymentScreen: FC = () => {
                         disabled={isSaving}
                         onClick={() => setMethod(option.value)}
                         className={`flex flex-col items-center justify-center gap-1.5 py-3 px-2 rounded-xl border-2 text-xs font-bold transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-70 ${isSelected
-                            ? 'border-[#0c2444] bg-slate-50 text-[#0c2444] shadow-xs'
-                            : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                            ? 'border-[#0c2444] dark:border-blue-400 bg-slate-50 dark:bg-slate-800/50 text-[#0c2444] dark:text-blue-400 shadow-xs'
+                            : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-300'
                           }`}
                       >
-                        <Icon className={`w-5 h-5 ${isSelected ? 'text-[#0c2444]' : 'text-slate-400'}`} />
+                        <Icon className={`w-5 h-5 ${isSelected ? 'text-[#0c2444] dark:text-blue-400' : 'text-slate-400'}`} />
                         <span>{option.label}</span>
                       </button>
                     );
@@ -523,7 +523,7 @@ export const NewPaymentScreen: FC = () => {
                   type="button"
                   onClick={handleCancel}
                   disabled={isSaving}
-                  className="py-3 px-6 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-sm font-semibold transition-all cursor-pointer disabled:opacity-60"
+                  className="py-3 px-6 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold transition-all cursor-pointer disabled:opacity-60"
                 >
                   إلغاء
                 </button>
@@ -533,10 +533,10 @@ export const NewPaymentScreen: FC = () => {
             {/* LEFT: Payment Proof / Balance / Quick Help */}
             <div className="lg:col-span-4 space-y-4">
               {/* Payment Proof / Receipt Card */}
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5 space-y-3">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-5 space-y-3">
                 <div className="flex items-center gap-2">
                   <Paperclip className="w-4 h-4 text-slate-400" />
-                  <h3 className="text-sm font-bold text-[#0c2444]">إثبات الدفع / الإيصال</h3>
+                  <h3 className="text-sm font-bold text-[#0c2444] dark:text-blue-400">إثبات الدفع / الإيصال</h3>
                 </div>
 
                 <input
@@ -551,12 +551,12 @@ export const NewPaymentScreen: FC = () => {
                   disabled={isEditMode}
                   onClick={() => !isEditMode && fileInputRef.current?.click()}
                   className={`w-full flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed py-6 px-3 text-center transition-colors ${isEditMode
-                      ? 'border-slate-200 bg-slate-50/50 cursor-not-allowed opacity-60'
-                      : 'border-slate-200 hover:border-slate-300 cursor-pointer'
+                      ? 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 cursor-not-allowed opacity-60'
+                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 cursor-pointer'
                     }`}
                 >
                   <ImagePlus className="w-6 h-6 text-slate-300" />
-                  <span className="text-sm font-semibold text-slate-600">
+                  <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">
                     {isEditMode ? 'إثبات الدفع (غير متاح في التعديل)' : receiptFile ? receiptFile.name : 'رفع صورة الإيصال'}
                   </span>
                   <span className="text-xs text-slate-400">
@@ -567,9 +567,9 @@ export const NewPaymentScreen: FC = () => {
                   <p className="text-xs text-rose-600 text-right">{fieldErrors.receipt}</p>
                 )}
 
-                <div className="flex items-start gap-2 bg-slate-50 rounded-lg p-3 text-right">
+                <div className="flex items-start gap-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 text-right">
                   <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-                  <p className="text-xs text-slate-500 leading-relaxed">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                     رفع الإثبات يساعد في تسوية النزاعات المالية بشكل أسرع ويوثق العملية للطرفين.
                   </p>
                 </div>
@@ -610,19 +610,19 @@ export const NewPaymentScreen: FC = () => {
               </div>
 
               {/* Quick Help Card */}
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5 space-y-3">
-                <h3 className="text-sm font-bold text-[#0c2444]">مساعدة سريعة</h3>
+              <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-5 space-y-3">
+                <h3 className="text-sm font-bold text-[#0c2444] dark:text-blue-400">مساعدة سريعة</h3>
 
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-                  <p className="text-xs text-slate-500 leading-relaxed">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                     سيتم إرسال إشعار SMS للعميل فور حفظ الدفعة.
                   </p>
                 </div>
 
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-                  <p className="text-xs text-slate-500 leading-relaxed">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                     تأكد من مطابقة تاريخ التحويل البنكي مع تاريخ الإيصال.
                   </p>
                 </div>

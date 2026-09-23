@@ -15,8 +15,8 @@ import { PATHS } from '../../routes/paths';
  */
 export const Footer: FC = () => {
   return (
-    <footer className="w-full bg-white border-t border-slate-100 py-6 mt-10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+    <footer className="w-full bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700 py-6 mt-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500 dark:text-slate-400">
         {/* Logo on Left/Start in RTL */}
         <div className="flex items-center gap-2">
           <Logo variant="dark" size="sm" />
@@ -29,16 +29,16 @@ export const Footer: FC = () => {
 
         {/* Footer Links */}
         <div className="flex flex-wrap items-center justify-center gap-4 text-xs">
-          <Link to={PATHS.CONTACT} className="hover:text-slate-800 transition">
+          <Link to={PATHS.CONTACT} className="hover:text-slate-800 dark:text-slate-200 transition">
             اتصل بنا
           </Link>
         
           <span className="text-slate-300">|</span>
-           <Link to={PATHS.TERMS} className="hover:text-slate-800 transition">
+           <Link to={PATHS.TERMS} className="hover:text-slate-800 dark:text-slate-200 transition">
             شروط الاستخدام
           </Link>
           <span className="text-slate-300">|</span>
-          <Link to={PATHS.PRIVACY_POLICY} className="hover:text-slate-800 transition">
+          <Link to={PATHS.PRIVACY_POLICY} className="hover:text-slate-800 dark:text-slate-200 transition">
             سياسة الخصوصية
           </Link>
         </div>

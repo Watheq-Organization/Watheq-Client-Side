@@ -52,16 +52,16 @@ export const ContactPage: FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-white text-slate-800 font-cairo antialiased selection:bg-emerald-100 selection:text-emerald-900">
+    <div className="min-h-screen flex flex-col justify-between bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-cairo antialiased selection:bg-emerald-100 selection:text-emerald-900">
       <Navbar />
 
       <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-14">
         {/* Page Title & Description */}
         <div className="text-right mb-8 lg:mb-12">
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0c2444] font-cairo tracking-tight">
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0c2444] dark:text-blue-400 font-cairo tracking-tight">
             تواصل معنا
           </h1>
-          <p className="text-slate-600 text-sm sm:text-base mt-3 leading-relaxed max-w-2xl">
+          <p className="text-slate-600 dark:text-slate-400 text-sm sm:text-base mt-3 leading-relaxed max-w-2xl">
             نحن هنا لمساعدتك. يرجى ملء النموذج أدناه أو استخدام معلومات الاتصال المباشرة للوصول إلى
             فريق الدعم لدينا.
           </p>
@@ -86,7 +86,7 @@ export const ContactPage: FC = () => {
           
           {/* Right: Contact Form Card */}
           <div className="lg:col-span-2 w-full">
-            <div className="bg-white rounded-2xl p-6 sm:p-9 shadow-xl shadow-slate-200/70 border border-slate-100">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 sm:p-9 shadow-xl shadow-slate-200/70 dark:shadow-slate-900/50 border border-slate-100 dark:border-slate-700">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <IconInput
@@ -144,13 +144,13 @@ export const ContactPage: FC = () => {
           <div className="lg:col-span-1 space-y-5">
             
             {/* Card 1: Technical Support */}
-            <div className="bg-white rounded-xl p-4 sm:p-5 border border-slate-100 shadow-sm flex items-start gap-4 transition-all duration-200 hover:shadow-md hover:border-slate-200">
+            <div className="bg-white dark:bg-slate-800 rounded-xl p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-sm flex items-start gap-4 transition-all duration-200 hover:shadow-md hover:border-slate-200 dark:border-slate-700">
               <div className="w-11 h-11 rounded-xl bg-emerald-500 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
                 <Mail className="w-6 h-6" />
               </div>
               <div className="space-y-1 text-right">
-                <h3 className="font-bold text-[#0c2444] text-base">الدعم الفني</h3>
-                <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+                <h3 className="font-bold text-[#0c2444] dark:text-blue-400 text-base">الدعم الفني</h3>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
                   تواصل معنا عبر البريد الإلكتروني لأي استفسارات تقنية.
                 </p>
                 <a
@@ -164,19 +164,19 @@ export const ContactPage: FC = () => {
             </div>
 
             {/* Card 2: Phone Support */}
-            <div className="bg-white rounded-xl p-4 sm:p-5 border border-slate-100 shadow-sm flex items-start gap-4 transition-all duration-200 hover:shadow-md hover:border-slate-200">
+            <div className="bg-white dark:bg-slate-800 rounded-xl p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-sm flex items-start gap-4 transition-all duration-200 hover:shadow-md hover:border-slate-200 dark:border-slate-700">
               <div className="w-11 h-11 rounded-xl bg-blue-500 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
                 <Phone className="w-6 h-6" />
               </div>
               <div className="space-y-1 text-right">
-                <h3 className="font-bold text-[#0c2444] text-base">رقم الهاتف</h3>
-                <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+                <h3 className="font-bold text-[#0c2444] dark:text-blue-400 text-base">رقم الهاتف</h3>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
                   متاحون للرد على مكالماتك خلال ساعات العمل.
                 </p>
                 <a
                   href="tel:+966500000000"
                   dir="ltr"
-                  className="inline-block text-sm font-semibold text-[#0c2444] hover:underline font-sans"
+                  className="inline-block text-sm font-semibold text-[#0c2444] dark:text-blue-400 hover:underline font-sans"
                 >
                   +966 50 000 0000
                 </a>
@@ -184,14 +184,14 @@ export const ContactPage: FC = () => {
             </div>
 
             {/* Card 3: Working Hours */}
-            <div className="bg-white rounded-xl p-4 sm:p-5 border border-slate-100 shadow-sm flex items-start gap-4 transition-all duration-200 hover:shadow-md hover:border-slate-200">
+            <div className="bg-white dark:bg-slate-800 rounded-xl p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-sm flex items-start gap-4 transition-all duration-200 hover:shadow-md hover:border-slate-200 dark:border-slate-700">
               <div className="w-11 h-11 rounded-xl bg-[#0c2444] flex items-center justify-center text-white flex-shrink-0 shadow-sm">
                 <Clock className="w-6 h-6" />
               </div>
               <div className="space-y-1 text-right">
-                <h3 className="font-bold text-[#0c2444] text-base">ساعات العمل</h3>
-                <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">الأحد - الخميس</p>
-                <p className="text-xs sm:text-sm text-slate-500 leading-relaxed font-sans" dir="ltr">
+                <h3 className="font-bold text-[#0c2444] dark:text-blue-400 text-base">ساعات العمل</h3>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">الأحد - الخميس</p>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed font-sans" dir="ltr">
                   9:00 صباحاً - 5:00 مساءً
                 </p>
               </div>

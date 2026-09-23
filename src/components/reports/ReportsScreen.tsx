@@ -280,7 +280,7 @@ export const ReportsScreen: FC = () => {
 
   return (
     <div
-      className="min-h-screen bg-[#f4f7fb] text-slate-800 font-cairo antialiased flex"
+      className="min-h-screen bg-[#f4f7fb] dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-cairo antialiased flex"
       dir="rtl"
     >
       {/* Toast Notification */}
@@ -317,8 +317,8 @@ export const ReportsScreen: FC = () => {
               onClick={() => handleTabChange('collections')}
               className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 activeReportTab === 'collections'
-                  ? 'bg-[#051838] text-white shadow-xs'
-                  : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
+                  ? 'bg-[#051838] dark:bg-blue-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50'
               }`}
             >
               <Banknote className="w-4 h-4 text-emerald-400" />
@@ -330,8 +330,8 @@ export const ReportsScreen: FC = () => {
               onClick={() => handleTabChange('outstanding')}
               className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 activeReportTab === 'outstanding'
-                  ? 'bg-[#051838] text-white shadow-xs'
-                  : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
+                  ? 'bg-[#051838] dark:bg-blue-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50'
               }`}
             >
               <Receipt className="w-4 h-4 text-amber-500" />
@@ -343,8 +343,8 @@ export const ReportsScreen: FC = () => {
               onClick={() => handleTabChange('overdue')}
               className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 activeReportTab === 'overdue'
-                  ? 'bg-[#051838] text-white shadow-xs'
-                  : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
+                  ? 'bg-[#051838] dark:bg-blue-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50'
               }`}
             >
               <Clock className="w-4 h-4 text-rose-500" />
@@ -365,7 +365,7 @@ export const ReportsScreen: FC = () => {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="text-right">
               <div className="flex items-center gap-2.5">
-                <h1 className="text-2xl sm:text-3xl font-bold font-cairo text-slate-900 tracking-tight">
+                <h1 className="text-2xl sm:text-3xl font-bold font-cairo text-slate-900 dark:text-white tracking-tight">
                   تقرير التحصيلات والبيانات المالية
                 </h1>
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
@@ -373,7 +373,7 @@ export const ReportsScreen: FC = () => {
                   API مباشر
                 </span>
               </div>
-              <p className="mt-1 text-sm font-medium text-slate-500 font-cairo">
+              <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400 font-cairo">
                 بيانات حية مباشرة من الخادم لمتابعة سندات القبض، المبالغ المحصلة، والمديونيات
               </p>
             </div>
@@ -384,7 +384,7 @@ export const ReportsScreen: FC = () => {
                 type="button"
                 onClick={fetchCollections}
                 disabled={isLoading}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold border border-slate-200 transition-colors cursor-pointer disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-600 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer disabled:opacity-50"
                 title="تحديث البيانات من الخادم"
               >
                 <RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
@@ -394,7 +394,7 @@ export const ReportsScreen: FC = () => {
               <button
                 type="button"
                 onClick={handleExportCsv}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold border border-slate-200 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-600 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
                 title="تصدير كملف CSV"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
@@ -415,12 +415,12 @@ export const ReportsScreen: FC = () => {
           {/* Metric / Stat Cards (3 Top Cards - Pure Live Data) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {/* Card 1: إجمالي التحصيلات */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-6 flex flex-col justify-between hover:shadow-md transition-shadow duration-200">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-6 flex flex-col justify-between hover:shadow-md transition-shadow duration-200">
               <div className="flex items-center justify-between">
                 <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
                   <Banknote className="w-6 h-6" />
                 </div>
-                <span className="text-slate-500 text-sm font-medium">إجمالي التحصيلات</span>
+                <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">إجمالي التحصيلات</span>
               </div>
 
               <div className="mt-5 text-right">
@@ -428,7 +428,7 @@ export const ReportsScreen: FC = () => {
                   <span className="text-3xl font-bold font-cairo text-[#047857] tracking-tight">
                     {stats.collections.toLocaleString('en-US')}
                   </span>
-                  <span className="text-sm font-semibold text-slate-500 font-cairo">شيكل</span>
+                  <span className="text-sm font-semibold text-slate-500 dark:text-slate-400 font-cairo">شيكل</span>
                 </div>
                 <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
                   <TrendingUp className="w-3.5 h-3.5" />
@@ -440,22 +440,22 @@ export const ReportsScreen: FC = () => {
             </div>
 
             {/* Card 2: الديون القائمة */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-6 flex flex-col justify-between hover:shadow-md transition-shadow duration-200">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-6 flex flex-col justify-between hover:shadow-md transition-shadow duration-200">
               <div className="flex items-center justify-between">
                 <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
                   <CreditCard className="w-6 h-6" />
                 </div>
-                <span className="text-slate-500 text-sm font-medium">الديون القائمة</span>
+                <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">الديون القائمة</span>
               </div>
 
               <div className="mt-5 text-right">
                 <div className="flex items-baseline gap-1.5 justify-start">
-                  <span className="text-3xl font-bold font-cairo text-[#051838] tracking-tight">
+                  <span className="text-3xl font-bold font-cairo text-[#051838] dark:text-white tracking-tight">
                     {stats.debts.toLocaleString('en-US')}
                   </span>
-                  <span className="text-sm font-semibold text-slate-500 font-cairo">شيكل</span>
+                  <span className="text-sm font-semibold text-slate-500 dark:text-slate-400 font-cairo">شيكل</span>
                 </div>
-                <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
                   <CreditCard className="w-3.5 h-3.5 text-blue-600" />
                   <span>
                     {stats.debts > 0 ? 'مستحقات مسجلة في النظام' : 'لا توجد ديون مسجلة بعد'}
@@ -465,17 +465,17 @@ export const ReportsScreen: FC = () => {
             </div>
 
             {/* Card 3: العملاء النشطون */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-6 flex flex-col justify-between hover:shadow-md transition-shadow duration-200">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-6 flex flex-col justify-between hover:shadow-md transition-shadow duration-200">
               <div className="flex items-center justify-between">
-                <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 flex items-center justify-center">
                   <Users className="w-6 h-6" />
                 </div>
-                <span className="text-slate-500 text-sm font-medium">العملاء النشطون</span>
+                <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">العملاء النشطون</span>
               </div>
 
               <div className="mt-5 text-right">
                 <div className="flex items-baseline gap-1.5 justify-start">
-                  <span className="text-3xl font-bold font-cairo text-slate-900 tracking-tight">
+                  <span className="text-3xl font-bold font-cairo text-slate-900 dark:text-white tracking-tight">
                     {stats.activeCustomers.toLocaleString('en-US')}
                   </span>
                 </div>
@@ -492,9 +492,9 @@ export const ReportsScreen: FC = () => {
           </div>
 
           {/* Filters Bar: Time Range & Custom Date */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
             {/* Range Pills */}
-            <div className="inline-flex p-1 bg-slate-100 rounded-xl">
+            <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-700 rounded-xl">
               {(
                 [
                   { id: 'all', label: 'كافة الفترات' },
@@ -513,8 +513,8 @@ export const ReportsScreen: FC = () => {
                   }}
                   className={`px-3.5 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-colors cursor-pointer ${
                     timeRange === chip.id && !fromDate && !toDate
-                      ? 'bg-white text-slate-900 font-bold shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'
                   }`}
                 >
                   {chip.label}
@@ -525,31 +525,31 @@ export const ReportsScreen: FC = () => {
             {/* Custom Dates & Method */}
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-1.5 text-xs">
-                <span className="text-slate-500 font-medium">من:</span>
+                <span className="text-slate-500 dark:text-slate-400 font-medium">من:</span>
                 <input
                   type="date"
                   value={fromDate}
                   onChange={(e) => setFromDate(e.target.value)}
-                  className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#051838]"
+                  className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#051838] dark:focus:ring-blue-500"
                 />
               </div>
 
               <div className="flex items-center gap-1.5 text-xs">
-                <span className="text-slate-500 font-medium">إلى:</span>
+                <span className="text-slate-500 dark:text-slate-400 font-medium">إلى:</span>
                 <input
                   type="date"
                   value={toDate}
                   onChange={(e) => setToDate(e.target.value)}
-                  className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#051838]"
+                  className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#051838] dark:focus:ring-blue-500"
                 />
               </div>
 
               <div className="flex items-center gap-1.5 text-xs">
-                <span className="text-slate-500 font-medium">طريقة الدفع:</span>
+                <span className="text-slate-500 dark:text-slate-400 font-medium">طريقة الدفع:</span>
                 <select
                   value={methodFilter}
                   onChange={(e) => setMethodFilter(e.target.value as any)}
-                  className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#051838]"
+                  className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#051838] dark:focus:ring-blue-500"
                 >
                   <option value="all">الكل</option>
                   <option value="نقداً">نقداً</option>
@@ -561,13 +561,13 @@ export const ReportsScreen: FC = () => {
           </div>
 
           {/* Chart Section: توجهات التحصيل (Dynamic or Clean Zero State) */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-              <h2 className="text-lg font-bold font-cairo text-slate-900">
+              <h2 className="text-lg font-bold font-cairo text-slate-900 dark:text-white">
                 توجهات التحصيل المالي المباشر
               </h2>
 
-              <div className="flex items-center gap-6 text-xs sm:text-sm font-medium text-slate-600">
+              <div className="flex items-center gap-6 text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">
                 <div className="flex items-center gap-2">
                   <span className="w-3 h-3 rounded-full bg-[#007a3d]" />
                   <span>التحصيلات الفعلية</span>
@@ -576,9 +576,9 @@ export const ReportsScreen: FC = () => {
             </div>
 
             {chartPoints.length === 0 ? (
-              <div className="h-56 sm:h-64 flex flex-col items-center justify-center text-center p-6 bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
+              <div className="h-56 sm:h-64 flex flex-col items-center justify-center text-center p-6 bg-slate-50/6 dark:bg-slate-800/60 dark:bg-slate-800/60 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
                 <TrendingUp className="w-10 h-10 text-slate-300 mb-2" />
-                <p className="text-sm font-bold text-slate-700 font-cairo">
+                <p className="text-sm font-bold text-slate-700 dark:text-slate-300 font-cairo">
                   لا توجد حركات مالية مسجلة على الخادم في هذا النطاق لعرض الرسم البياني
                 </p>
                 <p className="text-xs text-slate-400 mt-1 font-cairo">
@@ -616,7 +616,7 @@ export const ReportsScreen: FC = () => {
                       {chartPoints.map((item, idx) => (
                         <span
                           key={`x-${item.label}-${idx}`}
-                          className="text-[11px] text-slate-500 font-medium flex-1 text-center truncate"
+                          className="text-[11px] text-slate-500 dark:text-slate-400 font-medium flex-1 text-center truncate"
                         >
                           {item.label}
                         </span>
@@ -662,13 +662,13 @@ export const ReportsScreen: FC = () => {
           )}
 
           {/* Collections Report Table: جدول التحصيلات الحقيقي من الخادم */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
-            <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs overflow-hidden">
+            <div className="p-5 border-b border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-base sm:text-lg font-bold font-cairo text-slate-900">
+                <h2 className="text-base sm:text-lg font-bold font-cairo text-slate-900 dark:text-white">
                   سجل عمليات التحصيل المباشرة (Collections Report)
                 </h2>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   سندات القبض المسجلة المستلمة من رابط الـ API: https://whateq.runasp.net/api/reports/collections
                 </p>
               </div>
@@ -681,7 +681,7 @@ export const ReportsScreen: FC = () => {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="البحث بالعميل أو رقم السند..."
-                    className="bg-slate-50 border border-slate-200 rounded-xl pr-9 pl-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#051838]"
+                    className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl pr-9 pl-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#051838] dark:focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -691,7 +691,7 @@ export const ReportsScreen: FC = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-right text-xs sm:text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100 text-slate-400 font-medium text-xs bg-slate-50/50">
+                  <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-medium text-xs bg-slate-50/50 dark:bg-slate-800/50">
                     <th className="px-6 py-4">رقم السند</th>
                     <th className="px-6 py-4">اسم العميل</th>
                     <th className="px-6 py-4">المبلغ المحصل</th>
@@ -701,25 +701,25 @@ export const ReportsScreen: FC = () => {
                     <th className="px-6 py-4 text-center">إجراء</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                   {isLoading ? (
                     <tr>
                       <td colSpan={7} className="py-14 text-center text-slate-400">
                         <div className="flex flex-col items-center gap-2">
-                          <RotateCw className="w-6 h-6 animate-spin text-[#051838]" />
+                          <RotateCw className="w-6 h-6 animate-spin text-[#051838] dark:text-white" />
                           <span className="text-xs font-cairo">جاري تحميل البيانات من الخادم...</span>
                         </div>
                       </td>
                     </tr>
                   ) : serverError ? (
                     <tr>
-                      <td colSpan={7} className="py-12 text-center text-slate-500">
+                      <td colSpan={7} className="py-12 text-center text-slate-500 dark:text-slate-400">
                         <div className="flex flex-col items-center gap-2.5 max-w-md mx-auto p-4">
                           <AlertCircle className="w-8 h-8 text-amber-500" />
-                          <p className="font-bold text-slate-800 text-sm font-cairo">
+                          <p className="font-bold text-slate-800 dark:text-slate-200 text-sm font-cairo">
                             تعذر تحميل البيانات من السيرفر
                           </p>
-                          <p className="text-xs text-slate-500 font-cairo text-center leading-relaxed">
+                          <p className="text-xs text-slate-500 dark:text-slate-400 font-cairo text-center leading-relaxed">
                             {serverError}
                           </p>
                           {serverError.includes('تسجيل الدخول') || serverError.includes('401') ? (
@@ -734,7 +734,7 @@ export const ReportsScreen: FC = () => {
                             <button
                               type="button"
                               onClick={fetchCollections}
-                              className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                              className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                             >
                               <RotateCw className="w-3.5 h-3.5" />
                               <span>إعادة المحاولة</span>
@@ -748,7 +748,7 @@ export const ReportsScreen: FC = () => {
                       <td colSpan={7} className="py-14 text-center text-slate-400">
                         <div className="flex flex-col items-center gap-2.5 max-w-sm mx-auto">
                           <Receipt className="w-8 h-8 text-slate-300" />
-                          <p className="font-bold text-slate-700 text-sm font-cairo">
+                          <p className="font-bold text-slate-700 dark:text-slate-300 text-sm font-cairo">
                             لا توجد سجلات تحصيل مسجلة على الخادم
                           </p>
                           <p className="text-xs text-slate-400 font-cairo text-center leading-relaxed">
@@ -769,32 +769,32 @@ export const ReportsScreen: FC = () => {
                     filteredCollections.map((item) => (
                       <tr
                         key={item.id}
-                        className="hover:bg-slate-50/80 transition-colors group"
+                        className="hover:bg-slate-50/80 dark:hover:bg-slate-700/80 transition-colors group"
                       >
                         {/* Receipt Number */}
-                        <td className="px-6 py-4 font-mono font-bold text-xs text-[#051838]">
+                        <td className="px-6 py-4 font-mono font-bold text-xs text-[#051838] dark:text-white">
                           {item.receiptNumber || item.id}
                         </td>
 
                         {/* Customer Name */}
-                        <td className="px-6 py-4 font-semibold text-slate-800">
+                        <td className="px-6 py-4 font-semibold text-slate-800 dark:text-slate-200">
                           {item.customerName}
                         </td>
 
                         {/* Collected Amount */}
                         <td className="px-6 py-4 font-bold font-cairo text-[#047857]">
                           {item.amount.toLocaleString('en-US')}{' '}
-                          <span className="text-xs font-normal text-slate-500">ش.إ</span>
+                          <span className="text-xs font-normal text-slate-500 dark:text-slate-400">ش.إ</span>
                         </td>
 
                         {/* Payment Date */}
-                        <td className="px-6 py-4 text-slate-500 font-medium">
+                        <td className="px-6 py-4 text-slate-500 dark:text-slate-400 font-medium">
                           {item.date}
                         </td>
 
                         {/* Payment Method */}
                         <td className="px-6 py-4">
-                          <span className="inline-block px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700">
+                          <span className="inline-block px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
                             {formatPaymentMethod(item.paymentMethod)}
                           </span>
                         </td>
@@ -812,7 +812,7 @@ export const ReportsScreen: FC = () => {
                           <button
                             type="button"
                             onClick={() => handleViewReceipt(item)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#051838] bg-slate-100 hover:bg-[#051838] hover:text-white rounded-lg transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#051838] dark:text-white bg-slate-100 dark:bg-slate-700 hover:bg-[#051838] hover:text-white rounded-lg transition-colors cursor-pointer"
                             title="عرض سند القبض الإلكتروني"
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
@@ -827,7 +827,7 @@ export const ReportsScreen: FC = () => {
             </div>
 
             {/* Table Footer with Pagination */}
-            <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+            <div className="p-4 border-t border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
               <div>
                 عرض {filteredCollections.length} من إجمالي {reportData?.totalRecords || filteredCollections.length} سجل
               </div>
@@ -837,13 +837,13 @@ export const ReportsScreen: FC = () => {
                   type="button"
                   onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
                   disabled={pageNumber <= 1 || isLoading}
-                  className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
                   title="الصفحة السابقة"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
 
-                <span className="px-2 font-semibold text-slate-700">
+                <span className="px-2 font-semibold text-slate-700 dark:text-slate-300">
                   صفحة {pageNumber}
                 </span>
 
@@ -851,7 +851,7 @@ export const ReportsScreen: FC = () => {
                   type="button"
                   onClick={() => setPageNumber((p) => p + 1)}
                   disabled={filteredCollections.length < pageSize || isLoading}
-                  className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
                   title="الصفحة التالية"
                 >
                   <ChevronLeft className="w-4 h-4" />

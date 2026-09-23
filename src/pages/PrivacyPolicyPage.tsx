@@ -10,7 +10,7 @@ import { Footer } from '../components/layout/Footer';
  * Reuses the shared Navbar/Footer and the card/typography/color patterns
  * already established in ContactPage.tsx and the auth pages (navy
  * `#0c2444` headings, `font-cairo` for titles, emerald icon badges,
- * `bg-slate-50` muted highlight boxes, `rounded-2xl`/`rounded-xl` cards).
+ * `bg-slate-50 dark:bg-slate-800/50` muted highlight boxes, `rounded-2xl`/`rounded-xl` cards).
  * No new design tokens are introduced.
  */
 
@@ -55,23 +55,23 @@ export const PrivacyPolicyPage: FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-white text-slate-800 font-cairo antialiased selection:bg-emerald-100 selection:text-emerald-900">
+    <div className="min-h-screen flex flex-col justify-between bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-cairo antialiased selection:bg-emerald-100 selection:text-emerald-900">
       <Navbar />
 
       <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-14">
         {/* Page Title & Description */}
         <div className="text-right mb-8 lg:mb-10">
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0c2444] font-cairo tracking-tight">
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0c2444] dark:text-blue-400 font-cairo tracking-tight">
             سياسة الخصوصية
           </h1>
-          <p className="text-slate-500 text-sm sm:text-base mt-3">تاريخ آخر تحديث: 17 سبتمبر 2026</p>
-          <div className="mt-6 border-t border-slate-100" />
+          <p className="text-slate-500 dark:text-slate-400 text-sm sm:text-base mt-3">تاريخ آخر تحديث: 17 سبتمبر 2026</p>
+          <div className="mt-6 border-t border-slate-100 dark:border-slate-700" />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
           {/* Right (Main Content) */}
           <div className="lg:col-span-2 w-full order-2 lg:order-1">
-            <div className="bg-white rounded-2xl p-6 sm:p-9 shadow-xl shadow-slate-200/70 border border-slate-100 space-y-10">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 sm:p-9 shadow-xl shadow-slate-200/70 dark:shadow-slate-900/50 border border-slate-100 dark:border-slate-700 space-y-10">
               {/* Section 1: جمع البيانات */}
               <section id="data-collection" className="scroll-mt-28">
                 <div className="flex items-start gap-4">
@@ -79,14 +79,14 @@ export const PrivacyPolicyPage: FC = () => {
                     <Database className="w-6 h-6" />
                   </div>
                   <div className="space-y-3 text-right flex-1">
-                    <h2 className="font-bold text-[#0c2444] text-lg sm:text-xl font-cairo">
+                    <h2 className="font-bold text-[#0c2444] dark:text-blue-400 text-lg sm:text-xl font-cairo">
                       جمع البيانات
                     </h2>
-                    <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+                    <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed">
                       نحن في "وثّق" نلتزم بحماية خصوصيتك. عندما تستخدم منصتنا لإدارة الديون، نقوم
                       بجمع أنواع معينة من المعلومات لتحسين تجربتك وضمان دقة السجلات المالية.
                     </p>
-                    <ul className="space-y-2 text-sm sm:text-base text-slate-600 leading-relaxed">
+                    <ul className="space-y-2 text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed">
                       <li className="flex items-start gap-2 justify-end">
                         <span>المعلومات الشخصية (الاسم، البريد الإلكتروني، رقم الهاتف).</span>
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2.5 flex-shrink-0" />
@@ -111,14 +111,14 @@ export const PrivacyPolicyPage: FC = () => {
                     <BarChart3 className="w-6 h-6" />
                   </div>
                   <div className="space-y-3 text-right flex-1">
-                    <h2 className="font-bold text-[#0c2444] text-lg sm:text-xl font-cairo">
+                    <h2 className="font-bold text-[#0c2444] dark:text-blue-400 text-lg sm:text-xl font-cairo">
                       استخدام المعلومات
                     </h2>
-                    <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+                    <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed">
                       تُستخدم المعلومات التي نجمعها بشكل أساسي لتقديم خدمات "وثّق" وصيانتها
                       وتحسينها. يشمل ذلك:
                     </p>
-                    <ul className="space-y-2 text-sm sm:text-base text-slate-600 leading-relaxed">
+                    <ul className="space-y-2 text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed">
                       <li className="flex items-start gap-2 justify-end">
                         <span>توثيق المعاملات وإدارة السجلات المالية بدقة.</span>
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2.5 flex-shrink-0" />
@@ -143,14 +143,14 @@ export const PrivacyPolicyPage: FC = () => {
                     <ShieldCheck className="w-6 h-6" />
                   </div>
                   <div className="space-y-3 text-right flex-1">
-                    <h2 className="font-bold text-[#0c2444] text-lg sm:text-xl font-cairo">
+                    <h2 className="font-bold text-[#0c2444] dark:text-blue-400 text-lg sm:text-xl font-cairo">
                       حماية البيانات
                     </h2>
-                    <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+                    <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed">
                       نطبق تدابير أمنية صارمة، فنية وتنظيمية، لحماية معلوماتك من الوصول غير
                       المصرح به، التعديل، الإفصاح، أو الإتلاف.
                     </p>
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-sm sm:text-base text-slate-700 leading-relaxed">
+                    <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 text-sm sm:text-base text-slate-700 dark:text-slate-300 leading-relaxed">
                       تُشفّر جميع البيانات المالية الحساسة أثناء النقل والتخزين باستخدام أحدث
                       بروتوكولات التشفير المتوافقة مع معايير الصناعة.
                     </div>
@@ -165,14 +165,14 @@ export const PrivacyPolicyPage: FC = () => {
                     <Cookie className="w-6 h-6" />
                   </div>
                   <div className="space-y-3 text-right flex-1">
-                    <h2 className="font-bold text-[#0c2444] text-lg sm:text-xl font-cairo">
+                    <h2 className="font-bold text-[#0c2444] dark:text-blue-400 text-lg sm:text-xl font-cairo">
                       ملفات تعريف الارتباط
                     </h2>
-                    <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+                    <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed">
                       نستخدم ملفات تعريف الارتباط والتقنيات المشابهة لتحليل حركة المرور، تخصيص
                       المحتوى، وتحسين تجربة المستخدم الشاملة.
                     </p>
-                    <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+                    <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed">
                       يمكنك إدارة تفضيلات ملفات تعريف الارتباط من خلال إعدادات المتصفح الخاص بك.
                       يرجى ملاحظة أن تعطيل بعض ملفات تعريف الارتباط قد يؤثر على وظائف منصة
                       "وثّق".
@@ -185,8 +185,8 @@ export const PrivacyPolicyPage: FC = () => {
 
           {/* Left (Sidebar: Table of Contents) */}
           <div className="lg:col-span-1 w-full order-1 lg:order-2">
-            <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-100 shadow-sm lg:sticky lg:top-28">
-              <h2 className="font-bold text-[#0c2444] text-base mb-4 text-right font-cairo">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 sm:p-6 border border-slate-100 dark:border-slate-700 shadow-sm lg:sticky lg:top-28">
+              <h2 className="font-bold text-[#0c2444] dark:text-blue-400 text-base mb-4 text-right font-cairo">
                 جدول المحتويات
               </h2>
               <nav className="flex flex-col gap-1">
@@ -203,7 +203,7 @@ export const PrivacyPolicyPage: FC = () => {
                       className={`text-right text-sm py-2 px-3 rounded-lg transition-colors duration-200 ${
                         isActive
                           ? 'font-bold text-emerald-700 bg-emerald-50'
-                          : 'font-medium text-slate-600 hover:text-emerald-600 hover:bg-slate-50'
+                          : 'font-medium text-slate-600 dark:text-slate-400 hover:text-emerald-600 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50'
                       }`}
                     >
                       {section.title}

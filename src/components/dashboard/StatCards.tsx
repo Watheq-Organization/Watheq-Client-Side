@@ -72,7 +72,7 @@ export const StatCards: FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* 1. إجمالي الديون المستحقة (Total Outstanding Debts) */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-6 flex flex-col justify-between hover:shadow-md transition-shadow duration-200">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-6 flex flex-col justify-between hover:shadow-md transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div className="w-12 h-12 rounded-xl bg-[#edf5ff] flex items-center justify-center text-[#2563eb]">
               <CreditCard className="w-6 h-6" />
@@ -80,9 +80,9 @@ export const StatCards: FC = () => {
           </div>
 
           <div className="mt-5 text-right">
-            <p className="text-slate-500 text-sm font-medium">إجمالي الديون المستحقة</p>
+            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">إجمالي الديون المستحقة</p>
             <div className="mt-1 flex items-baseline gap-1.5 justify-start">
-              <span className="text-3xl font-bold font-cairo text-slate-900 tracking-tight">
+              <span className="text-3xl font-bold font-cairo text-slate-900 dark:text-white tracking-tight">
                 {formatValue(outstandingDebt)}
               </span>
               <span className="text-sm font-semibold text-slate-400 font-cairo">ش.إ</span>
@@ -91,7 +91,7 @@ export const StatCards: FC = () => {
         </div>
 
         {/* 2. العملاء النشطين (Active Customers) */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-6 flex flex-col justify-between hover:shadow-md transition-shadow duration-200">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-6 flex flex-col justify-between hover:shadow-md transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div className="w-12 h-12 rounded-xl bg-[#22c55e] flex items-center justify-center text-white shadow-xs">
               <Users className="w-6 h-6" />
@@ -99,9 +99,9 @@ export const StatCards: FC = () => {
           </div>
 
           <div className="mt-5 text-right">
-            <p className="text-slate-500 text-sm font-medium">العملاء النشطين</p>
+            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">العملاء النشطين</p>
             <div className="mt-1 flex items-baseline gap-1.5 justify-start">
-              <span className="text-3xl font-bold font-cairo text-slate-900 tracking-tight">
+              <span className="text-3xl font-bold font-cairo text-slate-900 dark:text-white tracking-tight">
                 {formatValue(activeCustomers)}
               </span>
               <span className="text-sm font-semibold text-slate-400 font-cairo">عميل</span>
@@ -110,17 +110,17 @@ export const StatCards: FC = () => {
         </div>
 
         {/* 3. إجمالي التحصيلات (Total Collections) */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-6 flex flex-col justify-between hover:shadow-md transition-shadow duration-200">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-6 flex flex-col justify-between hover:shadow-md transition-shadow duration-200">
           <div className="flex items-center justify-between">
-            <div className="w-12 h-12 rounded-xl bg-[#edf2f7] flex items-center justify-center text-slate-600">
+            <div className="w-12 h-12 rounded-xl bg-[#edf2f7] flex items-center justify-center text-slate-600 dark:text-slate-400">
               <Banknote className="w-6 h-6" />
             </div>
           </div>
 
           <div className="mt-5 text-right">
-            <p className="text-slate-500 text-sm font-medium">إجمالي التحصيلات</p>
+            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">إجمالي التحصيلات</p>
             <div className="mt-1 flex items-baseline gap-1.5 justify-start">
-              <span className="text-3xl font-bold font-cairo text-slate-900 tracking-tight">
+              <span className="text-3xl font-bold font-cairo text-slate-900 dark:text-white tracking-tight">
                 {formatValue(totalCollections)}
               </span>
               <span className="text-sm font-semibold text-slate-400 font-cairo">ش.إ</span>

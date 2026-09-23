@@ -333,7 +333,7 @@ export const CustomersScreen: FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f4f7fb] text-slate-800 font-cairo antialiased flex" dir="rtl">
+    <div className="min-h-screen bg-[#f4f7fb] dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-cairo antialiased flex" dir="rtl">
       {/* Sidebar */}
       <Sidebar
         isOpen={isSidebarOpen}
@@ -362,10 +362,10 @@ export const CustomersScreen: FC = () => {
           {/* Header Row: Title & Actions */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold font-cairo text-[#0c2444] tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-extrabold font-cairo text-[#0c2444] dark:text-blue-400 tracking-tight">
                 قائمة العملاء
               </h1>
-              <p className="mt-1 text-xs sm:text-sm font-medium text-slate-500">
+              <p className="mt-1 text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400">
                 إدارة وتتبع الديون المستحقة والمسددة لعملائك من خلال لوحة تحكم واحدة.
               </p>
             </div>
@@ -385,26 +385,26 @@ export const CustomersScreen: FC = () => {
                 type="button"
                 onClick={() => setCustomersReloadToken((t) => t + 1)}
                 disabled={isLoadingCustomers}
-                className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-xl text-sm font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border border-slate-200/90 rounded-xl text-sm font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer disabled:opacity-50"
                 title="تحديث البيانات من السيرفر"
               >
-                <RotateCw className={`w-4 h-4 text-slate-500 ${isLoadingCustomers ? 'animate-spin' : ''}`} />
+                <RotateCw className={`w-4 h-4 text-slate-500 dark:text-slate-400 ${isLoadingCustomers ? 'animate-spin' : ''}`} />
                 <span>تحديث</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleExport}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-xl text-sm font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border border-slate-200/90 rounded-xl text-sm font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer"
               >
-                <Download className="w-4 h-4 text-slate-500" />
+                <Download className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                 <span>تصدير</span>
               </button>
             </div>
           </div>
 
           {/* Filter Bar */}
-          <div className="bg-white rounded-2xl border border-slate-100 p-3 sm:p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-3 sm:p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
             {/* Status Tabs */}
             <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
               <button
@@ -413,7 +413,7 @@ export const CustomersScreen: FC = () => {
                 className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
                   activeTabFilter === 'all'
                     ? 'bg-[#123663] text-white shadow-sm'
-                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    : 'bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600 dark:bg-slate-700 hover:text-slate-900 dark:text-white'
                 }`}
               >
                 الكل
@@ -425,7 +425,7 @@ export const CustomersScreen: FC = () => {
                 className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
                   activeTabFilter === 'active_debt'
                     ? 'bg-[#123663] text-white shadow-sm'
-                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    : 'bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600 dark:bg-slate-700 hover:text-slate-900 dark:text-white'
                 }`}
               >
                 ديون نشطة
@@ -437,7 +437,7 @@ export const CustomersScreen: FC = () => {
                 className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
                   activeTabFilter === 'overdue'
                     ? 'bg-[#123663] text-white shadow-sm'
-                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    : 'bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600 dark:bg-slate-700 hover:text-slate-900 dark:text-white'
                 }`}
               >
                 متأخر
@@ -449,7 +449,7 @@ export const CustomersScreen: FC = () => {
                 className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
                   activeTabFilter === 'paid'
                     ? 'bg-[#123663] text-white shadow-sm'
-                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    : 'bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600 dark:bg-slate-700 hover:text-slate-900 dark:text-white'
                 }`}
               >
                 تم السداد
@@ -458,11 +458,11 @@ export const CustomersScreen: FC = () => {
 
             {/* Sort Select */}
             <div className="flex items-center gap-2 self-end md:self-auto">
-              <span className="text-xs text-slate-500 font-medium whitespace-nowrap">ترتيب حسب:</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">ترتيب حسب:</span>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
-                className="bg-slate-50 border border-slate-200 text-slate-700 text-xs sm:text-sm rounded-xl px-3 py-2 outline-none focus:border-[#123663] cursor-pointer font-cairo"
+                className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs sm:text-sm rounded-xl px-3 py-2 outline-none focus:border-[#123663] cursor-pointer font-cairo"
               >
                 <option value="newest">الأحدث</option>
                 <option value="highest_debt">الأعلى ديناً</option>
@@ -472,11 +472,11 @@ export const CustomersScreen: FC = () => {
           </div>
 
           {/* Customers Table Card */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-right border-collapse">
                 <thead>
-                  <tr className="bg-[#f8fafc] text-slate-500 text-xs sm:text-sm font-semibold border-b border-slate-100">
+                  <tr className="bg-[#f8fafc] dark:bg-slate-900 text-slate-500 dark:text-slate-400 text-xs sm:text-sm font-semibold border-b border-slate-100 dark:border-slate-700">
                     <th className="py-4 px-4 sm:px-6">معلومات العميل</th>
                     <th className="py-4 px-4 sm:px-6">رقم الهوية / السجل</th>
                     <th className="py-4 px-4 sm:px-6">إجمالي الدين</th>
@@ -485,7 +485,7 @@ export const CustomersScreen: FC = () => {
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-slate-100 text-xs sm:text-sm font-medium text-slate-700">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700 text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300">
                   {isLoadingCustomers ? (
                     <tr>
                       <td colSpan={5} className="py-12 text-center text-slate-400">
@@ -534,7 +534,7 @@ export const CustomersScreen: FC = () => {
                       <tr
                         key={customer.id}
                         onClick={() => navigate(`/customers/${customer.id}`)}
-                        className="hover:bg-slate-50/80 transition-colors duration-150 group cursor-pointer"
+                        className="hover:bg-slate-50/80 dark:hover:bg-slate-700/80 transition-colors duration-150 group cursor-pointer"
                       >
                         {/* 1. Client Info */}
                         <td className="py-4 px-4 sm:px-6">
@@ -545,7 +545,7 @@ export const CustomersScreen: FC = () => {
                               {customer.avatarLetter}
                             </div>
                             <div>
-                              <div className="font-bold text-[#0c2444] text-sm sm:text-base font-cairo group-hover:text-blue-700 transition-colors">
+                              <div className="font-bold text-[#0c2444] dark:text-blue-400 text-sm sm:text-base font-cairo group-hover:text-blue-700 transition-colors">
                                 {customer.name}
                               </div>
                               <div className="text-[11px] text-slate-400 font-normal">
@@ -556,12 +556,12 @@ export const CustomersScreen: FC = () => {
                         </td>
 
                         {/* 2. ID / CR Number */}
-                        <td className="py-4 px-4 sm:px-6 font-mono text-slate-600" dir="ltr">
+                        <td className="py-4 px-4 sm:px-6 font-mono text-slate-600 dark:text-slate-400" dir="ltr">
                           <span className="inline-block text-right">{customer.nationalOrCrId}</span>
                         </td>
 
                         {/* 3. Total Debt */}
-                        <td className="py-4 px-4 sm:px-6 font-bold text-slate-900 font-cairo text-sm sm:text-base">
+                        <td className="py-4 px-4 sm:px-6 font-bold text-slate-900 dark:text-white font-cairo text-sm sm:text-base">
                           <span>{customer.totalDebt.toLocaleString('en-US')}</span>{' '}
                           <span className="text-xs font-normal text-slate-400 font-cairo">ش.إ</span>
                         </td>
@@ -615,7 +615,7 @@ export const CustomersScreen: FC = () => {
                             <button
                               type="button"
                               onClick={() => navigate(`/customers/${customer.id}`)}
-                              className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer"
+                              className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600 dark:bg-slate-700 transition-colors cursor-pointer"
                               title="سجل المعاملات والديون"
                             >
                               <History className="w-4 h-4" />
@@ -630,8 +630,8 @@ export const CustomersScreen: FC = () => {
             </div>
 
             {/* Pagination Controls */}
-            <div className="p-4 sm:p-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs sm:text-sm">
-              <span className="text-slate-500 font-medium">
+            <div className="p-4 sm:p-5 border-t border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs sm:text-sm">
+              <span className="text-slate-500 dark:text-slate-400 font-medium">
                 {filteredCustomers.length === 0
                   ? 'لا يوجد عملاء'
                   : `عرض ${(startIndex + 1).toLocaleString('en-US')} إلى ${endIndex.toLocaleString('en-US')} من ${(totalCustomersCount ?? filteredCustomers.length).toLocaleString('en-US')} عميل`}
@@ -644,7 +644,7 @@ export const CustomersScreen: FC = () => {
                   type="button"
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="p-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-2xs cursor-pointer"
+                  className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-2xs cursor-pointer"
                   title="الصفحة السابقة"
                   aria-label="الصفحة السابقة"
                 >
@@ -656,7 +656,7 @@ export const CustomersScreen: FC = () => {
                   type="button"
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage >= totalPages}
-                  className="p-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-2xs cursor-pointer"
+                  className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-2xs cursor-pointer"
                   title="الصفحة التالية"
                   aria-label="الصفحة التالية"
                 >
@@ -674,16 +674,16 @@ export const CustomersScreen: FC = () => {
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in"
           dir="rtl"
         >
-          <div className="bg-white rounded-[12px] w-[450px] max-w-[calc(100vw-32px)] shadow-2xl overflow-hidden">
+          <div className="bg-white dark:bg-slate-800 rounded-[12px] w-[450px] max-w-[calc(100vw-32px)] shadow-2xl overflow-hidden">
             {/* Header */}
-            <div className="h-[68px] flex items-center justify-between px-6 border-b border-slate-200">
-              <h3 className="text-lg font-bold font-cairo text-[#0c2444]">
+            <div className="h-[68px] flex items-center justify-between px-6 border-b border-slate-200 dark:border-slate-700">
+              <h3 className="text-lg font-bold font-cairo text-[#0c2444] dark:text-blue-400">
                 إضافة عميل جديد
               </h3>
               <button
                 type="button"
                 onClick={closeAddModal}
-                className="text-slate-900 hover:opacity-60 transition-opacity cursor-pointer"
+                className="text-slate-900 dark:text-white hover:opacity-60 transition-opacity cursor-pointer"
                 aria-label="إغلاق"
               >
                 <X className="w-5 h-5" strokeWidth={2} />
@@ -701,7 +701,7 @@ export const CustomersScreen: FC = () => {
 
               {/* Field 1: Full Name / Company Name */}
               <div>
-                <label className="block text-sm font-bold text-[#0c2444] mb-1.5">
+                <label className="block text-sm font-bold text-[#0c2444] dark:text-blue-400 mb-1.5">
                   اسم العميل / الشركة <span className="text-red-600">*</span>
                 </label>
                 <input
@@ -714,10 +714,10 @@ export const CustomersScreen: FC = () => {
                   }}
                   placeholder="مثال: عبدالله الراجحي"
                   dir="rtl"
-                  className={`w-full h-[40px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none transition-colors ${
+                  className={`w-full h-[40px] bg-white dark:bg-slate-800 border rounded-lg px-3.5 text-sm text-right text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none transition-colors ${
                     addFieldErrors.fullName
                       ? 'border-red-400 focus:border-red-500'
-                      : 'border-slate-200 focus:border-[#123663]'
+                      : 'border-slate-200 dark:border-slate-700 focus:border-[#123663]'
                   }`}
                 />
                 {addFieldErrors.fullName && (
@@ -727,7 +727,7 @@ export const CustomersScreen: FC = () => {
 
               {/* Field 2: National ID / CR ID */}
               <div>
-                <label className="block text-sm font-bold text-[#0c2444] mb-1.5">
+                <label className="block text-sm font-bold text-[#0c2444] dark:text-blue-400 mb-1.5">
                   رقم الهوية الوطنية / السجل التجاري <span className="text-red-600">*</span>
                 </label>
                 <input
@@ -741,10 +741,10 @@ export const CustomersScreen: FC = () => {
                   }}
                   placeholder="مثال: 123456789 (9 أرقام)"
                   dir="ltr"
-                  className={`w-full h-[40px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none transition-colors ${
+                  className={`w-full h-[40px] bg-white dark:bg-slate-800 border rounded-lg px-3.5 text-sm text-right text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none transition-colors ${
                     addFieldErrors.nationalId
                       ? 'border-red-400 focus:border-red-500'
-                      : 'border-slate-200 focus:border-[#123663]'
+                      : 'border-slate-200 dark:border-slate-700 focus:border-[#123663]'
                   }`}
                 />
                 {addFieldErrors.nationalId && (
@@ -771,7 +771,7 @@ export const CustomersScreen: FC = () => {
 
               {/* Field 4: Initial Debt Balance (Optional) */}
               <div>
-                <label className="block text-sm font-bold text-[#0c2444] mb-1.5">
+                <label className="block text-sm font-bold text-[#0c2444] dark:text-blue-400 mb-1.5">
                   رصيد المديونية الافتتاحي (اختياري)
                 </label>
                 <input
@@ -784,10 +784,10 @@ export const CustomersScreen: FC = () => {
                   }}
                   placeholder="0.00 ش.إ"
                   dir="ltr"
-                  className={`w-full h-[40px] bg-white border rounded-lg px-3.5 text-sm text-right text-slate-800 placeholder-slate-400 outline-none transition-colors ${
+                  className={`w-full h-[40px] bg-white dark:bg-slate-800 border rounded-lg px-3.5 text-sm text-right text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none transition-colors ${
                     addFieldErrors.initialDebt
                       ? 'border-red-400 focus:border-red-500'
-                      : 'border-slate-200 focus:border-[#123663]'
+                      : 'border-slate-200 dark:border-slate-700 focus:border-[#123663]'
                   }`}
                 />
                 {addFieldErrors.initialDebt && (
@@ -797,12 +797,12 @@ export const CustomersScreen: FC = () => {
               </div>
 
               {/* Footer */}
-              <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
+              <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
                 <button
                   type="button"
                   onClick={closeAddModal}
                   disabled={isAddingCustomer}
-                  className="h-9 w-[62px] rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+                  className="h-9 w-[62px] rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 transition-colors cursor-pointer disabled:opacity-50"
                 >
                   إلغاء
                 </button>

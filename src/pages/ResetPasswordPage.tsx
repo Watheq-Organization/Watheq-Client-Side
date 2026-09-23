@@ -79,14 +79,14 @@ export const ResetPasswordPage: FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-white text-slate-800 font-cairo antialiased selection:bg-[#0c2444] selection:text-white">
+    <div className="min-h-screen flex flex-col justify-between bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-cairo antialiased selection:bg-[#0c2444] selection:text-white">
       <Navbar />
 
       <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-14 flex items-center justify-center">
-        <div className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row border border-slate-100 min-h-[600px]">
+        <div className="w-full max-w-5xl bg-white dark:bg-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row border border-slate-100 dark:border-slate-700 min-h-[600px]">
           
           {/* Left Side: Mockup & Security Note */}
-          <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-100 via-slate-50 to-emerald-50/40 p-10 flex-col justify-between relative overflow-hidden border-l border-slate-100">
+          <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-100 via-slate-50 to-emerald-50/40 p-10 flex-col justify-between relative overflow-hidden border-l border-slate-100 dark:border-slate-700">
             {/* Background Pattern */}
             <div className="absolute inset-0 bg-[radial-gradient(#0c24440a_1px,transparent_1px)] [background-size:18px_18px] pointer-events-none" />
 
@@ -100,12 +100,12 @@ export const ResetPasswordPage: FC = () => {
 
             {/* Center Laptop / Isometric Graphic Mockup */}
             <div className="relative z-10 my-auto flex flex-col items-center justify-center py-4">
-              <div className="relative w-64 h-48 bg-white rounded-2xl p-5 shadow-2xl shadow-slate-300/60 border border-slate-200 flex flex-col items-center justify-center">
+              <div className="relative w-64 h-48 bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-2xl shadow-slate-300/60 border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center">
                 <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-3 shadow-lg shadow-emerald-500/30 flex items-center justify-center mb-3">
                   <ShieldCheck className="w-10 h-10 text-white" />
                 </div>
                 <div className="h-2 w-32 bg-slate-200 rounded-full mb-2" />
-                <div className="h-2 w-20 bg-slate-100 rounded-full" />
+                <div className="h-2 w-20 bg-slate-100 dark:bg-slate-700 rounded-full" />
                 <div className="absolute bottom-2 right-2 text-slate-300">
                   <Laptop className="w-5 h-5" />
                 </div>
@@ -116,11 +116,11 @@ export const ResetPasswordPage: FC = () => {
             <div className="relative z-10 bg-white/90 backdrop-blur-md rounded-2xl p-5 border border-slate-200/80 shadow-md text-center">
               <div className="flex items-center justify-center gap-2 mb-1.5">
                 <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                <h4 className="font-cairo font-bold text-base text-[#0c2444]">
+                <h4 className="font-cairo font-bold text-base text-[#0c2444] dark:text-blue-400">
                   أمان بياناتك أولويتنا
                 </h4>
               </div>
-              <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed max-w-sm mx-auto">
                 نحن نستخدم أحدث تقنيات التشفير لضمان سرية وأمان معلوماتك المالية في جميع الأوقات.
               </p>
             </div>
@@ -135,7 +135,7 @@ export const ResetPasswordPage: FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate(PATHS.LOGIN)}
-                  className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-500 hover:text-[#0c2444] transition-colors group"
+                  className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 hover:text-[#0c2444] dark:text-blue-400 transition-colors group"
                 >
                   <ArrowLeft className="w-4 h-4 transform group-hover:-translate-x-0.5 transition-transform" />
                   <span>العودة لتسجيل الدخول</span>
@@ -144,10 +144,10 @@ export const ResetPasswordPage: FC = () => {
 
               {/* Title & Subtitle */}
               <div className="text-right mb-6">
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] font-cairo tracking-tight mb-2">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] dark:text-blue-400 font-cairo tracking-tight mb-2">
                   تعيين كلمة مرور جديدة
                 </h1>
-                <p className="text-slate-500 text-xs sm:text-sm leading-relaxed">
+                <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm leading-relaxed">
                   الرجاء إدخال كلمة المرور الجديدة وتأكيدها. تأكد من اختيار كلمة مرور قوية وآمنة.
                 </p>
               </div>
@@ -188,8 +188,8 @@ export const ResetPasswordPage: FC = () => {
                 />
 
                 {/* Password Strength Checklist */}
-                <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200/80 text-right space-y-2 text-xs">
-                  <p className="font-bold text-slate-700 mb-2">
+                <div className="bg-slate-50/80 dark:bg-slate-800/80 p-4 rounded-xl border border-slate-200/80 text-right space-y-2 text-xs">
+                  <p className="font-bold text-slate-700 dark:text-slate-300 mb-2">
                     يجب أن تحتوي كلمة المرور على:
                   </p>
 
@@ -199,7 +199,7 @@ export const ResetPasswordPage: FC = () => {
                     ) : (
                       <Circle className="w-4 h-4 text-slate-300 flex-shrink-0" />
                     )}
-                    <span className={hasMinLength ? 'text-emerald-700 font-medium' : 'text-slate-500'}>
+                    <span className={hasMinLength ? 'text-emerald-700 font-medium' : 'text-slate-500 dark:text-slate-400'}>
                       8 أحرف على الأقل
                     </span>
                   </div>
@@ -210,7 +210,7 @@ export const ResetPasswordPage: FC = () => {
                     ) : (
                       <Circle className="w-4 h-4 text-slate-300 flex-shrink-0" />
                     )}
-                    <span className={hasUppercase ? 'text-emerald-700 font-medium' : 'text-slate-500'}>
+                    <span className={hasUppercase ? 'text-emerald-700 font-medium' : 'text-slate-500 dark:text-slate-400'}>
                       حرف كبير واحد على الأقل (A-Z)
                     </span>
                   </div>
@@ -221,7 +221,7 @@ export const ResetPasswordPage: FC = () => {
                     ) : (
                       <Circle className="w-4 h-4 text-slate-300 flex-shrink-0" />
                     )}
-                    <span className={hasNumber ? 'text-emerald-700 font-medium' : 'text-slate-500'}>
+                    <span className={hasNumber ? 'text-emerald-700 font-medium' : 'text-slate-500 dark:text-slate-400'}>
                       رقم واحد على الأقل (0-9)
                     </span>
                   </div>
@@ -232,7 +232,7 @@ export const ResetPasswordPage: FC = () => {
                     ) : (
                       <Circle className="w-4 h-4 text-slate-300 flex-shrink-0" />
                     )}
-                    <span className={hasSpecialChar ? 'text-emerald-700 font-medium' : 'text-slate-500'}>
+                    <span className={hasSpecialChar ? 'text-emerald-700 font-medium' : 'text-slate-500 dark:text-slate-400'}>
                       رمز خاص واحد (&quot;!@#$%^&amp;*&quot;)
                     </span>
                   </div>
@@ -270,7 +270,7 @@ export const ResetPasswordPage: FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate(PATHS.LOGIN)}
-                  className="text-xs sm:text-sm text-slate-500 hover:text-[#0c2444] font-semibold hover:underline transition-colors"
+                  className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 hover:text-[#0c2444] dark:text-blue-400 font-semibold hover:underline transition-colors"
                 >
                   العودة لتسجيل الدخول
                 </button>

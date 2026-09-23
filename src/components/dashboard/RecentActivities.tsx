@@ -34,14 +34,14 @@ export const RecentActivities: FC = () => {
 
   return (
     <div
-      className="bg-white rounded-2xl border border-slate-100 shadow-xs p-6 flex flex-col justify-between transition-all duration-300"
+      className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-6 flex flex-col justify-between transition-all duration-300"
       dir="rtl"
     >
       <div>
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-bold font-cairo text-slate-900">
+            <h2 className="text-lg font-bold font-cairo text-slate-900 dark:text-white">
               أحدث النشاطات
             </h2>
             {activities.length > 0 && (
@@ -107,10 +107,10 @@ export const RecentActivities: FC = () => {
                     <span className="block text-[11px] font-semibold text-slate-400 mb-0.5 font-cairo">
                       {activity.time}
                     </span>
-                    <h3 className="text-sm font-bold font-cairo text-slate-900 leading-snug group-hover:text-emerald-700 transition-colors">
+                    <h3 className="text-sm font-bold font-cairo text-slate-900 dark:text-white leading-snug group-hover:text-emerald-700 transition-colors">
                       {activity.title}
                     </h3>
-                    <p className="text-xs text-slate-500 mt-0.5 leading-relaxed font-cairo">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed font-cairo">
                       {activity.description}
                     </p>
                   </div>
@@ -127,7 +127,7 @@ export const RecentActivities: FC = () => {
 
       {/* Bottom Button "عرض الكل" / "عرض أقل" under the list */}
       {!isLoading && activities.length > 5 && (
-        <div className="pt-4 mt-4 border-t border-slate-100">
+        <div className="pt-4 mt-4 border-t border-slate-100 dark:border-slate-700">
           <button
             type="button"
             onClick={() => setIsExpanded((prev) => !prev)}

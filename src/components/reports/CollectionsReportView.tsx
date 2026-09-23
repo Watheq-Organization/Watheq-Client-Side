@@ -202,13 +202,13 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Top Breadcrumb & Actions Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-xs">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs">
         <div className="flex items-center gap-3">
           {onBackToOverview && (
             <button
               type="button"
               onClick={onBackToOverview}
-              className="p-2 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-600 dark:bg-slate-700 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white transition-colors cursor-pointer"
               title="العودة للنظرة العامة"
             >
               <ArrowRight className="w-5 h-5" />
@@ -216,7 +216,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
           )}
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-bold font-cairo text-slate-900">
+              <h1 className="text-xl sm:text-2xl font-bold font-cairo text-slate-900 dark:text-white">
                 تقرير التحصيلات المالية (Collections Report)
               </h1>
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
@@ -224,7 +224,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
                 متصل بـ API التحصيلات
               </span>
             </div>
-            <p className="mt-0.5 text-xs text-slate-500 font-cairo">
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 font-cairo">
               رصد وتتبع تدفقات المبالغ المسددة، سندات القبض الإلكترونية، والتحويلات المالية
             </p>
           </div>
@@ -236,7 +236,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
             type="button"
             onClick={fetchReport}
             disabled={isLoading}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
             title="تحديث البيانات"
           >
             <RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
@@ -246,7 +246,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
           <button
             type="button"
             onClick={handleExportCsv}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
             title="تصدير كملف Excel / CSV"
           >
             <FileText className="w-3.5 h-3.5 text-emerald-600" />
@@ -267,9 +267,9 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: إجمالي المبالغ المحصلة */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5 relative overflow-hidden">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-5 relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 font-cairo">إجمالي التحصيلات للفترة</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 font-cairo">إجمالي التحصيلات للفترة</span>
             <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
               <Banknote className="w-5 h-5" />
             </div>
@@ -278,7 +278,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
             <span className="text-2xl font-bold font-cairo text-[#047857]">
               {kpiMetrics.totalCollected.toLocaleString('en-US')}
             </span>
-            <span className="text-xs font-semibold text-slate-500 font-cairo">شيكل</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 font-cairo">شيكل</span>
           </div>
           <div className="mt-2 flex items-center gap-1 text-[11px] text-emerald-600 font-medium">
             <TrendingUp className="w-3 h-3" />
@@ -287,18 +287,18 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
         </div>
 
         {/* Card 2: عدد عمليات السداد */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 font-cairo">عدد سندات التحصيل</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 font-cairo">عدد سندات التحصيل</span>
             <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
               <Receipt className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-4 flex items-baseline gap-1.5">
-            <span className="text-2xl font-bold font-cairo text-slate-900">
+            <span className="text-2xl font-bold font-cairo text-slate-900 dark:text-white">
               {kpiMetrics.totalCount.toLocaleString('en-US')}
             </span>
-            <span className="text-xs font-semibold text-slate-500 font-cairo">سند</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 font-cairo">سند</span>
           </div>
           <div className="mt-2 flex items-center gap-1 text-[11px] text-blue-600 font-medium">
             <CheckCircle2 className="w-3 h-3" />
@@ -307,9 +307,9 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
         </div>
 
         {/* Card 3: متوسط السند */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 font-cairo">متوسط قيمة السند</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 font-cairo">متوسط قيمة السند</span>
             <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
               <TrendingUp className="w-5 h-5" />
             </div>
@@ -318,7 +318,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
             <span className="text-2xl font-bold font-cairo text-purple-700">
               {kpiMetrics.avgAmount.toLocaleString('en-US')}
             </span>
-            <span className="text-xs font-semibold text-slate-500 font-cairo">شيكل / عملية</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 font-cairo">شيكل / عملية</span>
           </div>
           <div className="mt-2 text-[11px] text-slate-400 font-medium">
             معدل سداد الفواتير
@@ -326,9 +326,9 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
         </div>
 
         {/* Card 4: أعلى عملية تحصيل */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 font-cairo">أعلى عملية تحصيل</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 font-cairo">أعلى عملية تحصيل</span>
             <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
               <Banknote className="w-5 h-5" />
             </div>
@@ -337,7 +337,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
             <span className="text-2xl font-bold font-cairo text-amber-700">
               {kpiMetrics.maxAmount.toLocaleString('en-US')}
             </span>
-            <span className="text-xs font-semibold text-slate-500 font-cairo">شيكل</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 font-cairo">شيكل</span>
           </div>
           <div className="mt-2 text-[11px] text-slate-400 font-medium">
             أكبر دفعة مسددة في الفترة
@@ -346,11 +346,11 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
       </div>
 
       {/* Filter and Date Selection Section */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5 space-y-4">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-5 space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           {/* Quick Date Chips */}
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs font-semibold text-slate-500 ml-2">نطاق التقرير:</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-2">نطاق التقرير:</span>
             {(
               [
                 { id: 'month', label: 'هذا الشهر' },
@@ -366,8 +366,8 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
                 onClick={() => handleQuickRangeChange(chip.id)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
                   quickRange === chip.id
-                    ? 'bg-[#051838] text-white font-bold shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    ? 'bg-[#051838] dark:bg-blue-600 text-white font-bold shadow-xs'
+                    : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
                 }`}
               >
                 {chip.label}
@@ -377,11 +377,11 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
 
           {/* Payment Method Filter */}
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-500">طريقة الدفع:</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">طريقة الدفع:</span>
             <select
               value={methodFilter}
               onChange={(e) => setMethodFilter(e.target.value as any)}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#051838]/20"
+              className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#051838] dark:focus:ring-blue-500/20"
             >
               <option value="all">كافة الطرق</option>
               <option value="نقداً">نقداً</option>
@@ -392,7 +392,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
         </div>
 
         {/* Custom Date Pickers & Search Input */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t border-slate-100">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
           {/* Search Box */}
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
@@ -401,13 +401,13 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="البحث باسم العميل أو رقم السند..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pr-10 pl-4 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#051838]/20"
+              className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl pr-10 pl-4 py-2 text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#051838] dark:focus:ring-blue-500/20"
             />
           </div>
 
           {/* From Date */}
           <div className="flex items-center gap-2">
-            <label className="text-xs font-semibold text-slate-500 shrink-0">من:</label>
+            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 shrink-0">من:</label>
             <input
               type="date"
               value={fromDate}
@@ -415,13 +415,13 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
                 setFromDate(e.target.value);
                 setQuickRange('custom');
               }}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#051838]/20"
+              className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#051838] dark:focus:ring-blue-500/20"
             />
           </div>
 
           {/* To Date */}
           <div className="flex items-center gap-2">
-            <label className="text-xs font-semibold text-slate-500 shrink-0">إلى:</label>
+            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 shrink-0">إلى:</label>
             <input
               type="date"
               value={toDate}
@@ -429,7 +429,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
                 setToDate(e.target.value);
                 setQuickRange('custom');
               }}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#051838]/20"
+              className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#051838] dark:focus:ring-blue-500/20"
             />
           </div>
         </div>
@@ -453,20 +453,20 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
       )}
 
       {/* Collections Data Table */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs overflow-hidden">
+        <div className="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-bold font-cairo text-slate-900">
+            <h2 className="text-base font-bold font-cairo text-slate-900 dark:text-white">
               سجل عمليات التحصيل المباشرة
             </h2>
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-slate-500 dark:text-slate-400">
               ({displayedItems.length} عملية مطابقة)
             </span>
           </div>
 
           {isLoading && (
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <RotateCw className="w-3.5 h-3.5 animate-spin text-[#051838]" />
+            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+              <RotateCw className="w-3.5 h-3.5 animate-spin text-[#051838] dark:text-white" />
               <span>جاري التحديث...</span>
             </div>
           )}
@@ -475,7 +475,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
         <div className="overflow-x-auto">
           <table className="w-full text-right text-xs sm:text-sm">
             <thead>
-              <tr className="border-b border-slate-100 text-slate-400 font-medium text-xs bg-slate-50/50">
+              <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-medium text-xs bg-slate-50/50 dark:bg-slate-800/50">
                 <th className="px-6 py-3.5">رقم السند</th>
                 <th className="px-6 py-3.5">اسم العميل</th>
                 <th className="px-6 py-3.5">المبلغ المحصل</th>
@@ -485,12 +485,12 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
                 <th className="px-6 py-3.5 text-center">الإجراءات</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
               {isLoading ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-slate-400">
                     <div className="flex flex-col items-center gap-2">
-                      <RotateCw className="w-6 h-6 animate-spin text-[#051838]" />
+                      <RotateCw className="w-6 h-6 animate-spin text-[#051838] dark:text-white" />
                       <span className="text-xs">جاري تحميل سجلات التحصيل من الخادم...</span>
                     </div>
                   </td>
@@ -500,7 +500,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
                   <td colSpan={7} className="py-12 text-center text-slate-400">
                     <div className="flex flex-col items-center gap-2">
                       <Receipt className="w-8 h-8 text-slate-300" />
-                      <p className="font-semibold text-slate-600">لا توجد عمليات تحصيل مطابقة</p>
+                      <p className="font-semibold text-slate-600 dark:text-slate-400">لا توجد عمليات تحصيل مطابقة</p>
                       <p className="text-xs text-slate-400">
                         جرّب تعديل نطاق التاريخ أو إزالة فلتر البحث لعرض المزيد من النتائج.
                       </p>
@@ -509,35 +509,35 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
                 </tr>
               ) : (
                 displayedItems.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50/80 transition-colors group">
+                  <tr key={item.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/80 transition-colors group">
                     {/* Receipt Number */}
-                    <td className="px-6 py-4 font-mono font-bold text-xs text-[#051838]">
+                    <td className="px-6 py-4 font-mono font-bold text-xs text-[#051838] dark:text-white">
                       {item.receiptNumber || item.id}
                     </td>
 
                     {/* Customer Name */}
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center">
+                        <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs flex items-center justify-center">
                           {item.customerName.charAt(0)}
                         </div>
-                        <span className="font-semibold text-slate-800">{item.customerName}</span>
+                        <span className="font-semibold text-slate-800 dark:text-slate-200">{item.customerName}</span>
                       </div>
                     </td>
 
                     {/* Collected Amount */}
                     <td className="px-6 py-4 font-bold font-cairo text-[#047857]">
-                      {item.amount.toLocaleString('en-US')} <span className="text-xs font-normal text-slate-500">ش.إ</span>
+                      {item.amount.toLocaleString('en-US')} <span className="text-xs font-normal text-slate-500 dark:text-slate-400">ش.إ</span>
                     </td>
 
                     {/* Payment Date */}
-                    <td className="px-6 py-4 text-slate-600 font-medium">
+                    <td className="px-6 py-4 text-slate-600 dark:text-slate-400 font-medium">
                       {item.date}
                     </td>
 
                     {/* Payment Method */}
                     <td className="px-6 py-4">
-                      <span className="inline-block px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700">
+                      <span className="inline-block px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
                         {formatPaymentMethod(item.paymentMethod)}
                       </span>
                     </td>
@@ -555,7 +555,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
                       <button
                         type="button"
                         onClick={() => handleViewReceipt(item)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#051838] bg-slate-100 hover:bg-[#051838] hover:text-white rounded-lg transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#051838] dark:text-white bg-slate-100 dark:bg-slate-700 hover:bg-[#051838] hover:text-white rounded-lg transition-colors cursor-pointer"
                         title="عرض سند القبض الإلكتروني"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
@@ -570,7 +570,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
         </div>
 
         {/* Table Footer with Pagination */}
-        <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+        <div className="p-4 border-t border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
           <div>
             عرض {displayedItems.length} من إجمالي {reportData?.totalRecords || displayedItems.length} سجل
           </div>
@@ -580,13 +580,13 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
               type="button"
               onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
               disabled={pageNumber <= 1 || isLoading}
-              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
               title="الصفحة السابقة"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
 
-            <span className="px-2 font-semibold text-slate-700">
+            <span className="px-2 font-semibold text-slate-700 dark:text-slate-300">
               صفحة {pageNumber}
             </span>
 
@@ -594,7 +594,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
               type="button"
               onClick={() => setPageNumber((p) => p + 1)}
               disabled={displayedItems.length < pageSize || isLoading}
-              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
               title="الصفحة التالية"
             >
               <ChevronLeft className="w-4 h-4" />

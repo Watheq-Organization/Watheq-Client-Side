@@ -24,10 +24,10 @@ interface TermSectionProps {
 const TermSection: FC<TermSectionProps> = ({ icon, title, children }) => (
   <section className="py-5 first:pt-0">
     <div className="flex items-center gap-2 mb-2.5">
-      <h2 className="text-lg sm:text-xl font-bold text-[#0c2444] font-cairo">{title}</h2>
+      <h2 className="text-lg sm:text-xl font-bold text-[#0c2444] dark:text-blue-400 font-cairo">{title}</h2>
       <span className="text-emerald-600">{icon}</span>
     </div>
-    <div className="text-sm sm:text-[15px] text-slate-600 leading-relaxed space-y-2">
+    <div className="text-sm sm:text-[15px] text-slate-600 dark:text-slate-400 leading-relaxed space-y-2">
       {children}
     </div>
   </section>
@@ -43,21 +43,21 @@ const TermSection: FC<TermSectionProps> = ({ icon, title, children }) => (
  */
 export const TermsPage: FC = () => {
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-slate-100 text-slate-800 font-cairo antialiased">
+    <div className="min-h-screen flex flex-col justify-between bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-cairo antialiased">
       <Navbar />
 
       <main className="flex-grow max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-14">
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-10">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 sm:p-10">
           {/* Card Header */}
-          <div className="text-right pb-5 mb-5 border-b border-slate-100">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] font-cairo tracking-tight">
+          <div className="text-right pb-5 mb-5 border-b border-slate-100 dark:border-slate-700">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] dark:text-blue-400 font-cairo tracking-tight">
               شروط الاستخدام
             </h1>
-            <p className="text-slate-500 text-xs sm:text-sm mt-2">تاريخ آخر تحديث: 17 سبتمبر 2026</p>
+            <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mt-2">تاريخ آخر تحديث: 17 سبتمبر 2026</p>
           </div>
 
           {/* Sections */}
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-slate-100 dark:divide-slate-700">
             <TermSection icon={<PenLine className="w-5 h-5" />} title="1. مقدمة">
               <p>
                 مرحباً بكم في وثّق. تحكم هذه الشروط والأحكام وصولكم واستخدامكم لمنصة وثّق لإدارة
@@ -83,7 +83,7 @@ export const TermsPage: FC = () => {
 
             {/* Important Notice */}
             <div className="my-5 py-4 pr-4 pl-4 bg-blue-50 border-r-4 border-emerald-500 rounded-lg text-right">
-              <p className="text-sm text-slate-700 leading-relaxed">
+              <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
                 <span className="font-bold">ملاحظة هامة:</span> يجب إخطار إدارة وثّق فوراً في حال
                 الاشتباه بأي وصول غير مصرح به لحسابكم.
               </p>
@@ -117,10 +117,10 @@ export const TermsPage: FC = () => {
           </div>
 
           {/* Bottom Action */}
-          <div className="pt-6 mt-2 border-t border-slate-100 flex justify-center">
+          <div className="pt-6 mt-2 border-t border-slate-100 dark:border-slate-700 flex justify-center">
             <button
               type="button"
-              className="bg-[#0c2444] hover:bg-[#123663] text-white px-10 py-3 rounded-lg text-sm sm:text-base font-bold shadow-sm transition-all duration-200 active:scale-[0.99] cursor-pointer"
+              className="bg-[#0c2444] dark:bg-blue-600 hover:bg-[#123663] dark:hover:bg-blue-700 text-white px-10 py-3 rounded-lg text-sm sm:text-base font-bold shadow-sm transition-all duration-200 active:scale-[0.99] cursor-pointer"
             >
               أوافق على الشروط
             </button>

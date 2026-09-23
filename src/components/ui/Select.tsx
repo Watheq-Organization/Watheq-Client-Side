@@ -32,14 +32,14 @@ export const Select: FC<SelectProps> = ({
 }) => {
   return (
     <div className="space-y-1.5 text-right">
-      <label className="text-xs sm:text-sm font-semibold text-slate-700">{label}</label>
+      <label className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">{label}</label>
       <div className="relative flex items-center">
         {icon && <div className="absolute right-3.5 text-slate-400 pointer-events-none">{icon}</div>}
         <select
           {...selectProps}
           className={
             className ??
-            `w-full ${icon ? 'pr-10' : 'pr-3.5'} pl-9 py-2.5 bg-slate-50/70 border border-slate-200 rounded-lg text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right appearance-none cursor-pointer`
+            `w-full ${icon ? 'pr-10' : 'pr-3.5'} pl-9 py-2.5 bg-slate-50/70 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 focus:bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right appearance-none cursor-pointer`
           }
         >
           {placeholder && (

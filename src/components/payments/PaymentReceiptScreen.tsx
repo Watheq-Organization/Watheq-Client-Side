@@ -320,7 +320,7 @@ export const PaymentReceiptScreen: FC = () => {
 
   return (
     <div
-      className="min-h-screen bg-[#f4f7fb] text-slate-800 font-cairo antialiased flex"
+      className="min-h-screen bg-[#f4f7fb] dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-cairo antialiased flex"
       dir="rtl"
     >
       {/* Toast Notification */}
@@ -371,7 +371,7 @@ export const PaymentReceiptScreen: FC = () => {
               <button
                 type="button"
                 onClick={() => navigate(PATHS.PAYMENTS)}
-                className="w-10 h-10 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center justify-center shadow-2xs hover:shadow-xs transition-all active:scale-95 cursor-pointer shrink-0"
+                className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 flex items-center justify-center shadow-2xs hover:shadow-xs transition-all active:scale-95 cursor-pointer shrink-0"
                 title="الرجوع لسجل المدفوعات"
               >
                 <ArrowRight className="w-5 h-5" />
@@ -379,7 +379,7 @@ export const PaymentReceiptScreen: FC = () => {
 
               <div>
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  <h1 className="text-xl sm:text-2xl font-bold font-cairo text-slate-900 tracking-tight">
+                  <h1 className="text-xl sm:text-2xl font-bold font-cairo text-slate-900 dark:text-white tracking-tight">
                     سند قبض مالي إلكتروني
                   </h1>
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs">
@@ -392,13 +392,13 @@ export const PaymentReceiptScreen: FC = () => {
                       مربوط بالسيرفر
                     </span>
                   ) : isLoading ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                      <RotateCw className="w-2.5 h-2.5 animate-spin text-slate-500" />
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                      <RotateCw className="w-2.5 h-2.5 animate-spin text-slate-500 dark:text-slate-400" />
                       جاري التحميل...
                     </span>
                   ) : null}
                 </div>
-                <p className="mt-0.5 text-xs sm:text-sm font-medium text-slate-500 font-cairo">
+                <p className="mt-0.5 text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 font-cairo">
                   سند رسمي صادر عبر منصة واثق للتحصيل وسداد الديون
                 </p>
               </div>
@@ -411,7 +411,7 @@ export const PaymentReceiptScreen: FC = () => {
                 type="button"
                 onClick={fetchLivePayment}
                 disabled={isLoading}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
                 title="تحديث سند القبض من الخادم"
               >
                 <RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-emerald-600' : ''}`} />
@@ -433,12 +433,12 @@ export const PaymentReceiptScreen: FC = () => {
                 type="button"
                 onClick={handleExportPdf}
                 disabled={isDownloadingPdf}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200/90 rounded-xl text-xs sm:text-sm font-bold shadow-2xs hover:shadow-xs transition-all active:scale-98 cursor-pointer disabled:opacity-60"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-800 dark:text-slate-200 border border-slate-200/90 rounded-xl text-xs sm:text-sm font-bold shadow-2xs hover:shadow-xs transition-all active:scale-98 cursor-pointer disabled:opacity-60"
               >
                 {isDownloadingPdf ? (
                   <Loader2 className="w-4 h-4 text-emerald-600 animate-spin" />
                 ) : (
-                  <FileDown className="w-4 h-4 text-slate-600" />
+                  <FileDown className="w-4 h-4 text-slate-600 dark:text-slate-400" />
                 )}
                 <span>{isDownloadingPdf ? 'جاري التحميل...' : 'تصدير PDF'}</span>
               </button>
@@ -450,14 +450,14 @@ export const PaymentReceiptScreen: FC = () => {
           {/* ============================================================ */}
           <div
             id="receipt-voucher-card"
-            className="bg-white rounded-3xl border border-slate-200/90 shadow-lg shadow-slate-200/40 overflow-hidden relative print:border-none print:shadow-none print:rounded-none print:m-0 print:p-0"
+            className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/90 shadow-lg shadow-slate-200/40 overflow-hidden relative print:border-none print:shadow-none print:rounded-none print:m-0 print:p-0"
           >
             {/* Emerald Top Border Stripe */}
             <div className="h-2.5 bg-gradient-to-r from-[#007a3d] via-[#059669] to-[#007a3d] w-full print:hidden" />
 
             <div className="p-6 sm:p-8 lg:p-10 space-y-7">
               {/* Section 1: Header (System & Merchant Info + Receipt Meta Box) */}
-              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 pb-6 border-b border-slate-100">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 pb-6 border-b border-slate-100 dark:border-slate-700">
                 {/* Right: Watheq Shield & Legal Status */}
                 <div className="flex items-center gap-4">
                   <div className="w-13 h-13 rounded-2xl bg-[#0c2444] text-white flex items-center justify-center shadow-md shadow-slate-900/10 shrink-0">
@@ -465,7 +465,7 @@ export const PaymentReceiptScreen: FC = () => {
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2.5 flex-wrap">
-                      <h2 className="text-xl sm:text-2xl font-black font-cairo text-[#0c2444] tracking-tight">
+                      <h2 className="text-xl sm:text-2xl font-black font-cairo text-[#0c2444] dark:text-blue-400 tracking-tight">
                         منظومة واثق المالية
                       </h2>
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -473,31 +473,31 @@ export const PaymentReceiptScreen: FC = () => {
                         سند قانوني نافذ
                       </span>
                     </div>
-                    <p className="text-xs sm:text-sm text-slate-500 font-medium">
-                      الجهة المحصلة: <span className="font-bold text-slate-800">{merchant.businessName || 'متجر النور للتجارة والتوريدات'}</span> (س.ت: 1010874921)
+                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium">
+                      الجهة المحصلة: <span className="font-bold text-slate-800 dark:text-slate-200">{merchant.businessName || 'متجر النور للتجارة والتوريدات'}</span> (س.ت: 1010874921)
                     </p>
                   </div>
                 </div>
 
                 {/* Left: Receipt Metadata Card */}
-                <div className="w-full md:w-auto bg-slate-50/80 border border-slate-200/80 rounded-2xl p-4 text-xs font-medium space-y-2 min-w-[240px]">
+                <div className="w-full md:w-auto bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200/80 rounded-2xl p-4 text-xs font-medium space-y-2 min-w-[240px]">
                   <div className="flex items-center justify-between gap-4">
-                    <span className="text-slate-500">رقم السند:</span>
-                    <span className="font-bold font-mono text-slate-900 text-sm">
+                    <span className="text-slate-500 dark:text-slate-400">رقم السند:</span>
+                    <span className="font-bold font-mono text-slate-900 dark:text-white text-sm">
                       #{paymentData.receiptNumber}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-4">
-                    <span className="text-slate-500">تاريخ التحصيل:</span>
-                    <span className="font-bold text-slate-800">{paymentData.paymentDate}</span>
+                    <span className="text-slate-500 dark:text-slate-400">تاريخ التحصيل:</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{paymentData.paymentDate}</span>
                   </div>
                   <div className="flex items-center justify-between gap-4">
-                    <span className="text-slate-500">وقت السداد:</span>
-                    <span className="font-bold text-slate-800">{paymentData.paymentTime}</span>
+                    <span className="text-slate-500 dark:text-slate-400">وقت السداد:</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{paymentData.paymentTime}</span>
                   </div>
                   <div className="flex items-center justify-between gap-4 pt-1 border-t border-slate-200/60">
-                    <span className="text-slate-500">الرقم المرجعي:</span>
-                    <span className="font-bold font-mono text-slate-700">
+                    <span className="text-slate-500 dark:text-slate-400">الرقم المرجعي:</span>
+                    <span className="font-bold font-mono text-slate-700 dark:text-slate-300">
                       {paymentData.referenceNumber}
                     </span>
                   </div>
@@ -508,7 +508,7 @@ export const PaymentReceiptScreen: FC = () => {
               <div className="bg-gradient-to-l from-slate-50 via-[#f8faf9] to-emerald-50/25 border border-slate-200/90 rounded-2xl p-6 sm:p-7 flex flex-col md:flex-row items-center justify-between gap-6">
                 {/* Right: Big Amount & Tafqeet */}
                 <div className="space-y-2 text-center md:text-right w-full md:w-auto">
-                  <span className="text-xs sm:text-sm font-semibold text-slate-500 block">
+                  <span className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 block">
                     المبلغ المقبوض والمودع:
                   </span>
                   <div className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#007a3d] font-cairo tracking-tight" dir="ltr">
@@ -516,13 +516,13 @@ export const PaymentReceiptScreen: FC = () => {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}{' '}
-                    <span className="text-xl sm:text-2xl font-bold font-cairo text-slate-800">
+                    <span className="text-xl sm:text-2xl font-bold font-cairo text-slate-800 dark:text-slate-200">
                       شيكل إسرائيلي
                     </span>
                   </div>
-                  <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs sm:text-sm font-bold text-slate-700 shadow-2xs">
+                  <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 shadow-2xs">
                     <span>فقط وقدره:</span>
-                    <span className="text-[#0c2444] font-semibold">
+                    <span className="text-[#0c2444] dark:text-blue-400 font-semibold">
                       {tafqeet(paymentData.amount)}
                     </span>
                     <span>لا غير</span>
@@ -530,13 +530,13 @@ export const PaymentReceiptScreen: FC = () => {
                 </div>
 
                 {/* Left: Payment Method Card */}
-                <div className="w-full md:w-auto bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs min-w-[250px] space-y-2">
+                <div className="w-full md:w-auto bg-white dark:bg-slate-800 border border-slate-200/90 rounded-2xl p-4 shadow-2xs min-w-[250px] space-y-2">
                   <div className="text-[11px] font-bold text-slate-400">طريقة الدفع</div>
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
                       <MethodIcon className="w-4 h-4" />
                     </div>
-                    <span className="font-bold text-slate-800 text-sm font-cairo">
+                    <span className="font-bold text-slate-800 dark:text-slate-200 text-sm font-cairo">
                       {methodDetails.label}
                     </span>
                   </div>
@@ -550,32 +550,32 @@ export const PaymentReceiptScreen: FC = () => {
               {/* Section 3: Two Parties Boxes (العميل والتاجر) */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {/* Box 1 (Right in RTL): Customer (استلمنا من السيد) */}
-                <div className="border border-slate-200/90 rounded-2xl p-5 space-y-3.5 bg-white">
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-600 pb-2 border-b border-slate-100">
+                <div className="border border-slate-200/90 rounded-2xl p-5 space-y-3.5 bg-white dark:bg-slate-800">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400 pb-2 border-b border-slate-100 dark:border-slate-700">
                     <User className="w-4 h-4 text-slate-400" />
                     <span>استلمنا من السيد (العميل):</span>
                   </div>
                   <div className="space-y-2.5 text-xs sm:text-sm">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-slate-500 font-medium">الاسم الكامل:</span>
-                      <span className="font-bold text-slate-900 font-cairo">
+                      <span className="text-slate-500 dark:text-slate-400 font-medium">الاسم الكامل:</span>
+                      <span className="font-bold text-slate-900 dark:text-white font-cairo">
                         {paymentData.customerName}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-slate-500 font-medium">رقم الهوية الوطنية:</span>
-                      <span className="font-bold font-mono text-slate-800">
+                      <span className="text-slate-500 dark:text-slate-400 font-medium">رقم الهوية الوطنية:</span>
+                      <span className="font-bold font-mono text-slate-800 dark:text-slate-200">
                         {paymentData.customerNationalId}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-slate-500 font-medium">رقم الجوال المسجل:</span>
-                      <span className="font-bold font-mono text-slate-800" dir="ltr">
+                      <span className="text-slate-500 dark:text-slate-400 font-medium">رقم الجوال المسجل:</span>
+                      <span className="font-bold font-mono text-slate-800 dark:text-slate-200" dir="ltr">
                         {paymentData.customerPhone}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
-                      <span className="text-slate-500 font-medium">حالة العميل الائتمانية:</span>
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-700">
+                      <span className="text-slate-500 dark:text-slate-400 font-medium">حالة العميل الائتمانية:</span>
                       <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                         موثوق ومحدث
                       </span>
@@ -584,30 +584,30 @@ export const PaymentReceiptScreen: FC = () => {
                 </div>
 
                 {/* Box 2 (Left in RTL): Merchant (لحساب التاجر المستفيد) */}
-                <div className="border border-slate-200/90 rounded-2xl p-5 space-y-3.5 bg-white">
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-600 pb-2 border-b border-slate-100">
+                <div className="border border-slate-200/90 rounded-2xl p-5 space-y-3.5 bg-white dark:bg-slate-800">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400 pb-2 border-b border-slate-100 dark:border-slate-700">
                     <Store className="w-4 h-4 text-slate-400" />
                     <span>لحساب التاجر (المستفيد):</span>
                   </div>
                   <div className="space-y-2.5 text-xs sm:text-sm">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-slate-500 font-medium">الاسم التجاري:</span>
-                      <span className="font-bold text-slate-900 font-cairo">
+                      <span className="text-slate-500 dark:text-slate-400 font-medium">الاسم التجاري:</span>
+                      <span className="font-bold text-slate-900 dark:text-white font-cairo">
                         {merchant.businessName || 'متجر النور للقرطاسية والمكتبات'}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-slate-500 font-medium">رقم التواصل المعتمد:</span>
-                      <span className="font-bold font-mono text-slate-800" dir="ltr">{merchant.phoneNumber || '—'}</span>
+                      <span className="text-slate-500 dark:text-slate-400 font-medium">رقم التواصل المعتمد:</span>
+                      <span className="font-bold font-mono text-slate-800 dark:text-slate-200" dir="ltr">{merchant.phoneNumber || '—'}</span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-slate-500 font-medium">المحصل المسؤول:</span>
-                      <span className="font-bold text-slate-800 font-cairo">
+                      <span className="text-slate-500 dark:text-slate-400 font-medium">المحصل المسؤول:</span>
+                      <span className="font-bold text-slate-800 dark:text-slate-200 font-cairo">
                         {merchant.fullName || 'أمين الصندوق'}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
-                      <span className="text-slate-500 font-medium">مركز التوثيق:</span>
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-700">
+                      <span className="text-slate-500 dark:text-slate-400 font-medium">مركز التوثيق:</span>
                       <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#0c2444] text-white">
                         بوابة واثق للشركاء
                       </span>
@@ -618,12 +618,12 @@ export const PaymentReceiptScreen: FC = () => {
 
               {/* Section 4: Reason / Statement ("البيان وسبب التحصيل المالي") */}
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
                   <FileText className="w-4 h-4 text-slate-400" />
                   <span>البيان وسبب التحصيل المالي</span>
                 </div>
-                <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-3">
-                  <p className="text-xs sm:text-sm font-semibold text-slate-800 leading-relaxed font-cairo">
+                <div className="bg-slate-50/90 dark:bg-slate-800/90 border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-3">
+                  <p className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 leading-relaxed font-cairo">
                     {serverPayment?.notes
                       ? serverPayment.notes
                       : paymentData.invoiceNumber
@@ -632,30 +632,30 @@ export const PaymentReceiptScreen: FC = () => {
                   </p>
                   <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-200/60 text-xs">
                     {paymentData.invoiceId || paymentData.invoiceNumber ? (
-                      <div className="flex items-center gap-1.5 text-slate-600 font-medium">
+                      <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 font-medium">
                         <Tag className="w-3.5 h-3.5 text-slate-400" />
                         <span>مرتبط بالفاتورة:</span>
                         <button
                           type="button"
                           onClick={() => navigate(`/debts/${paymentData.invoiceId || 'invoice'}/invoice`)}
-                          className="font-bold font-mono text-blue-700 hover:text-blue-900 bg-white hover:bg-blue-50 px-2 py-0.5 rounded border border-blue-200 transition-colors cursor-pointer"
+                          className="font-bold font-mono text-blue-700 hover:text-blue-900 bg-white dark:bg-slate-800 hover:bg-blue-50 px-2 py-0.5 rounded border border-blue-200 transition-colors cursor-pointer"
                           title="عرض فاتورة إثبات وقيد الدين"
                         >
                           {paymentData.invoiceNumber || `INV-${paymentData.invoiceId}`}
                         </button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1.5 text-slate-600 font-medium">
+                      <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 font-medium">
                         <Tag className="w-3.5 h-3.5 text-slate-400" />
                         <span>رقم السند المرجعي:</span>
-                        <span className="font-bold font-mono text-slate-800">{paymentData.referenceNumber}</span>
+                        <span className="font-bold font-mono text-slate-800 dark:text-slate-200">{paymentData.referenceNumber}</span>
                       </div>
                     )}
                     {paymentData.originalInvoiceDate && (
-                      <div className="flex items-center gap-1.5 text-slate-600 font-medium">
+                      <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 font-medium">
                         <Calendar className="w-3.5 h-3.5 text-slate-400" />
                         <span>تاريخ الفاتورة الأصلية:</span>
-                        <span className="font-bold text-slate-800">{paymentData.originalInvoiceDate}</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-200">{paymentData.originalInvoiceDate}</span>
                       </div>
                     )}
                     <div className="flex items-center gap-1.5 text-emerald-700 font-bold">
@@ -668,15 +668,15 @@ export const PaymentReceiptScreen: FC = () => {
 
               {/* Section 5: Accounting Impact ("الأثر المحاسبي وحالة كشف حساب العميل") */}
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
                   <BookOpen className="w-4 h-4 text-slate-400" />
                   <span>الأثر المحاسبي وحالة كشف حساب العميل</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Card 1: Previous Debt */}
-                  <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-5 text-center space-y-1.5">
-                    <div className="text-xs text-slate-500 font-semibold">إجمالي المديونية السابقة</div>
-                    <div className="text-lg sm:text-xl font-bold font-mono text-slate-900" dir="ltr">
+                  <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200/90 rounded-2xl p-5 text-center space-y-1.5">
+                    <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold">إجمالي المديونية السابقة</div>
+                    <div className="text-lg sm:text-xl font-bold font-mono text-slate-900 dark:text-white" dir="ltr">
                       {paymentData.previousDebt.toLocaleString('en-US', {
                         minimumFractionDigits: 2,
                       })}{' '}
@@ -698,7 +698,7 @@ export const PaymentReceiptScreen: FC = () => {
                   </div>
 
                   {/* Card 3: Remaining Balance (Navy) */}
-                  <div className="bg-[#0c2444] border border-[#0c2444] rounded-2xl p-5 text-center space-y-1.5 text-white shadow-sm">
+                  <div className="bg-[#0c2444] border border-[#0c2444] dark:border-blue-400 rounded-2xl p-5 text-center space-y-1.5 text-white shadow-sm">
                     <div className="text-xs text-blue-200 font-medium">الرصيد المتبقي بذمة العميل</div>
                     <div className="text-lg sm:text-xl font-bold font-mono text-white" dir="ltr">
                       {paymentData.remainingDebt.toLocaleString('en-US', {
@@ -718,15 +718,15 @@ export const PaymentReceiptScreen: FC = () => {
               </div>
 
               {/* Section 6: Digital Verification & Signatures */}
-              <div className="border border-slate-200/90 rounded-2xl p-6 bg-slate-50/40 print:hidden">
+              <div className="border border-slate-200/90 rounded-2xl p-6 bg-slate-50/40 dark:bg-slate-800/40 print:hidden">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center text-center">
                   {/* Column 1 (Collector Signature) */}
                   <div className="space-y-1.5 text-right md:text-center">
                     <span className="text-xs text-slate-400 font-medium block">توقيع واعتماد المحصل:</span>
-                    <div className="text-base sm:text-lg font-bold font-cairo text-slate-900">
+                    <div className="text-base sm:text-lg font-bold font-cairo text-slate-900 dark:text-white">
                       {merchant.fullName || 'أمين الصندوق'}
                     </div>
-                    <div className="text-xs text-slate-500 font-medium">الختم الإلكتروني للنظام</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">الختم الإلكتروني للنظام</div>
                     <div className="text-[10px] font-mono text-slate-400">
                       SHA256: 952d8e4f...11a
                     </div>
@@ -747,15 +747,15 @@ export const PaymentReceiptScreen: FC = () => {
                   {/* Column 3 (Digital Verification / QR Code) */}
                   <div className="space-y-1.5 flex flex-col items-center">
                     {/* Stylized QR Code Box matching design */}
-                    <div className="w-14 h-14 bg-white border border-slate-300 rounded-xl p-1.5 flex items-center justify-center shadow-2xs">
-                      <div className="w-full h-full grid grid-cols-2 gap-1 p-0.5 bg-slate-100 rounded">
+                    <div className="w-14 h-14 bg-white dark:bg-slate-800 border border-slate-300 rounded-xl p-1.5 flex items-center justify-center shadow-2xs">
+                      <div className="w-full h-full grid grid-cols-2 gap-1 p-0.5 bg-slate-100 dark:bg-slate-700 rounded">
                         <div className="bg-[#0c2444] rounded-xs" />
                         <div className="bg-emerald-600 rounded-xs" />
                         <div className="bg-emerald-600 rounded-xs" />
                         <div className="bg-[#0c2444] rounded-xs" />
                       </div>
                     </div>
-                    <div className="text-xs font-bold text-slate-800">امسح التحقق الرقمي المباشر</div>
+                    <div className="text-xs font-bold text-slate-800 dark:text-slate-200">امسح التحقق الرقمي المباشر</div>
                     <p className="text-[10px] text-slate-400 max-w-[220px] leading-tight">
                       سند موثق إلكترونياً ومشفر بنظام التحقق السريع عبر خوادم منصة واثق المركزية
                     </p>
@@ -778,30 +778,30 @@ export const PaymentReceiptScreen: FC = () => {
           {/* ============================================================ */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 print:hidden">
             {/* Card 1: إشعار العميل التلقائي */}
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex items-start gap-3 shadow-2xs hover:shadow-xs transition-shadow">
+            <div className="bg-white dark:bg-slate-800 border border-slate-200/80 rounded-2xl p-4 flex items-start gap-3 shadow-2xs hover:shadow-xs transition-shadow">
               <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
                 <Send className="w-4 h-4" />
               </div>
               <div className="space-y-1">
-                <h3 className="text-xs sm:text-sm font-bold font-cairo text-slate-900">
+                <h3 className="text-xs sm:text-sm font-bold font-cairo text-slate-900 dark:text-white">
                   إشعار العميل التلقائي
                 </h3>
-                <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
                   تم إرسال نسخة من سند القبض مباشرة لجوال العميل المسجل.
                 </p>
               </div>
             </div>
 
             {/* Card 2: الترحيل المحاسبي */}
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex items-start gap-3 shadow-2xs hover:shadow-xs transition-shadow">
+            <div className="bg-white dark:bg-slate-800 border border-slate-200/80 rounded-2xl p-4 flex items-start gap-3 shadow-2xs hover:shadow-xs transition-shadow">
               <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
                 <Landmark className="w-4 h-4" />
               </div>
               <div className="space-y-1">
-                <h3 className="text-xs sm:text-sm font-bold font-cairo text-slate-900">
+                <h3 className="text-xs sm:text-sm font-bold font-cairo text-slate-900 dark:text-white">
                   الترحيل المحاسبي
                 </h3>
-                <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
                   تم توليد قيد انسداد لليومية العامة وصندوق النقدية فوراً.
                 </p>
               </div>
@@ -810,17 +810,17 @@ export const PaymentReceiptScreen: FC = () => {
             {/* Card 3: سجل العمليات */}
             <div
               onClick={() => navigate('/debts/8821/invoice')}
-              className="bg-white border border-slate-200/80 rounded-2xl p-4 flex items-start gap-3 shadow-2xs hover:shadow-xs hover:border-slate-300 transition-all cursor-pointer"
+              className="bg-white dark:bg-slate-800 border border-slate-200/80 rounded-2xl p-4 flex items-start gap-3 shadow-2xs hover:shadow-xs hover:border-slate-300 transition-all cursor-pointer"
               title="عرض أصل الفاتورة رقم 8821"
             >
               <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center shrink-0">
                 <History className="w-4 h-4" />
               </div>
               <div className="space-y-1">
-                <h3 className="text-xs sm:text-sm font-bold font-cairo text-slate-900">
+                <h3 className="text-xs sm:text-sm font-bold font-cairo text-slate-900 dark:text-white">
                   سجل العمليات
                 </h3>
-                <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
                   يمكنك الرجوع لأصل الفاتورة 8821 وتتبع كافة الدفعات السابقة.
                 </p>
               </div>

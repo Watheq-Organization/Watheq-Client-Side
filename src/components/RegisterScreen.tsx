@@ -92,7 +92,7 @@ export const RegisterScreen: FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-white text-slate-800 font-cairo antialiased selection:bg-emerald-100 selection:text-emerald-900">
+    <div className="min-h-screen flex flex-col justify-between bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-cairo antialiased selection:bg-emerald-100 selection:text-emerald-900">
       {/* 1. Header / Navbar */}
       <Navbar />
 
@@ -117,13 +117,13 @@ export const RegisterScreen: FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center">
           {/* Left Column (In visual layout): Registration Form Card */}
           <div className="lg:col-span-6 w-full max-w-xl mx-auto lg:mx-0">
-            <div className="bg-white rounded-2xl p-6 sm:p-9 shadow-xl shadow-slate-200/70 border border-slate-100">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 sm:p-9 shadow-xl shadow-slate-200/70 dark:shadow-slate-900/50 border border-slate-100 dark:border-slate-700">
               {/* Form Heading */}
               <div className="text-right mb-6">
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] font-cairo tracking-tight">
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-[#0c2444] dark:text-blue-400 font-cairo tracking-tight">
                   إنشاء حساب جديد
                 </h2>
-                <p className="text-sm text-slate-500 mt-1.5 font-normal">
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5 font-normal">
                   ابدأ إدارة ديون متجرك بكل ثقة وأمان
                 </p>
               </div>
@@ -134,7 +134,7 @@ export const RegisterScreen: FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   {/* Store / Merchant Name */}
                   <div className="space-y-1.5 text-right">
-                    <label className="text-xs sm:text-sm font-semibold text-slate-700">
+                    <label className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">
                       اسم المتجر / التاجر
                     </label>
                     <div className="relative flex items-center">
@@ -148,14 +148,14 @@ export const RegisterScreen: FC = () => {
                         value={formState.storeName}
                         onChange={handleChange}
                         placeholder="اسم النشاط التجاري"
-                        className="w-full pr-10 pl-3.5 py-2.5 bg-slate-50/70 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right"
+                        className="w-full pr-10 pl-3.5 py-2.5 bg-slate-50/70 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right"
                       />
                     </div>
                   </div>
 
                   {/* Full Name */}
                   <div className="space-y-1.5 text-right">
-                    <label className="text-xs sm:text-sm font-semibold text-slate-700">
+                    <label className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">
                       الاسم الكامل
                     </label>
                     <div className="relative flex items-center">
@@ -169,7 +169,7 @@ export const RegisterScreen: FC = () => {
                         value={formState.fullName}
                         onChange={handleChange}
                         placeholder="أدخل اسمك الثلاثي"
-                        className="w-full pr-10 pl-3.5 py-2.5 bg-slate-50/70 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right"
+                        className="w-full pr-10 pl-3.5 py-2.5 bg-slate-50/70 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right"
                       />
                     </div>
                   </div>
@@ -177,7 +177,7 @@ export const RegisterScreen: FC = () => {
 
                 {/* Phone Number */}
                 <div className="space-y-1.5 text-right">
-                  <label className="text-xs sm:text-sm font-semibold text-slate-700">
+                  <label className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">
                     رقم الجوال
                   </label>
                   <div className="relative flex items-center">
@@ -192,14 +192,14 @@ export const RegisterScreen: FC = () => {
                       onChange={handleChange}
                       placeholder="05xxxxxxxx"
                       dir="rtl"
-                      className="w-full pr-10 pl-3.5 py-2.5 bg-slate-50/70 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right font-sans"
+                      className="w-full pr-10 pl-3.5 py-2.5 bg-slate-50/70 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right font-sans"
                     />
                   </div>
                 </div>
 
                 {/* Email Address */}
                 <div className="space-y-1.5 text-right">
-                  <label className="text-xs sm:text-sm font-semibold text-slate-700">
+                  <label className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">
                     البريد الالكتروني
                   </label>
                   <div className="relative flex items-center">
@@ -213,14 +213,14 @@ export const RegisterScreen: FC = () => {
                       value={formState.email}
                       onChange={handleChange}
                       placeholder="user@gmail.com"
-                      className="w-full pr-10 pl-3.5 py-2.5 bg-slate-50/70 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right font-sans"
+                      className="w-full pr-10 pl-3.5 py-2.5 bg-slate-50/70 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right font-sans"
                     />
                   </div>
                 </div>
 
                 {/* Password */}
                 <div className="space-y-1.5 text-right">
-                  <label className="text-xs sm:text-sm font-semibold text-slate-700">
+                  <label className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">
                     كلمة المرور
                   </label>
                   <div className="relative flex items-center">
@@ -234,7 +234,7 @@ export const RegisterScreen: FC = () => {
                       value={formState.password}
                       onChange={handleChange}
                       placeholder="••••••••"
-                      className="w-full pr-10 pl-11 py-2.5 bg-slate-50/70 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right font-sans"
+                      className="w-full pr-10 pl-11 py-2.5 bg-slate-50/70 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right font-sans"
                     />
                     <button
                       type="button"
@@ -244,7 +244,7 @@ export const RegisterScreen: FC = () => {
                           showPassword: !prev.showPassword,
                         }))
                       }
-                      className="absolute left-3.5 text-slate-400 hover:text-slate-600 focus:outline-none"
+                      className="absolute left-3.5 text-slate-400 hover:text-slate-600 dark:text-slate-400 focus:outline-none"
                     >
                       {formState.showPassword ? (
                         <EyeOff className="w-4 h-4" />
@@ -267,19 +267,19 @@ export const RegisterScreen: FC = () => {
                   />
                   <label
                     htmlFor="terms"
-                    className="text-xs sm:text-sm text-slate-600 cursor-pointer"
+                    className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 cursor-pointer"
                   >
                     أوافق على{' '}
                     <a
                       href="#terms"
-                      className="text-slate-800 font-semibold underline hover:text-emerald-700"
+                      className="text-slate-800 dark:text-slate-200 font-semibold underline hover:text-emerald-700"
                     >
                       شروط الاستخدام
                     </a>{' '}
                     و{' '}
                     <Link
                       to={PATHS.PRIVACY_POLICY}
-                      className="text-slate-800 font-semibold underline hover:text-emerald-700"
+                      className="text-slate-800 dark:text-slate-200 font-semibold underline hover:text-emerald-700"
                     >
                       سياسة الخصوصية
                     </Link>
@@ -342,12 +342,12 @@ export const RegisterScreen: FC = () => {
                 </div>
 
                 {/* Sign In Redirect */}
-                <div className="text-center pt-2 text-xs sm:text-sm text-slate-500">
+                <div className="text-center pt-2 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                   <span>لديك حساب بالفعل؟ </span>
                   <button
                     type="button"
                     onClick={() => navigate(PATHS.LOGIN)}
-                    className="text-[#0c2444] font-bold hover:underline hover:text-emerald-700 transition-colors"
+                    className="text-[#0c2444] dark:text-blue-400 font-bold hover:underline hover:text-emerald-700 transition-colors"
                   >
                     تسجيل الدخول
                   </button>
@@ -360,47 +360,47 @@ export const RegisterScreen: FC = () => {
           <div className="lg:col-span-6 space-y-6 text-right">
             {/* Title & Description */}
             <div>
-              <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0c2444] font-cairo tracking-tight leading-tight">
+              <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0c2444] dark:text-blue-400 font-cairo tracking-tight leading-tight">
                 بناء الثقة يبدأ من{' '}
                 <span className="text-[#008744]">هنا</span>
               </h1>
-              <p className="text-slate-600 text-sm sm:text-base mt-3 leading-relaxed">
+              <p className="text-slate-600 dark:text-slate-400 text-sm sm:text-base mt-3 leading-relaxed">
                 انضم إلى آلاف المتاجر التي تعتمد على وثّق في إدارة وتوثيق العمليات المالية بكل شفافية وموثوقية.
               </p>
             </div>
 
             {/* Feature Card 1: أمان تام */}
-            <div className="bg-white rounded-xl p-4 sm:p-5 border border-slate-100 shadow-sm flex items-start gap-4 transition-all duration-200 hover:shadow-md hover:border-slate-200">
+            <div className="bg-white dark:bg-slate-800 rounded-xl p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-sm flex items-start gap-4 transition-all duration-200 hover:shadow-md hover:border-slate-200 dark:border-slate-700">
               <div className="w-11 h-11 rounded-xl bg-emerald-500 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
                 <ShieldCheck className="w-6 h-6" />
               </div>
               <div className="space-y-1">
-                <h3 className="font-bold text-[#0c2444] text-base">
+                <h3 className="font-bold text-[#0c2444] dark:text-blue-400 text-base">
                   أمان تام
                 </h3>
-                <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
                   تشفير متطور لجميع بياناتك وديونك مع حماية كاملة للخصوصية.
                 </p>
               </div>
             </div>
 
             {/* Feature Card 2: إدارة سريعة */}
-            <div className="bg-white rounded-xl p-4 sm:p-5 border border-slate-100 shadow-sm flex items-start gap-4 transition-all duration-200 hover:shadow-md hover:border-slate-200">
+            <div className="bg-white dark:bg-slate-800 rounded-xl p-4 sm:p-5 border border-slate-100 dark:border-slate-700 shadow-sm flex items-start gap-4 transition-all duration-200 hover:shadow-md hover:border-slate-200 dark:border-slate-700">
               <div className="w-11 h-11 rounded-xl bg-blue-500 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
                 <Zap className="w-6 h-6" />
               </div>
               <div className="space-y-1">
-                <h3 className="font-bold text-[#0c2444] text-base">
+                <h3 className="font-bold text-[#0c2444] dark:text-blue-400 text-base">
                   إدارة سريعة
                 </h3>
-                <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
                   واجهة مستخدم ذكية تسهل عليك إضافة ومتابعة الديون في ثوانٍ معدودة.
                 </p>
               </div>
             </div>
 
             {/* Hero Image */}
-            <div className="relative rounded-2xl overflow-hidden shadow-lg border border-slate-100 group">
+            <div className="relative rounded-2xl overflow-hidden shadow-lg border border-slate-100 dark:border-slate-700 group">
               <img
                 src="/hero-business.jpg"
                 alt="فريق عمل وثّق"
