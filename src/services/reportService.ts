@@ -148,7 +148,7 @@ export function printCollectionsReportHtml(
       <td style="text-align: center;">${idx + 1}</td>
       <td style="font-weight: bold;">${item.receiptNumber || item.id}</td>
       <td>${item.customerName}</td>
-      <td style="text-align: left; font-weight: bold; color: #047857;">${item.amount.toLocaleString('en-US')} ش.إ</td>
+      <td style="text-align: left; font-weight: bold; color: #047857;">${item.amount.toLocaleString('en-US')} ₪</td>
       <td style="text-align: center;">${item.date}</td>
       <td style="text-align: center;">${formatPaymentMethod(item.paymentMethod)}</td>
       <td style="text-align: center;"><span style="background: #dcfce7; color: #15803d; padding: 2px 8px; border-radius: 4px; font-size: 11px;">${item.status || 'مكتمل'}</span></td>
@@ -202,7 +202,7 @@ export function printCollectionsReportHtml(
       <div class="kpi-grid">
         <div class="kpi-card">
           <div class="kpi-label">إجمالي التحصيلات</div>
-          <div class="kpi-val emerald">${data.totalCollected.toLocaleString('en-US')} ش.إ</div>
+          <div class="kpi-val emerald">${data.totalCollected.toLocaleString('en-US')} ₪</div>
         </div>
         <div class="kpi-card">
           <div class="kpi-label">عدد عمليات التحصيل</div>
@@ -210,7 +210,7 @@ export function printCollectionsReportHtml(
         </div>
         <div class="kpi-card">
           <div class="kpi-label">متوسط قيمة السند</div>
-          <div class="kpi-val">${(data.totalRecords > 0 ? Math.round(data.totalCollected / data.totalRecords) : 0).toLocaleString('en-US')} ش.إ</div>
+          <div class="kpi-val">${(data.totalRecords > 0 ? Math.round(data.totalCollected / data.totalRecords) : 0).toLocaleString('en-US')} ₪</div>
         </div>
       </div>
 
@@ -464,7 +464,7 @@ export function exportCollectionsReportCsv(
   items: CollectionItem[],
   filename = 'تقرير_التحصيلات.csv'
 ): void {
-  const headers = ['رقم العملية', 'اسم العميل', 'المبلغ (ش.إ)', 'تاريخ السداد', 'طريقة الدفع', 'رقم الإيصال', 'الحالة'];
+  const headers = ['رقم العملية', 'اسم العميل', 'المبلغ (₪)', 'تاريخ السداد', 'طريقة الدفع', 'رقم الإيصال', 'الحالة'];
   const rows = items.map((item) => [
     item.id,
     item.customerName,

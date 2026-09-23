@@ -17,7 +17,7 @@ export const DEFAULT_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     badgeType: 'basic',
     price: 'مجانية',
     rawPrice: 0,
-    currency: 'ش.إ',
+    currency: '₪',
     description: 'للتجار المبتدئين في تنظيم ومتابعة ديونهم.',
     isPopular: false,
     isCurrent: false,
@@ -39,9 +39,9 @@ export const DEFAULT_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     name: 'المتقدمة',
     badge: 'المتقدمة',
     badgeType: 'advanced',
-    price: '99 ش.إ',
+    price: '99 ₪',
     rawPrice: 99,
-    currency: 'ش.إ',
+    currency: '₪',
     period: '/شهرياً',
     description: 'للمحلات التجارية المتوسطة والنمو السريع.',
     isPopular: true,
@@ -64,9 +64,9 @@ export const DEFAULT_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     name: 'الاحترافية',
     badge: 'الاحترافية',
     badgeType: 'professional',
-    price: '899 ش.إ',
+    price: '899 ₪',
     rawPrice: 899,
-    currency: 'ش.إ',
+    currency: '₪',
     period: '/سنوياً',
     description: 'حلول متكاملة للمؤسسات والشركات الكبيرة.',
     isPopular: false,
@@ -90,9 +90,9 @@ export const DEFAULT_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
  * Normalizes currency symbols to Arabic representation
  */
 function formatCurrency(currency?: string | null): string {
-  if (!currency) return 'ش.إ';
+  if (!currency) return '₪';
   const c = currency.trim().toUpperCase();
-  if (c === 'ILS' || c === 'NIS' || c === 'شيكل' || c === 'ش.إ') return 'ش.إ';
+  if (c === 'ILS' || c === 'NIS' || c === 'شيكل' || c === '₪') return '₪';
   if (c === 'SAR' || c === 'ريال' || c === 'ر.س') return 'شيكل';
   if (c === 'USD' || c === '$') return '$';
   if (c === 'JOD' || c === 'د.أ') return 'د.أ';

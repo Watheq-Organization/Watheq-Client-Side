@@ -85,7 +85,7 @@ export const StatCards: FC = () => {
               <span className="text-3xl font-bold font-cairo text-slate-900 dark:text-white tracking-tight">
                 {formatValue(outstandingDebt)}
               </span>
-              <span className="text-sm font-semibold text-slate-400 font-cairo">ش.إ</span>
+              <span className="text-sm font-semibold text-slate-400 font-cairo">₪</span>
             </div>
           </div>
         </div>
@@ -123,7 +123,7 @@ export const StatCards: FC = () => {
               <span className="text-3xl font-bold font-cairo text-slate-900 dark:text-white tracking-tight">
                 {formatValue(totalCollections)}
               </span>
-              <span className="text-sm font-semibold text-slate-400 font-cairo">ش.إ</span>
+              <span className="text-sm font-semibold text-slate-400 font-cairo">₪</span>
             </div>
           </div>
         </div>

@@ -582,7 +582,7 @@ export const NewPaymentScreen: FC = () => {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-blue-200/70 font-medium">إجمالي المديونية:</span>
                   <span className="font-bold" dir="ltr">
-                    {isLoadingProfile ? '...' : `${totalDebt.toFixed(2).replace(/\.00$/, '')} ش.إ`}
+                    {isLoadingProfile ? '...' : `${totalDebt.toFixed(2).replace(/\.00$/, '')} ₪`}
                   </span>
                 </div>
 
@@ -591,7 +591,7 @@ export const NewPaymentScreen: FC = () => {
                   <span className="font-bold" dir="ltr">
                     {balanceAfterPayment === null
                       ? '---'
-                      : `${balanceAfterPayment.toFixed(2).replace(/\.00$/, '')} ش.إ`}
+                      : `${balanceAfterPayment.toFixed(2).replace(/\.00$/, '')} ₪`}
                   </span>
                 </div>
 

@@ -99,8 +99,8 @@ export async function getRecentActivities(): Promise<RecentActivityItem[]> {
         time: formatRelativeTime(tx.date),
         title: isPayment ? 'تم استلام دفعة' : isDebt ? 'إضافة دين جديد' : 'معاملة مالية',
         description: isPayment
-          ? `قام ${profile.fullName} بسداد مبلغ ${Number(tx.amount).toLocaleString('en-US')} ش.إ.`
-          : `تم تسجيل دين بقيمة ${Number(tx.amount).toLocaleString('en-US')} ش.إ على ${profile.fullName}`,
+          ? `قام ${profile.fullName} بسداد مبلغ ${Number(tx.amount).toLocaleString('en-US')} ₪.`
+          : `تم تسجيل دين بقيمة ${Number(tx.amount).toLocaleString('en-US')} ₪ على ${profile.fullName}`,
         dotColor: isPayment ? 'bg-[#22c55e]' : 'bg-[#0f284e]',
         timestamp: txTimeMs,
       });

@@ -440,7 +440,7 @@ export const AddDebtScreen: FC = () => {
                     dir="ltr"
                     className="min-w-0 flex-1 bg-transparent text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none text-right font-sans"
                   />
-                  <span className="text-xs font-bold text-slate-400 shrink-0">ش.إ</span>
+                  <span className="text-xs font-bold text-slate-400 shrink-0">₪</span>
                 </div>
                 {fieldErrors.amount && <p className="text-xs text-rose-600">{fieldErrors.amount}</p>}
               </div>

@@ -593,7 +593,7 @@ export const CustomerDetailsScreen: FC = () => {
         description: tx.description || (isDebt ? 'معاملة دين' : 'معاملة دفع'),
         date: formatApiDate(tx.date, true),
         dueDate: formattedDueDate,
-        balanceLabel: `${tx.balance.toFixed(2)} ${tx.currencyCode || 'ش.إ'}`,
+        balanceLabel: `${tx.balance.toFixed(2)} ${tx.currencyCode || '₪'}`,
         reference: tx.reference,
         recordId:
           tx.id ||
@@ -821,7 +821,7 @@ export const CustomerDetailsScreen: FC = () => {
                       <span>إجمالي المدفوع</span>
                     </div>
                     <span className="font-bold text-slate-800 dark:text-slate-200 font-mono" dir="ltr">
-                      {computedTotalPaid.toFixed(2)} ش.إ
+                      {computedTotalPaid.toFixed(2)} ₪
                     </span>
                   </div>
 
@@ -1172,7 +1172,7 @@ export const CustomerDetailsScreen: FC = () => {
                       {currentBalance.toFixed(2)}
                     </span>
                     <span className="text-sm font-bold text-slate-400 font-cairo">
-                      ش.إ
+                      ₪
                     </span>
                   </div>
                 </div>
@@ -1188,7 +1188,7 @@ export const CustomerDetailsScreen: FC = () => {
                       {lastPaymentAmount.toFixed(2)}
                     </span>
                     <span className="text-[10px] text-slate-400 block font-cairo">
-                      ش.إ
+                      ₪
                     </span>
                   </div>
 
