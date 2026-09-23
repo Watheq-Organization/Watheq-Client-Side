@@ -86,14 +86,14 @@ export const AddDebtScreen: FC = () => {
   // (see AddDebtNavigationState above) rather than requiring a re-search.
   const editingCustomerAsDto: CustomerDto | null = editingDebt
     ? {
-        id: editingDebt.customerId,
-        fullName: editingDebt.customerFullName,
-        phoneNumber: editingDebt.phoneNumber,
-        address: '',
-        totalDebt: 0,
-        totalPaid: 0,
-        createdAt: '',
-      }
+      id: editingDebt.customerId,
+      fullName: editingDebt.customerFullName,
+      phoneNumber: editingDebt.phoneNumber,
+      address: '',
+      totalDebt: 0,
+      totalPaid: 0,
+      createdAt: '',
+    }
     : null;
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -200,6 +200,9 @@ export const AddDebtScreen: FC = () => {
 
       const parsed = parseVoiceDebt(transcript);
 
+      if (parsed.customerName && !selectedCustomer) {
+        handleCustomerQueryChange(parsed.customerName);
+      }
       if (parsed.amount !== null) {
         setAmount(String(parsed.amount));
         setFieldErrors((prev) => ({ ...prev, amount: undefined }));
@@ -226,6 +229,7 @@ export const AddDebtScreen: FC = () => {
     };
   }, []);
 
+
   const handleCancel = () => {
     navigate(-1);
   };
@@ -247,7 +251,7 @@ export const AddDebtScreen: FC = () => {
     if (errors.customer || errors.amount || errors.dueDate || errors.notes) {
       return;
     }
-
+    //
     setSubmitError(null);
     setIsSaving(true);
     try {
@@ -331,9 +335,8 @@ export const AddDebtScreen: FC = () => {
                   onClick={handleVoiceInputClick}
                   aria-pressed={isListening}
                   aria-label="إدخال صوتي سريع"
-                  className={`w-9 h-9 shrink-0 rounded-lg flex items-center justify-center text-white transition-colors cursor-pointer ${
-                    isListening ? 'bg-rose-600 animate-pulse' : 'bg-[#00204F] hover:bg-[#00204F]/90'
-                  }`}
+                  className={`w-9 h-9 shrink-0 rounded-lg flex items-center justify-center text-white transition-colors cursor-pointer ${isListening ? 'bg-rose-600 animate-pulse' : 'bg-[#00204F] hover:bg-[#00204F]/90'
+                    }`}
                 >
                   <Mic className="w-4 h-4" />
                 </button>
@@ -364,9 +367,8 @@ export const AddDebtScreen: FC = () => {
                   placeholder="ابحث بالاسم، رقم الهوية أو رقم الجوال..."
                   dir="rtl"
                   disabled={isEditMode}
-                  className={`w-full pr-10 pl-9 py-2.5 bg-[#F7F7FC] border rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00204F]/20 focus:border-[#00204F] transition-all text-right disabled:cursor-not-allowed disabled:opacity-70 ${
-                    fieldErrors.customer ? 'border-rose-400' : 'border-slate-200'
-                  }`}
+                  className={`w-full pr-10 pl-9 py-2.5 bg-[#F7F7FC] border rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00204F]/20 focus:border-[#00204F] transition-all text-right disabled:cursor-not-allowed disabled:opacity-70 ${fieldErrors.customer ? 'border-rose-400' : 'border-slate-200'
+                    }`}
                 />
               </div>
 
@@ -421,9 +423,8 @@ export const AddDebtScreen: FC = () => {
                   المبلغ (شيكل إسرائيلي)
                 </label>
                 <div
-                  className={`w-full flex items-center gap-1 pr-3.5 pl-3 py-2.5 bg-[#F7F7FC] border rounded-lg focus-within:bg-white focus-within:ring-2 focus-within:ring-[#00204F]/20 focus-within:border-[#00204F] transition-all ${
-                    fieldErrors.amount ? 'border-rose-400' : 'border-slate-200'
-                  }`}
+                  className={`w-full flex items-center gap-1 pr-3.5 pl-3 py-2.5 bg-[#F7F7FC] border rounded-lg focus-within:bg-white focus-within:ring-2 focus-within:ring-[#00204F]/20 focus-within:border-[#00204F] transition-all ${fieldErrors.amount ? 'border-rose-400' : 'border-slate-200'
+                    }`}
                 >
                   <input
                     type="number"
@@ -457,9 +458,8 @@ export const AddDebtScreen: FC = () => {
                       setFieldErrors((prev) => ({ ...prev, dueDate: undefined }));
                     }}
                     dir="ltr"
-                    className={`w-full pr-10 pl-3.5 py-2.5 bg-[#F7F7FC] border rounded-lg text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00204F]/20 focus:border-[#00204F] transition-all text-right font-sans ${
-                      fieldErrors.dueDate ? 'border-rose-400' : 'border-slate-200'
-                    }`}
+                    className={`w-full pr-10 pl-3.5 py-2.5 bg-[#F7F7FC] border rounded-lg text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00204F]/20 focus:border-[#00204F] transition-all text-right font-sans ${fieldErrors.dueDate ? 'border-rose-400' : 'border-slate-200'
+                      }`}
                   />
                 </div>
                 {fieldErrors.dueDate && <p className="text-xs text-rose-600">{fieldErrors.dueDate}</p>}
@@ -477,9 +477,8 @@ export const AddDebtScreen: FC = () => {
                   setNotes(e.target.value);
                   setFieldErrors((prev) => ({ ...prev, notes: undefined }));
                 }}
-                className={`w-full px-3.5 py-2.5 bg-[#F7F7FC] border rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00204F]/20 focus:border-[#00204F] transition-all text-right resize-none h-[75px] ${
-                  fieldErrors.notes ? 'border-rose-400' : 'border-slate-200'
-                }`}
+                className={`w-full px-3.5 py-2.5 bg-[#F7F7FC] border rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00204F]/20 focus:border-[#00204F] transition-all text-right resize-none h-[75px] ${fieldErrors.notes ? 'border-rose-400' : 'border-slate-200'
+                  }`}
               />
               {fieldErrors.notes && <p className="text-xs text-rose-600 text-right mt-1">{fieldErrors.notes}</p>}
             </div>
@@ -503,9 +502,8 @@ export const AddDebtScreen: FC = () => {
                 className="relative w-11 h-6 shrink-0 rounded-full bg-white border border-slate-200 shadow-inner transition-colors cursor-pointer"
               >
                 <span
-                  className={`absolute top-0 w-6 h-6 rounded-full shadow flex items-center justify-center transition-all ${
-                    whatsappEnabled ? 'left-0 bg-blue-600' : 'right-0 bg-slate-300'
-                  }`}
+                  className={`absolute top-0 w-6 h-6 rounded-full shadow flex items-center justify-center transition-all ${whatsappEnabled ? 'left-0 bg-blue-600' : 'right-0 bg-slate-300'
+                    }`}
                 >
                   {whatsappEnabled && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
                 </span>
