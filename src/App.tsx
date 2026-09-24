@@ -4,7 +4,7 @@ import { AppRoutes } from './routes/AppRoutes';
 export function App() {
   useEffect(() => {
     // Initialize Theme
-    const theme = localStorage.getItem('app_theme') || 'light';
+    const theme = localStorage.getItem('theme');
     const root = document.documentElement;
     if (theme === 'dark') {
       root.classList.add('dark');
@@ -25,7 +25,7 @@ export function App() {
   }, []);
 
   return (
-    <div className="relative min-h-screen bg-slate-100 dark:bg-slate-700 font-cairo transition-colors duration-300">
+    <div className="relative min-h-screen bg-slate-100 dark:bg-slate-700 font-cairo">
       <AppRoutes />
     </div>
   );

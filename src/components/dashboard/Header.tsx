@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import type { FC } from 'react';
 import {
   Search,
@@ -297,8 +298,21 @@ export const Header: FC<HeaderProps> = ({
                 return;
               }
 
+              // Prevent conflicting CSS transitions during the View Transition API animation
+              document.documentElement.classList.add('is-transitioning');
+              
               const transition = document.startViewTransition(() => {
-                setIsDarkMode(isDark);
+                flushSync(() => {
+                  const root = document.documentElement;
+                  if (isDark) {
+                    root.classList.add('dark');
+                    localStorage.setItem('theme', 'dark');
+                  } else {
+                    root.classList.remove('dark');
+                    localStorage.setItem('theme', 'light');
+                  }
+                  setIsDarkMode(isDark);
+                });
               });
 
               transition.ready.then(() => {
@@ -314,11 +328,16 @@ export const Header: FC<HeaderProps> = ({
                   {
                     duration: 500,
                     easing: 'ease-in-out',
+                    fill: 'forwards',
                     pseudoElement: isDark
                       ? '::view-transition-new(root)'
                       : '::view-transition-old(root)',
                   }
                 );
+              });
+              
+              transition.finished.finally(() => {
+                document.documentElement.classList.remove('is-transitioning');
               });
             }}
             className="p-2 rounded-xl text-slate-600 dark:text-slate-400 hover:text-[#051838] dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 transition-colors cursor-pointer"

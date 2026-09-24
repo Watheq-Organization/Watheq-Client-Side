@@ -60,6 +60,7 @@ body {
     opacity: 0;
     transform: translate(-50%, -18px) scale(0.96);
   }
+
   100% {
     opacity: 1;
     transform: translate(-50%, 0) scale(1);
@@ -75,14 +76,15 @@ body {
 /* View Transitions for Dark Mode */
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation: none;
-  mix-blend-mode: normal;
+  animation: none !important;
+  mix-blend-mode: normal !important;
 }
 
 /* When switching TO dark mode, animate the new state (dark) over the old state */
 html.dark::view-transition-new(root) {
   z-index: 2;
 }
+
 html.dark::view-transition-old(root) {
   z-index: 1;
 }
@@ -91,6 +93,15 @@ html.dark::view-transition-old(root) {
 html:not(.dark)::view-transition-old(root) {
   z-index: 2;
 }
+
 html:not(.dark)::view-transition-new(root) {
   z-index: 1;
+}
+
+
+/* Disable all other transitions during View Transition to prevent flickering */
+
+
+html.is-transitioning * {
+  transition: none !important;
 }
