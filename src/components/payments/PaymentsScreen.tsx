@@ -767,7 +767,11 @@ export const PaymentsScreen: FC = () => {
                                   type="button"
                                   onClick={() => {
                                     setActiveMenuId(null);
-                                    navigate(PATHS.CUSTOMERS);
+                                    if (payment.customerId) {
+                                      navigate(`/customers/${payment.customerId}`);
+                                    } else {
+                                      navigate(PATHS.CUSTOMERS);
+                                    }
                                   }}
                                   className="w-full flex items-center gap-2 px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
                                 >
