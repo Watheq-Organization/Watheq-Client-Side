@@ -499,7 +499,7 @@ export const SubscriptionsScreen: FC = () => {
                           key={p.id}
                           className={`py-4 px-6 font-bold text-center ${
                             p.isPopular
-                              ? 'bg-[#eff6ff] text-[#1e40af] border-x border-blue-100'
+                              ? 'bg-[#eff6ff] dark:bg-blue-900/20 text-[#1e40af] dark:text-blue-300 border-x border-blue-100 dark:border-blue-900/30'
                               : 'bg-slate-50/70 dark:bg-slate-800/70 text-slate-700 dark:text-slate-300'
                           }`}
                         >
@@ -525,7 +525,7 @@ export const SubscriptionsScreen: FC = () => {
                               key={pIdx}
                               className={`py-4 px-6 text-center font-medium ${
                                 isPop
-                                  ? 'bg-[#eff6ff]/50 font-semibold text-[#1e40af] border-x border-blue-100'
+                                  ? 'bg-[#eff6ff]/50 dark:bg-blue-900/10 font-semibold text-[#1e40af] dark:text-blue-300 border-x border-blue-100 dark:border-blue-900/30'
                                   : 'text-slate-700 dark:text-slate-300'
                               }`}
                             >

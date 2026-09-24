@@ -9,8 +9,19 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Dark Mode FOUC Prevention -->
+    <script>
+      (function() {
+        var theme = localStorage.getItem('theme');
+        if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      })();
+    </script>
   </head>
-  <body class="font-cairo antialiased bg-[#f8fafc] text-slate-800">
+  <body class="font-cairo antialiased bg-[#f8fafc] dark:bg-slate-900 text-slate-800 dark:text-white transition-colors duration-0">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

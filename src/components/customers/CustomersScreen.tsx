@@ -563,7 +563,7 @@ export const CustomersScreen: FC = () => {
                         {/* 3. Total Debt */}
                         <td className="py-4 px-4 sm:px-6 font-bold text-slate-900 dark:text-white font-cairo text-sm sm:text-base">
                           <span>{customer.totalDebt.toLocaleString('en-US')}</span>{' '}
-                          <span className="text-xs font-normal text-slate-400 font-cairo">₪</span>
+                          <span className="text-base font-bold text-slate-400 font-cairo mr-1">₪</span>
                         </td>
 
                         {/* 4. Status Badge */}

@@ -70,3 +70,11 @@ body {
   animation: toastSlideDown 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+
+
+/* View Transitions for Dark Mode */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}

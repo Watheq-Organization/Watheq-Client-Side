@@ -17,6 +17,8 @@ import {
   Check,
   ChevronDown,
   Loader2,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useMerchantProfile } from '../../services/merchantProfileService';
@@ -57,6 +59,27 @@ export const Header: FC<HeaderProps> = ({
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [notifFilter, setNotifFilter] = useState<'all' | 'unread'>('all');
+
+  // Dark Mode State
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('theme');
+      if (saved) return saved === 'dark';
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (isDarkMode) {
+      root.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      root.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
 
   // Logout modal states
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
@@ -257,6 +280,52 @@ export const Header: FC<HeaderProps> = ({
 
         {/* Left Side in RTL: Actions & User Avatar */}
         <div className="flex items-center gap-2 sm:gap-3 relative">
+          {/* Dark Mode Toggle Button */}
+          <button
+            type="button"
+            onClick={(e) => {
+              const isDark = !isDarkMode;
+              const x = e.clientX;
+              const y = e.clientY;
+              const endRadius = Math.hypot(
+                Math.max(x, innerWidth - x),
+                Math.max(y, innerHeight - y)
+              );
+
+              if (!document.startViewTransition) {
+                setIsDarkMode(isDark);
+                return;
+              }
+
+              const transition = document.startViewTransition(() => {
+                setIsDarkMode(isDark);
+              });
+
+              transition.ready.then(() => {
+                const clipPath = [
+                  `circle(0px at ${x}px ${y}px)`,
+                  `circle(${endRadius}px at ${x}px ${y}px)`,
+                ];
+
+                document.documentElement.animate(
+                  {
+                    clipPath,
+                  },
+                  {
+                    duration: 500,
+                    easing: 'ease-in-out',
+                    pseudoElement: '::view-transition-new(root)',
+                  }
+                );
+              });
+            }}
+            className="p-2 rounded-xl text-slate-600 dark:text-slate-400 hover:text-[#051838] dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 transition-colors cursor-pointer"
+            title="تبديل المظهر"
+            aria-label="تبديل المظهر"
+          >
+            {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </button>
+
           {/* Notification Bell Dropdown Container */}
           <div className="relative" ref={notifDropdownRef}>
             <button

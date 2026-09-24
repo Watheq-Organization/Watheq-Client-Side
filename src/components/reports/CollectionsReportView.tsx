@@ -527,7 +527,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
 
                     {/* Collected Amount */}
                     <td className="px-6 py-4 font-bold font-cairo text-[#047857]">
-                      {item.amount.toLocaleString('en-US')} <span className="text-xs font-normal text-slate-500 dark:text-slate-400">₪</span>
+                      {item.amount.toLocaleString('en-US')} <span className="text-base font-bold text-slate-500 dark:text-slate-400 mr-1">₪</span>
                     </td>
 
                     {/* Payment Date */}

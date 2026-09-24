@@ -601,7 +601,7 @@ export const PaymentsScreen: FC = () => {
                 <thead>
                   <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-medium text-xs bg-slate-50/6 dark:bg-slate-800/60 dark:bg-slate-800/60">
                     <th className="px-6 py-4">اسم العميل</th>
-                    <th className="px-6 py-4">المبلغ (₪)</th>
+                    <th className="px-6 py-4">المبلغ (<span className="text-lg font-bold font-sans">₪</span>)</th>
                     <th className="px-6 py-4">التاريخ</th>
                     <th className="px-6 py-4">طريقة الدفع</th>
                     <th className="px-6 py-4">الحالة</th>
