@@ -988,15 +988,3 @@ export function toAddCustomerErrorMessage(error: unknown): string {
   return parseAddCustomerApiError(error).generalMessage;
 }
 
-/**
- * POST https://whateq.runasp.net/api/Telegram/link/regenerate
- *
- * Asks the backend to generate and store a Telegram Deep Link for the
- * given customer. Called automatically after addCustomer succeeds so that
- * the new customer can connect via Telegram without any extra UI step.
- * The JWT (attached automatically by httpClient) provides the merchant
- * identity — only customerId needs to be sent in the body.
- */
-export async function generateTelegramLink(customerId: number): Promise<void> {
-  await httpClient.post<unknown>('/Telegram/link/regenerate', { customerId });
-}
