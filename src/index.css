@@ -78,3 +78,19 @@ body {
   animation: none;
   mix-blend-mode: normal;
 }
+
+/* When switching TO dark mode, animate the new state (dark) over the old state */
+html.dark::view-transition-new(root) {
+  z-index: 2;
+}
+html.dark::view-transition-old(root) {
+  z-index: 1;
+}
+
+/* When switching TO light mode, shrink the old state (dark) over the new state */
+html:not(.dark)::view-transition-old(root) {
+  z-index: 2;
+}
+html:not(.dark)::view-transition-new(root) {
+  z-index: 1;
+}
