@@ -987,3 +987,4 @@ export function toUpdateCustomerErrorMessage(error: unknown): string {
 export function toAddCustomerErrorMessage(error: unknown): string {
   return parseAddCustomerApiError(error).generalMessage;
 }
+
