@@ -309,12 +309,14 @@ export const Header: FC<HeaderProps> = ({
 
                 document.documentElement.animate(
                   {
-                    clipPath,
+                    clipPath: isDark ? clipPath : [...clipPath].reverse(),
                   },
                   {
                     duration: 500,
                     easing: 'ease-in-out',
-                    pseudoElement: '::view-transition-new(root)',
+                    pseudoElement: isDark
+                      ? '::view-transition-new(root)'
+                      : '::view-transition-old(root)',
                   }
                 );
               });
