@@ -564,3 +564,110 @@ export function toCreateDebtErrorMessage(error: unknown): string {
   }
   return 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.';
 }
+// ---------------------------------------------------------------------------
+// Send Debt Payment Reminder
+// POST /api/Debt/{debtId}/send-reminder
+// ---------------------------------------------------------------------------
+
+export interface DebtReminderData {
+  debtId: number;
+  customerId: number;
+  customerName: string;
+  telegramChatId: string;
+  remainingAmount: number;
+  currency: string;
+  sentAt: string;
+}
+
+export interface DebtReminderResponse {
+  isSuccess: boolean;
+  message: string;
+  data?: DebtReminderData;
+}
+
+/**
+ * POST /api/Debt/{customerId}/send-reminder
+ *
+ * Sends a Telegram payment reminder for the customer's outstanding debt.
+ * The backend validates: debt ownership, customer existence,
+ * Telegram connection, and unpaid status before forwarding
+ * the payload to the n8n webhook.
+ *
+ * The Frontend only needs to supply the customerId; all other
+ * data (UserId, BusinessId, TelegramChatId, RemainingAmount)
+ * is resolved server-side from the JWT.
+ */
+export async function sendDebtReminder(customerId: number | string): Promise<DebtReminderResponse> {
+  const raw = await httpClient.post<unknown>(`/Debt/${customerId}/send-reminder`, {});
+
+  // Normalise the response regardless of the wrapper shape the backend returns
+  const body = raw as Record<string, unknown>;
+
+  return {
+    isSuccess: Boolean(body?.isSuccess ?? true),
+    message: String(body?.message ?? 'تم إرسال التذكير بنجاح.'),
+    data: body?.data as DebtReminderData | undefined,
+  };
+}
+
+/**
+ * Maps every documented backend error for the send-reminder endpoint
+ * into a user-facing Arabic message.
+ */
+export function toSendReminderErrorMessage(err: unknown): string {
+  if (err instanceof ApiError) {
+    const serverMsg = typeof err.body === 'object' && err.body !== null
+      ? String((err.body as Record<string, unknown>).message ?? (err.body as Record<string, unknown>).title ?? '')
+      : String(err.body ?? '');
+
+    // eslint-disable-next-line no-console
+    console.error('[sendDebtReminder] ApiError', { status: err.status, body: err.body, serverMsg });
+
+    if (serverMsg.includes('Invalid Debt ID')) {
+      return 'معرّف الدين غير صالح.';
+    }
+    if (serverMsg.includes('No business found')) {
+      return 'لم يتم العثور على متجر مرتبط بحسابك.';
+    }
+    if (serverMsg.includes('does not exist') || serverMsg.includes('does not belong')) {
+      return 'الدين غير موجود أو لا يخصّ متجرك.';
+    }
+    if (serverMsg.includes('Customer not found')) {
+      return 'العميل غير موجود.';
+    }
+    if (serverMsg.includes('not connected to Telegram')) {
+      return 'العميل غير مرتبط بحساب تليجرام.';
+    }
+    if (serverMsg.includes('fully paid')) {
+      return 'لا يمكن إرسال تذكير؛ الدين مسدد بالكامل.';
+    }
+    if (serverMsg.includes('Failed to deliver') || serverMsg.includes('n8n')) {
+      return 'فشل إرسال التذكير عبر بوابة الإشعارات. حاول لاحقاً.';
+    }
+    if (err.status === 408) {
+      return 'انتهت مهلة الاتصال بالخادم. تحقق من الاتصال وأعد المحاولة.';
+    }
+    if (err.status === 0) {
+      return 'تعذّر الاتصال بالخادم. تحقق من اتصال الإنترنت.';
+    }
+    if (err.status === 400) {
+      return serverMsg || 'طلب غير صالح. تحقق من بيانات الدين.';
+    }
+    if (err.status === 401) {
+      return 'انتهت صلاحية جلستك. يرجى تسجيل الدخول مجدداً.';
+    }
+    if (err.status === 403) {
+      return 'لا تملك صلاحية تنفيذ هذا الإجراء.';
+    }
+    if (err.status === 404) {
+      return serverMsg || 'تعذّر العثور على الدين أو العميل.';
+    }
+    if (err.status >= 500) {
+      return 'حدث خطأ في الخادم. يرجى المحاولة لاحقاً.';
+    }
+    return serverMsg || 'تعذّر إرسال التذكير. يرجى المحاولة مرة أخرى.';
+  }
+  // eslint-disable-next-line no-console
+  console.error('[sendDebtReminder] Unexpected non-ApiError:', err);
+  return 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.';
+}

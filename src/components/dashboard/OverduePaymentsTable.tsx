@@ -4,7 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { Bell, Check, ChevronLeft, Loader2, AlertCircle } from 'lucide-react';
 import { PATHS } from '../../routes/paths';
 import { getOverduePayments, toDashboardSummaryErrorMessage } from '../../services/dashboardService';
+import { sendDebtReminder, toSendReminderErrorMessage } from '../../services/debtService';
 import type { OverduePaymentItem } from '../../types/dashboard';
+import { Toast } from '../ui/Toast';
 
 interface OverduePaymentsTableProps {
   searchQuery?: string;
@@ -15,7 +17,16 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
   const [payments, setPayments] = useState<OverduePaymentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** debtId → permanently sent (success) */
   const [remindedIds, setRemindedIds] = useState<Record<string, boolean>>({});
+  /** debtId → currently sending (in-flight) */
+  const [sendingIds, setSendingIds] = useState<Record<string, boolean>>({});
+  /** Toast notification */
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+  };
 
   const loadData = useCallback(() => {
     setIsLoading(true);
@@ -36,11 +47,23 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
     loadData();
   }, [loadData]);
 
-  const handleSendReminder = (id: string) => {
-    setRemindedIds((prev) => ({ ...prev, [id]: true }));
-    setTimeout(() => {
-      setRemindedIds((prev) => ({ ...prev, [id]: false }));
-    }, 2500);
+  /**
+   * Calls POST /api/Debt/{debtId}/send-reminder.
+   * Uses payment.id which equals the debtId from the overdue debts report.
+   */
+  const handleSendReminder = async (debtId: string) => {
+    if (sendingIds[debtId] || remindedIds[debtId]) return;
+
+    setSendingIds((prev) => ({ ...prev, [debtId]: true }));
+    try {
+      await sendDebtReminder(debtId);
+      setRemindedIds((prev) => ({ ...prev, [debtId]: true }));
+      showToast('تم إرسال التذكير للعميل عبر تيليجرام بنجاح ✓', 'success');
+    } catch (err) {
+      showToast(toSendReminderErrorMessage(err), 'error');
+    } finally {
+      setSendingIds((prev) => ({ ...prev, [debtId]: false }));
+    }
   };
 
   const filteredPayments = payments.filter((payment) =>
@@ -126,30 +149,44 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
 
                       {/* Action Button */}
                       <td className="py-4 pl-2 text-left">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSendReminder(payment.id);
-                          }}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold font-cairo border transition-all duration-200 shadow-2xs ${
-                            isSent
-                              ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
-                              : 'bg-white dark:bg-slate-800 border-slate-300 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 hover:border-slate-400 active:scale-95'
-                          }`}
-                        >
-                          {isSent ? (
-                            <>
-                              <Check className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>تم الإرسال</span>
-                            </>
-                          ) : (
-                            <>
-                              <Bell className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
-                              <span>تذكير</span>
-                            </>
-                          )}
-                        </button>
+                        {(() => {
+                          const isSending = !!sendingIds[payment.id];
+                          const isDisabled = isSent || isSending;
+                          return (
+                            <button
+                              type="button"
+                              disabled={isDisabled}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleSendReminder(payment.id);
+                              }}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold font-cairo border transition-all duration-200 shadow-2xs ${
+                                isSent
+                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-700 cursor-default'
+                                  : isSending
+                                  ? 'bg-slate-50 dark:bg-slate-800 border-slate-200 text-slate-400 cursor-wait'
+                                  : 'bg-white dark:bg-slate-800 border-slate-300 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-400 active:scale-95 cursor-pointer'
+                              }`}
+                            >
+                              {isSent ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>تم الإرسال</span>
+                                </>
+                              ) : isSending ? (
+                                <>
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-500" />
+                                  <span>جاري الإرسال...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Bell className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
+                                  <span>تذكير</span>
+                                </>
+                              )}
+                            </button>
+                          );
+                        })()}
                       </td>
                     </tr>
                   );
@@ -167,6 +204,15 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
           )}
         </div>
       </div>
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 };

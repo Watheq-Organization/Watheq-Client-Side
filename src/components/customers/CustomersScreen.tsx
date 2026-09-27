@@ -11,6 +11,8 @@ import {
   ChevronRight,
   X,
   RotateCw,
+  Loader2,
+  Check,
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
@@ -29,6 +31,7 @@ import {
 } from '../../services/customerService';
 import { getDashboardSummary } from '../../services/dashboardService';
 import { getOverdueDebtsReport } from '../../services/reportService';
+import { sendDebtReminder, toSendReminderErrorMessage } from '../../services/debtService';
 import { Toast, type ToastType } from '../ui/Toast';
 import { PhoneInputWithCountry, type CountryCode } from '../ui/PhoneInputWithCountry';
 
@@ -47,6 +50,11 @@ export const CustomersScreen: FC = () => {
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
   const [customersLoadError, setCustomersLoadError] = useState<string | null>(null);
   const [customersReloadToken, setCustomersReloadToken] = useState(0);
+
+  /** customerId → permanently sent (success) */
+  const [remindedCustomerIds, setRemindedCustomerIds] = useState<Record<string, boolean>>({});
+  /** customerId → currently sending (in-flight) */
+  const [sendingCustomerIds, setSendingCustomerIds] = useState<Record<string, boolean>>({});
 
   // Add Customer Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -320,15 +328,19 @@ export const CustomersScreen: FC = () => {
     showToast('تم تصدير قائمة العملاء بنجاح.');
   };
 
-  const handleWhatsApp = (customer: Customer) => {
-    const phone = customer.phone ? customer.phone.replace(/[^0-9]/g, '') : '';
-    const text = encodeURIComponent(
-      `مرحباً ${customer.name}، نود تذكيركم بمستحقاتكم المالية لدى منصة وثّق بمبلغ ${customer.totalDebt.toLocaleString('en-US')} ₪.`
-    );
-    if (phone) {
-      window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
-    } else {
-      showToast('لا يوجد رقم هاتف مسجل لهذا العميل.');
+  const handleSendReminder = async (customer: Customer) => {
+    const custId = String(customer.id);
+    if (sendingCustomerIds[custId] || remindedCustomerIds[custId]) return;
+
+    setSendingCustomerIds((prev) => ({ ...prev, [custId]: true }));
+    try {
+      await sendDebtReminder(custId);
+      setRemindedCustomerIds((prev) => ({ ...prev, [custId]: true }));
+      showToast('تم إرسال التذكير للعميل عبر تيليجرام بنجاح ✓', 'success');
+    } catch (err) {
+      showToast(toSendReminderErrorMessage(err), 'error');
+    } finally {
+      setSendingCustomerIds((prev) => ({ ...prev, [custId]: false }));
     }
   };
 
@@ -591,15 +603,43 @@ export const CustomersScreen: FC = () => {
                         {/* 5. Actions */}
                         <td className="py-4 px-4 sm:px-6" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-center gap-2 text-slate-400">
-                            {/* WhatsApp Button */}
-                            <button
-                              type="button"
-                              onClick={() => handleWhatsApp(customer)}
-                              className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer"
-                              title="إرسال رسالة واتساب"
-                            >
-                              <MessageCircle className="w-4 h-4" />
-                            </button>
+                            {/* Reminder Button */}
+                            {(() => {
+                              const custId = String(customer.id);
+                              const isSent = !!remindedCustomerIds[custId];
+                              const isSending = !!sendingCustomerIds[custId];
+                              const isDisabled = isSent || isSending;
+
+                              return (
+                                <button
+                                  type="button"
+                                  disabled={isDisabled}
+                                  onClick={() => handleSendReminder(customer)}
+                                  className={`p-1.5 rounded-lg transition-all duration-200 ${
+                                    isSent
+                                      ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 cursor-default'
+                                      : isSending
+                                      ? 'text-slate-400 bg-slate-100 dark:bg-slate-700 cursor-wait'
+                                      : 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 active:scale-95 cursor-pointer'
+                                  }`}
+                                  title={
+                                    isSent
+                                      ? 'تم إرسال التذكير'
+                                      : isSending
+                                      ? 'جاري إرسال التذكير...'
+                                      : 'إرسال رسالة تذكير للعميل'
+                                  }
+                                >
+                                  {isSent ? (
+                                    <Check className="w-4 h-4 text-emerald-600" />
+                                  ) : isSending ? (
+                                    <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
+                                  ) : (
+                                    <MessageCircle className="w-4 h-4" />
+                                  )}
+                                </button>
+                              );
+                            })()}
 
                             {/* View Details */}
                             <button
