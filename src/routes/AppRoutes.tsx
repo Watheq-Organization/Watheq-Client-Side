@@ -29,13 +29,14 @@ import { LogoutPage } from '../pages/LogoutPage';
 import TermsPage from '../pages/TermsPage.tsx';
 import { ProtectedRoute } from './ProtectedRoute';
 import { useOAuthHandler } from '../hooks/useOAuthHandler';
+import { LandingPage } from '../pages/LandingPage';
 
 export const AppRoutes: FC = () => {
   useOAuthHandler();
 
   return (
     <Routes>
-      <Route path={PATHS.HOME} element={<Navigate to={PATHS.SPLASH} replace />} />
+      <Route path={PATHS.HOME} element={<LandingPage />} />
       <Route path={PATHS.SPLASH} element={<SplashPage />} />
       <Route path={PATHS.REGISTER} element={<RegisterPage />} />
       <Route path={PATHS.LOGIN} element={<LoginPage />} />
