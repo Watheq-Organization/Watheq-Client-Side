@@ -65,6 +65,21 @@ export default function MizanReconciliation() {
   const [discrepanciesList, setDiscrepanciesList] = useState(initialDiscrepancies);
   const [selectedDiscrepancies, setSelectedDiscrepancies] = useState<string[]>([]);
   const [selectedReconciled, setSelectedReconciled] = useState<string[]>([]);
+  
+  const [selectedPeriod, setSelectedPeriod] = useState('اليوم');
+  const [isPeriodDropdownOpen, setIsPeriodDropdownOpen] = useState(false);
+  const periods = ['آخر ساعتين', 'اليوم', 'أمس', 'آخر 48 ساعة', 'هذا الأسبوع'];
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState('all');
+
+  const filteredReconciledList = reconciledList.filter(sale => {
+    const matchesSearch = sale.id.includes(searchQuery) || sale.customerName.includes(searchQuery) || sale.bankSender.includes(searchQuery) || sale.amount.toString().includes(searchQuery);
+    const matchesType = filterType === 'all' || 
+                       (filterType === 'auto' && sale.status.includes('100%')) || 
+                       (filterType === 'manual' && !sale.status.includes('100%'));
+    return matchesSearch && matchesType;
+  });
 
   const handleCloseReconciled = () => {
     if (selectedReconciled.length === 0) return;
@@ -131,12 +146,42 @@ export default function MizanReconciliation() {
         </div>
 
         <div className="flex items-center gap-3 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-          <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700">
-            <Calendar className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">تاريخ اليوم: {new Date().toLocaleDateString('ar-EG')}</span>
+          
+          <div className="relative">
+            <button 
+              onClick={() => setIsPeriodDropdownOpen(!isPeriodDropdownOpen)}
+              onBlur={() => setTimeout(() => setIsPeriodDropdownOpen(false), 200)}
+              className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg border border-slate-100 dark:border-slate-700 transition-colors"
+            >
+              <Calendar className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                فترة المطابقة: <span className="text-emerald-700 dark:text-emerald-500">{selectedPeriod}</span>
+              </span>
+              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isPeriodDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isPeriodDropdownOpen && (
+              <div 
+                className="absolute top-full right-0 mt-1 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden z-20"
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                {periods.map(period => (
+                  <button
+                    key={period}
+                    onClick={() => {
+                      setSelectedPeriod(period);
+                      setIsPeriodDropdownOpen(false);
+                    }}
+                    className={`w-full text-right px-4 py-2.5 text-sm font-medium transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${selectedPeriod === period ? 'text-emerald-700 dark:text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'text-slate-700 dark:text-slate-300'}`}
+                  >
+                    {period}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           
-          <div className="h-8 w-px bg-slate-200"></div>
+          <div className="h-8 w-px bg-slate-200 dark:bg-slate-700"></div>
           
           <div className="relative">
             <button 
@@ -320,14 +365,27 @@ export default function MizanReconciliation() {
           {/* Reconciled Tab */}
           {activeTab === 'reconciled' && (
             <div>
-              <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-white dark:bg-slate-800">
-                <div className="relative">
-                  <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
-                  <input 
-                    type="text" 
-                    placeholder="بحث برقم الفاتورة أو الاسم..." 
-                    className="pl-4 pr-10 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                  />
+              <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-800">
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                  <div className="relative w-full sm:w-auto">
+                    <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                    <input 
+                      type="text" 
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="بحث برقم الفاتورة، الاسم، أو المبلغ..." 
+                      className="pl-4 pr-10 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg text-sm w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    />
+                  </div>
+                  <select
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                    className="w-full sm:w-auto px-3 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  >
+                    <option value="all">جميع المطابقات</option>
+                    <option value="auto">مطابقة تلقائية (100%)</option>
+                    <option value="manual">مطابقة يدوية (بعد المراجعة)</option>
+                  </select>
                 </div>
                 <button 
                   onClick={handleCloseReconciled}
@@ -366,15 +424,15 @@ export default function MizanReconciliation() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                    {reconciledList.length === 0 ? (
+                    {filteredReconciledList.length === 0 ? (
                       <tr>
                         <td colSpan={8} className="px-6 py-10 text-center text-slate-500 dark:text-slate-400 font-medium">
-                          تم إقفال جميع الفواتير المطابقة بنجاح! 🔒
+                          {reconciledList.length === 0 ? 'تم إقفال جميع الفواتير المطابقة بنجاح! 🔒' : 'لا توجد نتائج تطابق خيارات البحث الحالية.'}
                         </td>
                       </tr>
                     ) : (
-                      reconciledList.map((sale, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50/80 transition-colors">
+                      filteredReconciledList.map((sale, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
                           <td className="px-6 py-4 text-center">
                             <input 
                               type="checkbox" 
@@ -433,7 +491,7 @@ export default function MizanReconciliation() {
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                     {uncollectedSales.map((sale, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50/80 transition-colors">
+                      <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
                         <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{sale.id}</td>
                         <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{sale.items}</td>
                         <td className="px-6 py-4 font-bold text-red-600">{sale.amount}</td>
@@ -461,7 +519,7 @@ export default function MizanReconciliation() {
           {activeTab === 'discrepancies' && (
             <div>
               {discrepanciesList.length > 0 && (
-                <div className="p-4 border-b border-amber-100 dark:border-amber-800/50 flex justify-between items-center bg-amber-50 dark:bg-amber-900/20/30">
+                <div className="p-4 border-b border-amber-100 dark:border-amber-800/50 flex justify-between items-center bg-amber-50/30 dark:bg-amber-900/20">
                   <div className="flex items-center gap-3">
                     <input 
                       type="checkbox" 
@@ -515,7 +573,7 @@ export default function MizanReconciliation() {
                       </tr>
                     ) : (
                       discrepanciesList.map((disc, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50/80 transition-colors">
+                        <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
                           <td className="px-6 py-4 text-center">
                             <input 
                               type="checkbox" 
@@ -599,7 +657,7 @@ export default function MizanReconciliation() {
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                     {unmatchedInflows.map((inflow, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50/80 transition-colors">
+                      <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
                         <td className="px-6 py-4 text-slate-500 dark:text-slate-400">{inflow.time}</td>
                         <td className="px-6 py-4 font-bold text-blue-600 dark:text-blue-500">{inflow.amount}</td>
                         <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{inflow.bankSender}</td>
