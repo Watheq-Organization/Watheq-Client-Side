@@ -249,7 +249,13 @@ export const InstantSalesLogView: FC = () => {
                       {getMethodIcon(sale.paymentMethod)}
                     </td>
                     <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">
-                      {sale.createdAt ? new Date(sale.createdAt).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                      {sale.createdAt ? (
+                        new Date(
+                          typeof sale.createdAt === 'string' && !sale.createdAt.endsWith('Z') && !sale.createdAt.includes('+') 
+                            ? sale.createdAt + 'Z' 
+                            : sale.createdAt
+                        ).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                      ) : '—'}
                     </td>
                     <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-xs max-w-[200px] truncate">
                       {sale.description || '—'}
