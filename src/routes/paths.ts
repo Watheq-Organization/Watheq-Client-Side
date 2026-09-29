@@ -34,6 +34,7 @@ export const PATHS = {
   PRIVACY_POLICY: '/privacy-policy',
   LOGOUT: '/logout',
   TERMS: '/terms',
+  MIZAN: '/mizan',
 } as const;
 
 

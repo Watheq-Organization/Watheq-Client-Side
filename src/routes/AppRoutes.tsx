@@ -27,6 +27,7 @@ import { VerifyResetOtpPage } from '../pages/VerifyResetOtpPage';
 import { ResetPasswordPage } from '../pages/ResetPasswordPage';
 import { LogoutPage } from '../pages/LogoutPage';
 import TermsPage from '../pages/TermsPage.tsx';
+import { MizanPage } from '../pages/MizanPage.tsx';
 import { ProtectedRoute } from './ProtectedRoute';
 import { useOAuthHandler } from '../hooks/useOAuthHandler';
 import { LandingPage } from '../pages/LandingPage';
@@ -169,6 +170,14 @@ export const AppRoutes: FC = () => {
         element={
           <ProtectedRoute>
             <CashSalePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={PATHS.MIZAN}
+        element={
+          <ProtectedRoute>
+            <MizanPage />
           </ProtectedRoute>
         }
       />
