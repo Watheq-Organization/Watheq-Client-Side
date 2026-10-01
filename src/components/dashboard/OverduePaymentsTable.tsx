@@ -66,9 +66,11 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
     }
   };
 
-  const filteredPayments = payments.filter((payment) =>
-    payment.customerName.toLowerCase().includes(searchQuery.trim().toLowerCase())
-  );
+  const filteredPayments = payments
+    .filter((payment) =>
+      payment.customerName.toLowerCase().includes(searchQuery.trim().toLowerCase())
+    )
+    .reverse();
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-6 flex flex-col justify-between" dir="rtl">
@@ -76,7 +78,7 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
         {/* Table Header */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-bold font-cairo text-slate-900 dark:text-white">
-            المدفوعات المتأخرة
+            الديون المتأخرة
           </h2>
           <button
             type="button"

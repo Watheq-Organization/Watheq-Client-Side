@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import type { ChangeEvent, DragEvent } from 'react';
 import { 
   UploadCloud, 
   CheckCircle2, 
@@ -107,12 +108,53 @@ export default function MizanReconciliation() {
     setActiveTab('reconciled');
   };
 
-  const handleUpload = () => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const processFile = (file: File) => {
+    // Here you would normally upload the file to your server or parse it locally
+    console.log("Processing file:", file.name, file.size);
     setIsUploading(true);
     setTimeout(() => {
       setIsUploading(false);
       setIsParsed(true);
     }, 2500); // Simulate AI parsing delay
+  };
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+    // Reset input so the same file can be selected again if needed
+    if (e.target) {
+      e.target.value = '';
+    }
+  };
+
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+  };
+
+  const handleUploadClick = () => {
+    if (!isUploading) {
+      fileInputRef.current?.click();
+    }
   };
 
   return (
@@ -219,7 +261,24 @@ export default function MizanReconciliation() {
 
       {/* Upload Dropzone */}
       {!isParsed ? (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border-2 border-dashed border-emerald-200 dark:border-emerald-800/50 p-12 text-center mb-8 hover:bg-emerald-50 dark:bg-emerald-900/20/50 transition-colors cursor-pointer group" onClick={handleUpload}>
+        <div 
+          className={`bg-white dark:bg-slate-800 rounded-2xl border-2 border-dashed p-12 text-center mb-8 transition-colors cursor-pointer group ${
+            isDragging 
+              ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/40' 
+              : 'border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-50 dark:hover:bg-emerald-900/20/50'
+          }`}
+          onClick={handleUploadClick}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileChange} 
+            className="hidden" 
+            accept=".pdf,.xlsx,.xls,.csv" 
+          />
           {isUploading ? (
             <div className="flex flex-col items-center justify-center animate-pulse">
               <RefreshCw className="w-12 h-12 text-emerald-500 animate-spin mb-4" />
@@ -233,7 +292,7 @@ export default function MizanReconciliation() {
               </div>
               <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2">اسحب وأفلت كشف الحساب هنا</h3>
               <p className="text-slate-500 dark:text-slate-400 mb-6">يدعم ملفات PDF, Excel (.xlsx), و CSV الخاصة بالبنوك المحلية ومحافظ الدفع</p>
-              <button className="bg-emerald-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 shadow-sm">
+              <button className="bg-emerald-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 shadow-sm pointer-events-none">
                 <FileSpreadsheet className="w-4 h-4" />
                 تصفح الملفات
               </button>

@@ -33,6 +33,7 @@ import {
   markAllNotificationsAsRead,
 } from '../../services/notificationService';
 import type { AppNotification } from '../../types/notification';
+import { useTheme } from '../../context/ThemeContext';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -61,26 +62,7 @@ export const Header: FC<HeaderProps> = ({
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [notifFilter, setNotifFilter] = useState<'all' | 'unread'>('all');
 
-  // Dark Mode State
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('theme');
-      if (saved) return saved === 'dark';
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    return false;
-  });
-
-  useEffect(() => {
-    const root = document.documentElement;
-    if (isDarkMode) {
-      root.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      root.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [isDarkMode]);
+  const { setTheme, isDarkMode } = useTheme();
 
   // Logout modal states
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
@@ -294,7 +276,7 @@ export const Header: FC<HeaderProps> = ({
               );
 
               if (!document.startViewTransition) {
-                setIsDarkMode(isDark);
+                setTheme(isDark ? 'dark' : 'light');
                 return;
               }
 
@@ -303,15 +285,7 @@ export const Header: FC<HeaderProps> = ({
               
               const transition = document.startViewTransition(() => {
                 flushSync(() => {
-                  const root = document.documentElement;
-                  if (isDark) {
-                    root.classList.add('dark');
-                    localStorage.setItem('theme', 'dark');
-                  } else {
-                    root.classList.remove('dark');
-                    localStorage.setItem('theme', 'light');
-                  }
-                  setIsDarkMode(isDark);
+                  setTheme(isDark ? 'dark' : 'light');
                 });
               });
 

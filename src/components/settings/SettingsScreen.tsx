@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
+import { useTheme } from '../../context/ThemeContext';
 import {
   getMerchantProfile,
   updateMerchantProfile,
@@ -54,9 +55,7 @@ export const SettingsScreen: FC = () => {
   const [language, setLanguage] = useState<'ar' | 'en'>(() => {
     return (localStorage.getItem('app_language') as 'ar' | 'en') || 'ar';
   });
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(() => {
-    return (localStorage.getItem('app_theme') as 'light' | 'dark' | 'system') || 'light';
-  });
+  const { theme, setTheme } = useTheme();
 
   // Security state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -81,22 +80,7 @@ export const SettingsScreen: FC = () => {
     localStorage.setItem('app_language', language);
   }, [language]);
 
-  useEffect(() => {
-    // Apply Theme
-    const root = document.documentElement;
-    localStorage.setItem('app_theme', theme);
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else if (theme === 'light') {
-      root.classList.remove('dark');
-    } else {
-      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        root.classList.add('dark');
-      } else {
-        root.classList.remove('dark');
-      }
-    }
-  }, [theme]);
+
 
   useEffect(() => {
     // 1. Load reminder settings
@@ -190,6 +174,8 @@ export const SettingsScreen: FC = () => {
   };
 
   const handleSavePreferences = () => {
+    localStorage.setItem('app_language', language);
+    // Theme is already saved via ThemeContext
     showToast('تم تحديث تفضيلات النظام بنجاح!');
   };
 

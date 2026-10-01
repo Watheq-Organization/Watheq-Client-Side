@@ -60,7 +60,7 @@ export const Navbar: FC = () => {
           </Link>
         </nav>
 
-        {/* Auth Buttons */}
+        {/* Auth Buttons & Theme Toggle */}
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
           {/* Register Button: hidden when on RegisterPage, shown on LoginPage & other pages */}
           {!isRegisterPage && (
