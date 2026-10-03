@@ -3,17 +3,11 @@ import type { FC } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   ArrowRight,
-  ShieldCheck,
-  CheckCircle2,
   FileDown,
   Send,
   User,
   Calendar,
-  ListOrdered,
-  FileCheck,
   Check,
-  Phone,
-  Fingerprint,
   RotateCw,
   AlertCircle,
   Loader2,
@@ -474,291 +468,98 @@ export const DebtInvoiceScreen: FC = () => {
           {/* ============================================================ */}
           <div
             id="debt-invoice-card"
-            className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/90 shadow-lg shadow-slate-200/40 overflow-hidden relative print:border-none print:shadow-none print:rounded-none print:m-0 print:p-0"
+            className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden print:border-none print:shadow-none print:rounded-none print:m-0 print:p-0"
           >
-            {/* Emerald Top Accent Stripe */}
-            <div className="h-2.5 bg-gradient-to-r from-[#007a3d] via-[#059669] to-[#007a3d] w-full print:hidden" />
-
-            <div className="p-6 sm:p-8 lg:p-10 space-y-7">
-              {/* Section 1: Header (Invoice Code & Merchant Branding) */}
-              <div className="flex flex-col-reverse md:flex-row items-start md:items-center justify-between gap-6 pb-6 border-b border-slate-100 dark:border-slate-700">
-                {/* Right: Invoice Code & Date */}
-                <div className="space-y-1.5">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>سند مديونية موثق رقمياً</span>
-                  </span>
-                  <h2 className="text-2xl sm:text-3xl font-black font-mono text-[#0c2444] dark:text-blue-400 tracking-tight">
-                    #{invoiceData.invoiceNumber}
-                  </h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    تاريخ الإصدار: {invoiceData.issueDate} م | {invoiceData.issueTime}
-                  </p>
+            <div className="p-6 sm:p-8 space-y-6">
+              {/* Header */}
+              <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-700 pb-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-[#0c2444] dark:text-blue-400">فاتورة قيد مديونية</h2>
+                  <p className="text-sm text-slate-500 mt-1 font-mono">الرقم: {invoiceData.invoiceNumber}</p>
                 </div>
-
-                {/* Left: Merchant Platform Branding */}
-                <div className="flex items-center gap-3.5">
-                  <div className="space-y-1 text-right">
-                    <div className="flex items-center gap-2 justify-end">
-                      <span className="text-lg sm:text-xl font-black font-cairo text-[#0c2444] dark:text-blue-400">
-                        وثّق
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                        بوابة التاجر المعتمدة
-                      </span>
-                    </div>
-                    <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 font-cairo">
-                      {merchant.businessName || 'مؤسسة توريدات القرطاسية والمكتبية الحديثة'}
-                    </div>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono" dir="ltr">
-                      س.ت: 1010894721 • الرقم الضريبي: 310249827400003
-                    </div>
-                  </div>
-                  <div className="w-13 h-13 rounded-2xl bg-[#0c2444] text-white flex items-center justify-center shadow-md shadow-slate-900/10 shrink-0">
-                    <ShieldCheck className="w-7 h-7 text-emerald-400" />
-                  </div>
+                <div className="text-left">
+                  <h3 className="font-bold text-slate-800 dark:text-slate-200">{merchant.businessName || 'المتجر'}</h3>
+                  <p className="text-xs text-slate-500 mt-1">{invoiceData.issueDate}</p>
                 </div>
               </div>
 
-              {/* Section 2: Parties and Terms Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {/* Box 1 (Right): بيانات العميل المدين */}
-                <div className="border border-slate-200/90 rounded-2xl p-5 space-y-3 bg-white dark:bg-slate-800">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700">
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
-                      <User className="w-4 h-4 text-slate-400" />
-                      <span>بيانات العميل (المدين)</span>
-                    </div>
-                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      ✓ موثق الهوية
-                    </span>
+              {/* Parties and Terms */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-500 mb-3">
+                    <User className="w-4 h-4" />
+                    المطلوب من السيد (العميل):
                   </div>
-                  <div className="space-y-2 text-xs sm:text-sm">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-slate-500 dark:text-slate-400 font-medium">الاسم الكامل:</span>
-                      <span className="font-extrabold text-slate-900 dark:text-white text-base font-cairo">
-                        {invoiceData.customerName}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-slate-500 dark:text-slate-400 font-medium">رقم الهوية الوطنية:</span>
-                      <span className="font-bold font-mono text-slate-800 dark:text-slate-200">
-                        {invoiceData.customerNationalId}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-slate-500 dark:text-slate-400 font-medium">رقم الجوال:</span>
-                      <span className="font-bold font-mono text-slate-800 dark:text-slate-200" dir="ltr">
-                        {invoiceData.customerPhone}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-700">
-                      <span className="text-slate-500 dark:text-slate-400 font-medium">تاريخ فتح الملف:</span>
-                      <span className="font-semibold text-slate-700 dark:text-slate-300">{invoiceData.fileOpenDate}</span>
-                    </div>
-                  </div>
+                  <div className="font-bold text-slate-800 dark:text-slate-200">{invoiceData.customerName}</div>
+                  <div className="text-sm text-slate-600 dark:text-slate-400 mt-1" dir="ltr">{invoiceData.customerPhone}</div>
                 </div>
-
-                {/* Box 2 (Left): شروط وموعد الاستحقاق */}
-                <div className="border border-slate-200/90 rounded-2xl p-5 space-y-3 bg-white dark:bg-slate-800">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700">
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
-                      <Calendar className="w-4 h-4 text-slate-400" />
-                      <span>شروط وموعد الاستحقاق</span>
-                    </div>
-                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                      مطلوب السداد
-                    </span>
+                
+                <div className="border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-500 mb-3">
+                    <Calendar className="w-4 h-4" />
+                    شروط وموعد الاستحقاق:
                   </div>
-                  <div className="space-y-2 text-xs sm:text-sm">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-slate-500 dark:text-slate-400 font-medium">موعد السداد الأقصى:</span>
-                      <span className="font-extrabold text-slate-900 dark:text-white text-base font-cairo">
-                        {invoiceData.dueDate}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-slate-500 dark:text-slate-400 font-medium">نوع المعاملة:</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">
-                        فاتورة آجل (قيد مديونية تجارية)
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-slate-500 dark:text-slate-400 font-medium">طريقة التوثيق:</span>
-                      <span className="font-bold text-emerald-700 flex items-center gap-1">
-                        <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>إشعار معتمد عبر واتساب</span>
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-700">
-                      <span className="text-slate-500 dark:text-slate-400 font-medium">الفرع المسجل:</span>
-                      <span className="font-semibold text-slate-700 dark:text-slate-300">{invoiceData.branch}</span>
-                    </div>
+                  <div className="font-bold text-rose-600">
+                    أقصى موعد للسداد: {invoiceData.dueDate}
                   </div>
+                  <div className="text-sm text-slate-600 dark:text-slate-400 mt-1">فاتورة آجل (قيد مديونية)</div>
                 </div>
               </div>
 
-              {/* Section 3: Items Table (تفاصيل بنود الدين والقيد المالي) */}
-              <div className="space-y-2.5">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
-                  <ListOrdered className="w-4 h-4 text-slate-400" />
-                  <span>تفاصيل بنود الدين والقيد المالي</span>
-                </div>
-                <div className="overflow-x-auto border border-slate-200/90 rounded-2xl relative">
-                  {/* Subtle Background Watermark */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] select-none print:hidden">
-                    <span className="text-9xl font-black font-cairo text-[#0c2444] dark:text-blue-400">وثّق</span>
-                  </div>
-
-                  <table className="w-full text-right text-xs sm:text-sm border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-200/90 text-slate-600 dark:text-slate-400 font-bold">
-                        <th className="py-3 px-4 w-12 text-center">#</th>
-                        <th className="py-3 px-4">البند والبيان</th>
-                        <th className="py-3 px-4 text-center">الكمية</th>
-                        <th className="py-3 px-4 text-center">سعر الوحدة</th>
-                        <th className="py-3 px-4 text-left">الإجمالي (شيكل)</th>
+              {/* Items Table */}
+              <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-xl">
+                <table className="w-full text-right text-sm border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-bold">
+                      <th className="py-3 px-4 w-12 text-center">#</th>
+                      <th className="py-3 px-4">البيان</th>
+                      <th className="py-3 px-4 text-center">الكمية</th>
+                      <th className="py-3 px-4 text-center">سعر الوحدة</th>
+                      <th className="py-3 px-4 text-left">الإجمالي</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                    {invoiceData.items.map((item) => (
+                      <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/50">
+                        <td className="py-3 px-4 text-center text-slate-400 font-mono">{item.id}</td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-slate-900 dark:text-white">{item.name}</div>
+                          <div className="text-xs text-slate-400 mt-0.5">{item.description}</div>
+                        </td>
+                        <td className="py-3 px-4 text-center font-mono">{item.quantity}</td>
+                        <td className="py-3 px-4 text-center font-mono" dir="ltr">{item.unitPrice.toFixed(2)}</td>
+                        <td className="py-3 px-4 text-left font-mono font-bold" dir="ltr">{item.total.toFixed(2)}</td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700 font-medium text-slate-800 dark:text-slate-200">
-                      {invoiceData.items.map((item) => (
-                        <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/50 transition-colors">
-                          <td className="py-3.5 px-4 text-center font-mono text-xs text-slate-400">
-                            {item.id}
-                          </td>
-                          <td className="py-3.5 px-4">
-                            <div className="font-bold text-slate-900 dark:text-white font-cairo">{item.name}</div>
-                            <div className="text-[11px] text-slate-400 font-normal mt-0.5">
-                              {item.description}
-                            </div>
-                          </td>
-                          <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-700 dark:text-slate-300">
-                            {item.quantity}
-                          </td>
-                          <td className="py-3.5 px-4 text-center font-mono text-slate-700 dark:text-slate-300" dir="ltr">
-                            {item.unitPrice.toFixed(2)}
-                          </td>
-                          <td className="py-3.5 px-4 text-left font-mono font-extrabold text-slate-900 dark:text-white" dir="ltr">
-                            {item.total.toFixed(2)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                    ))}
+                  </tbody>
+                </table>
               </div>
 
-              {/* Section 4: Legal Acknowledgment & Cumulative Totals */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {/* Box 1 (Right): إقرار وقبول الدين المنصوص */}
-                <div className="border border-slate-200/90 rounded-2xl p-5 space-y-4 bg-slate-50/50 dark:bg-slate-800/50 flex flex-col justify-between">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 pb-2 border-b border-slate-200/60">
-                      <FileCheck className="w-4 h-4 text-slate-400" />
-                      <span>إقرار وقبول الدين المنصوص</span>
+              {/* Accounting Impact */}
+              <div className="bg-slate-50 dark:bg-slate-700/30 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                  <div className="space-y-3 w-full md:w-1/2 text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">قيمة الفاتورة الحالية:</span>
+                      <span className="font-bold font-mono" dir="ltr">{invoiceData.invoiceAmount.toFixed(2)}</span>
                     </div>
-                    <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-normal">
-                      يقر الطرف المدين بصحة المعاملة الواردة أعلاه والبيانات المرفقة بموجب رقم الجوال والهوية المعتمدة، ويلتزم بسداد كامل المبلغ في الموعد المحدد أعلاه دون تأخير، وتعتبر هذه الفاتورة سنداً وقيداً نظامياً يثبت المعاملة وفق الضوابد المعمول بها.
-                    </p>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">ديون سابقة:</span>
+                      <span className="font-bold font-mono" dir="ltr">{invoiceData.previousDebt.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">مدفوعات سابقة (-):</span>
+                      <span className="font-bold font-mono text-emerald-600" dir="ltr">{invoiceData.previousPaid.toFixed(2)}</span>
+                    </div>
                   </div>
-
-                  <div className="pt-3 border-t border-slate-200/60 flex items-center justify-between gap-3 text-xs">
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] text-slate-400 font-medium block">
-                        البصمة الرقمية للمعاملة (Hash)
-                      </span>
-                      <span className="font-mono text-[10px] text-slate-600 dark:text-slate-400 font-bold block">
-                        {invoiceData.hash}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs">
-                      <Fingerprint className="w-4 h-4 text-emerald-600" />
-                      <div className="text-right">
-                        <span className="text-[9px] text-slate-400 block leading-tight">توقيع النظام الإلكتروني</span>
-                        <span className="text-[10px] font-bold text-emerald-700 leading-tight">معتمد وموثق</span>
-                      </div>
+                  
+                  <div className="w-full md:w-1/2 text-center md:text-left border-t md:border-t-0 md:border-r border-slate-200 dark:border-slate-700 pt-4 md:pt-0 md:pr-6">
+                    <span className="text-sm font-medium text-slate-500 block mb-2">إجمالي المديونية المطلوبة الآن</span>
+                    <div className="text-3xl sm:text-4xl font-bold text-rose-600 font-mono" dir="ltr">
+                      {invoiceData.totalCurrentDebt.toFixed(2)} <span className="text-xl font-cairo text-slate-700 dark:text-slate-300">{invoiceData.currency}</span>
                     </div>
                   </div>
                 </div>
-
-                {/* Box 2 (Left): الملخص المالي والمديونية التراكمية */}
-                <div className="border border-slate-200/90 rounded-2xl p-5 space-y-3.5 bg-white dark:bg-slate-800 flex flex-col justify-between">
-                  <div className="space-y-2.5 text-xs sm:text-sm">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300">
-                      <span>الملخص المالي والمديونية التراكمية</span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-slate-600 dark:text-slate-400 font-medium">قيمة الفاتورة الحالية:</span>
-                      <span className="font-extrabold font-mono text-slate-900 dark:text-white" dir="ltr">
-                        {invoiceData.invoiceAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })} شيكل
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-slate-400 font-medium">المديونية السابقة بذمة العميل:</span>
-                      <span className="font-medium font-mono text-slate-400" dir="ltr">
-                        {invoiceData.previousDebt.toLocaleString('en-US', { minimumFractionDigits: 2 })} شيكل
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-slate-400 font-medium">إجمالي المدفوعات السابقة المسددة:</span>
-                      <span className="font-medium font-mono text-emerald-600" dir="ltr">
-                        - {invoiceData.previousPaid.toLocaleString('en-US', { minimumFractionDigits: 2 })} شيكل
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Big Total Current Debt Box */}
-                  <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 rounded-xl p-4 text-center space-y-1">
-                    <span className="text-xs text-slate-500 dark:text-slate-400 font-bold block">إجمالي المديونية الحالية:</span>
-                    <div className="text-2xl sm:text-3xl font-black font-mono text-[#0c2444] dark:text-blue-400" dir="ltr">
-                      {invoiceData.totalCurrentDebt.toLocaleString('en-US', { minimumFractionDigits: 2 })}{' '}
-                      <span className="text-base font-cairo">شيكل</span>
-                    </div>
-                    <span className="text-[10px] text-slate-400 block font-medium">
-                      المبلغ المطلوب بذمة العميل
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Section 5: Verification Stamp & QR Code */}
-              <div className="pt-4 border-t border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-6 print:hidden">
-                {/* Official Stamp */}
-                <div className="w-36 h-22 border-2 border-dashed border-emerald-600 rounded-2xl bg-emerald-50/40 flex flex-col items-center justify-center p-2 text-emerald-800 rotate-[-2deg] shadow-2xs shrink-0">
-                  <div className="flex items-center gap-1 text-[11px] font-bold">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>منظومة وثّق</span>
-                  </div>
-                  <div className="text-xs font-black tracking-wide my-0.5">معتمد إلكترونياً</div>
-                  <div className="text-[10px] font-mono font-bold text-emerald-700">17-09-2026</div>
-                </div>
-
-                {/* QR Code Verification */}
-                <div className="flex items-center gap-3 text-right">
-                  <div className="space-y-1">
-                    <div className="text-xs font-bold text-slate-900 dark:text-white">امسح الرمز للتحقق الفوري</div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed">
-                      يمكن للمدين أو أي جهة معتمدة مسح الرمز بكاميرا الجوال للتأكد من تسجيل وسريان هذه المديونية عبر منصة وثّق.
-                    </p>
-                  </div>
-                  {/* Stylized QR Box */}
-                  <div className="w-14 h-14 bg-white dark:bg-slate-800 border border-slate-300 rounded-xl p-1.5 flex items-center justify-center shadow-2xs shrink-0">
-                    <div className="w-full h-full grid grid-cols-2 gap-1 p-0.5 bg-slate-100 dark:bg-slate-700 rounded">
-                      <div className="bg-[#0c2444] rounded-xs" />
-                      <div className="bg-emerald-600 rounded-xs" />
-                      <div className="bg-emerald-600 rounded-xs" />
-                      <div className="bg-[#0c2444] rounded-xs" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Section 6: Document Legal Footer */}
-              <div className="border-t border-slate-200/80 pt-4 text-center text-[10px] sm:text-[11px] text-slate-400 font-medium print:hidden">
-                اتصال مشفر بمعايير التشفير المصرفي 256-bit SSL • سياسة الخصوصية والشروط • الدعم الفني المباشر • وثّق 2026 ©
               </div>
             </div>
           </div>

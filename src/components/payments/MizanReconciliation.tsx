@@ -18,40 +18,24 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-// --- Mock Data ---
-const mockKpis = {
-  totalRecordedSales: 15450,
-  totalBankInflows: 15300,
-  reconciledAmount: 14000,
-  reconciledCount: 45,
-  uncollectedAmount: 1450,
-  uncollectedCount: 3,
-};
-
-const initialReconciledSales = [
-  { id: 'INV-1042', time: '10:15 AM', amount: 350, customerName: 'محمد أحمد', bankSender: 'محمد أحمد', ref: 'TRX-98231', status: 'مطابق 100%' },
-  { id: 'INV-1045', time: '11:30 AM', amount: 1200, customerName: 'شركة النور', bankSender: 'شركة النور', ref: 'TRX-98244', status: 'مطابق 100%' },
-  { id: 'INV-1048', time: '01:20 PM', amount: 45, customerName: 'زبون نقدي', bankSender: 'محمود علي', ref: 'TRX-98256', status: 'مطابق 100%' },
-  { id: 'INV-1050', time: '02:45 PM', amount: 800, customerName: 'خالد عبد الله', bankSender: 'خالد عبد الله', ref: 'TRX-98288', status: 'مطابق 100%' },
-];
-
-const uncollectedSales = [
-  { id: 'INV-1043', items: '2 كرتونة زيت, 5 سكر 50ك', amount: 850, customerInfo: 'يوسف العلي - 0599123456', status: 'بانتظار الحوالة' },
-  { id: 'INV-1052', items: '10 كرتونة حليب, 5 جبنة', amount: 600, customerInfo: 'سوبر ماركت الهدى - 0598765432', status: 'بانتظار الحوالة' },
-];
-
-const initialDiscrepancies = [
-  { id: 'INV-1047', invoiceAmount: 100, bankAmount: 97, customerName: 'رامي سعيد', bankSender: 'رامي سعيد', issue: 'خصم عمولة بنكية (3 شيكل)' },
-  { id: 'INV-1055', invoiceAmount: 500, bankAmount: 500, customerName: 'سعيد محمود', bankSender: 'منى علي', issue: 'اختلاف اسم المحول (زوجة/قريب)' },
-];
-
-const unmatchedInflows = [
-  { time: '09:00 AM', amount: 150, bankSender: 'أحمد ياسين', ref: 'TRX-98110', notes: 'حوالة جوال باي بدون فاتورة' },
-  { time: '12:45 PM', amount: 320, bankSender: 'مجهول', ref: 'TRX-98260', notes: 'إيداع صراف آلي' },
-];
-
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
+import { Toast } from '../ui/Toast';
+import { 
+  uploadAndStartReconciliation,
+  getReconciliationSummary,
+  getReconciliationTransactions,
+  approveMatchedTransaction,
+  convertSaleToDebt,
+  createSaleFromDeposit
+} from '../../services/mizanService';
+import type {
+  ReconciliationSummary,
+  ReconciledSale,
+  Discrepancy,
+  UncollectedSale,
+  UnmatchedInflow
+} from '../../services/mizanService';
 
 export default function MizanReconciliation() {
   const [activeTab, setActiveTab] = useState('reconciled');
@@ -62,8 +46,25 @@ export default function MizanReconciliation() {
   const [isBankDropdownOpen, setIsBankDropdownOpen] = useState(false);
   const banks = ['بنك فلسطين', 'PalPay', 'جوال باي'];
 
-  const [reconciledList, setReconciledList] = useState(initialReconciledSales);
-  const [discrepanciesList, setDiscrepanciesList] = useState(initialDiscrepancies);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [loadingAction, setLoadingAction] = useState<string | null>(null);
+
+  const [summary, setSummary] = useState<ReconciliationSummary>({
+    totalRecordedSales: 0,
+    totalBankInflows: 0,
+    reconciledAmount: 0,
+    reconciledCount: 0,
+    uncollectedAmount: 0,
+    uncollectedCount: 0,
+    discrepanciesCount: 0
+  });
+
+  const [reconciledList, setReconciledList] = useState<ReconciledSale[]>([]);
+  const [discrepanciesList, setDiscrepanciesList] = useState<Discrepancy[]>([]);
+  const [uncollectedSales, setUncollectedSales] = useState<UncollectedSale[]>([]);
+  const [unmatchedInflows, setUnmatchedInflows] = useState<UnmatchedInflow[]>([]);
+
   const [selectedDiscrepancies, setSelectedDiscrepancies] = useState<string[]>([]);
   const [selectedReconciled, setSelectedReconciled] = useState<string[]>([]);
   
@@ -82,43 +83,76 @@ export default function MizanReconciliation() {
     return matchesSearch && matchesType;
   });
 
-  const handleCloseReconciled = () => {
-    if (selectedReconciled.length === 0) return;
-    setReconciledList(reconciledList.filter(sale => !selectedReconciled.includes(sale.id)));
-    setSelectedReconciled([]);
+  const fetchData = async (id: string) => {
+    try {
+      const summaryData = await getReconciliationSummary(id);
+      setSummary(summaryData);
+      const txData = await getReconciliationTransactions(id);
+      setReconciledList(txData.reconciled || []);
+      setDiscrepanciesList(txData.discrepancies || []);
+      setUncollectedSales(txData.uncollected || []);
+      setUnmatchedInflows(txData.unmatched || []);
+    } catch (error) {
+      setToastMsg('فشل في جلب البيانات');
+    }
   };
 
-  const handleConfirmSelected = () => {
-    if (selectedDiscrepancies.length === 0) return;
-    
-    const itemsToConfirm = discrepanciesList.filter(d => selectedDiscrepancies.includes(d.id));
-    const newReconciledItems = itemsToConfirm.map(item => ({
-      id: item.id,
-      time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      amount: item.invoiceAmount,
-      customerName: item.customerName,
-      bankSender: item.bankSender,
-      ref: 'TRX-' + Math.floor(Math.random() * 100000),
-      status: 'تمت المراجعة والمطابقة'
-    }));
+  const handleCloseReconciled = async () => {
+    if (selectedReconciled.length === 0) return;
+    setLoadingAction('approve-all');
+    try {
+      for (const id of selectedReconciled) {
+        await approveMatchedTransaction(id);
+      }
+      setToastMsg('تم اعتماد الإقفال اليومي بنجاح');
+      if (sessionId) fetchData(sessionId);
+      setSelectedReconciled([]);
+    } catch (error) {
+      setToastMsg('تعذر اعتماد الإقفال');
+    }
+    setLoadingAction(null);
+  };
 
-    setReconciledList([...newReconciledItems, ...reconciledList]);
-    setDiscrepanciesList(discrepanciesList.filter(d => !selectedDiscrepancies.includes(d.id)));
-    setSelectedDiscrepancies([]);
-    setActiveTab('reconciled');
+  const handleConfirmSelected = async () => {
+    if (selectedDiscrepancies.length === 0) return;
+    setLoadingAction('confirm-discrepancies');
+    try {
+      for (const id of selectedDiscrepancies) {
+        await approveMatchedTransaction(id);
+      }
+      setToastMsg('تم اعتماد الفروقات بنجاح');
+      if (sessionId) fetchData(sessionId);
+      setSelectedDiscrepancies([]);
+    } catch (error) {
+      setToastMsg('تعذر اعتماد الفروقات');
+    }
+    setLoadingAction(null);
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  const processFile = (file: File) => {
-    // Here you would normally upload the file to your server or parse it locally
-    console.log("Processing file:", file.name, file.size);
+  const processFile = async (file: File) => {
     setIsUploading(true);
-    setTimeout(() => {
-      setIsUploading(false);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('bankName', selectedBank);
+      
+      const res = await uploadAndStartReconciliation(formData);
+      setSessionId(res.sessionId);
       setIsParsed(true);
-    }, 2500); // Simulate AI parsing delay
+      await fetchData(res.sessionId);
+      setToastMsg('تم رفع الكشف وبدء المطابقة بنجاح');
+    } catch (error: any) {
+      if (error?.status === 401) {
+        window.location.href = '/login';
+      } else {
+        setToastMsg('تعذر معالجة الملف، الرجاء المحاولة مجدداً');
+      }
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -126,7 +160,6 @@ export default function MizanReconciliation() {
     if (file) {
       processFile(file);
     }
-    // Reset input so the same file can be selected again if needed
     if (e.target) {
       e.target.value = '';
     }
@@ -157,8 +190,35 @@ export default function MizanReconciliation() {
     }
   };
 
+  const handleConvertToDebt = async (saleId: string) => {
+    if (confirm('هل أنت متأكد من تحويل هذه الفاتورة إلى دين؟')) {
+      setLoadingAction(`debt-${saleId}`);
+      try {
+        await convertSaleToDebt(saleId);
+        setToastMsg('تم تحويل الفاتورة إلى دين بنجاح');
+        if (sessionId) fetchData(sessionId);
+      } catch (error) {
+        setToastMsg('تعذر التحويل لدين');
+      }
+      setLoadingAction(null);
+    }
+  };
+
+  const handleCreateSale = async (transactionId: string) => {
+    setLoadingAction(`sale-${transactionId}`);
+    try {
+      await createSaleFromDeposit(transactionId, { notes: 'تم الإنشاء من المطابقة' });
+      setToastMsg('تم إنشاء الفاتورة بنجاح');
+      if (sessionId) fetchData(sessionId);
+    } catch (error) {
+      setToastMsg('تعذر إنشاء الفاتورة');
+    }
+    setLoadingAction(null);
+  };
+
   return (
     <div className="min-h-screen bg-[#f4f7fb] dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-cairo antialiased flex" dir="rtl">
+      <Toast message={toastMsg} onClose={() => setToastMsg(null)} />
       
       <Sidebar
         isOpen={isSidebarOpen}
@@ -321,7 +381,7 @@ export default function MizanReconciliation() {
           <div className="flex justify-between items-start">
             <div>
               <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mb-1">إجمالي المبيعات الفورية</p>
-              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{mockKpis.totalRecordedSales.toLocaleString()} <span className="text-sm font-normal text-slate-500 dark:text-slate-400">₪</span></h3>
+              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{summary.totalRecordedSales.toLocaleString()} <span className="text-sm font-normal text-slate-500 dark:text-slate-400">₪</span></h3>
             </div>
             <div className="p-2 bg-slate-100 dark:bg-slate-700 rounded-lg text-slate-600 dark:text-slate-400">
               <CreditCard className="w-5 h-5" />
@@ -335,7 +395,7 @@ export default function MizanReconciliation() {
           <div className="flex justify-between items-start">
             <div>
               <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mb-1">إجمالي الحوالات المودعة</p>
-              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{mockKpis.totalBankInflows.toLocaleString()} <span className="text-sm font-normal text-slate-500 dark:text-slate-400">₪</span></h3>
+              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{summary.totalBankInflows.toLocaleString()} <span className="text-sm font-normal text-slate-500 dark:text-slate-400">₪</span></h3>
             </div>
             <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-600 dark:text-blue-500">
               <ArrowRightLeft className="w-5 h-5" />
@@ -349,13 +409,13 @@ export default function MizanReconciliation() {
           <div className="flex justify-between items-start">
             <div>
               <p className="text-sm text-emerald-800 dark:text-emerald-400 font-medium mb-1">مبيعات مطابقة بنكياً 🟢</p>
-              <h3 className="text-2xl font-bold text-emerald-900 dark:text-emerald-400">{mockKpis.reconciledAmount.toLocaleString()} <span className="text-sm font-normal text-emerald-700 dark:text-emerald-500">₪</span></h3>
+              <h3 className="text-2xl font-bold text-emerald-900 dark:text-emerald-400">{summary.reconciledAmount.toLocaleString()} <span className="text-sm font-normal text-emerald-700 dark:text-emerald-500">₪</span></h3>
             </div>
             <div className="p-2 bg-emerald-100 dark:bg-emerald-900/50 rounded-lg text-emerald-700 dark:text-emerald-500">
               <CheckCircle2 className="w-5 h-5" />
             </div>
           </div>
-          <p className="text-xs text-emerald-600 mt-4 font-medium">{mockKpis.reconciledCount} فاتورة تم تأكيدها</p>
+          <p className="text-xs text-emerald-600 mt-4 font-medium">{summary.reconciledCount} فاتورة تم تأكيدها</p>
         </div>
 
         <div className="bg-red-50 dark:bg-red-900/20 p-5 rounded-2xl border border-red-200 dark:border-red-800/50 shadow-sm relative overflow-hidden">
@@ -363,13 +423,13 @@ export default function MizanReconciliation() {
           <div className="flex justify-between items-start">
             <div>
               <p className="text-sm text-red-800 dark:text-red-400 font-medium mb-1">مبيعات غير محصلة 🔴</p>
-              <h3 className="text-2xl font-bold text-red-900 dark:text-red-400">{mockKpis.uncollectedAmount.toLocaleString()} <span className="text-sm font-normal text-red-700 dark:text-red-500">₪</span></h3>
+              <h3 className="text-2xl font-bold text-red-900 dark:text-red-400">{summary.uncollectedAmount.toLocaleString()} <span className="text-sm font-normal text-red-700 dark:text-red-500">₪</span></h3>
             </div>
             <div className="p-2 bg-red-100 dark:bg-red-900/50 rounded-lg text-red-700 dark:text-red-500">
               <AlertCircle className="w-5 h-5" />
             </div>
           </div>
-          <p className="text-xs text-red-600 mt-4 font-medium">{mockKpis.uncollectedCount} فواتير خرجت ولم تدخل حوالتها!</p>
+          <p className="text-xs text-red-600 mt-4 font-medium">{summary.uncollectedCount} فواتير خرجت ولم تدخل حوالتها!</p>
         </div>
       </div>
 
@@ -393,7 +453,7 @@ export default function MizanReconciliation() {
           >
             <XCircle className={`w-4 h-4 ${activeTab === 'uncollected' ? 'text-red-600' : 'text-slate-400'}`} />
             مبيعات غير محصلة
-            <span className="bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-500 px-2 py-0.5 rounded-full text-xs ml-1">{mockKpis.uncollectedCount}</span>
+            <span className="bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-500 px-2 py-0.5 rounded-full text-xs ml-1">{uncollectedSales.length}</span>
             {activeTab === 'uncollected' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-600"></div>}
           </button>
 
@@ -413,7 +473,7 @@ export default function MizanReconciliation() {
           >
             <HelpCircle className={`w-4 h-4 ${activeTab === 'unmatched' ? 'text-blue-500' : 'text-slate-400'}`} />
             حوالات بدون فواتير
-            <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded-full text-xs ml-1">2</span>
+            <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded-full text-xs ml-1">{unmatchedInflows.length}</span>
             {activeTab === 'unmatched' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500"></div>}
           </button>
         </div>
@@ -562,8 +622,12 @@ export default function MizanReconciliation() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <button className="bg-white dark:bg-slate-800 border border-red-200 dark:border-red-800/50 text-red-600 hover:bg-red-50 dark:bg-red-900/20 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shadow-sm whitespace-nowrap">
-                            تحويل لدين ومطالبة الزبون ⚠️
+                          <button 
+                            onClick={() => handleConvertToDebt(sale.id)}
+                            disabled={loadingAction === `debt-${sale.id}`}
+                            className={`border px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shadow-sm whitespace-nowrap ${loadingAction === `debt-${sale.id}` ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white dark:bg-slate-800 border-red-200 dark:border-red-800/50 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20'}`}
+                          >
+                            {loadingAction === `debt-${sale.id}` ? 'جاري التحويل...' : 'تحويل لدين ومطالبة الزبون ⚠️'}
                           </button>
                         </td>
                       </tr>
@@ -723,8 +787,12 @@ export default function MizanReconciliation() {
                         <td className="px-6 py-4 text-slate-500 dark:text-slate-400 font-mono text-xs">{inflow.ref}</td>
                         <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{inflow.notes}</td>
                         <td className="px-6 py-4 text-center">
-                          <button className="bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-800/50 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shadow-sm whitespace-nowrap">
-                            إنشاء فاتورة مبيعات سريعة
+                          <button 
+                            onClick={() => handleCreateSale(inflow.id || String(Math.random()))}
+                            disabled={loadingAction === `sale-${inflow.id}`}
+                            className={`border px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shadow-sm whitespace-nowrap ${loadingAction === `sale-${inflow.id}` ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white dark:bg-slate-800 border-blue-200 dark:border-blue-800/50 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
+                          >
+                            {loadingAction === `sale-${inflow.id}` ? 'جاري الإنشاء...' : 'إنشاء فاتورة مبيعات سريعة'}
                           </button>
                         </td>
                       </tr>

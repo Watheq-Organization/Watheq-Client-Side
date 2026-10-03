@@ -123,7 +123,7 @@ export const OutstandingDebtsReportView: FC = () => {
                 {s.currencyCode}
               </span>
             </div>
-            
+
             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium font-cairo mb-1">
               إجمالي المبلغ المتبقي
             </p>
@@ -278,7 +278,7 @@ export const OutstandingDebtsReportView: FC = () => {
               <option value="CustomerName">اسم العميل</option>
               <option value="DaysOverdue">أيام التأخير</option>
             </select>
-            
+
             <button
               onClick={() => {
                 setSortDirection(prev => prev === 'Ascending' ? 'Descending' : 'Ascending');
@@ -378,7 +378,7 @@ export const OutstandingDebtsReportView: FC = () => {
             <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
               إجمالي النتائج: <span className="font-bold">{report?.details?.totalCount || 0}</span>
             </p>
-            
+
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setPageNumber(p => Math.max(1, p - 1))}
@@ -387,11 +387,11 @@ export const OutstandingDebtsReportView: FC = () => {
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
-              
+
               <span className="text-sm font-bold font-cairo text-[#051838] dark:text-white min-w-[3rem] text-center">
                 {pageNumber} / {totalPages}
               </span>
-              
+
               <button
                 onClick={() => setPageNumber(p => Math.min(totalPages, p + 1))}
                 disabled={pageNumber === totalPages || isLoading}

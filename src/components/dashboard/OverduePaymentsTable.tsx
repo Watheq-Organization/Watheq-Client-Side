@@ -162,13 +162,12 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
                                 e.stopPropagation();
                                 void handleSendReminder(payment.id);
                               }}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold font-cairo border transition-all duration-200 shadow-2xs ${
-                                isSent
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold font-cairo border transition-all duration-200 shadow-2xs ${isSent
                                   ? 'bg-emerald-50 border-emerald-300 text-emerald-700 cursor-default'
                                   : isSending
-                                  ? 'bg-slate-50 dark:bg-slate-800 border-slate-200 text-slate-400 cursor-wait'
-                                  : 'bg-white dark:bg-slate-800 border-slate-300 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-400 active:scale-95 cursor-pointer'
-                              }`}
+                                    ? 'bg-slate-50 dark:bg-slate-800 border-slate-200 text-slate-400 cursor-wait'
+                                    : 'bg-white dark:bg-slate-800 border-slate-300 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-400 active:scale-95 cursor-pointer'
+                                }`}
                             >
                               {isSent ? (
                                 <>
