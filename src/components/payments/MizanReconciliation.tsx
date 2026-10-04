@@ -99,8 +99,10 @@ export default function MizanReconciliation() {
         let details: any = {};
         try { details = JSON.parse(t.matchDetails || '{}'); } catch(e) {}
         
-        // 1 = Matched
-        if (t.classification === 1) {
+        const isApproved = t.approvalStatus === 2;
+
+        // 1 = Matched Auto, or Approved Manually
+        if (t.classification === 1 || isApproved) {
           reconciled.push({
             id: t.id.toString(),
             time: new Date(t.transactionDate).toLocaleString('ar-EG'),
@@ -108,11 +110,11 @@ export default function MizanReconciliation() {
             customerName: t.senderNameNormalized || 'غير متوفر',
             bankSender: t.senderNameNormalized || 'غير متوفر',
             ref: t.referenceNumber || '-',
-            status: 'مطابق تلقائياً'
+            status: isApproved ? 'مطابقة يدوية (بعد المراجعة)' : 'مطابق تلقائياً'
           });
         } 
-        // 2 = Needs Review / Unmatched
-        else if (t.classification === 2) {
+        // 2 = Needs Review / Unmatched (And still pending)
+        else if (t.classification === 2 && !isApproved) {
           if (details.reason === 'No matching instant sale found') {
             unmatched.push({
               id: t.id.toString(),
