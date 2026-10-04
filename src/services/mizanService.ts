@@ -1,13 +1,16 @@
 import { httpClient } from '../api/httpClient';
 
 export interface ReconciliationSummary {
-  totalRecordedSales: number;
-  totalBankInflows: number;
-  reconciledAmount: number;
-  reconciledCount: number;
-  uncollectedAmount: number;
-  uncollectedCount: number;
-  discrepanciesCount?: number;
+  period?: string;
+  from?: string;
+  to?: string;
+  totalBankTransactions?: number;
+  matched?: number;
+  needsReview?: number;
+  unclaimedDeposits?: number;
+  missingInBank?: number;
+  discrepancies?: number;
+  finalApproved?: number;
 }
 
 export interface ReconciledSale {
@@ -53,41 +56,42 @@ export interface ReconciliationTransactions {
   unmatched: UnmatchedInflow[];
 }
 
-export async function uploadAndStartReconciliation(formData: FormData): Promise<{ sessionId: string }> {
-  // Using POST to start a new reconciliation session
-  // If the interceptor adds Content-Type application/json by default, we need to ensure it's multipart/form-data
-  // Typically Axios/Fetch removes the content-type header if FormData is passed so the browser can set boundary correctly
-  const response = await httpClient.postForm<{ sessionId: string }>('/mizan/reconciliations', formData);
-  return response;
+export async function uploadAndStartReconciliation(formData: FormData, period?: string, bankName?: string): Promise<{ sessionId: string }> {
+  const params = new URLSearchParams();
+  if (period) params.append('period', period);
+  if (bankName) params.append('bankName', bankName);
+  const query = params.toString() ? `?${params.toString()}` : '';
+  const response = await httpClient.postForm<any>(`/mizan/reconciliations${query}`, formData);
+  return response.data ? response.data : response;
 }
 
 export async function getReconciliations(): Promise<any> {
   const response = await httpClient.get<any>('/mizan/reconciliations');
-  return response;
+  return response.data ? response.data : response;
 }
 
 export async function getReconciliationSummary(sessionId: string): Promise<ReconciliationSummary> {
-  const response = await httpClient.get<ReconciliationSummary>(`/mizan/reconciliations/${sessionId}/summary`);
-  return response;
+  const response = await httpClient.get<any>(`/mizan/reconciliations/${sessionId}/summary`);
+  return response.data ? response.data : response;
 }
 
 export async function getReconciliationTransactions(sessionId: string, params?: { status?: string; page?: number }): Promise<ReconciliationTransactions> {
   const query = params ? `?${new URLSearchParams(params as any).toString()}` : '';
-  const response = await httpClient.get<ReconciliationTransactions>(`/mizan/reconciliations/${sessionId}/transactions${query}`);
-  return response;
+  const response = await httpClient.get<any>(`/mizan/reconciliations/${sessionId}/transactions${query}`);
+  return response.data ? response.data : response;
 }
 
 export async function approveMatchedTransaction(transactionId: string): Promise<any> {
   const response = await httpClient.post<any>(`/mizan/transactions/${transactionId}/approve`, {});
-  return response;
+  return response.data ? response.data : response;
 }
 
 export async function convertSaleToDebt(saleId: string, payload?: { customerId?: string; notes?: string }): Promise<any> {
   const response = await httpClient.post<any>(`/mizan/sales/${saleId}/convert-to-debt`, payload || {});
-  return response;
+  return response.data ? response.data : response;
 }
 
 export async function createSaleFromDeposit(transactionId: string, payload: { customerName?: string; notes?: string }): Promise<any> {
   const response = await httpClient.post<any>(`/mizan/transactions/${transactionId}/create-sale`, payload);
-  return response;
+  return response.data ? response.data : response;
 }

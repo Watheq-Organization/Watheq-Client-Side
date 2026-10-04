@@ -14,7 +14,6 @@ import {
   RefreshCw,
   Search,
   ArrowRightLeft,
-  CreditCard,
   AlertCircle
 } from 'lucide-react';
 
@@ -51,13 +50,13 @@ export default function MizanReconciliation() {
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
 
   const [summary, setSummary] = useState<ReconciliationSummary>({
-    totalRecordedSales: 0,
-    totalBankInflows: 0,
-    reconciledAmount: 0,
-    reconciledCount: 0,
-    uncollectedAmount: 0,
-    uncollectedCount: 0,
-    discrepanciesCount: 0
+    totalBankTransactions: 0,
+    matched: 0,
+    needsReview: 0,
+    unclaimedDeposits: 0,
+    missingInBank: 0,
+    discrepancies: 0,
+    finalApproved: 0
   });
 
   const [reconciledList, setReconciledList] = useState<ReconciledSale[]>([]);
@@ -78,20 +77,78 @@ export default function MizanReconciliation() {
   const filteredReconciledList = reconciledList.filter(sale => {
     const matchesSearch = sale.id.includes(searchQuery) || sale.customerName.includes(searchQuery) || sale.bankSender.includes(searchQuery) || sale.amount.toString().includes(searchQuery);
     const matchesType = filterType === 'all' || 
-                       (filterType === 'auto' && sale.status.includes('100%')) || 
-                       (filterType === 'manual' && !sale.status.includes('100%'));
+                       (filterType === 'auto' && sale.status.includes('تلقائياً')) || 
+                       (filterType === 'manual' && !sale.status.includes('تلقائياً'));
     return matchesSearch && matchesType;
   });
+
 
   const fetchData = async (id: string) => {
     try {
       const summaryData = await getReconciliationSummary(id);
       setSummary(summaryData);
-      const txData = await getReconciliationTransactions(id);
-      setReconciledList(txData.reconciled || []);
-      setDiscrepanciesList(txData.discrepancies || []);
-      setUncollectedSales(txData.uncollected || []);
-      setUnmatchedInflows(txData.unmatched || []);
+      const rawData = await getReconciliationTransactions(id);
+      const transactions = Array.isArray(rawData) ? rawData : [];
+
+      const reconciled: ReconciledSale[] = [];
+      const discrepancies: Discrepancy[] = [];
+      const uncollected: UncollectedSale[] = [];
+      const unmatched: UnmatchedInflow[] = [];
+
+      transactions.forEach((t: any) => {
+        let details: any = {};
+        try { details = JSON.parse(t.matchDetails || '{}'); } catch(e) {}
+        
+        // 1 = Matched
+        if (t.classification === 1) {
+          reconciled.push({
+            id: t.id.toString(),
+            time: new Date(t.transactionDate).toLocaleString('ar-EG'),
+            amount: t.amount,
+            customerName: t.senderNameNormalized || 'غير متوفر',
+            bankSender: t.senderNameNormalized || 'غير متوفر',
+            ref: t.referenceNumber || '-',
+            status: 'مطابق تلقائياً'
+          });
+        } 
+        // 2 = Needs Review / Unmatched
+        else if (t.classification === 2) {
+          if (details.reason === 'No matching instant sale found') {
+            unmatched.push({
+              id: t.id.toString(),
+              time: new Date(t.transactionDate).toLocaleString('ar-EG'),
+              amount: t.amount,
+              bankSender: t.senderNameNormalized || 'غير متوفر',
+              ref: t.referenceNumber || '-',
+              notes: 'حوالة بنكية لا يوجد لها فاتورة'
+            });
+          } else {
+            discrepancies.push({
+              id: t.id.toString(),
+              invoiceAmount: t.matchedSales?.[0]?.amount || 0,
+              bankAmount: t.amount,
+              customerName: t.matchedSales?.[0]?.customerName || 'غير متوفر',
+              bankSender: t.senderNameNormalized || 'غير متوفر',
+              issue: details.reason || 'تتطلب مراجعة'
+            });
+          }
+        }
+        // Assuming 3 = Missing In Bank / Uncollected
+        else if (t.classification === 3) {
+          uncollected.push({
+            id: t.id.toString(),
+            items: 'مبيعات',
+            amount: t.amount,
+            customerInfo: t.senderNameNormalized || 'غير متوفر',
+            status: 'مفقود بنكياً'
+          });
+        }
+      });
+
+      setReconciledList(reconciled);
+      setDiscrepanciesList(discrepancies);
+      setUncollectedSales(uncollected);
+      setUnmatchedInflows(unmatched);
     } catch (error) {
       setToastMsg('فشل في جلب البيانات');
     }
@@ -139,7 +196,17 @@ export default function MizanReconciliation() {
       formData.append('file', file);
       formData.append('bankName', selectedBank);
       
-      const res = await uploadAndStartReconciliation(formData);
+      const periodMap: Record<string, string> = {
+        'آخر ساعتين': '2', // Last2Hours
+        'اليوم': '1', // Today
+        'أمس': '3', // Yesterday
+        'آخر 48 ساعة': '4', // Last48Hours
+        'هذا الأسبوع': '5' // ThisWeek
+      };
+      const periodValue = periodMap[selectedPeriod] || '1';
+      formData.append('period', periodValue);
+      
+      const res = await uploadAndStartReconciliation(formData, periodValue, selectedBank);
       setSessionId(res.sessionId);
       setIsParsed(true);
       await fetchData(res.sessionId);
@@ -365,7 +432,7 @@ export default function MizanReconciliation() {
             <CheckCircle2 className="w-6 h-6 text-emerald-600" />
             <div>
               <h4 className="font-bold text-emerald-900 dark:text-emerald-400">تمت المطابقة بنجاح</h4>
-              <p className="text-sm text-emerald-700 dark:text-emerald-500">تم سحب وتحليل كشف حساب بنك فلسطين ليوم {new Date().toLocaleDateString('ar-EG')}</p>
+              <p className="text-sm text-emerald-700 dark:text-emerald-500">تم سحب وتحليل كشف حساب {selectedBank} لـ {selectedPeriod}</p>
             </div>
           </div>
           <button onClick={() => setIsParsed(false)} className="text-emerald-700 dark:text-emerald-500 hover:text-emerald-900 dark:text-emerald-400 text-sm font-medium underline">
@@ -380,56 +447,56 @@ export default function MizanReconciliation() {
           <div className="absolute top-0 right-0 w-1 h-full bg-slate-800"></div>
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mb-1">إجمالي المبيعات الفورية</p>
-              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{summary.totalRecordedSales.toLocaleString()} <span className="text-sm font-normal text-slate-500 dark:text-slate-400">₪</span></h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mb-1">إجمالي الحركات البنكية</p>
+              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{summary.totalBankTransactions?.toLocaleString() || 0}</h3>
             </div>
             <div className="p-2 bg-slate-100 dark:bg-slate-700 rounded-lg text-slate-600 dark:text-slate-400">
-              <CreditCard className="w-5 h-5" />
-            </div>
-          </div>
-          <p className="text-xs text-slate-400 mt-4">المسجلة في النظام اليوم</p>
-        </div>
-
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden hover:border-slate-300 transition-colors">
-          <div className="absolute top-0 right-0 w-1 h-full bg-blue-500"></div>
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mb-1">إجمالي الحوالات المودعة</p>
-              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{summary.totalBankInflows.toLocaleString()} <span className="text-sm font-normal text-slate-500 dark:text-slate-400">₪</span></h3>
-            </div>
-            <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-600 dark:text-blue-500">
               <ArrowRightLeft className="w-5 h-5" />
             </div>
           </div>
-          <p className="text-xs text-slate-400 mt-4">حسب كشف البنك المرفوع</p>
+          <p className="text-xs text-slate-400 mt-4">إجمالي الحركات المرفوعة</p>
         </div>
 
         <div className="bg-emerald-50 dark:bg-emerald-900/20 p-5 rounded-2xl border border-emerald-200 dark:border-emerald-800/50 shadow-sm relative overflow-hidden">
           <div className="absolute top-0 right-0 w-1 h-full bg-emerald-500"></div>
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm text-emerald-800 dark:text-emerald-400 font-medium mb-1">مبيعات مطابقة بنكياً 🟢</p>
-              <h3 className="text-2xl font-bold text-emerald-900 dark:text-emerald-400">{summary.reconciledAmount.toLocaleString()} <span className="text-sm font-normal text-emerald-700 dark:text-emerald-500">₪</span></h3>
+              <p className="text-sm text-emerald-800 dark:text-emerald-400 font-medium mb-1">مطابقة بنكياً 🟢</p>
+              <h3 className="text-2xl font-bold text-emerald-900 dark:text-emerald-400">{summary.matched?.toLocaleString() || 0}</h3>
             </div>
             <div className="p-2 bg-emerald-100 dark:bg-emerald-900/50 rounded-lg text-emerald-700 dark:text-emerald-500">
               <CheckCircle2 className="w-5 h-5" />
             </div>
           </div>
-          <p className="text-xs text-emerald-600 mt-4 font-medium">{summary.reconciledCount} فاتورة تم تأكيدها</p>
+          <p className="text-xs text-emerald-600 mt-4 font-medium">فواتير مطابقة تماماً</p>
+        </div>
+
+        <div className="bg-amber-50 dark:bg-amber-900/20 p-5 rounded-2xl border border-amber-200 dark:border-amber-800/50 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-1 h-full bg-amber-500"></div>
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-sm text-amber-800 dark:text-amber-400 font-medium mb-1">تحتاج مراجعة ⚠️</p>
+              <h3 className="text-2xl font-bold text-amber-900 dark:text-amber-400">{summary.needsReview?.toLocaleString() || 0}</h3>
+            </div>
+            <div className="p-2 bg-amber-100 dark:bg-amber-900/50 rounded-lg text-amber-700 dark:text-amber-500">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+          </div>
+          <p className="text-xs text-amber-600 mt-4 font-medium">فروقات تحتاج تدخل يدوي</p>
         </div>
 
         <div className="bg-red-50 dark:bg-red-900/20 p-5 rounded-2xl border border-red-200 dark:border-red-800/50 shadow-sm relative overflow-hidden">
           <div className="absolute top-0 right-0 w-1 h-full bg-red-500"></div>
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm text-red-800 dark:text-red-400 font-medium mb-1">مبيعات غير محصلة 🔴</p>
-              <h3 className="text-2xl font-bold text-red-900 dark:text-red-400">{summary.uncollectedAmount.toLocaleString()} <span className="text-sm font-normal text-red-700 dark:text-red-500">₪</span></h3>
+              <p className="text-sm text-red-800 dark:text-red-400 font-medium mb-1">مفقودة في البنك 🔴</p>
+              <h3 className="text-2xl font-bold text-red-900 dark:text-red-400">{summary.missingInBank?.toLocaleString() || 0}</h3>
             </div>
             <div className="p-2 bg-red-100 dark:bg-red-900/50 rounded-lg text-red-700 dark:text-red-500">
               <AlertCircle className="w-5 h-5" />
             </div>
           </div>
-          <p className="text-xs text-red-600 mt-4 font-medium">{summary.uncollectedCount} فواتير خرجت ولم تدخل حوالتها!</p>
+          <p className="text-xs text-red-600 mt-4 font-medium">فواتير بدون حوالة بنكية</p>
         </div>
       </div>
 
