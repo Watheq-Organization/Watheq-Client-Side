@@ -4,7 +4,6 @@ import { parseVoiceDebt } from '../../lib/voiceDebtParser';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   UserSearch,
-  Calendar,
   Save,
   Mic,
   MessageCircle,
@@ -427,13 +426,16 @@ export const AddDebtScreen: FC = () => {
                     }`}
                 >
                   <input
-                    type="number"
+                    type="text"
                     inputMode="decimal"
-                    min="0"
-                    step="0.01"
                     value={amount}
                     onChange={(e) => {
-                      setAmount(e.target.value);
+                      let val = e.target.value.replace(/,/g, '.').replace(/[^0-9.]/g, '');
+                      const parts = val.split('.');
+                      if (parts.length > 2) {
+                        val = parts[0] + '.' + parts.slice(1).join('');
+                      }
+                      setAmount(val);
                       setFieldErrors((prev) => ({ ...prev, amount: undefined }));
                     }}
                     placeholder="0.00"
@@ -449,7 +451,6 @@ export const AddDebtScreen: FC = () => {
               <div className="space-y-1.5 text-right">
                 <label className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">تاريخ الاستحقاق</label>
                 <div className="relative flex items-center">
-                  <Calendar className="absolute right-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
                   <input
                     type="date"
                     value={dueDate}
@@ -458,7 +459,7 @@ export const AddDebtScreen: FC = () => {
                       setFieldErrors((prev) => ({ ...prev, dueDate: undefined }));
                     }}
                     dir="ltr"
-                    className={`w-full pr-10 pl-3.5 py-2.5 bg-[#F7F7FC] dark:bg-slate-900 border rounded-lg text-sm text-slate-800 dark:text-slate-200 focus:bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#00204F]/20 dark:focus:ring-blue-500/20 focus:border-[#00204F] dark:focus:border-blue-500 transition-all text-right font-sans ${fieldErrors.dueDate ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'
+                    className={`w-full px-3.5 py-2.5 bg-[#F7F7FC] dark:bg-slate-900 border rounded-lg text-sm text-slate-800 dark:text-slate-200 focus:bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#00204F]/20 dark:focus:ring-blue-500/20 focus:border-[#00204F] dark:focus:border-blue-500 transition-all text-right font-sans ${fieldErrors.dueDate ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'
                       }`}
                   />
                 </div>

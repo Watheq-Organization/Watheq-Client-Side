@@ -6,8 +6,6 @@ import {
   CreditCard,
   Receipt,
   BarChart3,
-  BellRing,
-  Tv2,
   Settings,
   LogOut,
   X,
@@ -47,8 +45,6 @@ export const Sidebar: FC<SidebarProps> = ({
     { id: 'payments', label: 'سجل المدفوعات', icon: Receipt, path: PATHS.PAYMENTS },
     { id: 'mizan', label: 'مطابقة المبيعات (ميزان)', icon: RefreshCw, path: PATHS.MIZAN },
     { id: 'reports', label: 'التقارير', icon: BarChart3, path: PATHS.REPORTS },
-    { id: 'reminder-settings', label: 'إعدادات التذكيرات', icon: BellRing, path: PATHS.REMINDERS },
-    { id: 'subscriptions', label: 'الاشتراكات', icon: Tv2, path: PATHS.SUBSCRIPTIONS },
   ];
 
   const handleLogoutClick = () => {

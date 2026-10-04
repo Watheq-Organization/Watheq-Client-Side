@@ -4,7 +4,6 @@ import type { FC } from 'react';
 import {
   Search,
   Bell,
-  HelpCircle,
   Menu,
   Settings,
   CreditCard,
@@ -20,6 +19,7 @@ import {
   Loader2,
   Moon,
   Sun,
+  BellRing,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useMerchantProfile } from '../../services/merchantProfileService';
@@ -592,12 +592,12 @@ export const Header: FC<HeaderProps> = ({
                     type="button"
                     onClick={() => {
                       setIsProfileOpen(false);
-                      navigate(PATHS.HELP);
+                      navigate(PATHS.REMINDERS);
                     }}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-[#051838] dark:hover:text-white transition-colors cursor-pointer text-right"
                   >
-                    <HelpCircle className="w-4 h-4 text-slate-400" />
-                    <span>مركز المساعدة</span>
+                    <BellRing className="w-4 h-4 text-slate-400" />
+                    <span>إعدادات التذكيرات</span>
                   </button>
                 </div>
 
