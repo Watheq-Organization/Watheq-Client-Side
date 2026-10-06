@@ -30,6 +30,7 @@ export interface Customer {
   address?: string;
   registrationDate?: string;
   transactions?: CustomerTransaction[];
+  isTelegramLinked?: boolean;
 }
 
 /**
@@ -50,6 +51,7 @@ export interface CustomerDto {
   currentBalance?: number;
   status?: string;
   createdAt: string;
+  isTelegramLinked?: boolean;
 }
 
 /**
@@ -106,6 +108,7 @@ export interface CustomerProfileDto {
   totalDebt: number;
   totalPaid: number;
   createdAt: string;
+  isTelegramLinked?: boolean;
   transactions: CustomerProfileTransactionDto[];
 }
 

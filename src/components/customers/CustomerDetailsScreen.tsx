@@ -15,7 +15,9 @@ import {
   Phone,
   X,
   Pencil,
+  RefreshCw,
 } from 'lucide-react';
+import { TelegramLinkModal } from './TelegramLinkModal';
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
 import {
@@ -31,6 +33,7 @@ import {
   setStoredTotalPaid,
   parseCustomerPhone,
   formatFullCustomerPhone,
+  unlinkTelegram,
 } from '../../services/customerService';
 import {
   getEditableDebt,
@@ -190,6 +193,9 @@ export const CustomerDetailsScreen: FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeActivityTab, setActiveActivityTab] = useState<'all' | 'debt' | 'payment'>('all');
   const [searchActivityQuery, setSearchActivityQuery] = useState('');
+  const [telegramModalCustomer, setTelegramModalCustomer] = useState<{ id: string; name: string; phone: string; mode: 'generate' | 'regenerate' } | null>(null);
+  const [showUnlinkConfirm, setShowUnlinkConfirm] = useState(false);
+  const [isUnlinkingTelegram, setIsUnlinkingTelegram] = useState(false);
 
   // Customer Data — fetched from GET /api/Customer/getCustomerProfile/{customerId}
   const [customer, setCustomer] = useState<Customer>(EMPTY_CUSTOMER);
@@ -221,7 +227,7 @@ export const CustomerDetailsScreen: FC = () => {
       .finally(() => {
         setIsLoadingProfile(false);
       });
-  }, [id]);
+  }, [id, location.state]);
 
   useEffect(() => {
     loadCustomerProfile();
@@ -563,6 +569,20 @@ export const CustomerDetailsScreen: FC = () => {
     }
   };
 
+  const confirmUnlinkTelegram = async () => {
+    setIsUnlinkingTelegram(true);
+    try {
+      await unlinkTelegram(customer.id);
+      showToast('تم فك ربط Telegram عن العميل بنجاح.');
+      setCustomer(prev => ({ ...prev, isTelegramLinked: false }));
+      setShowUnlinkConfirm(false);
+    } catch (err) {
+      showToast('تعذر فك ربط Telegram. يرجى المحاولة لاحقاً.', 'error');
+    } finally {
+      setIsUnlinkingTelegram(false);
+    }
+  };
+
   // Activity Log — derived from the transaction history returned by
   // getCustomerProfile (already newest-first, per the API contract).
   const activities: ActivityItem[] = useMemo(() => {
@@ -896,6 +916,72 @@ export const CustomerDetailsScreen: FC = () => {
                   <FileText className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                   <span>تصدير كشف حساب (PDF)</span>
                 </button>
+
+                {/* Telegram Card */}
+                <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 border border-slate-100 dark:border-slate-700 shadow-xs flex flex-col mt-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-[#2AABEE]">
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.46.93-4.12 2.73-.39.26-.74.39-1.06.38-.35-.01-1.02-.2-1.52-.36-.62-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .24z"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <div className="font-bold text-[#0c2444] dark:text-slate-200 font-cairo">ربط Telegram</div>
+                        <div className="text-xs text-slate-400">كشف الحساب وتنبيهات الديون</div>
+                      </div>
+                    </div>
+                    {customer.isTelegramLinked ? (
+                      <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-xs font-bold border border-emerald-100 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        مرتبط
+                      </span>
+                    ) : (
+                      <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-bold border border-slate-200 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                        غير مرتبط
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-4 text-center px-1 font-medium">
+                    {customer.isTelegramLinked 
+                      ? "العميل مرتبط بنجاح بروبوت وثّق على تيليجرام. يستلم كشف حسابه وتنبيهات الديون بشكل آلي." 
+                      : "عند إنشاء الرابط، سيتم إرساله للعميل عبر WhatsApp ليتمكن من ربط حسابه ومتابعة ديونه بنفسه."}
+                  </div>
+                  
+                  {customer.isTelegramLinked ? (
+                    <div className="grid grid-cols-2 gap-3 mt-auto">
+                      <button
+                        type="button"
+                        onClick={() => setShowUnlinkConfirm(true)}
+                        className="py-2.5 px-3 rounded-xl text-rose-500 font-bold text-xs border border-rose-200 hover:bg-rose-50 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        إلغاء الربط
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTelegramModalCustomer({ id: customer.id, name: customer.name, phone: customer.phone || '', mode: 'regenerate' })}
+                        className="py-2.5 px-3 rounded-xl text-[#2AABEE] font-bold text-xs border border-blue-200 hover:bg-blue-50 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        تجديد الرابط
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setTelegramModalCustomer({ id: customer.id, name: customer.name, phone: customer.phone || '', mode: 'generate' })}
+                      className="w-full py-3 px-4 bg-[#2AABEE] hover:bg-[#2299d6] text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-sm hover:shadow-md transition-all active:scale-[0.99] mt-auto cursor-pointer"
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M3 3h8v8H3zm2 2v4h4V5zm8-2h8v8h-8zm2 2v4h4V5zM3 13h8v8H3zm2 2v4h4v-4zm13-2h3v2h-3zm-5 0h3v2h-3zm3 2h2v3h-2zm-3 3h3v2h-3zm3 2h2v3h-2zm-2 0h2v3h-2zm-1-2h2v2h-2zm-2-1h2v2h-2z"/>
+                      </svg>
+                      عرض رمز QR ورابط Telegram
+                    </button>
+                  )}
+                </div>
 
                 {/* 4. Delete Customer Button */}
                 <button
@@ -1524,6 +1610,64 @@ export const CustomerDetailsScreen: FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Telegram Unlink Confirmation Modal */}
+      {showUnlinkConfirm && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200"
+          aria-modal="true"
+          role="dialog"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 dark:border-slate-700 text-center transform transition-all duration-200 scale-100 animate-in fade-in zoom-in-95"
+          >
+            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 shadow-xs">
+              <Trash2 className="w-7 h-7" />
+            </div>
+
+            <h3 className="text-xl font-bold font-cairo text-slate-900 dark:text-white mb-2">
+              إلغاء ربط Telegram
+            </h3>
+
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6 font-cairo">
+              هل أنت متأكد من فك ربط حساب Telegram لهذا العميل؟ سيتم إيقاف كشوفات الحساب وتنبيهات الديون عبر حسابه الحالي.
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={confirmUnlinkTelegram}
+                disabled={isUnlinkingTelegram}
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-bold bg-[#fecaca] hover:bg-[#fca5a5] text-[#b91c1c] transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isUnlinkingTelegram ? 'جارٍ الإلغاء...' : 'نعم، إلغاء الربط'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowUnlinkConfirm(false)}
+                disabled={isUnlinkingTelegram}
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                تراجع
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Telegram Link Modal */}
+      {telegramModalCustomer && (
+        <TelegramLinkModal
+          isOpen={true}
+          onClose={() => setTelegramModalCustomer(null)}
+          customerId={telegramModalCustomer.id}
+          customerName={telegramModalCustomer.name}
+          customerPhone={telegramModalCustomer.phone}
+          mode={telegramModalCustomer.mode}
+        />
       )}
     </div>
   );
