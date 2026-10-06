@@ -6,14 +6,15 @@ import {
   Download,
   Eye,
   MessageCircle,
-  History,
   ChevronLeft,
   ChevronRight,
   X,
   RotateCw,
   Loader2,
   Check,
+  Smartphone,
 } from 'lucide-react';
+import { TelegramLinkModal } from './TelegramLinkModal';
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
 import type { Customer, CustomerStatus } from '../../types/customer';
@@ -74,6 +75,7 @@ export const CustomersScreen: FC = () => {
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   const [addSubmitError, setAddSubmitError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type?: ToastType } | null>(null);
+  const [telegramModalCustomer, setTelegramModalCustomer] = useState<{ id: string; name: string; phone: string } | null>(null);
 
   // Shows a one-off success toast passed via navigation state (e.g. after
   // deleting a customer from the details screen), then clears it from
@@ -293,6 +295,8 @@ export const CustomersScreen: FC = () => {
       setTotalCustomersCount((prev) => (prev !== null ? prev + 1 : null));
       closeAddModal();
       showToast('تمت إضافة العميل بنجاح.');
+      
+
     } catch (err) {
       console.error('[handleAddCustomer] API error:', err);
       const { fieldErrors: backendFieldErrors, generalMessage } = parseAddCustomerApiError(err);
@@ -557,8 +561,14 @@ export const CustomersScreen: FC = () => {
                               {customer.avatarLetter}
                             </div>
                             <div>
-                              <div className="font-bold text-[#0c2444] dark:text-blue-400 text-sm sm:text-base font-cairo group-hover:text-blue-700 transition-colors">
+                              <div className="font-bold text-[#0c2444] dark:text-blue-400 text-sm sm:text-base font-cairo group-hover:text-blue-700 transition-colors flex items-center gap-1.5">
                                 {customer.name}
+                                {customer.isTelegramLinked && (
+                                  <svg className="w-4 h-4 text-[#2AABEE]" fill="currentColor" viewBox="0 0 24 24">
+                                    <title>مربوط بتيليجرام</title>
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.46.93-4.12 2.73-.39.26-.74.39-1.06.38-.35-.01-1.02-.2-1.52-.36-.62-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .24z"/>
+                                  </svg>
+                                )}
                               </div>
                               <div className="text-[11px] text-slate-400 font-normal">
                                 {customer.typeLabel}
@@ -641,6 +651,23 @@ export const CustomersScreen: FC = () => {
                               );
                             })()}
 
+                            {/* Telegram Link */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTelegramModalCustomer({
+                                  id: String(customer.id),
+                                  name: customer.name,
+                                  phone: customer.phone || ''
+                                });
+                              }}
+                              className="p-1.5 rounded-lg text-[#2AABEE] hover:bg-sky-50 dark:hover:bg-sky-900/30 transition-colors cursor-pointer"
+                              title="ربط حساب العميل بتيليجرام"
+                            >
+                              <Smartphone className="w-4 h-4" />
+                            </button>
+
                             {/* View Details */}
                             <button
                               type="button"
@@ -649,16 +676,6 @@ export const CustomersScreen: FC = () => {
                               title="عرض ملف العميل"
                             >
                               <Eye className="w-4 h-4" />
-                            </button>
-
-                            {/* History */}
-                            <button
-                              type="button"
-                              onClick={() => navigate(`/customers/${customer.id}`)}
-                              className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600 dark:bg-slate-700 transition-colors cursor-pointer"
-                              title="سجل المعاملات والديون"
-                            >
-                              <History className="w-4 h-4" />
                             </button>
                           </div>
                         </td>
@@ -879,6 +896,17 @@ export const CustomersScreen: FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Telegram Link Modal */}
+      {telegramModalCustomer && (
+        <TelegramLinkModal
+          isOpen={true}
+          onClose={() => setTelegramModalCustomer(null)}
+          customerId={telegramModalCustomer.id}
+          customerName={telegramModalCustomer.name}
+          customerPhone={telegramModalCustomer.phone}
+        />
       )}
     </div>
   );

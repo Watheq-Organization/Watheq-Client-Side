@@ -181,6 +181,7 @@ function normalizeCustomerDto(raw: unknown): CustomerDto {
     createdAt: normalizeApiDateString(
       typeof (r.createdAt ?? r.CreatedAt) === 'string' ? String(r.createdAt ?? r.CreatedAt) : ''
     ),
+    isTelegramLinked: Boolean(r.isTelegramLinked ?? r.IsTelegramLinked),
   };
 }
 
@@ -220,7 +221,24 @@ export async function getCustomerProfile(customerId: string): Promise<CustomerPr
   // directly (as this used to do) makes every field read as empty/0, so the
   // screen falls back to its placeholder text instead of the real
   // customer's data. Unwrapping first fixes that.
-  return normalizeCustomerProfileDto(extractCustomerDtoObject(response));
+  const profile = normalizeCustomerProfileDto(extractCustomerDtoObject(response));
+
+  // HACK: The backend's getCustomerProfile endpoint doesn't return the `isTelegramLinked` 
+  // status, but the `getCustomers` list endpoint DOES. 
+  // We search for this customer in the list to populate the true telegram status.
+  try {
+    if (profile.phoneNumber) {
+      const listCustomers = await getCustomers();
+      const listCustomer = listCustomers.find(c => String(c.id) === String(customerId));
+      if (listCustomer) {
+        profile.isTelegramLinked = listCustomer.isTelegramLinked;
+      }
+    }
+  } catch (err) {
+    console.error('[getCustomerProfile] Failed to fetch isTelegramLinked fallback:', err);
+  }
+
+  return profile;
 }
 
 /**
@@ -311,6 +329,7 @@ function normalizeCustomerProfileDto(raw: unknown): CustomerProfileDto {
     createdAt: normalizeApiDateString(
       typeof (r.createdAt ?? r.CreatedAt) === 'string' ? String(r.createdAt ?? r.CreatedAt) : ''
     ),
+    isTelegramLinked: Boolean(r.isTelegramLinked ?? r.IsTelegramLinked),
     transactions: normalizedTransactions,
   };
 }
@@ -441,6 +460,7 @@ export function mapCustomerProfileToCustomer(dto: CustomerProfileDto): Customer 
     phone: dto.phoneNumber,
     address: dto.address,
     registrationDate: dto.createdAt,
+    isTelegramLinked: dto.isTelegramLinked,
   };
 }
 
@@ -716,6 +736,7 @@ export function mapCustomerDtoToCustomer(dto: CustomerDto, index?: number): Cust
     phone: dto.phoneNumber,
     address: dto.address,
     registrationDate: dto.createdAt,
+    isTelegramLinked: dto.isTelegramLinked,
   };
 }
 
@@ -988,3 +1009,113 @@ export function toAddCustomerErrorMessage(error: unknown): string {
   return parseAddCustomerApiError(error).generalMessage;
 }
 
+/**
+ * GET https://whateq.runasp.net/api/Telegram/link/{customerId}
+ * 
+ * Fetches the Telegram bot linking URL for the specific customer.
+ */
+export async function getTelegramLink(customerId: string): Promise<string> {
+  try {
+    const response = await httpClient.post<unknown>(`/Telegram/link/generate`, { customerId: Number(customerId) });
+    console.log('[getTelegramLink] API Response:', response);
+    
+    if (typeof response === 'string') {
+      const cleanString = response.replace(/^"|"$/g, '').trim();
+      if (cleanString.startsWith('http') || cleanString.includes('t.me')) {
+          return cleanString;
+      }
+      try {
+        const parsed = JSON.parse(cleanString);
+        if (parsed.telegramBotLink) return parsed.telegramBotLink;
+        if (parsed.telegramLink) return parsed.telegramLink;
+        if (parsed.link) return parsed.link;
+        if (parsed.url) return parsed.url;
+      } catch (e) {
+        return cleanString;
+      }
+    }
+    
+    const checkObj = (obj: any): string | null => {
+        if (!obj || typeof obj !== 'object') return null;
+        if (typeof obj.telegramBotLink === 'string') return obj.telegramBotLink;
+        if (typeof obj.telegramLink === 'string') return obj.telegramLink;
+        if (typeof obj.link === 'string') return obj.link;
+        if (typeof obj.url === 'string') return obj.url;
+        return null;
+    };
+
+    let link = checkObj(response);
+    if (!link && response && typeof response === 'object') {
+        const resObj = response as any;
+        link = checkObj(resObj.data) || checkObj(resObj.result);
+    }
+    
+    if (link) return link;
+    
+    console.error('[getTelegramLink] Unrecognized response format:', response);
+    throw new Error('Invalid response format for Telegram link: ' + JSON.stringify(response));
+  } catch (err) {
+    console.error('[getTelegramLink] API Call Failed:', err);
+    throw err;
+  }
+}
+
+/**
+ * POST https://whateq.runasp.net/api/Telegram/link/regenerate
+ * 
+ * Regenerates the Telegram bot linking URL for an already linked customer.
+ */
+export async function regenerateTelegramLink(customerId: string): Promise<string> {
+  try {
+    const response = await httpClient.post<unknown>(`/Telegram/link/regenerate`, { customerId: Number(customerId) });
+    console.log('[regenerateTelegramLink] API Response:', response);
+    
+    if (typeof response === 'string') {
+      const cleanString = response.replace(/^"|"$/g, '').trim();
+      if (cleanString.startsWith('http') || cleanString.includes('t.me')) {
+          return cleanString;
+      }
+      try {
+        const parsed = JSON.parse(cleanString);
+        if (parsed.telegramBotLink) return parsed.telegramBotLink;
+        if (parsed.telegramLink) return parsed.telegramLink;
+        if (parsed.link) return parsed.link;
+        if (parsed.url) return parsed.url;
+      } catch (e) {
+        return cleanString;
+      }
+    }
+    
+    const checkObj = (obj: any): string | null => {
+        if (!obj || typeof obj !== 'object') return null;
+        if (typeof obj.telegramBotLink === 'string') return obj.telegramBotLink;
+        if (typeof obj.telegramLink === 'string') return obj.telegramLink;
+        if (typeof obj.link === 'string') return obj.link;
+        if (typeof obj.url === 'string') return obj.url;
+        return null;
+    };
+
+    let link = checkObj(response);
+    if (!link && response && typeof response === 'object') {
+        const resObj = response as any;
+        link = checkObj(resObj.data) || checkObj(resObj.result);
+    }
+    
+    if (link) return link;
+    
+    console.error('[regenerateTelegramLink] Unrecognized response format:', response);
+    throw new Error('Invalid response format for Telegram link: ' + JSON.stringify(response));
+  } catch (err) {
+    console.error('[regenerateTelegramLink] API Call Failed:', err);
+    throw err;
+  }
+}
+
+/**
+ * DELETE https://whateq.runasp.net/api/Telegram/unlink/{customerId}
+ * 
+ * Unlinks a customer's Telegram account.
+ */
+export async function unlinkTelegram(customerId: string): Promise<void> {
+  await httpClient.delete<unknown>(`/Telegram/unlink/${encodeURIComponent(customerId)}`);
+}
