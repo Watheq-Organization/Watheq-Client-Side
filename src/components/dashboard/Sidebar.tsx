@@ -11,6 +11,8 @@ import {
   X,
   Banknote,
   RefreshCw,
+  Package,
+  ShoppingCart,
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { PATHS } from '../../routes/paths';
@@ -39,6 +41,8 @@ export const Sidebar: FC<SidebarProps> = ({
 
   const navItems = [
     { id: 'dashboard', label: 'لوحة القيادة', icon: LayoutDashboard, path: PATHS.DASHBOARD },
+    { id: 'pos', label: 'نقطة البيع (الكاشير) ⚡', icon: ShoppingCart, path: PATHS.POS },
+    { id: 'inventory', label: 'المخزون والأصناف', icon: Package, path: PATHS.INVENTORY },
     { id: 'customers', label: 'العملاء', icon: Users, path: PATHS.CUSTOMERS },
     { id: 'add-debt', label: 'إضافة دين', icon: CreditCard, path: PATHS.DEBT_NEW },
     { id: 'cash-sale', label: 'مبيعات نقدية', icon: Banknote, path: PATHS.CASH_SALE },
