@@ -598,7 +598,7 @@ export interface DebtReminderResponse {
  * is resolved server-side from the JWT.
  */
 export async function sendDebtReminder(customerId: number | string): Promise<DebtReminderResponse> {
-  const raw = await httpClient.post<unknown>(`/Debt/${customerId}/send-reminder`, {});
+  const raw = await httpClient.post<unknown>(`/Debt/send-reminder`, { customerId: Number(customerId) });
 
   // Normalise the response regardless of the wrapper shape the backend returns
   const body = raw as Record<string, unknown>;

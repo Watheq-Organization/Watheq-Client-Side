@@ -8,7 +8,6 @@ import {
   ImagePlus,
   Info,
   User,
-  Calendar,
   Banknote,
   Landmark,
   CreditCard,
@@ -386,9 +385,6 @@ export const NewPaymentScreen: FC = () => {
                     مبلغ الدفعة (شيكل إسرائيلي)
                   </label>
                   <div className="relative flex items-center">
-                    <span className="absolute right-3.5 text-xs font-bold text-slate-400 pointer-events-none">
-                      ILS
-                    </span>
                     <input
                       type="number"
                       inputMode="decimal"
@@ -401,7 +397,7 @@ export const NewPaymentScreen: FC = () => {
                       }}
                       placeholder="0.00"
                       dir="ltr"
-                      className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-50/70 dark:bg-slate-800/70 border rounded-lg text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-right font-sans ${fieldErrors.amount ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'
+                      className={`w-full px-3.5 py-2.5 bg-slate-50/70 dark:bg-slate-800/70 border rounded-lg text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-left font-sans ${fieldErrors.amount ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'
                         }`}
                     />
                   </div>
@@ -416,7 +412,6 @@ export const NewPaymentScreen: FC = () => {
                     تاريخ الدفع
                   </label>
                   <div className="relative flex items-center">
-                    <Calendar className="absolute right-3.5 w-4 h-4 text-slate-400 pointer-events-none z-10" />
                     <input
                       type="date"
                       value={paymentDate}
@@ -428,7 +423,7 @@ export const NewPaymentScreen: FC = () => {
                       onClick={(e) => !isEditMode && e.currentTarget.showPicker?.()}
                       dir="ltr"
                       placeholder="mm/dd/yyyy"
-                      className={`w-full pr-10 pl-3.5 py-2.5 bg-slate-50/70 dark:bg-slate-800/70 border rounded-lg text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-left font-sans ${isEditMode ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                      className={`w-full px-3.5 py-2.5 bg-slate-50/70 dark:bg-slate-800/70 border rounded-lg text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-left font-sans ${isEditMode ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
                         } ${fieldErrors.paymentDate ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'}`}
                     />
                   </div>

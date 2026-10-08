@@ -20,6 +20,16 @@ body {
   font-feature-settings: "locl" 0;
 }
 
+/* Disable number input arrows globally */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 @media print {
   @page {
     margin: 10mm 12mm;
