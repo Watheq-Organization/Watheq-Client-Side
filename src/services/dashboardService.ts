@@ -27,7 +27,7 @@ export async function getOverduePayments(): Promise<OverduePaymentItem[]> {
     const report = await getOverdueDebtsReport({ pageSize: 15 });
     if (report.details?.items && report.details.items.length > 0) {
       return report.details.items.map((item) => ({
-        id: String(item.customerId),
+        id: String(item.debtId),
         customerId: String(item.customerId),
         customerName: item.customerName || 'عميل بدون اسم',
         amount: Number(item.remainingAmount || item.originalAmount).toLocaleString('en-US'),

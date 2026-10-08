@@ -48,21 +48,21 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
   }, [loadData]);
 
   /**
-   * Calls POST /api/Debt/{debtId}/send-reminder.
-   * Uses payment.id which equals the debtId from the overdue debts report.
+   * Calls POST /api/Debts/send-reminder.
+   * Uses payment.customerId which sends reminders for all eligible debts for this customer.
    */
-  const handleSendReminder = async (debtId: string) => {
-    if (sendingIds[debtId] || remindedIds[debtId]) return;
+  const handleSendReminder = async (customerId: string) => {
+    if (sendingIds[customerId] || remindedIds[customerId]) return;
 
-    setSendingIds((prev) => ({ ...prev, [debtId]: true }));
+    setSendingIds((prev) => ({ ...prev, [customerId]: true }));
     try {
-      await sendDebtReminder(debtId);
-      setRemindedIds((prev) => ({ ...prev, [debtId]: true }));
+      await sendDebtReminder(customerId);
+      setRemindedIds((prev) => ({ ...prev, [customerId]: true }));
       showToast('تم إرسال التذكير للعميل عبر تيليجرام بنجاح ✓', 'success');
     } catch (err) {
       showToast(toSendReminderErrorMessage(err), 'error');
     } finally {
-      setSendingIds((prev) => ({ ...prev, [debtId]: false }));
+      setSendingIds((prev) => ({ ...prev, [customerId]: false }));
     }
   };
 
@@ -126,7 +126,6 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {filteredPayments.map((payment) => {
-                  const isSent = !!remindedIds[payment.id];
 
                   return (
                     <tr
@@ -152,7 +151,8 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
                       {/* Action Button */}
                       <td className="py-4 pl-2 text-left">
                         {(() => {
-                          const isSending = !!sendingIds[payment.id];
+                          const isSent = !!remindedIds[payment.customerId];
+                          const isSending = !!sendingIds[payment.customerId];
                           const isDisabled = isSent || isSending;
                           return (
                             <button
@@ -160,7 +160,7 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
                               disabled={isDisabled}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                void handleSendReminder(payment.id);
+                                void handleSendReminder(payment.customerId);
                               }}
                               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold font-cairo border transition-all duration-200 shadow-2xs ${isSent
                                   ? 'bg-emerald-50 border-emerald-300 text-emerald-700 cursor-default'
