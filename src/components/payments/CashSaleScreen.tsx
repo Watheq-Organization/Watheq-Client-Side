@@ -176,7 +176,7 @@ export const CashSaleScreen: FC = () => {
             <div className="flex flex-wrap items-center gap-6">
               <div>
                 <p className="text-xs text-slate-400 font-medium mb-1">رقم الفاتورة المؤقت</p>
-                <p className="font-bold text-slate-800 dark:text-slate-200 font-sans tracking-wide">INV-2025-0841</p>
+                <p className="font-bold text-slate-800 dark:text-slate-200 font-sans tracking-wide">يُولَّد عند الحفظ</p>
               </div>
               <div className="h-10 w-px bg-slate-100 dark:bg-slate-700 hidden sm:block"></div>
               <div>

@@ -28,6 +28,8 @@ import { ResetPasswordPage } from '../pages/ResetPasswordPage';
 import { LogoutPage } from '../pages/LogoutPage';
 import TermsPage from '../pages/TermsPage.tsx';
 import { MizanPage } from '../pages/MizanPage.tsx';
+import { InventoryPage } from '../pages/InventoryPage';
+import { PosCashierPage } from '../pages/PosCashierPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { useOAuthHandler } from '../hooks/useOAuthHandler';
 import { LandingPage } from '../pages/LandingPage';
@@ -178,6 +180,22 @@ export const AppRoutes: FC = () => {
         element={
           <ProtectedRoute>
             <MizanPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={PATHS.INVENTORY}
+        element={
+          <ProtectedRoute>
+            <InventoryPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={PATHS.POS}
+        element={
+          <ProtectedRoute>
+            <PosCashierPage />
           </ProtectedRoute>
         }
       />

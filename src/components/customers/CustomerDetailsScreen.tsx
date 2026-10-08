@@ -1136,12 +1136,12 @@ export const CustomerDetailsScreen: FC = () => {
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        navigate(`/debts/${act.recordId || act.reference || '8821'}/invoice`, {
+                                        navigate(`/debts/${act.recordId || act.reference || 'UNKNOWN'}/invoice`, {
                                           state: {
                                             debt: {
                                               id: String(act.recordId),
                                               invoiceId: act.invoiceId || undefined,
-                                              invoiceNumber: `INV-DEBT-${act.reference || act.recordId || '8821'}`,
+                                              invoiceNumber: `INV-DEBT-${act.reference || act.recordId || 'UNKNOWN'}`,
                                               customerId: customer.id,
                                               customerName: customer.name,
                                               customerNationalId: customer.nationalOrCrId,

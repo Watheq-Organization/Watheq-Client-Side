@@ -35,6 +35,8 @@ export const PATHS = {
   LOGOUT: '/logout',
   TERMS: '/terms',
   MIZAN: '/mizan',
+  INVENTORY: '/inventory',
+  POS: '/pos',
 } as const;
 
 

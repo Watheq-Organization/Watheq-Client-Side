@@ -194,7 +194,7 @@ export const DebtInvoiceScreen: FC = () => {
   // Invoice Data matching Image 3 with fallback/dynamic support
   const invoiceData = useMemo(() => {
     const invoiceNumber =
-      serverInvoice?.invoiceNumber ?? navState?.invoiceNumber ?? (id ? `INV-DEBT-${id}` : 'INV-DEBT-8821');
+      serverInvoice?.invoiceNumber ?? navState?.invoiceNumber ?? (id ? `INV-DEBT-${id}` : 'غير متوفر');
     const customerName =
       serverInvoice?.customerName ?? navState?.customerName ?? 'العميل';
     const customerNationalId =
