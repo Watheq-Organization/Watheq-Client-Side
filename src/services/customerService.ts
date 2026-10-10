@@ -37,6 +37,17 @@ export async function getCustomers(): Promise<CustomerDto[]> {
   return dtos;
 }
 
+/**
+ * GET https://whateq.runasp.net/api/Customer/searchCustomer
+ *
+ * Searches for customers by Name or PhoneNumber.
+ */
+export async function searchCustomer(query: string): Promise<CustomerDto[]> {
+  const q = encodeURIComponent(query.trim());
+  const response = await httpClient.get<unknown>(`/Customer/searchCustomer?query=${q}`);
+  return extractCustomerDtoList(response).map(normalizeCustomerDto);
+}
+
 function extractCustomerDtoList(response: unknown): unknown[] {
   if (Array.isArray(response)) return response;
   if (response && typeof response === 'object') {

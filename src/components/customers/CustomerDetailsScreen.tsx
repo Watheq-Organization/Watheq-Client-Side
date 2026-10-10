@@ -787,25 +787,39 @@ export const CustomerDetailsScreen: FC = () => {
 
                 {/* Avatar with Verified Badge */}
                 <div className="relative mb-4">
-                  <div className="w-24 h-24 rounded-3xl overflow-hidden ring-4 ring-slate-100/80 shadow-md bg-gradient-to-br from-[#123663] to-[#0c2444] text-white font-bold flex items-center justify-center text-3xl font-cairo">
-                    {customer.avatarLetter || customer.name?.trim()?.charAt(0) || 'ع'}
-                  </div>
+                  {isLoadingProfile ? (
+                    <div className="w-24 h-24 rounded-3xl bg-slate-200 dark:bg-slate-700 animate-pulse ring-4 ring-slate-100/80 shadow-md" />
+                  ) : (
+                    <div className="w-24 h-24 rounded-3xl overflow-hidden ring-4 ring-slate-100/80 shadow-md bg-gradient-to-br from-[#123663] to-[#0c2444] text-white font-bold flex items-center justify-center text-3xl font-cairo">
+                      {customer.avatarLetter || customer.name?.trim()?.charAt(0) || 'ع'}
+                    </div>
+                  )}
                   {/* Verified Green Shield / Check Badge */}
-                  <div className="absolute -bottom-1 -left-1 w-7 h-7 bg-emerald-600 rounded-full border-2 border-white flex items-center justify-center text-white shadow-sm">
-                    <Check className="w-4 h-4 stroke-[3]" />
-                  </div>
+                  {!isLoadingProfile && (
+                    <div className="absolute -bottom-1 -left-1 w-7 h-7 bg-emerald-600 rounded-full border-2 border-white flex items-center justify-center text-white shadow-sm">
+                      <Check className="w-4 h-4 stroke-[3]" />
+                    </div>
+                  )}
                 </div>
 
                 {/* Name */}
                 <h2 className="text-xl font-extrabold font-cairo text-[#0c2444] dark:text-blue-400">
-                  {customer.name || 'أحمد الراجحي'}
+                  {isLoadingProfile ? (
+                    <div className="h-6 w-32 bg-slate-200 dark:bg-slate-700 rounded-md animate-pulse mx-auto" />
+                  ) : (
+                    customer.name || 'بدون اسم'
+                  )}
                 </h2>
 
                 {/* National ID Pill */}
-                <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-full text-xs font-semibold font-mono" dir="rtl">
-                  <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
-                  <span>هوية: {customer.nationalOrCrId || 'غير متوفر'}</span>
-                </div>
+                {isLoadingProfile ? (
+                  <div className="mt-2 h-6 w-24 bg-slate-200 dark:bg-slate-700 rounded-full animate-pulse" />
+                ) : (
+                  <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-full text-xs font-semibold font-mono" dir="rtl">
+                    <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
+                    <span>هوية: {customer.nationalOrCrId || 'غير متوفر'}</span>
+                  </div>
+                )}
 
                 {/* Divider */}
                 <div className="w-full border-t border-slate-100 dark:border-slate-700 my-5" />
@@ -818,9 +832,13 @@ export const CustomerDetailsScreen: FC = () => {
                       <Phone className="w-4 h-4 text-slate-400" />
                       <span>رقم الهاتف</span>
                     </div>
-                    <span className="font-bold text-slate-800 dark:text-slate-200 font-mono" dir="ltr">
-                      {customer.phone || 'غير متوفر'}
-                    </span>
+                    {isLoadingProfile ? (
+                      <div className="h-5 w-24 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
+                    ) : (
+                      <span className="font-bold text-slate-800 dark:text-slate-200 font-mono" dir="ltr">
+                        {customer.phone || 'غير متوفر'}
+                      </span>
+                    )}
                   </div>
 
                   {/* Registration Date */}
@@ -829,9 +847,13 @@ export const CustomerDetailsScreen: FC = () => {
                       <Clock className="w-4 h-4 text-slate-400" />
                       <span>تاريخ التسجيل</span>
                     </div>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">
-                      {customer.registrationDate ? formatApiDate(customer.registrationDate) : 'غير متوفر'}
-                    </span>
+                    {isLoadingProfile ? (
+                      <div className="h-5 w-20 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
+                    ) : (
+                      <span className="font-bold text-slate-800 dark:text-slate-200">
+                        {customer.registrationDate ? formatApiDate(customer.registrationDate) : 'غير متوفر'}
+                      </span>
+                    )}
                   </div>
 
                   {/* Total Paid */}
@@ -840,9 +862,13 @@ export const CustomerDetailsScreen: FC = () => {
                       <Check className="w-4 h-4 text-slate-400" />
                       <span>إجمالي المدفوع</span>
                     </div>
-                    <span className="font-bold text-slate-800 dark:text-slate-200 font-mono" dir="ltr">
-                      {computedTotalPaid.toFixed(2)} ₪
-                    </span>
+                    {isLoadingProfile ? (
+                      <div className="h-5 w-16 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
+                    ) : (
+                      <span className="font-bold text-slate-800 dark:text-slate-200 font-mono" dir="ltr">
+                        {computedTotalPaid.toFixed(2)} ₪
+                      </span>
+                    )}
                   </div>
 
                   {/* Total Debt */}
@@ -851,9 +877,13 @@ export const CustomerDetailsScreen: FC = () => {
                       <FileText className="w-4 h-4 text-slate-400" />
                       <span>إجمالي المديونية</span>
                     </div>
-                    <span className="font-bold text-rose-600 dark:text-rose-500 font-mono" dir="ltr">
-                      {currentBalance.toFixed(2)} ₪
-                    </span>
+                    {isLoadingProfile ? (
+                      <div className="h-5 w-16 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
+                    ) : (
+                      <span className="font-bold text-rose-600 dark:text-rose-500 font-mono" dir="ltr">
+                        {currentBalance.toFixed(2)} ₪
+                      </span>
+                    )}
                   </div>
 
                   {/* Credit Status */}
@@ -862,9 +892,13 @@ export const CustomerDetailsScreen: FC = () => {
                       <ShieldCheck className="w-4 h-4 text-slate-400" />
                       <span>حالة الائتمان</span>
                     </div>
-                    <span className="px-3 py-0.5 bg-emerald-500 text-white rounded-md text-xs font-bold shadow-2xs">
-                      موثوق
-                    </span>
+                    {isLoadingProfile ? (
+                      <div className="h-5 w-12 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
+                    ) : (
+                      <span className="px-3 py-0.5 bg-emerald-500 text-white rounded-md text-xs font-bold shadow-2xs">
+                        موثوق
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -1077,7 +1111,16 @@ export const CustomerDetailsScreen: FC = () => {
                 </div>
 
                 {/* Timeline Items */}
-                {filteredActivities.length === 0 ? (
+                {isLoadingProfile ? (
+                  <div className="space-y-6">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="flex items-start gap-4 sm:gap-5 animate-pulse">
+                        <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-700 flex-shrink-0" />
+                        <div className="flex-1 rounded-2xl h-28 bg-slate-200 dark:bg-slate-700" />
+                      </div>
+                    ))}
+                  </div>
+                ) : filteredActivities.length === 0 ? (
                   <div className="py-12 text-center text-slate-400 space-y-2">
                     <FileText className="w-10 h-10 mx-auto text-slate-300 stroke-[1.5]" />
                     <p className="text-sm font-semibold">لا توجد معاملات مسجلة لهذا العميل حتى الآن</p>
@@ -1265,9 +1308,13 @@ export const CustomerDetailsScreen: FC = () => {
                     إجمالي المديونية الحالية
                   </span>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl sm:text-5xl font-black font-cairo tracking-tight">
-                      {currentBalance.toFixed(2)}
-                    </span>
+                    {isLoadingProfile ? (
+                       <div className="h-10 w-32 bg-blue-900/50 rounded-lg animate-pulse" />
+                    ) : (
+                      <span className="text-3xl sm:text-5xl font-black font-cairo tracking-tight">
+                        {currentBalance.toFixed(2)}
+                      </span>
+                    )}
                     <span className="text-sm font-bold text-slate-400 font-cairo">
                       ₪
                     </span>
@@ -1281,10 +1328,14 @@ export const CustomerDetailsScreen: FC = () => {
                     <span className="text-[11px] text-slate-400 font-medium block mb-1">
                       آخر دفعة
                     </span>
-                    <span className="text-sm sm:text-base font-bold text-white font-cairo">
-                      {lastPaymentAmount.toFixed(2)}
-                    </span>
-                    <span className="text-[10px] text-slate-400 block font-cairo">
+                    {isLoadingProfile ? (
+                      <div className="h-6 w-16 bg-blue-900/50 rounded-md animate-pulse mx-auto" />
+                    ) : (
+                      <span className="text-sm sm:text-base font-bold text-white font-cairo">
+                        {lastPaymentAmount.toFixed(2)}
+                      </span>
+                    )}
+                    <span className="text-[10px] text-slate-400 block font-cairo mt-0.5">
                       ₪
                     </span>
                   </div>
@@ -1294,9 +1345,13 @@ export const CustomerDetailsScreen: FC = () => {
                     <span className="text-[11px] text-slate-400 font-medium block mb-1">
                       عدد المعاملات
                     </span>
-                    <span className="text-xs sm:text-sm font-bold text-white font-cairo block">
-                      {profileTransactions.length}
-                    </span>
+                    {isLoadingProfile ? (
+                      <div className="h-5 w-10 bg-blue-900/50 rounded-md animate-pulse mx-auto mt-1" />
+                    ) : (
+                      <span className="text-xs sm:text-sm font-bold text-white font-cairo block mt-1">
+                        {profileTransactions.length}
+                      </span>
+                    )}
                   </div>
                 </div>
 

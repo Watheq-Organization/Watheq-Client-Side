@@ -56,6 +56,8 @@ export const CustomersScreen: FC = () => {
   const [remindedCustomerIds, setRemindedCustomerIds] = useState<Record<string, boolean>>({});
   /** customerId → currently sending (in-flight) */
   const [sendingCustomerIds, setSendingCustomerIds] = useState<Record<string, boolean>>({});
+  /** customerId → first overdue debtId (used for sending reminders) */
+  const [customerOverdueDebtIds, setCustomerOverdueDebtIds] = useState<Record<string, string>>({});
 
   // Add Customer Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -125,13 +127,21 @@ export const CustomersScreen: FC = () => {
         if (!isMounted) return;
         const overdueCustomerIds = new Set<string>();
         const overdueCustomerNames = new Set<string>();
+        const debtIdMap: Record<string, string> = {};
 
         if (overdueReport?.details?.items) {
           for (const item of overdueReport.details.items) {
-            if (item.customerId) overdueCustomerIds.add(String(item.customerId));
+            if (item.customerId) {
+              overdueCustomerIds.add(String(item.customerId));
+              if (item.debtId && !debtIdMap[String(item.customerId)]) {
+                debtIdMap[String(item.customerId)] = String(item.debtId);
+              }
+            }
             if (item.customerName) overdueCustomerNames.add(item.customerName.trim().toLowerCase());
           }
         }
+        
+        setCustomerOverdueDebtIds(debtIdMap);
 
         const mapped = dtos.map((dto, idx) => {
           const c = mapCustomerDtoToCustomer(dto, idx);
@@ -334,11 +344,16 @@ export const CustomersScreen: FC = () => {
 
   const handleSendReminder = async (customer: Customer) => {
     const custId = String(customer.id);
+    const debtId = customerOverdueDebtIds[custId];
+    if (!debtId) {
+      showToast('لا يمكن إرسال تذكير: لم يتم العثور على دين متأخر محدد لهذا العميل.', 'error');
+      return;
+    }
     if (sendingCustomerIds[custId] || remindedCustomerIds[custId]) return;
 
     setSendingCustomerIds((prev) => ({ ...prev, [custId]: true }));
     try {
-      await sendDebtReminder(custId);
+      await sendDebtReminder(debtId);
       setRemindedCustomerIds((prev) => ({ ...prev, [custId]: true }));
       showToast('تم إرسال التذكير للعميل عبر تيليجرام بنجاح ✓', 'success');
     } catch (err) {
@@ -503,11 +518,25 @@ export const CustomersScreen: FC = () => {
 
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700 text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300">
                   {isLoadingCustomers ? (
-                    <tr>
-                      <td colSpan={5} className="py-12 text-center text-slate-400">
-                        جارٍ تحميل قائمة العملاء...
-                      </td>
-                    </tr>
+                    <>
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <tr key={i} className="animate-pulse border-b border-slate-100 dark:border-slate-700">
+                          <td className="py-4 px-4 sm:px-6">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-700"></div>
+                              <div className="space-y-2">
+                                <div className="h-4 w-24 bg-slate-200 dark:bg-slate-700 rounded"></div>
+                                <div className="h-3 w-16 bg-slate-200 dark:bg-slate-700 rounded"></div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4 sm:px-6"><div className="h-4 w-20 bg-slate-200 dark:bg-slate-700 rounded mr-auto"></div></td>
+                          <td className="py-4 px-4 sm:px-6"><div className="h-4 w-24 bg-slate-200 dark:bg-slate-700 rounded"></div></td>
+                          <td className="py-4 px-4 sm:px-6"><div className="h-6 w-16 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto"></div></td>
+                          <td className="py-4 px-4 sm:px-6"><div className="h-8 w-24 bg-slate-200 dark:bg-slate-700 rounded-lg mx-auto"></div></td>
+                        </tr>
+                      ))}
+                    </>
                   ) : customersLoadError ? (
                     <tr>
                       <td colSpan={5} className="py-12 text-center">

@@ -48,21 +48,20 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
   }, [loadData]);
 
   /**
-   * Calls POST /api/Debts/send-reminder.
-   * Uses payment.customerId which sends reminders for all eligible debts for this customer.
+   * Calls POST /api/Debt/{debtId}/send-reminder.
    */
-  const handleSendReminder = async (customerId: string) => {
-    if (sendingIds[customerId] || remindedIds[customerId]) return;
+  const handleSendReminder = async (debtId: string) => {
+    if (sendingIds[debtId] || remindedIds[debtId]) return;
 
-    setSendingIds((prev) => ({ ...prev, [customerId]: true }));
+    setSendingIds((prev) => ({ ...prev, [debtId]: true }));
     try {
-      await sendDebtReminder(customerId);
-      setRemindedIds((prev) => ({ ...prev, [customerId]: true }));
+      await sendDebtReminder(debtId);
+      setRemindedIds((prev) => ({ ...prev, [debtId]: true }));
       showToast('تم إرسال التذكير للعميل عبر تيليجرام بنجاح ✓', 'success');
     } catch (err) {
       showToast(toSendReminderErrorMessage(err), 'error');
     } finally {
-      setSendingIds((prev) => ({ ...prev, [customerId]: false }));
+      setSendingIds((prev) => ({ ...prev, [debtId]: false }));
     }
   };
 
@@ -151,8 +150,8 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
                       {/* Action Button */}
                       <td className="py-4 pl-2 text-left">
                         {(() => {
-                          const isSent = !!remindedIds[payment.customerId];
-                          const isSending = !!sendingIds[payment.customerId];
+                          const isSent = !!remindedIds[payment.id];
+                          const isSending = !!sendingIds[payment.id];
                           const isDisabled = isSent || isSending;
                           return (
                             <button
@@ -160,7 +159,7 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
                               disabled={isDisabled}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                void handleSendReminder(payment.customerId);
+                                void handleSendReminder(payment.id);
                               }}
                               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold font-cairo border transition-all duration-200 shadow-2xs ${isSent
                                   ? 'bg-emerald-50 border-emerald-300 text-emerald-700 cursor-default'

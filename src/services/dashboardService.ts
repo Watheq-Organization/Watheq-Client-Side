@@ -1,7 +1,5 @@
 import { httpClient, ApiError } from '../api/httpClient';
 import type { DashboardSummary, OverduePaymentItem, RecentActivityItem } from '../types/dashboard';
-import { getCustomers, getCustomerProfile } from './customerService';
-import { getOverdueDebtsReport } from './reportService';
 import { parseApiDate, formatRelativeTime } from '../lib/dateUtils';
 
 /**
@@ -24,93 +22,96 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
  */
 export async function getOverduePayments(): Promise<OverduePaymentItem[]> {
   try {
-    const report = await getOverdueDebtsReport({ pageSize: 15 });
-    if (report.details?.items && report.details.items.length > 0) {
-      return report.details.items.map((item) => ({
-        id: String(item.debtId),
-        customerId: String(item.customerId),
-        customerName: item.customerName || 'عميل بدون اسم',
-        amount: Number(item.remainingAmount || item.originalAmount).toLocaleString('en-US'),
-        dueDate: formatArabicDate(item.dueDate),
-        phone: '',
-      }));
+    const response = await httpClient.get<unknown>('/Dashboard/overdue-payments');
+    
+    let rawItems: unknown[] = [];
+    if (Array.isArray(response)) {
+      rawItems = response;
+    } else if (response && typeof response === 'object') {
+      const obj = response as Record<string, unknown>;
+      if (Array.isArray(obj.data)) {
+        rawItems = obj.data;
+      } else if (Array.isArray(obj.items)) {
+        rawItems = obj.items;
+      } else if (Array.isArray(obj.result)) {
+        rawItems = obj.result;
+      } else if (obj.data && typeof obj.data === 'object') {
+        const inner = obj.data as Record<string, unknown>;
+        if (Array.isArray(inner.data)) {
+          rawItems = inner.data;
+        } else if (Array.isArray(inner.items)) {
+          rawItems = inner.items;
+        }
+      }
     }
+
+    return rawItems.map((item) => {
+      const it = (item || {}) as Record<string, unknown>;
+      return {
+        id: String(it.id ?? it.debtId ?? it.paymentId ?? it.customerId ?? ''),
+        customerId: String(it.customerId ?? it.CustomerId ?? ''),
+        customerName: String(it.customerName ?? it.CustomerName ?? 'عميل بدون اسم'),
+        amount: Number(it.amount ?? it.Amount ?? it.remainingAmount ?? it.RemainingAmount ?? 0).toLocaleString('en-US'),
+        dueDate: formatArabicDate(String(it.dueDate ?? it.DueDate ?? it.date ?? it.createdAt ?? '')),
+        phone: String(it.phone ?? it.phoneNumber ?? it.PhoneNumber ?? ''),
+      };
+    });
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.warn('[getOverduePayments] Falling back to customer debts:', err);
+    console.error('[getOverduePayments] Failed to fetch:', err);
+    return [];
   }
-
-  const dtos = await getCustomers();
-  const overdueCustomers = dtos.filter(
-    (c) => (c.currentBalance ?? c.totalDebt) > 0 || (c.status && c.status.toLowerCase().includes('overdue'))
-  );
-
-  return overdueCustomers.map((c) => ({
-    id: String(c.id), // Fallback uses customer ID since it's grouped by customer
-    customerId: String(c.id),
-    customerName: c.fullName || 'عميل بدون اسم',
-    amount: (c.currentBalance ?? c.totalDebt).toLocaleString('en-US'),
-    dueDate: formatArabicDate(c.createdAt),
-    phone: c.phoneNumber,
-  }));
 }
 
 /**
- * Fetches real recent activities from customer additions and transactions in the database.
+ * Fetches real recent activities from the backend.
  */
 export async function getRecentActivities(): Promise<RecentActivityItem[]> {
-  const dtos = await getCustomers();
-  const activities: RecentActivityItem[] = [];
+  try {
+    const response = await httpClient.get<unknown>('/Dashboard/recent-activities');
+    
+    let rawItems: unknown[] = [];
+    if (Array.isArray(response)) {
+      rawItems = response;
+    } else if (response && typeof response === 'object') {
+      const obj = response as Record<string, unknown>;
+      if (Array.isArray(obj.data)) {
+        rawItems = obj.data;
+      } else if (Array.isArray(obj.items)) {
+        rawItems = obj.items;
+      } else if (Array.isArray(obj.result)) {
+        rawItems = obj.result;
+      } else if (obj.data && typeof obj.data === 'object') {
+        const inner = obj.data as Record<string, unknown>;
+        if (Array.isArray(inner.data)) {
+          rawItems = inner.data;
+        } else if (Array.isArray(inner.items)) {
+          rawItems = inner.items;
+        }
+      }
+    }
 
-  const sortedCustomers = [...dtos].sort((a, b) => {
-    const timeA = parseApiDate(a.createdAt).getTime() || 0;
-    const timeB = parseApiDate(b.createdAt).getTime() || 0;
-    return timeB - timeA;
-  });
-
-  // 1. Customer Registration Activities
-  for (const c of sortedCustomers.slice(0, 10)) {
-    const timeMs = parseApiDate(c.createdAt).getTime() || Date.now();
-    activities.push({
-      id: `cust-add-${c.id}`,
-      time: formatRelativeTime(c.createdAt),
-      title: 'إضافة عميل جديد',
-      description: `تم تسجيل العميل "${c.fullName}" في النظام.`,
-      dotColor: 'bg-[#0f284e]',
-      timestamp: timeMs,
-    });
-  }
-
-  // 2. Fetch profiles for top 5 customers to pull real transaction history
-  const topFive = sortedCustomers.slice(0, 5);
-  const profilePromises = topFive.map((c) => getCustomerProfile(c.id).catch(() => null));
-  const profiles = await Promise.all(profilePromises);
-
-  profiles.forEach((profile) => {
-    if (!profile || !profile.transactions) return;
-    profile.transactions.forEach((tx, idx) => {
-      const txTimeMs = parseApiDate(tx.date).getTime() || Date.now();
-      const typeStr = String(tx.type || '').toLowerCase();
+    return rawItems.map((item, idx) => {
+      const it = (item || {}) as Record<string, unknown>;
+      const timeStr = String(it.date ?? it.createdAt ?? it.time ?? it.timestamp ?? it.Date ?? it.CreatedAt ?? '');
+      const timeMs = parseApiDate(timeStr).getTime() || Date.now();
+      const typeStr = String(it.type ?? it.Type ?? '').toLowerCase();
+      
       const isPayment = typeStr.includes('pay') || typeStr.includes('دفعة') || typeStr.includes('سداد');
-      const isDebt = typeStr.includes('debt') || typeStr.includes('دين') || !isPayment;
-
-      activities.push({
-        id: `tx-${profile.id}-${idx}-${txTimeMs}`,
-        time: formatRelativeTime(tx.date),
-        title: isPayment ? 'تم استلام دفعة' : isDebt ? 'إضافة دين جديد' : 'معاملة مالية',
-        description: isPayment
-          ? `قام ${profile.fullName} بسداد مبلغ ${Number(tx.amount).toLocaleString('en-US')} ₪.`
-          : `تم تسجيل دين بقيمة ${Number(tx.amount).toLocaleString('en-US')} ₪ على ${profile.fullName}`,
-        dotColor: isPayment ? 'bg-[#22c55e]' : 'bg-[#0f284e]',
-        timestamp: txTimeMs,
-      });
-    });
-  });
-
-  // Sort activities newest-first
-  activities.sort((a, b) => b.timestamp - a.timestamp);
-
-  return activities.slice(0, 30);
+      const dotColor = String(it.dotColor ?? (isPayment ? 'bg-[#22c55e]' : 'bg-[#0f284e]'));
+      
+      return {
+        id: String(it.id ?? it.activityId ?? `act-${idx}-${timeMs}`),
+        time: formatRelativeTime(timeStr),
+        title: String(it.title ?? it.Title ?? (isPayment ? 'تم استلام دفعة' : 'معاملة مالية')),
+        description: String(it.description ?? it.Description ?? ''),
+        dotColor,
+        timestamp: timeMs,
+      };
+    }).sort((a, b) => b.timestamp - a.timestamp).slice(0, 30);
+  } catch (err) {
+    console.error('[getRecentActivities] Failed to fetch:', err);
+    return [];
+  }
 }
 
 function formatArabicDate(dateStr?: string): string {

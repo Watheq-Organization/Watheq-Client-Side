@@ -272,3 +272,75 @@ export async function deactivateProductApi(
   );
   return mapApiProductToLocal(response.data);
 }
+
+/**
+ * GET /api/Products/{id}
+ *
+ * Gets a specific product by its ID.
+ */
+export async function getProductByIdApi(
+  id: string | number
+): Promise<Product> {
+  const response = await httpClient.get<ApiResponse<ProductApiData>>(
+    `/Products/${id}`
+  );
+  return mapApiProductToLocal(response.data);
+}
+
+/**
+ * GET /api/Products/stock/low
+ *
+ * Gets products that have low stock.
+ */
+export async function getLowStockProductsApi(): Promise<{ items: Product[]; totalCount: number }> {
+  const response = await httpClient.get<any>(`/Products/stock/low`);
+  const payload = response.data ?? response;
+
+  if (Array.isArray(payload)) {
+    return {
+      items: payload.map(mapApiProductToLocal),
+      totalCount: payload.length,
+    };
+  }
+
+  if (payload && Array.isArray(payload.items)) {
+    return {
+      items: payload.items.map(mapApiProductToLocal),
+      totalCount: payload.totalCount ?? payload.items.length,
+    };
+  }
+
+  return { items: [], totalCount: 0 };
+}
+
+export interface StockMovement {
+  id: number | string;
+  productId: number | string;
+  quantity: number;
+  type: string;
+  createdAt: string;
+  note?: string;
+}
+
+/**
+ * GET /api/Products/{id}/stock/movements
+ *
+ * Gets stock movements for a specific product.
+ */
+export async function getStockMovementsApi(
+  id: string | number
+): Promise<StockMovement[]> {
+  const response = await httpClient.get<any>(
+    `/Products/${id}/stock/movements`
+  );
+  const payload = response.data ?? response;
+
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+  if (payload && Array.isArray(payload.items)) {
+    return payload.items;
+  }
+  return [];
+}
+
