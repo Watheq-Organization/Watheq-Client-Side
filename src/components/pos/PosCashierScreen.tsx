@@ -32,8 +32,7 @@ import { NegativeStockModal } from './NegativeStockModal';
 import { CameraScannerModal } from '../common/CameraScannerModal';
 import { Toast, type ToastType } from '../ui/Toast';
 import { PATHS } from '../../routes/paths';
-import { createDebt, toCreateDebtErrorMessage } from '../../services/debtService';
-import { createInstantSale } from '../../services/instantSaleService';
+import { toPosErrorMessage } from '../../services/posService';
 
 export const PosCashierScreen: FC = () => {
   const navigate = useNavigate();
@@ -816,22 +815,6 @@ export const PosCashierScreen: FC = () => {
         customerName={selectedCustomer.name}
         onConfirm={async (received, change, discount) => {
           try {
-            const netDue = cartTotalDue - discount;
-            const isGuest = !selectedCustomer.id || selectedCustomer.name === 'زبون نقدي عام';
-            const invoiceNotes = cart.map((item) => `${item.product.name} × ${item.quantity}`).join(' | ');
-            const desc = `مبيعات نقدية | محتويات الفاتورة: ${invoiceNotes}`;
-
-            await createInstantSale({
-              amount: netDue,
-              description: desc,
-              paymentMethod: 1, // 1 for Cash
-              customerId: !isGuest ? Number(selectedCustomer.id) : null,
-              customerName: !isGuest ? selectedCustomer.name : null,
-              phoneNumber: !isGuest ? selectedCustomer.phone : null,
-              guestCustomerName: isGuest ? selectedCustomer.name : null,
-              guestCustomerPhoneNumber: isGuest ? selectedCustomer.phone : null,
-            });
-
             await checkout({
               method: 'cash',
               customerName: selectedCustomer.name,
@@ -843,7 +826,7 @@ export const PosCashierScreen: FC = () => {
             });
             setToast({ message: 'تم إتمام البيع وتسجيل الدفعة النقدية بنجاح', type: 'success' });
           } catch (error) {
-            setToast({ message: 'حدث خطأ أثناء تسجيل الدفعة في الخادم', type: 'error' });
+            setToast({ message: toPosErrorMessage(error, 'حدث خطأ أثناء تسجيل الدفعة النقدية'), type: 'error' });
           }
         }}
       />
@@ -861,16 +844,8 @@ export const PosCashierScreen: FC = () => {
           setIsDebtModalOpen(false);
           setIsCustomerSelectModalOpen(true);
         }}
-        onConfirm={async (dueDate, invoiceNotes) => {
+        onConfirm={async (_dueDate, invoiceNotes) => {
           try {
-            if (selectedCustomer.id) {
-              await createDebt({
-                customerId: selectedCustomer.id,
-                amount: cartTotalDue.toString(),
-                dueDate: dueDate,
-                notes: invoiceNotes,
-              });
-            }
             await checkout({
               method: 'debt',
               customerName: selectedCustomer.name,
@@ -878,9 +853,9 @@ export const PosCashierScreen: FC = () => {
               customerId: selectedCustomer.id,
               debtNotes: invoiceNotes,
             });
-            setToast({ message: 'تم تسجيل الدين وإصدار السند بنجاح', type: 'success' });
+            setToast({ message: 'تم تسجيل البيع بالآجل وإصدار السند بنجاح', type: 'success' });
           } catch (error) {
-            setToast({ message: toCreateDebtErrorMessage(error), type: 'error' });
+            setToast({ message: toPosErrorMessage(error, 'حدث خطأ أثناء تسجيل الدين في الخادم'), type: 'error' });
           }
         }}
       />
@@ -895,15 +870,6 @@ export const PosCashierScreen: FC = () => {
         customerName={selectedCustomer.name}
         onConfirm={async (bankRefCode, provider) => {
           try {
-            await createInstantSale({
-              amount: cartTotalDue,
-              description: `دفع بنكي (${provider}): ${bankRefCode}`,
-              customerId: selectedCustomer.id ? Number(selectedCustomer.id) : null,
-              customerName: selectedCustomer.name,
-              phoneNumber: selectedCustomer.phone,
-              paymentMethod: 2, // Bank Payment
-            });
-
             await checkout({
               method: 'bank',
               customerName: selectedCustomer.name,
@@ -911,9 +877,9 @@ export const PosCashierScreen: FC = () => {
               customerId: selectedCustomer.id,
               bankRefCode: `${provider}: ${bankRefCode}`,
             });
-            setToast({ message: 'تم تسجيل الدفعة البنكية وإصدار السند بنجاح', type: 'success' });
+            setToast({ message: 'تم تسجيل الدفعة البنكية وإتمام البيع بنجاح', type: 'success' });
           } catch (error) {
-            setToast({ message: 'حدث خطأ أثناء تسجيل الدفعة في الخادم', type: 'error' });
+            setToast({ message: toPosErrorMessage(error, 'حدث خطأ أثناء تسجيل الدفعة البنكية'), type: 'error' });
           }
         }}
       />

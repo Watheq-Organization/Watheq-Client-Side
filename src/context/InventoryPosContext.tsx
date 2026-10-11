@@ -24,6 +24,7 @@ const RESTOCK_STORAGE_KEY = 'watheq_restock_history_v1';
 
 import { getProductsApi } from '../services/productService';
 import { ApiError } from '../api/httpClient';
+import { posCheckout, type PosSaleType, type PosPaymentMethod } from '../services/posService';
 
 export const DEFAULT_CASH_CUSTOMER = {
   id: undefined,
@@ -492,33 +493,93 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
     setHeldBills((prev) => prev.filter((b) => b.id !== billId));
   }, []);
 
-  // Checkout with atomic stock deduction
+  // Checkout with atomic stock deduction via backend POS API
   const checkout = useCallback(
     async (payload: CheckoutPayload): Promise<CompletedSale> => {
       if (cart.length === 0) {
         throw new Error('السلة فارغة، لا يمكن إتمام البيع');
       }
 
-      setProducts((prevProducts) => {
-        const productMap = new Map(prevProducts.map((p) => [p.id, { ...p }]));
-        for (const cartItem of cart) {
-          const prod = productMap.get(cartItem.product.id);
-          if (prod) {
-            prod.stock = prod.stock - cartItem.quantity;
-            prod.updatedAt = new Date().toISOString();
-          }
-        }
-        return Array.from(productMap.values());
+      // Determine saleType and paymentMethod per backend POS specification
+      let saleType: PosSaleType = 'Cash';
+      let paymentMethod: PosPaymentMethod = 'Cash';
+
+      if (payload.method === 'cash') {
+        saleType = 'Cash';
+        paymentMethod = 'Cash';
+      } else if (payload.method === 'bank') {
+        saleType = 'Cash';
+        paymentMethod = 'BankTransfer';
+      } else if (payload.method === 'debt') {
+        saleType = 'Debt';
+        paymentMethod = 'None';
+      }
+
+      const rawCustId = payload.customerId || selectedCustomer.id;
+      const parsedCustId = rawCustId ? Number(rawCustId) : null;
+      const isGuest = !parsedCustId || isNaN(parsedCustId);
+
+      if (saleType === 'Debt' && isGuest) {
+        throw new Error('يجب اختيار عميل مسجل لإتمام عملية البيع بالدين.');
+      }
+
+      const guestCustomerName =
+        saleType === 'Cash' && isGuest
+          ? (payload.customerName || selectedCustomer.name || 'زبون نقدي')
+          : null;
+
+      const checkoutItems = cart.map((item) => ({
+        productId: Number(item.product.id),
+        quantity: item.quantity,
+      }));
+
+      // Call backend POS checkout
+      const posResult = await posCheckout({
+        saleType,
+        paymentMethod,
+        customerId: !isGuest ? parsedCustId : null,
+        guestCustomerName,
+        items: checkoutItems,
       });
 
-      const invoiceNumber = `INV-${new Date().getFullYear()}${String(
-        new Date().getMonth() + 1
-      ).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}-${Math.floor(
-        1000 + Math.random() * 9000
-      )}`;
+      // Update local product inventory based on server returned remainingStock
+      if (posResult?.items && Array.isArray(posResult.items)) {
+        setProducts((prevProducts) => {
+          const stockMap = new Map(posResult.items.map((it) => [Number(it.productId), it.remainingStock]));
+          return prevProducts.map((p) => {
+            const serverStock = stockMap.get(Number(p.id));
+            if (serverStock !== undefined) {
+              return { ...p, stock: serverStock, updatedAt: new Date().toISOString() };
+            }
+            return p;
+          });
+        });
+      } else {
+        // Fallback: local deduction if server item details were not in expected shape
+        setProducts((prevProducts) => {
+          const productMap = new Map(prevProducts.map((p) => [p.id, { ...p }]));
+          for (const cartItem of cart) {
+            const prod = productMap.get(cartItem.product.id);
+            if (prod) {
+              prod.stock = prod.stock - cartItem.quantity;
+              prod.updatedAt = new Date().toISOString();
+            }
+          }
+          return Array.from(productMap.values());
+        });
+      }
+
+      const prefix = saleType === 'Debt' ? 'DEBT' : 'CASH';
+      const invoiceNumber = posResult?.transactionId
+        ? `${prefix}-${posResult.transactionId}`
+        : `INV-${new Date().getFullYear()}${String(
+            new Date().getMonth() + 1
+          ).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}-${Math.floor(
+            1000 + Math.random() * 9000
+          )}`;
 
       const completedSale: CompletedSale = {
-        id: `sale-${Date.now()}`,
+        id: posResult?.transactionId ? `${prefix}-${posResult.transactionId}` : `sale-${Date.now()}`,
         invoiceNumber,
         date: new Date().toISOString(),
         customerName: payload.customerName || selectedCustomer.name,
@@ -527,7 +588,7 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
         items: [...cart],
         subtotal: cartSubtotal,
         discount: payload.discount !== undefined ? payload.discount : cartDiscount,
-        total: cartTotalDue,
+        total: posResult?.totalAmount ?? cartTotalDue,
         paymentMethod: payload.method,
         receivedAmount: payload.receivedAmount,
         changeAmount: payload.changeAmount,
@@ -535,7 +596,7 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
         previousDebt: selectedCustomer.totalDebt || 0,
         newDebt:
           payload.method === 'debt'
-            ? (selectedCustomer.totalDebt || 0) + cartTotalDue
+            ? (selectedCustomer.totalDebt || 0) + (posResult?.totalAmount ?? cartTotalDue)
             : selectedCustomer.totalDebt,
         botVerificationSent: payload.method === 'debt',
         mizanReconciled: payload.method === 'bank' ? false : undefined,
