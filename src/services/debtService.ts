@@ -586,7 +586,7 @@ export interface DebtReminderResponse {
 }
 
 /**
- * POST /api/Debt/{customerId}/send-reminder
+ * POST /api/Debt/send-reminder
  *
  * Sends a Telegram payment reminder for the customer's outstanding debt.
  * The backend validates: debt ownership, customer existence,
@@ -597,8 +597,10 @@ export interface DebtReminderResponse {
  * data (UserId, BusinessId, TelegramChatId, RemainingAmount)
  * is resolved server-side from the JWT.
  */
-export async function sendDebtReminder(debtId: number | string): Promise<DebtReminderResponse> {
-  const raw = await httpClient.post<unknown>(`/Debt/${debtId}/send-reminder`);
+export async function sendDebtReminder(customerId: number | string): Promise<DebtReminderResponse> {
+  const raw = await httpClient.post<unknown>('/Debt/send-reminder', {
+    customerId: Number(customerId),
+  });
 
   // Normalise the response regardless of the wrapper shape the backend returns
   const body = raw as Record<string, unknown>;

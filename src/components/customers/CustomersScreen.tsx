@@ -344,16 +344,15 @@ export const CustomersScreen: FC = () => {
 
   const handleSendReminder = async (customer: Customer) => {
     const custId = String(customer.id);
-    const debtId = customerOverdueDebtIds[custId];
-    if (!debtId) {
-      showToast('لا يمكن إرسال تذكير: لم يتم العثور على دين متأخر محدد لهذا العميل.', 'error');
+    if (!custId) {
+      showToast('لا يمكن إرسال تذكير: لم يتم العثور على معرّف العميل.', 'error');
       return;
     }
     if (sendingCustomerIds[custId] || remindedCustomerIds[custId]) return;
 
     setSendingCustomerIds((prev) => ({ ...prev, [custId]: true }));
     try {
-      await sendDebtReminder(debtId);
+      await sendDebtReminder(custId);
       setRemindedCustomerIds((prev) => ({ ...prev, [custId]: true }));
       showToast('تم إرسال التذكير للعميل عبر تيليجرام بنجاح ✓', 'success');
     } catch (err) {

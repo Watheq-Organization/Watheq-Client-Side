@@ -48,20 +48,22 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
   }, [loadData]);
 
   /**
-   * Calls POST /api/Debt/{debtId}/send-reminder.
+   * Calls POST /api/Debt/{customerId}/send-reminder.
    */
-  const handleSendReminder = async (debtId: string) => {
-    if (sendingIds[debtId] || remindedIds[debtId]) return;
+  const handleSendReminder = async (payment: OverduePaymentItem) => {
+    const targetCustomerId = payment.customerId || payment.id;
+    const key = payment.id;
+    if (sendingIds[key] || remindedIds[key]) return;
 
-    setSendingIds((prev) => ({ ...prev, [debtId]: true }));
+    setSendingIds((prev) => ({ ...prev, [key]: true }));
     try {
-      await sendDebtReminder(debtId);
-      setRemindedIds((prev) => ({ ...prev, [debtId]: true }));
+      await sendDebtReminder(targetCustomerId);
+      setRemindedIds((prev) => ({ ...prev, [key]: true }));
       showToast('تم إرسال التذكير للعميل عبر تيليجرام بنجاح ✓', 'success');
     } catch (err) {
       showToast(toSendReminderErrorMessage(err), 'error');
     } finally {
-      setSendingIds((prev) => ({ ...prev, [debtId]: false }));
+      setSendingIds((prev) => ({ ...prev, [key]: false }));
     }
   };
 
@@ -159,7 +161,7 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({ searchQuer
                               disabled={isDisabled}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                void handleSendReminder(payment.id);
+                                void handleSendReminder(payment);
                               }}
                               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold font-cairo border transition-all duration-200 shadow-2xs ${isSent
                                   ? 'bg-emerald-50 border-emerald-300 text-emerald-700 cursor-default'
