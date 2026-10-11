@@ -1,12 +1,13 @@
 import { useState, useEffect, type FC, type FormEvent } from 'react';
-import { X, AlertCircle, Sparkles, Check } from 'lucide-react';
+import { X, AlertCircle, Sparkles, Check, Loader2 } from 'lucide-react';
 import type { Product } from '../../types/inventory';
+import { ApiError } from '../../api/httpClient';
 
 interface QuickAddProductModalProps {
   isOpen: boolean;
   onClose: () => void;
   barcode: string;
-  onConfirm: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  onConfirm: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void> | void;
 }
 
 export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
@@ -17,17 +18,20 @@ export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
 }) => {
   const [name, setName] = useState('');
   const [salePrice, setSalePrice] = useState('');
-  const [initialStock, setInitialStock] = useState('20');
-  const [category, setCategory] = useState('عام');
   const [costPrice, setCostPrice] = useState('');
+  const [initialStock, setInitialStock] = useState('20');
+  const [minAlertThreshold, setMinAlertThreshold] = useState('5');
+  const [category, setCategory] = useState('عام');
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setName('');
       setSalePrice('');
-      setInitialStock('20');
       setCostPrice('');
+      setInitialStock('20');
+      setMinAlertThreshold('5');
       setCategory('عام');
       setError(null);
     }
@@ -35,7 +39,7 @@ export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       setError('يرجى كتابة اسم الصنف');
@@ -43,29 +47,78 @@ export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
     }
 
     const price = parseFloat(salePrice);
-    if (isNaN(price) || price <= 0) {
-      setError('يرجى إدخال سعر بيع صحيح أكبر من صفر');
+    if (isNaN(price) || price < 0) {
+      setError('يرجى إدخال سعر بيع صحيح (رقم موجب)');
+      return;
+    }
+
+    const cost = parseFloat(costPrice);
+    if (isNaN(cost) || cost < 0) {
+      setError('يرجى إدخال سعر تكلفة صحيح (رقم موجب)');
       return;
     }
 
     const stock = parseInt(initialStock, 10);
     if (isNaN(stock) || stock < 0) {
-      setError('يرجى إدخال رصيد صحيح');
+      setError('يرجى إدخال رصيد صحيح (0 أو أكثر)');
       return;
     }
 
-    const cost = parseFloat(costPrice) || Math.round(price * 0.75 * 10) / 10;
+    const minAlert = parseInt(minAlertThreshold, 10);
+    if (isNaN(minAlert) || minAlert < 0) {
+      setError('حد التنبيه يجب أن يكون 0 أو أكثر');
+      return;
+    }
 
-    onConfirm({
-      barcode: barcode.trim(),
-      name: name.trim(),
-      category: category.trim() || 'عام',
-      salePrice: price,
-      costPrice: cost,
-      stock,
-      minAlertThreshold: 5,
-    });
-    onClose();
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      await onConfirm({
+        barcode: barcode.trim(),
+        name: name.trim(),
+        category: category.trim() || 'عام',
+        salePrice: price,
+        costPrice: cost,
+        stock,
+        minAlertThreshold: minAlert,
+      });
+      onClose();
+    } catch (err: unknown) {
+      console.error('Create product error:', err);
+      let msg = 'فشل حفظ الصنف في الخادم';
+
+      if (err instanceof ApiError) {
+        if (err.body) {
+          if (typeof err.body === 'object') {
+            const bodyObj = err.body as Record<string, any>;
+            // Server wraps errors as: { result: { code, message }, data, testSchema }
+            if (bodyObj.result?.message) {
+              msg = String(bodyObj.result.message);
+            } else if (bodyObj.errors) {
+              msg = Object.entries(bodyObj.errors)
+                .map(([field, errs]) => `${field}: ${Array.isArray(errs) ? errs.join(', ') : errs}`)
+                .join(' | ');
+            } else if (bodyObj.message) {
+              msg = String(bodyObj.message);
+            } else if (bodyObj.title) {
+              msg = String(bodyObj.title);
+            } else {
+              msg = JSON.stringify(err.body);
+            }
+          } else {
+            msg = String(err.body);
+          }
+        } else {
+          msg = `خطأ من السيرفر (HTTP ${err.status})`;
+        }
+      } else if (err instanceof Error) {
+        msg = err.message;
+      }
+
+      setError(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -107,7 +160,7 @@ export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            أدخل 3 بيانات سريعة ليتم حفظ الصنف فوراً في المخزون وإضافته لسلة البيع دون توقف الكاشير:
+            أدخل بيانات الصنف ليتم حفظه في قاعدة بيانات المخزون وإضافته لسلة البيع فوراً:
           </p>
 
           <div>
@@ -127,38 +180,84 @@ export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              سعر البيع للزبون (₪) *
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                step="0.1"
-                min="0.1"
-                value={salePrice}
-                onChange={(e) => {
-                  setSalePrice(e.target.value);
-                  setError(null);
-                }}
-                placeholder="0.00"
-                className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-base font-black focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-hidden"
-              />
-              <span className="absolute left-3 top-2.5 text-xs text-emerald-600 font-bold">₪</span>
+          {/* Pricing Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                سعر البيع للزبون (₪) *
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={salePrice}
+                  onChange={(e) => {
+                    setSalePrice(e.target.value);
+                    setError(null);
+                  }}
+                  placeholder="0.00"
+                  className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-black focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-hidden"
+                />
+                <span className="absolute left-3 top-2.5 text-xs text-emerald-600 font-bold">₪</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                سعر التكلفة (₪) *
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={costPrice}
+                  onChange={(e) => {
+                    setCostPrice(e.target.value);
+                    setError(null);
+                  }}
+                  placeholder="0.00"
+                  className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-black focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-hidden"
+                />
+                <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-bold">₪</span>
+              </div>
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              الرصيد الافتتاحي بالمحل (حبة/وحدة) *
-            </label>
-            <input
-              type="number"
-              min="0"
-              value={initialStock}
-              onChange={(e) => setInitialStock(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-bold focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-hidden"
-            />
+          {/* Quantities Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                الرصيد الافتتاحي بالمحل *
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={initialStock}
+                onChange={(e) => {
+                  setInitialStock(e.target.value);
+                  setError(null);
+                }}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-bold focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-hidden"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                حد التنبيه بالنفاد 🟡 (الافتراضي 5) *
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={minAlertThreshold}
+                onChange={(e) => {
+                  setMinAlertThreshold(e.target.value);
+                  setError(null);
+                }}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-bold focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-hidden"
+              />
+            </div>
           </div>
 
           {error && (
@@ -171,17 +270,28 @@ export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
           <div className="flex items-center justify-end gap-2.5 pt-3">
             <button
               type="button"
+              disabled={isSubmitting}
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-medium text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="px-4 py-2 rounded-xl text-xs font-medium text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
             >
               تخطي
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-lg shadow-emerald-600/30 flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+              disabled={isSubmitting}
+              className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-lg shadow-emerald-600/30 flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-75 disabled:pointer-events-none cursor-pointer"
             >
-              <Check className="w-4 h-4" />
-              <span>حفظ وإضافة للسلة فوراً (Enter)</span>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>جاري الحفظ في المخزون...</span>
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4" />
+                  <span>حفظ وإضافة للسلة فوراً (Enter)</span>
+                </>
+              )}
             </button>
           </div>
         </form>

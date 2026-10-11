@@ -11,7 +11,7 @@ export interface CreateProductPayload {
   salePrice: number;
   costPrice: number;
   minStockAlert: number;
-  quantity: number;
+  quantity?: number;
 }
 
 /** Payload sent to PUT /api/Products/{id} */
@@ -127,7 +127,7 @@ export async function getProductsApi(
   const response = await httpClient.get<any>(`/Products${query}`);
 
   // Handle various potential API wrappers (ApiResponse + PaginatedResponse)
-  const payload = response.data ?? response;
+  const payload = response?.data !== undefined ? response.data : response;
 
   if (Array.isArray(payload)) {
     return {
@@ -143,7 +143,66 @@ export async function getProductsApi(
     };
   }
 
+  // Check if inner data exists
+  if (payload?.data && Array.isArray(payload.data)) {
+    return {
+      items: payload.data.map(mapApiProductToLocal),
+      totalCount: payload.data.length,
+    };
+  }
+
   return { items: [], totalCount: 0 };
+}
+
+/**
+ * Fetch a single product by its exact barcode from the backend.
+ *
+ * The GET /api/Products `Search` parameter only searches product names,
+ * NOT barcodes. So we fetch products safely and filter by barcode.
+ * Returns null if no product matches.
+ */
+export async function getProductByBarcodeApi(
+  barcode: string
+): Promise<Product | null> {
+  const cleanBarcode = barcode.trim().toLowerCase();
+  if (!cleanBarcode) return null;
+
+  try {
+    // 1. Try with Search query first (in case backend adds barcode search)
+    try {
+      const res1 = await getProductsApi({ Search: barcode.trim(), PageSize: 50 });
+      const match1 = res1.items.find(
+        (p) => p.barcode && p.barcode.trim().toLowerCase() === cleanBarcode
+      );
+      if (match1) return match1;
+    } catch {
+      // Ignore search error and fall back to broad query
+    }
+
+    // 2. Fetch page 1 (up to 100 products)
+    const res2 = await getProductsApi({ PageNumber: 1, PageSize: 100 });
+    const match2 = res2.items.find(
+      (p) => p.barcode && p.barcode.trim().toLowerCase() === cleanBarcode
+    );
+    if (match2) return match2;
+
+    // 3. If there are additional pages, check up to page 5
+    if (res2.totalCount && res2.totalCount > 100) {
+      const maxPages = Math.min(Math.ceil(res2.totalCount / 100), 5);
+      for (let page = 2; page <= maxPages; page++) {
+        const resPage = await getProductsApi({ PageNumber: page, PageSize: 100 });
+        const matchPage = resPage.items.find(
+          (p) => p.barcode && p.barcode.trim().toLowerCase() === cleanBarcode
+        );
+        if (matchPage) return matchPage;
+      }
+    }
+
+    return null;
+  } catch (err) {
+    console.error('[getProductByBarcodeApi] Error fetching product:', err);
+    return null;
+  }
 }
 
 /**
@@ -158,11 +217,41 @@ export async function getProductsApi(
 export async function createProduct(
   payload: CreateProductPayload
 ): Promise<Product> {
-  const response = await httpClient.post<ApiResponse<ProductApiData>>(
+  const requestBody = {
+    productName: String(payload.productName).trim(),
+    barcode: String(payload.barcode).trim(),
+    salePrice: Number(payload.salePrice),
+    costPrice: Number(payload.costPrice),
+    minStockAlert: Number(payload.minStockAlert),
+  };
+
+  // eslint-disable-next-line no-console
+  console.log('[createProduct] REQUEST BODY:', JSON.stringify(requestBody, null, 2));
+
+  const response = await httpClient.post<any>(
     '/Products',
-    payload
+    requestBody
   );
-  return mapApiProductToLocal(response.data);
+
+  // eslint-disable-next-line no-console
+  console.log('[createProduct] RESPONSE:', JSON.stringify(response, null, 2));
+  
+  // Handle possible response wrappers
+  const rawData = response?.data ?? response;
+  const created = mapApiProductToLocal(rawData);
+
+  // If user provided initial stock > 0, supply it to the product
+  if (payload.quantity && payload.quantity > 0 && created.id) {
+    try {
+      await supplyProductStockApi(created.id, { quantity: payload.quantity });
+      created.stock = payload.quantity;
+    } catch {
+      // Stock supply fallback
+      created.stock = payload.quantity;
+    }
+  }
+
+  return created;
 }
 
 /**

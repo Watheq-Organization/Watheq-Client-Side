@@ -133,6 +133,7 @@ interface InventoryPosContextType {
   pendingNegativeItem: { product: Product; quantity: number } | null;
   setPendingNegativeItem: (item: { product: Product; quantity: number } | null) => void;
   confirmAddNegativeItem: () => void;
+  refreshProducts: () => Promise<void>;
 }
 
 const InventoryPosContext = createContext<InventoryPosContextType | undefined>(undefined);
@@ -195,29 +196,25 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
     quantity: number;
   } | null>(null);
 
+  const refreshProducts = useCallback(async () => {
+    try {
+      const res = await getProductsApi({ PageNumber: 1, PageSize: 1000 });
+      if (res?.items && Array.isArray(res.items)) {
+        setProducts(res.items);
+      }
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 404 || err.status === 0)) {
+        console.warn('GET /api/Products failed (404/0). Using local storage products fallback.');
+      } else {
+        console.error('Failed to load products from API:', err);
+      }
+    }
+  }, []);
+
   // Load products from API on mount
   useEffect(() => {
-    let mounted = true;
-    const loadProducts = async () => {
-      try {
-        // Fetch up to 1000 items (since it's a POS, we want all local products loaded)
-        const res = await getProductsApi({ PageNumber: 1, PageSize: 1000 });
-        if (mounted) {
-          setProducts(res.items);
-        }
-      } catch (err) {
-        if (err instanceof ApiError && (err.status === 404 || err.status === 0)) {
-          console.warn('GET /api/Products failed (404/0). Using local storage products fallback.');
-        } else {
-          console.error('Failed to load products from API:', err);
-        }
-      }
-    };
-    loadProducts();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    refreshProducts();
+  }, [refreshProducts]);
 
   // Sync to localStorage
   useEffect(() => {
@@ -325,7 +322,9 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
     (barcode: string): Product | undefined => {
       const clean = barcode.trim().toLowerCase();
       return products.find(
-        (p) => p.barcode.toLowerCase() === clean || p.id.toLowerCase() === clean
+        (p) =>
+          (p.barcode && p.barcode.trim().toLowerCase() === clean) ||
+          (p.id && String(p.id).trim().toLowerCase() === clean)
       );
     },
     [products]
@@ -646,6 +645,7 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
       pendingNegativeItem,
       setPendingNegativeItem,
       confirmAddNegativeItem,
+      refreshProducts,
     }),
     [
       products,
@@ -675,6 +675,7 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
       checkout,
       pendingNegativeItem,
       confirmAddNegativeItem,
+      refreshProducts,
     ]
   );
 

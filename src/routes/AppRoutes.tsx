@@ -30,6 +30,7 @@ import TermsPage from '../pages/TermsPage.tsx';
 import { MizanPage } from '../pages/MizanPage.tsx';
 import { InventoryPage } from '../pages/InventoryPage';
 import { PosCashierPage } from '../pages/PosCashierPage';
+import { MobileScannerPage } from '../pages/MobileScannerPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { useOAuthHandler } from '../hooks/useOAuthHandler';
 import { LandingPage } from '../pages/LandingPage';
@@ -199,6 +200,8 @@ export const AppRoutes: FC = () => {
           </ProtectedRoute>
         }
       />
+      <Route path={PATHS.MOBILE_SCANNER} element={<MobileScannerPage />} />
+      <Route path={PATHS.SCAN} element={<MobileScannerPage />} />
       <Route path={PATHS.ABOUT} element={<AboutPage />} />
       <Route path={PATHS.HELP} element={<HelpCenterPage />} />
       <Route path={PATHS.TERMS} element={<TermsPage />} />

@@ -1,5 +1,24 @@
-import { useState, type FC } from 'react';
-import { X, Smartphone, QrCode, Wifi, Copy, Check, Sparkles } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback, useMemo, type FC } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
+import {
+  X,
+  Smartphone,
+  Wifi,
+  Copy,
+  Check,
+  Loader2,
+  RefreshCw,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+} from 'lucide-react';
+import {
+  createScannerSession,
+  getScannerSessionStatus,
+  revokeScannerSession,
+  toScannerErrorMessage,
+  type CreateScannerSessionData,
+} from '../../services/scannerService';
 
 interface MobileScannerModalProps {
   isOpen: boolean;
@@ -10,24 +29,162 @@ interface MobileScannerModalProps {
 export const MobileScannerModal: FC<MobileScannerModalProps> = ({
   isOpen,
   onClose,
-  onSimulateBarcode,
+  onSimulateBarcode: _onSimulateBarcode,
 }) => {
+  const [session, setSession] = useState<CreateScannerSessionData | null>(null);
+  const [status, setStatus] = useState<'Pending' | 'Paired' | 'Expired' | string>('Pending');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [terminalCode] = useState(() => `WTQ-${Math.floor(100 + Math.random() * 900)}`);
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(600);
+  const [lanHost, setLanHost] = useState<string>(() => {
+    return localStorage.getItem('watheq_dev_lan_ip') || '10.5.50.23';
+  });
+
+
+  const activeSessionIdRef = useRef<string | null>(null);
+  const pollingTimerRef = useRef<number | null>(null);
+  const countdownTimerRef = useRef<number | null>(null);
+
+  // These must be computed BEFORE any early return (Rules of Hooks)
+  const isLocalhost =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+  const resolvedOrigin = useMemo(() => {
+    const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
+    const isVirtualOrLocal =
+      isLocalhost ||
+      currentHost === 'localhost' ||
+      currentHost === '127.0.0.1' ||
+      currentHost.startsWith('172.') ||
+      currentHost.startsWith('192.168.') ||
+      currentHost.startsWith('10.');
+
+    // If on local development (localhost / LAN IP) and LAN IP is configured, use LAN IP
+    if (isVirtualOrLocal && lanHost.trim()) {
+      const port = window.location.port ? `:${window.location.port}` : '';
+      return `${window.location.protocol}//${lanHost.trim()}${port}`;
+    }
+    // On production (e.g. deployed on Vercel), use the live origin directly
+    return typeof window !== 'undefined' ? window.location.origin : '';
+  }, [isLocalhost, lanHost]);
+
+  const pairingUrl =
+    session?.sessionId && session?.pairingSecret
+      ? `${resolvedOrigin}/scan?sessionId=${encodeURIComponent(
+          session.sessionId
+        )}&secret=${encodeURIComponent(session.pairingSecret)}`
+      : '';
+
+  // Stop polling and timers
+  const clearTimers = useCallback(() => {
+    if (pollingTimerRef.current) {
+      window.clearInterval(pollingTimerRef.current);
+      pollingTimerRef.current = null;
+    }
+    if (countdownTimerRef.current) {
+      window.clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+  }, []);
+
+  // Initialize or renew a scanner session
+  const initSession = useCallback(async () => {
+    clearTimers();
+    setIsLoading(true);
+    setError(null);
+    setStatus('Pending');
+
+    try {
+      const data = await createScannerSession();
+      if (!data || !data.sessionId) {
+        throw new Error('لم يتم استلام بيانات الجلسة من الخادم.');
+      }
+
+      setSession(data);
+      activeSessionIdRef.current = data.sessionId;
+
+      // Calculate countdown in seconds from expiresAt
+      const expiry = data.expiresAt ? new Date(data.expiresAt).getTime() : Date.now() + 600000;
+      const now = Date.now();
+      const diffSec = Math.max(0, Math.floor((expiry - now) / 1000));
+      setRemainingSeconds(diffSec > 0 ? diffSec : 600);
+
+      // Start countdown
+      countdownTimerRef.current = window.setInterval(() => {
+        setRemainingSeconds((prev) => {
+          if (prev <= 1) {
+            clearTimers();
+            setStatus('Expired');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      // Start polling status every 3 seconds
+      pollingTimerRef.current = window.setInterval(async () => {
+        if (!activeSessionIdRef.current) return;
+        try {
+          const res = await getScannerSessionStatus(activeSessionIdRef.current);
+          if (res?.status) {
+            setStatus(res.status);
+            if (res.status === 'Paired' || res.status === 'Connected') {
+              clearTimers();
+            }
+          }
+        } catch {
+          // Silent polling retry
+        }
+      }, 3000);
+    } catch (err) {
+      setError(toScannerErrorMessage(err));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [clearTimers]);
+
+  useEffect(() => {
+    if (isOpen) {
+      initSession();
+    } else {
+      // When closed, revoke session if it was still pending
+      if (activeSessionIdRef.current) {
+        const idToRevoke = activeSessionIdRef.current;
+        revokeScannerSession(idToRevoke).catch(() => {});
+      }
+      clearTimers();
+      setSession(null);
+      activeSessionIdRef.current = null;
+    }
+
+    return () => {
+      clearTimers();
+    };
+  }, [isOpen]); // Only run on modal open/close toggle!
 
   if (!isOpen) return null;
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(`https://watheq.app/scan?code=${terminalCode}`);
+    if (!pairingUrl) return;
+    navigator.clipboard.writeText(pairingUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const sampleProducts = [
-    { code: '6251001234567', label: 'حليب رغد 1 لتر' },
-    { code: '5449000000996', label: 'كوكا كولا 1.5 لتر' },
-    { code: '7622210850021', label: 'بسكويت أوريو' },
-  ];
+  const handleClose = () => {
+    if (session?.sessionId && status === 'Pending') {
+      revokeScannerSession(session.sessionId).catch(() => {});
+    }
+    onClose();
+  };
+
+  const formatCountdown = (totalSec: number) => {
+    const mins = Math.floor(totalSec / 60);
+    const secs = totalSec % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
 
   return (
     <div
@@ -35,6 +192,7 @@ export const MobileScannerModal: FC<MobileScannerModalProps> = ({
       dir="rtl"
     >
       <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 text-center">
+        {/* Header */}
         <div className="p-5 border-b border-slate-100 dark:border-slate-800 bg-emerald-50 dark:bg-emerald-950/40 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/30">
@@ -51,72 +209,206 @@ export const MobileScannerModal: FC<MobileScannerModalProps> = ({
           </div>
           <button
             type="button"
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            onClick={handleClose}
+            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-6 space-y-5">
-          <div className="relative mx-auto w-48 h-48 bg-white dark:bg-slate-800 rounded-3xl p-3 border-2 border-dashed border-emerald-500/60 shadow-lg flex items-center justify-center group">
-            <QrCode className="w-36 h-36 text-slate-900 dark:text-white" />
-            <div className="absolute inset-x-0 bottom-2 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-white/90 dark:bg-slate-900/90 py-0.5 rounded-full mx-4 shadow-xs flex items-center justify-center gap-1">
-              <Wifi className="w-3 h-3 animate-pulse text-emerald-500" />
-              <span>جاهز للاقتران الفوري</span>
+        {/* Content */}
+        <div className="p-6 space-y-4">
+          {isLoading ? (
+            <div className="py-14 flex flex-col items-center justify-center gap-3 text-slate-500">
+              <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+              <p className="text-xs font-semibold">جاري إنشاء جلسة ربط آمنة مع السيرفر...</p>
             </div>
-          </div>
-
-          <div>
-            <span className="text-xs text-slate-400 block mb-1">رمز ربط الكاشير (Terminal Code):</span>
-            <div className="inline-flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-4 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
-              <span className="font-mono text-lg font-black tracking-widest text-emerald-600 dark:text-emerald-400">
-                {terminalCode}
-              </span>
+          ) : error ? (
+            <div className="py-8 px-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 space-y-3">
+              <AlertCircle className="w-8 h-8 text-rose-600 mx-auto" />
+              <p className="text-xs text-rose-700 dark:text-rose-400 font-semibold">{error}</p>
               <button
                 type="button"
-                onClick={handleCopyLink}
-                className="p-1 text-slate-400 hover:text-emerald-600 transition-colors"
-                title="نسخ الرابط"
+                onClick={initSession}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors cursor-pointer"
               >
-                {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                <RefreshCw className="w-3.5 h-3.5" />
+                إعادة المحاولة
               </button>
             </div>
-          </div>
-
-          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-            امسح الكود بكاميرا هاتفك ليفتح ماسح وثّق مباشرة، أو أرسل الرابط لمساعدك في المحل. أي باركود
-            يتم مسحه بالهاتف سيسقط في شاشة الكاشير في أقل من 50 مللي ثانية!
-          </p>
-
-          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-right space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span>محاكاة مسح قادم من الجوال الآن:</span>
+          ) : status === 'Paired' || status === 'Connected' ? (
+            <div className="py-8 px-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 space-y-3">
+              <div className="w-14 h-14 rounded-full bg-emerald-600 text-white flex items-center justify-center mx-auto shadow-lg shadow-emerald-600/30">
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
+              <h4 className="text-base font-bold text-emerald-800 dark:text-emerald-300">
+                تم اقتران الهاتف بنجاح!
+              </h4>
+              <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                يمكنك الآن مسح أي باركود بهاتفك وسيظهر مباشرة في سلة البيع.
+              </p>
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              {sampleProducts.map((p) => (
+          ) : (
+            <>
+              {/* QR Code Container */}
+              <div className="relative mx-auto w-56 bg-white rounded-3xl p-3 border-2 border-dashed shadow-lg flex flex-col items-center justify-center group min-h-[14rem]"
+                style={{ borderColor: isLocalhost && !lanHost.trim() ? '#f59e0b' : '#10b981' }}
+              >
+                {isLocalhost && !lanHost.trim() ? (
+                  /* No LAN IP — show entry form instead of useless QR */
+                  <div className="w-full text-center space-y-3 p-2">
+                    <div className="text-3xl">📶</div>
+                    <p className="text-sm font-bold text-amber-700">أدخل IP اللابتوب أولاً</p>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      الرمز سيشير إلى <span className="font-mono font-bold text-rose-500">localhost</span> وهو لا يعمل على الجوال. أدخل IP اللابتوب على الشبكة:
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        placeholder="مثال: 10.5.50.23"
+                        value={lanHost}
+                        onChange={(e) => {
+                          const val = e.target.value.trim();
+                          setLanHost(val);
+                          localStorage.setItem('watheq_dev_lan_ip', val);
+                        }}
+                        className="flex-1 px-2.5 py-1.5 text-xs bg-white border-2 border-amber-400 rounded-lg text-slate-800 font-mono text-left focus:outline-none focus:ring-2 focus:ring-amber-400"
+                        autoFocus
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-400 font-mono" dir="ltr">
+                      Hint: <span className="font-bold text-slate-600">10.5.50.23</span>
+                    </p>
+                  </div>
+                ) : pairingUrl ? (
+                  <>
+                    <QRCodeSVG
+                      value={pairingUrl}
+                      size={168}
+                      level="M"
+                      includeMargin={false}
+                      className="rounded-lg"
+                    />
+                    <div className="absolute inset-x-0 bottom-2 text-[10px] font-bold text-emerald-600 bg-white/95 py-0.5 rounded-full mx-4 shadow-xs flex items-center justify-center gap-1 border border-emerald-100">
+                      <Wifi className="w-3 h-3 animate-pulse text-emerald-500" />
+                      <span>امسح بكاميرا الجوال الآن</span>
+                    </div>
+                  </>
+                ) : (
+                  <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+                )}
+              </div>
+
+              {/* Countdown Timer */}
+              <div className="flex items-center justify-center gap-2 text-xs">
+                <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400 font-medium">
+                  <Clock className="w-3.5 h-3.5 text-amber-500" />
+                  صلاحية الجلسة:
+                </span>
+                <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
+                  {formatCountdown(remainingSeconds)}
+                </span>
+                {status === 'Expired' && (
+                  <button
+                    type="button"
+                    onClick={initSession}
+                    className="text-xs font-bold text-emerald-600 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    تجديد
+                  </button>
+                )}
+              </div>
+
+              {/* Show current QR target URL */}
+              {resolvedOrigin && (
+                <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-xs">
+                  <p className="font-mono font-bold text-emerald-700 dark:text-emerald-400 text-left truncate text-[11px]" dir="ltr">
+                    🌐 {resolvedOrigin}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newIp = window.prompt('أدخل IP جهازك على شبكة الواي فاي:', lanHost || '10.5.50.23');
+                      if (newIp !== null) {
+                        const trimmed = newIp.trim();
+                        setLanHost(trimmed);
+                        if (trimmed) {
+                          localStorage.setItem('watheq_dev_lan_ip', trimmed);
+                        } else {
+                          localStorage.removeItem('watheq_dev_lan_ip');
+                        }
+                      }
+                    }}
+                    className="text-[10px] font-bold text-slate-500 hover:text-emerald-700 underline cursor-pointer shrink-0 mr-2"
+                  >
+                    تعديل الـ IP
+                  </button>
+                </div>
+              )}
+
+
+              {/* Secret Key Display */}
+              {session?.pairingSecret && (
+                <div>
+                  <span className="text-xs text-slate-400 block mb-1">
+                    سر الربط (Pairing Secret):
+                  </span>
+                  <div className="inline-flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 max-w-full">
+                    <span className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400 truncate max-w-[240px]">
+                      {session.pairingSecret}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopyLink}
+                      className="p-1 text-slate-400 hover:text-emerald-600 transition-colors shrink-0 cursor-pointer"
+                      title="نسخ رابط الربط"
+                    >
+                      {copied ? (
+                        <Check className="w-4 h-4 text-emerald-500" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                امسح الكود بكاميرا هاتفك ليفتح ماسح وثّق مباشرة، أو أرسل الرابط لمساعدك في المحل. أي
+                باركود يتم مسحه بالهاتف سيسقط في شاشة الكاشير فوراً!
+              </p>
+              <div className="pt-1">
                 <button
-                  key={p.code}
                   type="button"
                   onClick={() => {
-                    onSimulateBarcode(p.code);
-                    onClose();
+                    window.open(pairingUrl || '/scan', '_blank');
                   }}
-                  className="px-2.5 py-1 text-xs rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold border border-emerald-500/20 transition-all text-right"
+                  className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-xs font-bold border border-blue-200 dark:border-blue-800/60 transition-colors cursor-pointer"
                 >
-                  مسح: {p.label}
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>معاينة واجهة كاميرا الجوال الآن (نافذة جديدة) 📲</span>
                 </button>
-              ))}
-            </div>
-          </div>
+              </div>
+            </>
+          )}
         </div>
 
-        <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex justify-end">
+        {/* Footer */}
+        <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex items-center justify-between">
           <button
             type="button"
-            onClick={onClose}
-            className="px-5 py-2 text-xs font-semibold rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
+            onClick={initSession}
+            disabled={isLoading}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            تحديث الجلسة
+          </button>
+          <button
+            type="button"
+            onClick={handleClose}
+            className="px-5 py-2 text-xs font-semibold rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
           >
             إغلاق
           </button>

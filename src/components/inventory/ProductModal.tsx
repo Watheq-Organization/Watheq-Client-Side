@@ -17,6 +17,43 @@ interface ProductModalProps {
   existingProducts: Product[];
 }
 
+function parseServerErrorMessage(err: unknown, fallbackMessage: string): string {
+  if (err instanceof ApiError) {
+    if (err.body && typeof err.body === 'object') {
+      const b = err.body as Record<string, any>;
+      if (b.result?.message) {
+        const msg = String(b.result.message);
+        if (msg.includes('already exists') || msg.includes('Conflict') || msg.includes('مكرر')) {
+          return 'هذا الباركود مسجّل مسبقاً لصنف آخر في نشاطك التجاري (الباركود مكرر)';
+        }
+        return msg;
+      }
+      if (b.errors && typeof b.errors === 'object') {
+        return Object.entries(b.errors)
+          .map(([field, errs]) => `${field}: ${Array.isArray(errs) ? errs.join(', ') : errs}`)
+          .join(' | ');
+      }
+      if (b.message) {
+        return String(b.message);
+      }
+      if (b.title) {
+        return String(b.title);
+      }
+    } else if (typeof err.body === 'string' && err.body) {
+      return err.body;
+    }
+
+    if (err.status === 401) return 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مجدداً.';
+    if (err.status === 409) return 'هذا الباركود مسجّل مسبقاً لصنف آخر (Conflict).';
+    if (err.status === 0) return 'لا يوجد اتصال بالخادم. تحقق من الإنترنت وحاول مجدداً.';
+    return `${fallbackMessage} (خطأ ${err.status})`;
+  }
+  if (err instanceof Error) {
+    return err.message;
+  }
+  return fallbackMessage;
+}
+
 export const ProductModal: FC<ProductModalProps> = ({
   isOpen,
   onClose,
@@ -173,22 +210,7 @@ export const ProductModal: FC<ProductModalProps> = ({
         }
 
         if (err instanceof ApiError) {
-          const bodyMsg =
-            typeof err.body === 'object' &&
-            err.body !== null &&
-            'message' in err.body
-              ? String((err.body as { message: unknown }).message)
-              : null;
-          setApiError(
-            bodyMsg ||
-              (err.status === 401
-                ? 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مجدداً.'
-                : err.status === 400
-                ? 'البيانات المدخلة غير صحيحة، تأكد من الباركود والأسعار.'
-                : err.status === 0
-                ? 'لا يوجد اتصال بالخادم. تحقق من الإنترنت وحاول مجدداً.'
-                : `فشل التعديل (خطأ ${err.status}). حاول مجدداً.`)
-          );
+          setApiError(parseServerErrorMessage(err, 'فشل تعديل بيانات الصنف'));
         } else {
           setApiError('حدث خطأ غير متوقع. حاول مجدداً.');
         }
@@ -242,24 +264,7 @@ export const ProductModal: FC<ProductModalProps> = ({
       }
 
       // Show the API error but keep the modal open so the user can retry
-      if (err instanceof ApiError) {
-        const bodyMsg =
-          typeof err.body === 'object' &&
-          err.body !== null &&
-          'message' in err.body
-            ? String((err.body as { message: unknown }).message)
-            : null;
-        setApiError(
-          bodyMsg ||
-            (err.status === 401
-              ? 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مجدداً.'
-              : err.status === 0
-              ? 'لا يوجد اتصال بالخادم. تحقق من الإنترنت وحاول مجدداً.'
-              : `فشل إنشاء المنتج (خطأ ${err.status}). حاول مجدداً.`)
-        );
-      } else {
-        setApiError('حدث خطأ غير متوقع. حاول مجدداً.');
-      }
+      setApiError(parseServerErrorMessage(err, 'فشل إنشاء الصنف في الخادم'));
     } finally {
       setIsSubmitting(false);
     }

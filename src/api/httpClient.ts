@@ -157,6 +157,9 @@ async function request<TResponse>(
     // Diagnostic only — doesn't change any behavior, just makes the real
     // server response visible in the console so a failing request can be
     // debugged without digging through the Network tab by hand. This is
+    // Diagnostic only — doesn't change any behavior, just makes the real
+    // server response visible in the console so a failing request can be
+    // debugged without digging through the Network tab by hand. This is
     // the single place every API call funnels through, so it covers every
     // endpoint, not just createDebt.
     // eslint-disable-next-line no-console
@@ -166,6 +169,8 @@ async function request<TResponse>(
       contentType,
       body,
     });
+    // Print body directly as string so it appears uncollapsed in DevTools console
+    console.error('SERVER_ERROR_BODY:', typeof body === 'object' ? JSON.stringify(body, null, 2) : body);
 
     throw new ApiError(`HTTP_${response.status}`, response.status, body);
   }

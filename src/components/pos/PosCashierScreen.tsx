@@ -33,6 +33,7 @@ import { CameraScannerModal } from '../common/CameraScannerModal';
 import { Toast, type ToastType } from '../ui/Toast';
 import { PATHS } from '../../routes/paths';
 import { toPosErrorMessage } from '../../services/posService';
+import { createProduct, getProductByBarcodeApi } from '../../services/productService';
 
 export const PosCashierScreen: FC = () => {
   const navigate = useNavigate();
@@ -57,6 +58,7 @@ export const PosCashierScreen: FC = () => {
     holdCurrentBill,
     resumeHeldBill,
     deleteHeldBill,
+    refreshProducts,
     activeReceipt,
     setActiveReceipt,
     checkout,
@@ -116,15 +118,44 @@ export const PosCashierScreen: FC = () => {
   ]);
 
   useEffect(() => {
+    refreshProducts();
     focusBarcodeInput();
-  }, [focusBarcodeInput]);
+  }, [focusBarcodeInput, refreshProducts]);
+
+  const lastCashierScannedCodeRef = useRef<string>('');
+  const lastCashierScannedTimeRef = useRef<number>(0);
 
   const handleResolveBarcode = useCallback(
-    (codeToScan: string) => {
+    async (codeToScan: string) => {
       const trimmed = codeToScan.trim();
       if (!trimmed) return;
 
-      const found = getProductByBarcode(trimmed);
+      const now = Date.now();
+      if (
+        lastCashierScannedCodeRef.current === trimmed &&
+        now - lastCashierScannedTimeRef.current < 1500
+      ) {
+        return; // Ignore duplicate burst from network/listeners
+      }
+      lastCashierScannedCodeRef.current = trimmed;
+      lastCashierScannedTimeRef.current = now;
+
+      // 1. Check in local products list
+      let found = getProductByBarcode(trimmed);
+
+      // 2. If not found in local memory, check the Backend API directly (it might exist in DB but wasn't synced yet)
+      if (!found) {
+        try {
+          const match = await getProductByBarcodeApi(trimmed);
+          if (match) {
+            addProduct(match);
+            found = match;
+          }
+        } catch {
+          // ignore lookup error
+        }
+      }
+
       if (found) {
         addToCart(found, 1);
         setBarcodeQuery('');
@@ -137,8 +168,63 @@ export const PosCashierScreen: FC = () => {
       }
       setTimeout(focusBarcodeInput, 50);
     },
-    [getProductByBarcode, addToCart, focusBarcodeInput]
+    [getProductByBarcode, addProduct, addToCart, focusBarcodeInput]
   );
+
+  // Listen to remote barcodes scanned from mobile scanner client
+  useEffect(() => {
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel('watheq_pos_scanner');
+      channel.onmessage = (event) => {
+        if (event.data?.type === 'BARCODE_SCANNED' && event.data?.barcode) {
+          handleResolveBarcode(event.data.barcode);
+        }
+      };
+    } catch {
+      // Fallback
+    }
+
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (e.key === 'watheq_last_scanned_barcode' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed.barcode) {
+            handleResolveBarcode(parsed.barcode);
+          }
+        } catch {
+          // JSON parse error ignore
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageEvent);
+
+    // Cross-device relay polling: Fetch barcodes pushed by mobile phone
+    const pollInterval = window.setInterval(async () => {
+      try {
+        const res = await fetch('/api/local-scanner/pull');
+        if (res.ok) {
+          const data = (await res.json()) as { items?: { barcode: string }[] };
+          if (data?.items && Array.isArray(data.items)) {
+            data.items.forEach((item) => {
+              if (item.barcode) {
+                handleResolveBarcode(item.barcode);
+              }
+            });
+          }
+        }
+      } catch {
+        // Silent poll error
+      }
+    }, 700);
+
+    return () => {
+      channel?.close();
+      window.removeEventListener('storage', handleStorageEvent);
+      window.clearInterval(pollInterval);
+    };
+  }, [handleResolveBarcode]);
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -794,11 +880,66 @@ export const PosCashierScreen: FC = () => {
           setTimeout(focusBarcodeInput, 100);
         }}
         barcode={unresolvedBarcode}
-        onConfirm={(newProductData) => {
-          const created = addProduct(newProductData);
+        onConfirm={async (newProductData) => {
+          // ── Step 0: Check if the barcode already exists on the server ──
+          // The Search API only searches by name, NOT barcode.
+          // Use getProductByBarcodeApi which fetches all and filters client-side.
+          const existingProduct = await getProductByBarcodeApi(newProductData.barcode);
+          if (existingProduct) {
+            const added = addProduct(existingProduct);
+            addToCart(added, 1);
+            setToast({
+              message: `الصنف (${added.name}) مسجّل مسبقاً — تم إضافته للسلة!`,
+              type: 'info',
+            });
+            setIsQuickAddModalOpen(false);
+            setTimeout(focusBarcodeInput, 100);
+            return;
+          }
+
+          // ── Step 1: Create the product via API ──
+          let savedProduct;
+          try {
+            savedProduct = await createProduct({
+              productName: newProductData.name,
+              barcode: newProductData.barcode,
+              salePrice: newProductData.salePrice,
+              costPrice: newProductData.costPrice,
+              quantity: newProductData.stock,
+              minStockAlert: newProductData.minAlertThreshold,
+            });
+          } catch (err: unknown) {
+            // If server reports product already exists (race condition),
+            // fetch it from the DB and add it to cart instead of failing
+            const bodyStr = JSON.stringify((err as any)?.body ?? '');
+            const isConflict =
+              bodyStr.includes('already exists') ||
+              bodyStr.includes('Conflict') ||
+              bodyStr.includes('مكرر') ||
+              ((err as any)?.status === 409);
+
+            if (isConflict) {
+              const fallback = await getProductByBarcodeApi(newProductData.barcode);
+              if (fallback) {
+                const added = addProduct(fallback);
+                addToCart(added, 1);
+                setToast({
+                  message: `تم جلب الصنف المسجل (${added.name}) وإضافته للسلة فوراً!`,
+                  type: 'info',
+                });
+                setIsQuickAddModalOpen(false);
+                setTimeout(focusBarcodeInput, 100);
+                return;
+              }
+            }
+            throw err;
+          }
+
+          // ── Step 2: Add to Local State ──
+          const created = addProduct(savedProduct);
           addToCart(created, 1);
           setToast({
-            message: `تم حفظ الصنف (${created.name}) في المخزون وإضافته للسلة فوراً!`,
+            message: `تم حفظ الصنف (${created.name}) في قاعدة بيانات المخزون وإضافته للسلة فوراً!`,
             type: 'success',
           });
           setTimeout(focusBarcodeInput, 100);
