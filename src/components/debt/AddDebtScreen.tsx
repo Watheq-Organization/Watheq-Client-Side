@@ -327,26 +327,92 @@ export const AddDebtScreen: FC = () => {
             )}
 
             {/* Voice Input Section */}
-            <div className="flex items-center justify-between gap-3 bg-[#F2F4F6] dark:bg-slate-800/50 border border-slate-200/70 rounded-xl px-4 py-3">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleVoiceInputClick}
-                  aria-pressed={isListening}
-                  aria-label="إدخال صوتي سريع"
-                  className={`w-9 h-9 shrink-0 rounded-lg flex items-center justify-center text-white transition-colors cursor-pointer ${isListening ? 'bg-rose-600 animate-pulse' : 'bg-[#00204F] hover:bg-[#00204F]/90'
-                    }`}
-                >
-                  <Mic className="w-4 h-4" />
-                </button>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-[#00204F] dark:text-white">
-                    {isListening ? 'جاري الاستماع...' : 'إدخال صوتي سريع'}
-                  </p>
-                  <p className="text-xs text-slate-400">تحدث وسيتم تعبئة النموذج تلقائياً</p>
-                </div>
-              </div>
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+            <div className="space-y-2">
+              <style>{`
+                @keyframes watheqAudioWave {
+                  0% { transform: scaleY(0.25); opacity: 0.55; }
+                  50% { transform: scaleY(1.25); opacity: 1; }
+                  100% { transform: scaleY(0.4); opacity: 0.7; }
+                }
+              `}</style>
+              <button
+                type="button"
+                onClick={handleVoiceInputClick}
+                aria-pressed={isListening}
+                aria-label="إدخال صوتي سريع"
+                className={`w-full flex items-center justify-between gap-3 rounded-xl px-4 py-3 border transition-all text-right cursor-pointer select-none overflow-hidden ${
+                  isListening
+                    ? 'bg-gradient-to-l from-blue-50/90 to-indigo-50/50 dark:from-slate-900 dark:to-slate-800 border-blue-400 dark:border-blue-500 shadow-sm shadow-blue-500/10'
+                    : 'bg-[#F2F4F6] hover:bg-[#e9ecf0] dark:bg-slate-800/50 dark:hover:bg-slate-800/80 border-slate-200/70 dark:border-slate-700/60'
+                }`}
+              >
+                {isListening ? (
+                  <div className="flex items-center justify-between w-full gap-2">
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="w-9 h-9 shrink-0 rounded-lg flex items-center justify-center text-white bg-blue-600 shadow-sm shadow-blue-600/30">
+                        <Mic className="w-4 h-4 animate-pulse" />
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping inline-block" />
+                          جاري الاستماع...
+                        </p>
+                        <p className="text-[11px] text-blue-600/80 dark:text-blue-400/80 font-medium">
+                          تحدث الآن (انقر للإيقاف)
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Animated Sound Waveform matching provided image */}
+                    <div className="flex items-center gap-[3px] h-8 px-2.5 py-1 bg-white/80 dark:bg-slate-800/80 rounded-lg border border-blue-200/70 dark:border-blue-700/50 shrink-0">
+                      {[
+                        { h: 12, bg: 'bg-blue-300 dark:bg-blue-400', dur: '0.65s', del: '0.1s' },
+                        { h: 20, bg: 'bg-blue-500 dark:bg-blue-400', dur: '0.5s', del: '0.25s' },
+                        { h: 16, bg: 'bg-blue-300 dark:bg-blue-400', dur: '0.75s', del: '0.0s' },
+                        { h: 26, bg: 'bg-[#00204F] dark:bg-blue-200', dur: '0.6s', del: '0.35s' },
+                        { h: 32, bg: 'bg-blue-600 dark:bg-blue-500', dur: '0.45s', del: '0.15s' },
+                        { h: 22, bg: 'bg-blue-300 dark:bg-blue-400', dur: '0.7s', del: '0.3s' },
+                        { h: 28, bg: 'bg-[#00204F] dark:bg-blue-200', dur: '0.55s', del: '0.05s' },
+                        { h: 30, bg: 'bg-blue-500 dark:bg-blue-400', dur: '0.65s', del: '0.2s' },
+                        { h: 24, bg: 'bg-blue-300 dark:bg-blue-400', dur: '0.8s', del: '0.1s' },
+                        { h: 28, bg: 'bg-[#00204F] dark:bg-blue-200', dur: '0.5s', del: '0.4s' },
+                        { h: 18, bg: 'bg-blue-400 dark:bg-blue-400', dur: '0.7s', del: '0.15s' },
+                        { h: 24, bg: 'bg-[#00204F] dark:bg-blue-200', dur: '0.6s', del: '0.3s' },
+                      ].map((bar, i) => (
+                        <span
+                          key={i}
+                          className={`w-[3px] rounded-full ${bar.bg}`}
+                          style={{
+                            height: `${bar.h}px`,
+                            animation: `watheqAudioWave ${bar.dur} ease-in-out infinite alternate`,
+                            animationDelay: bar.del,
+                            transformOrigin: 'center',
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 shrink-0 rounded-lg flex items-center justify-center text-white bg-[#00204F]">
+                        <Mic className="w-4 h-4" />
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-[#00204F] dark:text-white">
+                          إدخال صوتي سريع
+                        </p>
+                      </div>
+                    </div>
+                    <span className="w-2 h-2 rounded-full shrink-0 bg-slate-400" />
+                  </>
+                )}
+              </button>
+
+              {/* Exemplary format shown outside the box */}
+              <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 text-right leading-relaxed px-1">
+                <span className="font-medium text-slate-600 dark:text-slate-300">مثال:</span> «سجل دين على [اسم العميل] بقيمة [المبلغ] يستحق بتاريخ [التاريخ] والملاحظات [الملاحظات]»
+              </p>
             </div>
 
             <div className="border-t border-slate-100 dark:border-slate-700" />
