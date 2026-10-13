@@ -30,15 +30,13 @@ import { playScannerBeep } from '../../context/InventoryPosContext';
 interface MobileScannerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSimulateBarcode: (barcode: string) => void;
+  onSimulateBarcode?: (barcode: string) => void;
   onProductScanned?: (product: ScannedProductDto) => void;
 }
 
 export const MobileScannerModal: FC<MobileScannerModalProps> = ({
   isOpen,
   onClose,
-  onSimulateBarcode,
-  onProductScanned,
 }) => {
   const [session, setSession] = useState<CreateScannerSessionData | null>(null);
   const [status, setStatus] = useState<CashierScannerStatus>('idle');
@@ -54,16 +52,26 @@ export const MobileScannerModal: FC<MobileScannerModalProps> = ({
   const countdownTimerRef = useRef<number | null>(null);
   const statusPollTimerRef = useRef<number | null>(null);
   const autoCloseTimerRef = useRef<number | null>(null);
-  const hasPlayedBeepRef = useRef(false);
+  const beepedSessionsRef = useRef<Set<string>>(new Set());
 
-  // Subscribe to CashierScannerManager status and set callbacks
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  const playPairSuccessBeepOnce = useCallback((sid: string) => {
+    if (!sid || beepedSessionsRef.current.has(sid)) return;
+    beepedSessionsRef.current.add(sid);
+    playScannerBeep('success');
+  }, []);
+
+  // Subscribe to CashierScannerManager status ONLY when modal is open
   useEffect(() => {
+    if (!isOpen) return;
+
     const unsubscribe = cashierScannerManager.subscribeStatus((newStatus) => {
       setStatus(newStatus);
       if (newStatus === 'connected' || newStatus === 'paired') {
-        if (!hasPlayedBeepRef.current) {
-          hasPlayedBeepRef.current = true;
-          playScannerBeep('success');
+        if (activeSessionIdRef.current) {
+          playPairSuccessBeepOnce(activeSessionIdRef.current);
         }
         if (statusPollTimerRef.current) {
           window.clearInterval(statusPollTimerRef.current);
@@ -71,34 +79,16 @@ export const MobileScannerModal: FC<MobileScannerModalProps> = ({
         }
         if (!autoCloseTimerRef.current) {
           autoCloseTimerRef.current = window.setTimeout(() => {
-            onClose();
-          }, 1500);
+            onCloseRef.current();
+          }, 1200);
         }
       }
-    });
-
-    cashierScannerManager.setCallbacks({
-      onProductScanned: (prod) => {
-        playScannerBeep('scan');
-        onProductScanned?.(prod);
-        if (prod.barcode) {
-          onSimulateBarcode(prod.barcode);
-        }
-      },
-      onBarcodeScanned: (data) => {
-        if (data.product) {
-          onProductScanned?.(data.product);
-        }
-        if (data.barcode) {
-          onSimulateBarcode(data.barcode);
-        }
-      },
     });
 
     return () => {
       unsubscribe();
     };
-  }, [onProductScanned, onSimulateBarcode, onClose]);
+  }, [isOpen, playPairSuccessBeepOnce]);
 
   // Network origin configuration
   const isLocalhost =
@@ -130,7 +120,6 @@ export const MobileScannerModal: FC<MobileScannerModalProps> = ({
       : '';
 
   const clearTimers = useCallback(() => {
-    hasPlayedBeepRef.current = false;
     if (countdownTimerRef.current) {
       window.clearInterval(countdownTimerRef.current);
       countdownTimerRef.current = null;
@@ -176,15 +165,12 @@ export const MobileScannerModal: FC<MobileScannerModalProps> = ({
               window.clearInterval(statusPollTimerRef.current);
               statusPollTimerRef.current = null;
             }
-            if (!hasPlayedBeepRef.current) {
-              hasPlayedBeepRef.current = true;
-              playScannerBeep('success');
-            }
+            playPairSuccessBeepOnce(check.sessionId);
             cashierScannerManager.setManualStatus('connected');
             setStatus('connected');
             if (!autoCloseTimerRef.current) {
               autoCloseTimerRef.current = window.setTimeout(() => {
-                onClose();
+                onCloseRef.current();
               }, 1200);
             }
           }
@@ -214,7 +200,7 @@ export const MobileScannerModal: FC<MobileScannerModalProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [clearTimers, onClose]);
+  }, [clearTimers, playPairSuccessBeepOnce]);
 
   useEffect(() => {
     if (isOpen) {

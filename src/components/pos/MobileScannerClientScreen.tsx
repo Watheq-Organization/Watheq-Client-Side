@@ -66,7 +66,7 @@ export const MobileScannerClientScreen: FC = () => {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const lastScannedCodeRef = useRef<string>('');
   const lastScannedTimeRef = useRef<number>(0);
-  const hasPlayedConnectedBeepRef = useRef(false);
+  const beepedSessionsRef = useRef<Set<string>>(new Set());
   const readerElementId = 'mobile-continuous-reader';
 
   const showToast = (msg: string) => {
@@ -74,17 +74,16 @@ export const MobileScannerClientScreen: FC = () => {
     setTimeout(() => setNotificationMsg(null), 3000);
   };
 
-  const triggerConnectedBeepOnce = () => {
-    if (!hasPlayedConnectedBeepRef.current) {
-      hasPlayedConnectedBeepRef.current = true;
-      playScannerBeep('success');
-    }
+  const triggerConnectedBeepOnce = (sid?: string | null) => {
+    const key = sid || 'default';
+    if (beepedSessionsRef.current.has(key)) return;
+    beepedSessionsRef.current.add(key);
+    playScannerBeep('success');
   };
 
   // 1. Automatic Pairing & SignalR Connection on Mount
   useEffect(() => {
     let isMounted = true;
-    hasPlayedConnectedBeepRef.current = false;
 
     try {
       broadcastChannelRef.current = new BroadcastChannel('watheq_pos_scanner');
@@ -100,7 +99,7 @@ export const MobileScannerClientScreen: FC = () => {
         scannerP2PService.connectToHost(sessionId, () => {
           if (isMounted) {
             setIsPaired(true);
-            triggerConnectedBeepOnce();
+            triggerConnectedBeepOnce(sessionId);
             showToast('تم الاتصال المباشر بنقاط البيع بنجاح 🟢');
           }
         });
@@ -185,7 +184,7 @@ export const MobileScannerClientScreen: FC = () => {
 
         hubConnectionRef.current = conn;
         setIsPaired(true);
-        triggerConnectedBeepOnce();
+        triggerConnectedBeepOnce(sessionId);
         showToast('الماسح متصل بالشاشة بنجاح 🟢');
       } catch (err) {
         console.warn('[ScannerHub] Hub connection not available or closed, using P2P DataChannel:', err);
@@ -214,6 +213,16 @@ export const MobileScannerClientScreen: FC = () => {
     (code: string) => {
       const trimmed = code.trim();
       if (!trimmed) return;
+
+      // Ignore pairing URLs or session QR codes so the scanner doesn't scan the laptop's pairing screen!
+      if (
+        trimmed.includes('/scan?') ||
+        trimmed.includes('sessionId=') ||
+        trimmed.includes('pairingSecret') ||
+        trimmed.includes('secret=')
+      ) {
+        return;
+      }
 
       const now = Date.now();
       // Prevent rapid duplicate scans:

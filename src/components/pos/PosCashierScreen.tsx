@@ -128,6 +128,11 @@ export const PosCashierScreen: FC = () => {
     focusBarcodeInput();
   }, [focusBarcodeInput, refreshProducts]);
 
+  const handleCloseMobileScanner = useCallback(() => {
+    setIsMobileScannerModalOpen(false);
+    setTimeout(focusBarcodeInput, 100);
+  }, [focusBarcodeInput]);
+
   const lastCashierScannedCodeRef = useRef<string>('');
   const lastCashierScannedTimeRef = useRef<number>(0);
 
@@ -135,6 +140,16 @@ export const PosCashierScreen: FC = () => {
     async (codeToScan: string) => {
       const trimmed = codeToScan.trim();
       if (!trimmed) return;
+
+      // Ignore pairing URLs or session QR codes accidentally scanned
+      if (
+        trimmed.includes('/scan?') ||
+        trimmed.includes('sessionId=') ||
+        trimmed.includes('pairingSecret') ||
+        trimmed.includes('secret=')
+      ) {
+        return;
+      }
 
       const now = Date.now();
       if (
@@ -1124,16 +1139,7 @@ export const PosCashierScreen: FC = () => {
 
       <MobileScannerModal
         isOpen={isMobileScannerModalOpen}
-        onClose={() => {
-          setIsMobileScannerModalOpen(false);
-          setTimeout(focusBarcodeInput, 100);
-        }}
-        onSimulateBarcode={(scanned) => {
-          handleResolveBarcode(scanned);
-        }}
-        onProductScanned={(scannedProduct) => {
-          handleRemoteProductScanned(scannedProduct);
-        }}
+        onClose={handleCloseMobileScanner}
       />
 
       <CameraScannerModal
