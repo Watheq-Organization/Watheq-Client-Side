@@ -96,6 +96,7 @@ export const MobileScannerClientScreen: FC = () => {
 
       // Connect via direct WebRTC DataChannel immediately if sessionId is available
       if (sessionId) {
+
         scannerP2PService.connectToHost(sessionId, () => {
           if (isMounted) {
             setIsPaired(true);
@@ -152,7 +153,7 @@ export const MobileScannerClientScreen: FC = () => {
                 showToast('تم إلغاء الربط من قبل الكاشير 🛑');
                 if (isMounted) setIsPaired(false);
                 if (scannerRef.current) {
-                  scannerRef.current.stop().catch(() => {});
+                  scannerRef.current.stop().catch(() => { });
                 }
               } else {
                 showToast(err.message || 'حدث خطأ أثناء معالجة الباركود');
@@ -178,7 +179,7 @@ export const MobileScannerClientScreen: FC = () => {
 
         await conn.start();
         if (!isMounted) {
-          conn.stop().catch(() => {});
+          conn.stop().catch(() => { });
           return;
         }
 
@@ -202,7 +203,7 @@ export const MobileScannerClientScreen: FC = () => {
       broadcastChannelRef.current?.close();
       scannerP2PService.stopClient();
       if (hubConnectionRef.current) {
-        hubConnectionRef.current.stop().catch(() => {});
+        hubConnectionRef.current.stop().catch(() => { });
         hubConnectionRef.current = null;
       }
     };
@@ -318,7 +319,7 @@ export const MobileScannerClientScreen: FC = () => {
 
       // Stop any existing scanner first
       if (scannerRef.current) {
-        await scannerRef.current.stop().catch(() => {});
+        await scannerRef.current.stop().catch(() => { });
         scannerRef.current.clear();
         scannerRef.current = null;
       }
@@ -328,7 +329,9 @@ export const MobileScannerClientScreen: FC = () => {
           Html5QrcodeSupportedFormats.EAN_13,
           Html5QrcodeSupportedFormats.EAN_8,
           Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
           Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
           Html5QrcodeSupportedFormats.QR_CODE,
         ],
         verbose: false,
@@ -346,7 +349,7 @@ export const MobileScannerClientScreen: FC = () => {
         (decodedText: string) => {
           handleBarcodeScanned(decodedText);
         },
-        () => {}
+        () => { }
       );
     } catch (err: unknown) {
       console.error('Camera init error:', err);
@@ -355,8 +358,8 @@ export const MobileScannerClientScreen: FC = () => {
         err instanceof Error
           ? err.message
           : typeof err === 'string'
-          ? err
-          : 'تعذر تشغيل الكاميرا';
+            ? err
+            : 'تعذر تشغيل الكاميرا';
 
       if (
         window.location.protocol !== 'https:' &&
@@ -382,7 +385,7 @@ export const MobileScannerClientScreen: FC = () => {
       if (scannerRef.current) {
         scannerRef.current
           .stop()
-          .catch(() => {})
+          .catch(() => { })
           .finally(() => {
             scannerRef.current?.clear();
             scannerRef.current = null;
@@ -442,11 +445,10 @@ export const MobileScannerClientScreen: FC = () => {
           <button
             type="button"
             onClick={toggleFlash}
-            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors border ${
-              isFlashOn
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors border ${isFlashOn
                 ? 'bg-amber-400 text-slate-900 border-amber-300'
                 : 'bg-white/10 text-white/80 border-white/10 hover:bg-white/20'
-            }`}
+              }`}
             title="فلاش الكاميرا"
           >
             {isFlashOn ? <Flashlight className="w-4 h-4" /> : <FlashlightOff className="w-4 h-4" />}
@@ -455,16 +457,14 @@ export const MobileScannerClientScreen: FC = () => {
           {/* Center Title & Status Badge */}
           <div className="flex items-center gap-2">
             <div
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold shadow-xs ${
-                isPaired
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold shadow-xs ${isPaired
                   ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
                   : 'bg-amber-500/20 border-amber-500/40 text-amber-400 animate-pulse'
-              }`}
+                }`}
             >
               <span
-                className={`w-2 h-2 rounded-full ${
-                  isPaired ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'
-                }`}
+                className={`w-2 h-2 rounded-full ${isPaired ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'
+                  }`}
               />
               <span>{isPaired ? 'متصل بالـ Hub 🟢' : 'جاري الاتصال... 🟡'}</span>
             </div>
@@ -491,11 +491,10 @@ export const MobileScannerClientScreen: FC = () => {
           <button
             type="button"
             onClick={() => setActiveMode('goods')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              activeMode === 'goods'
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-xs font-bold transition-all ${activeMode === 'goods'
                 ? 'bg-white text-slate-900 shadow-md'
                 : 'text-slate-400 hover:text-white'
-            }`}
+              }`}
           >
             <Barcode className="w-3.5 h-3.5" />
             <span>باركود السلع (متعدد)</span>
@@ -503,11 +502,10 @@ export const MobileScannerClientScreen: FC = () => {
           <button
             type="button"
             onClick={() => setActiveMode('palpay')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              activeMode === 'palpay'
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-xs font-bold transition-all ${activeMode === 'palpay'
                 ? 'bg-white text-slate-900 shadow-md'
                 : 'text-slate-400 hover:text-white'
-            }`}
+              }`}
           >
             <QrCode className="w-3.5 h-3.5" />
             <span>بنك فلسطين / PalPay</span>
