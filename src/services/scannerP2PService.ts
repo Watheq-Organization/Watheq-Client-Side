@@ -8,11 +8,33 @@ function toPeerId(sessionId: string): string {
 
 export type P2PConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
+export interface P2PCartItem {
+  id: string;
+  barcode: string;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
+export interface P2PMessage {
+  type: 'BARCODE_SCANNED' | 'UPDATE_QTY' | 'CART_SYNC';
+  barcode?: string;
+  productId?: string;
+  delta?: number;
+  cart?: P2PCartItem[];
+  totalAmount?: number;
+  totalCount?: number;
+  timestamp?: number;
+}
+
 class ScannerP2PService {
   private hostPeer: Peer | null = null;
   private clientPeer: Peer | null = null;
   private activeConnection: DataConnection | null = null;
   private statusListeners = new Set<(status: P2PConnectionStatus) => void>();
+  private cartSyncListeners = new Set<(cart: P2PCartItem[], totalAmount: number, totalCount: number) => void>();
+  private updateQtyListeners = new Set<(idOrBarcode: string, delta: number) => void>();
+  private onBarcodeReceivedCallback: ((barcode: string) => void) | null = null;
   private status: P2PConnectionStatus = 'disconnected';
 
   getStatus(): P2PConnectionStatus {
@@ -33,6 +55,20 @@ class ScannerP2PService {
     };
   }
 
+  subscribeCartSync(listener: (cart: P2PCartItem[], totalAmount: number, totalCount: number) => void): () => void {
+    this.cartSyncListeners.add(listener);
+    return () => {
+      this.cartSyncListeners.delete(listener);
+    };
+  }
+
+  subscribeUpdateQty(listener: (idOrBarcode: string, delta: number) => void): () => void {
+    this.updateQtyListeners.add(listener);
+    return () => {
+      this.updateQtyListeners.delete(listener);
+    };
+  }
+
   /**
    * Called on Desktop POS (Host) to listen for incoming mobile scanner connections
    */
@@ -42,6 +78,7 @@ class ScannerP2PService {
     onConnected?: () => void
   ): void {
     this.stopHost();
+    this.onBarcodeReceivedCallback = onBarcodeReceived;
 
     const peerId = toPeerId(sessionId);
     this.setStatus('connecting');
@@ -75,12 +112,17 @@ class ScannerP2PService {
         conn.on('data', (data: unknown) => {
           console.info('[P2P] Data received on host:', data);
           if (data && typeof data === 'object') {
-            const payload = data as { type?: string; barcode?: string };
-            if (payload.barcode) {
-              onBarcodeReceived(payload.barcode);
+            const payload = data as P2PMessage;
+            if (payload.type === 'BARCODE_SCANNED' && payload.barcode) {
+              this.onBarcodeReceivedCallback?.(payload.barcode);
+            } else if (payload.type === 'UPDATE_QTY' && (payload.productId || payload.barcode) && payload.delta) {
+              const target = payload.productId || payload.barcode || '';
+              this.updateQtyListeners.forEach((fn) => fn(target, payload.delta!));
+            } else if (payload.barcode) {
+              this.onBarcodeReceivedCallback?.(payload.barcode);
             }
           } else if (typeof data === 'string') {
-            onBarcodeReceived(data);
+            this.onBarcodeReceivedCallback?.(data);
           }
         });
 
@@ -101,6 +143,28 @@ class ScannerP2PService {
     } catch (err) {
       console.warn('[P2P] Failed to initialize host peer:', err);
     }
+  }
+
+  /**
+   * Host sends full cart state to the mobile phone
+   */
+  sendCartSync(cart: P2PCartItem[], totalAmount: number, totalCount: number): boolean {
+    if (this.activeConnection && this.activeConnection.open) {
+      try {
+        const payload: P2PMessage = {
+          type: 'CART_SYNC',
+          cart,
+          totalAmount,
+          totalCount,
+          timestamp: Date.now(),
+        };
+        this.activeConnection.send(payload);
+        return true;
+      } catch (err) {
+        console.warn('[P2P] Error sending cart sync to mobile:', err);
+      }
+    }
+    return false;
   }
 
   stopHost(): void {
@@ -160,6 +224,18 @@ class ScannerP2PService {
           onConnected?.();
         });
 
+        conn.on('data', (data: unknown) => {
+          console.info('[P2P] Data received on mobile:', data);
+          if (data && typeof data === 'object') {
+            const payload = data as P2PMessage;
+            if (payload.type === 'CART_SYNC' && Array.isArray(payload.cart)) {
+              this.cartSyncListeners.forEach((fn) =>
+                fn(payload.cart!, payload.totalAmount || 0, payload.totalCount || 0)
+              );
+            }
+          }
+        });
+
         conn.on('close', () => {
           console.info('[P2P] DataChannel closed on mobile');
           this.setStatus('disconnected');
@@ -200,15 +276,38 @@ class ScannerP2PService {
   sendBarcode(barcode: string): boolean {
     if (this.activeConnection && this.activeConnection.open) {
       try {
-        this.activeConnection.send({
+        const payload: P2PMessage = {
           type: 'BARCODE_SCANNED',
           barcode: barcode.trim(),
           timestamp: Date.now(),
-        });
+        };
+        this.activeConnection.send(payload);
         console.info('[P2P] Barcode successfully sent to host:', barcode);
         return true;
       } catch (err) {
         console.warn('[P2P] Error sending barcode:', err);
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Sends item quantity change (+1 or -1) from mobile to desktop
+   */
+  sendUpdateQty(productIdOrBarcode: string, delta: number): boolean {
+    if (this.activeConnection && this.activeConnection.open) {
+      try {
+        const payload: P2PMessage = {
+          type: 'UPDATE_QTY',
+          productId: productIdOrBarcode,
+          delta,
+          timestamp: Date.now(),
+        };
+        this.activeConnection.send(payload);
+        console.info('[P2P] Update qty sent to host:', productIdOrBarcode, delta);
+        return true;
+      } catch (err) {
+        console.warn('[P2P] Error sending update qty to host:', err);
       }
     }
     return false;

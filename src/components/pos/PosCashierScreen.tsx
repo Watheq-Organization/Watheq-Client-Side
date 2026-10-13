@@ -24,6 +24,7 @@ import {
   type ScannedProductDto,
   type CashierScannerStatus,
 } from '../../services/scannerHubService';
+import { scannerP2PService, type P2PCartItem } from '../../services/scannerP2PService';
 import { QuickAddProductModal } from './QuickAddProductModal';
 import { CashPaymentModal } from './CashPaymentModal';
 import { DebtPaymentModal } from './DebtPaymentModal';
@@ -239,6 +240,32 @@ export const PosCashierScreen: FC = () => {
     [getProductByBarcode, addProduct, addToCart, focusBarcodeInput]
   );
 
+  // Handle remote quantity changes from connected Mobile Scanner
+  const handleRemoteUpdateQty = useCallback(
+    (target: string, delta: number) => {
+      const cleanTarget = target.trim().toLowerCase();
+      const existing = cart.find(
+        (i) =>
+          String(i.product.id).trim().toLowerCase() === cleanTarget ||
+          (i.product.barcode && i.product.barcode.trim().toLowerCase() === cleanTarget)
+      );
+      if (existing) {
+        const newQty = existing.quantity + delta;
+        if (newQty <= 0) {
+          removeFromCart(existing.product.id);
+          setToast({ message: `تم حذف (${existing.product.name}) من السلة عبر الجوال 📱`, type: 'info' });
+        } else {
+          updateCartQty(existing.product.id, newQty);
+          setToast({
+            message: `تعديل كمية (${existing.product.name}) إلى ${newQty} عبر الجوال 📱`,
+            type: 'info',
+          });
+        }
+      }
+    },
+    [cart, updateCartQty, removeFromCart]
+  );
+
   // Subscribe to SignalR ScannerHub events, WebRTC P2P events, and local fallbacks
   useEffect(() => {
     // 1. Central Scanner manager subscriptions (Hub + P2P DataChannel)
@@ -261,6 +288,8 @@ export const PosCashierScreen: FC = () => {
       channel.onmessage = (event) => {
         if (event.data?.type === 'BARCODE_SCANNED' && event.data?.barcode) {
           handleResolveBarcode(event.data.barcode);
+        } else if (event.data?.type === 'UPDATE_QTY' && event.data?.productId && typeof event.data?.delta === 'number') {
+          handleRemoteUpdateQty(event.data.productId, event.data.delta);
         }
       };
     } catch {
@@ -290,7 +319,59 @@ export const PosCashierScreen: FC = () => {
       channel?.close();
       window.removeEventListener('storage', handleStorageEvent);
     };
-  }, [handleResolveBarcode, handleRemoteProductScanned]);
+  }, [handleResolveBarcode, handleRemoteProductScanned, handleRemoteUpdateQty]);
+
+  useEffect(() => {
+    const unsub = scannerP2PService.subscribeUpdateQty((target, delta) => {
+      handleRemoteUpdateQty(target, delta);
+    });
+    return () => unsub();
+  }, [handleRemoteUpdateQty]);
+
+  // Sync full cart to connected Mobile Scanner in real-time
+  useEffect(() => {
+    const p2pCart: P2PCartItem[] = cart.map((i) => ({
+      id: i.product.id,
+      barcode: i.product.barcode || '',
+      name: i.product.name,
+      price: i.unitPrice,
+      quantity: i.quantity,
+    }));
+
+    if (scannerP2PService.getStatus() === 'connected') {
+      scannerP2PService.sendCartSync(p2pCart, cartTotalDue, totalItemsCount);
+    }
+
+    // Broadcast channel fallback for same-machine tabs
+    try {
+      const bc = new BroadcastChannel('watheq_pos_scanner');
+      bc.postMessage({
+        type: 'CART_SYNC',
+        cart: p2pCart,
+        totalAmount: cartTotalDue,
+        totalCount: totalItemsCount,
+      });
+      bc.close();
+    } catch {
+      // ignore
+    }
+  }, [cart, cartTotalDue, totalItemsCount]);
+
+  useEffect(() => {
+    const unsub = scannerP2PService.subscribeStatus((st) => {
+      if (st === 'connected') {
+        const p2pCart: P2PCartItem[] = cart.map((i) => ({
+          id: i.product.id,
+          barcode: i.product.barcode || '',
+          name: i.product.name,
+          price: i.unitPrice,
+          quantity: i.quantity,
+        }));
+        scannerP2PService.sendCartSync(p2pCart, cartTotalDue, totalItemsCount);
+      }
+    });
+    return () => unsub();
+  }, [cart, cartTotalDue, totalItemsCount]);
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {

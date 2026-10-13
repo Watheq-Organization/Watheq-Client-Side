@@ -4,7 +4,6 @@ import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import * as signalR from '@microsoft/signalr';
 import {
   ArrowRight,
-  Zap,
   Barcode,
   QrCode,
   CheckCircle2,
@@ -15,6 +14,8 @@ import {
   Flashlight,
   FlashlightOff,
   Wifi,
+  X,
+  Trash2,
 } from 'lucide-react';
 import { pairScannerSession } from '../../services/scannerService';
 import {
@@ -28,6 +29,7 @@ import { PATHS } from '../../routes/paths';
 
 export interface MobileScannedItem {
   id: string;
+  barcode?: string;
   name: string;
   price: number;
   quantity: number;
@@ -55,6 +57,7 @@ export const MobileScannerClientScreen: FC = () => {
 
   // Scanned Cart state starts completely empty
   const [cartItems, setCartItems] = useState<MobileScannedItem[]>([]);
+  const [isCartModalOpen, setIsCartModalOpen] = useState<boolean>(false);
 
   const [notificationMsg, setNotificationMsg] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -209,6 +212,63 @@ export const MobileScannerClientScreen: FC = () => {
     };
   }, [sessionId, pairingSecret]);
 
+  // Real-time bidirectional cart sync from Cashier Desktop
+  useEffect(() => {
+    const unsub = scannerP2PService.subscribeCartSync((syncedCart) => {
+      setCartItems(
+        syncedCart.map((i) => ({
+          id: i.id,
+          barcode: i.barcode,
+          name: i.name,
+          price: i.price,
+          quantity: i.quantity,
+        }))
+      );
+
+      // If lastDetected was scanned recently and has a generic name, update its name from syncedCart!
+      setLastDetected((prev) => {
+        if (!prev) return prev;
+        const matched = syncedCart.find(
+          (c) => c.barcode === prev.code || c.id === prev.code
+        );
+        if (matched && prev.name.startsWith('باركود:')) {
+          return {
+            ...prev,
+            name: matched.name,
+            price: matched.price,
+          };
+        }
+        return prev;
+      });
+    });
+
+    // Also listen on BroadcastChannel fallback for same-machine tabs
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel('watheq_pos_scanner');
+      bc.onmessage = (event) => {
+        if (event.data?.type === 'CART_SYNC' && Array.isArray(event.data?.cart)) {
+          setCartItems(
+            event.data.cart.map((i: any) => ({
+              id: i.id,
+              barcode: i.barcode,
+              name: i.name,
+              price: i.price,
+              quantity: i.quantity,
+            }))
+          );
+        }
+      };
+    } catch {
+      // ignore
+    }
+
+    return () => {
+      unsub();
+      bc?.close();
+    };
+  }, []);
+
   // Handle scanned barcode dispatch
   const handleBarcodeScanned = useCallback(
     (code: string) => {
@@ -268,10 +328,12 @@ export const MobileScannerClientScreen: FC = () => {
 
       // Update local cart
       setCartItems((prev) => {
-        const existing = prev.find((item) => item.id === (foundProduct?.id || trimmed));
+        const existing = prev.find(
+          (item) => item.id === (foundProduct?.id || trimmed) || item.barcode === trimmed
+        );
         if (existing) {
           return prev.map((item) =>
-            item.id === (foundProduct?.id || trimmed)
+            item.id === existing.id
               ? { ...item, quantity: item.quantity + 1 }
               : item
           );
@@ -279,6 +341,7 @@ export const MobileScannerClientScreen: FC = () => {
         return [
           {
             id: foundProduct?.id || trimmed,
+            barcode: trimmed,
             name: productName,
             price,
             quantity: 1,
@@ -413,13 +476,29 @@ export const MobileScannerClientScreen: FC = () => {
     }
   };
 
-  // Quantity updates
+  // Quantity updates with bidirectional P2P sync
   const updateQty = (id: string, delta: number) => {
+    // 1. Optimistic local update
     setCartItems((prev) =>
       prev
         .map((item) => (item.id === id ? { ...item, quantity: item.quantity + delta } : item))
         .filter((item) => item.quantity > 0)
     );
+
+    // 2. Dispatch to desktop POS via WebRTC DataChannel
+    scannerP2PService.sendUpdateQty(id, delta);
+
+    // 3. Fallback for same-browser testing tabs
+    try {
+      broadcastChannelRef.current?.postMessage({
+        type: 'UPDATE_QTY',
+        productId: id,
+        delta,
+        timestamp: Date.now(),
+      });
+    } catch {
+      // broadcast error
+    }
   };
 
   const totalAmount = cartItems.reduce((acc, curr) => acc + curr.price * curr.quantity, 0);
@@ -717,39 +796,177 @@ export const MobileScannerClientScreen: FC = () => {
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-3 pt-1">
+        {/* Action Button: Open Cart Modal */}
+        <div className="pt-1">
           <button
             type="button"
-            onClick={() => {
-              playScannerBeep('success');
-              showToast('تم تثبيت العملية وإرسالها إلى شاشة الكاشير ⚡');
-              try {
-                broadcastChannelRef.current?.postMessage({
-                  type: 'CHECKOUT_TRIGGERED',
-                  totalAmount,
-                  timestamp: Date.now(),
-                });
-              } catch {
-                // broadcast error
-              }
-            }}
-            className="flex items-center justify-center gap-1.5 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-bold text-xs shadow-lg shadow-emerald-600/25 transition-all cursor-pointer"
+            onClick={() => setIsCartModalOpen(true)}
+            className="w-full flex items-center justify-between px-5 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white font-bold text-sm shadow-lg shadow-emerald-900/30 transition-all cursor-pointer"
           >
-            <Zap className="w-4 h-4 fill-current" />
-            <span>تثبيت العملية فوراً ⚡</span>
-          </button>
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
+                <ShoppingCart className="w-4 h-4" />
+              </div>
+              <div className="text-right">
+                <span className="block leading-tight">سلة المشتريات</span>
+                <span className="text-[11px] font-normal text-emerald-100">
+                  {totalCount > 0 ? `${totalCount} قطع في الفاتورة` : 'السلة فارغة'}
+                </span>
+              </div>
+            </div>
 
-          <button
-            type="button"
-            onClick={() => showToast(`السلة الحالية تحتوي على ${totalCount} قطع`)}
-            className="flex items-center justify-center gap-1.5 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 active:scale-98 text-slate-800 font-bold text-xs border border-slate-200 transition-all cursor-pointer"
-          >
-            <ShoppingCart className="w-4 h-4" />
-            <span>السلة ({totalCount})</span>
+            <div className="flex items-center gap-1.5 bg-black/20 px-3 py-1.5 rounded-xl font-mono text-base font-black">
+              <span>{totalAmount.toFixed(2)}</span>
+              <span className="text-xs font-normal">₪</span>
+            </div>
           </button>
         </div>
       </footer>
+
+      {/* Cart Modal Dialog */}
+      {isCartModalOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/70 backdrop-blur-sm animate-fadeIn">
+          {/* Modal Container */}
+          <div className="relative flex flex-col max-h-[85vh] bg-[#0E1726] text-white rounded-t-3xl border-t border-slate-700/60 shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-[#131F33]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                  <ShoppingCart className="w-5 h-5" />
+                </div>
+                <div className="text-right">
+                  <h3 className="text-sm font-bold text-white">سلة المشتريات</h3>
+                  <span className="text-[11px] text-slate-400">
+                    متزامنة مباشرة مع شاشة الكاشير ⚡
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-mono">
+                  {totalCount} قطع
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsCartModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                  title="إغلاق"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Cart Items List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-2.5 min-h-[160px] max-h-[50vh]">
+              {cartItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center space-y-3">
+                  <div className="w-16 h-16 rounded-full bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-slate-500">
+                    <ShoppingCart className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-300">السلة فارغة حالياً</h4>
+                    <p className="text-xs text-slate-500 mt-1">
+                      قم بمسح باركود المنتجات بالكاميرا لإضافتها وتعديل كمياتها فوراً
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                cartItems.map((item) => {
+                  const itemTotal = item.price * item.quantity;
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between p-3 rounded-2xl bg-slate-800/60 border border-slate-700/60 hover:border-slate-600 transition-colors"
+                    >
+                      {/* Product Info */}
+                      <div className="flex-1 text-right pl-3">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h4 className="text-sm font-bold text-white leading-tight">
+                            {item.name}
+                          </h4>
+                          {item.isNew && (
+                            <span className="text-[9px] bg-emerald-500 text-white px-1.5 py-0.2 rounded font-bold">
+                              جديد
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-400 font-mono">
+                          <span>سعر القطعة: {item.price.toFixed(2)} ₪</span>
+                          {item.barcode && (
+                            <span className="text-[10px] text-slate-500">({item.barcode})</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Quantity Controls & Line Total */}
+                      <div className="flex items-center gap-3">
+                        {/* Qty +/- Buttons */}
+                        <div className="flex items-center gap-1 bg-slate-900/90 border border-slate-700 rounded-xl p-1">
+                          <button
+                            type="button"
+                            onClick={() => updateQty(item.id, 1)}
+                            className="w-7 h-7 rounded-lg bg-emerald-600/30 hover:bg-emerald-600 text-emerald-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                            title="زيادة الكمية"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+
+                          <span className="w-7 text-center font-mono font-bold text-sm text-white">
+                            {item.quantity}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => updateQty(item.id, -1)}
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                              item.quantity <= 1
+                                ? 'bg-rose-600/30 hover:bg-rose-600 text-rose-300 hover:text-white'
+                                : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white'
+                            }`}
+                            title={item.quantity <= 1 ? 'حذف من السلة' : 'تقليل الكمية'}
+                          >
+                            {item.quantity <= 1 ? (
+                              <Trash2 className="w-3.5 h-3.5" />
+                            ) : (
+                              <Minus className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Line Total */}
+                        <div className="text-left min-w-[65px]">
+                          <span className="block text-xs font-mono font-bold text-emerald-400">
+                            {itemTotal.toFixed(2)} ₪
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer Summary & Action */}
+            <div className="p-4 border-t border-slate-800 bg-[#131F33] space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-400">المجموع النهائي المطلوب:</span>
+                <span className="font-mono font-black text-xl text-emerald-400">
+                  {totalAmount.toFixed(2)} ₪
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsCartModalOpen(false)}
+                className="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white font-bold text-xs transition-colors cursor-pointer"
+              >
+                العودة إلى الماسح ومتابعة المسح 📷
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
