@@ -18,7 +18,12 @@ import {
   Package,
 } from 'lucide-react';
 import { useInventoryPos, playScannerBeep } from '../../context/InventoryPosContext';
-import type { CartItem } from '../../types/inventory';
+import type { CartItem, Product } from '../../types/inventory';
+import {
+  cashierScannerManager,
+  type ScannedProductDto,
+  type CashierScannerStatus,
+} from '../../services/scannerHubService';
 import { QuickAddProductModal } from './QuickAddProductModal';
 import { CashPaymentModal } from './CashPaymentModal';
 import { DebtPaymentModal } from './DebtPaymentModal';
@@ -83,6 +88,7 @@ export const PosCashierScreen: FC = () => {
   const [isCameraScannerOpen, setIsCameraScannerOpen] = useState(false);
   const [isCustomerSelectModalOpen, setIsCustomerSelectModalOpen] = useState(false);
   const [isModifyQtyModalOpen, setIsModifyQtyModalOpen] = useState(false);
+  const [scannerStatus, setScannerStatus] = useState<CashierScannerStatus>('idle');
 
   const [toast, setToast] = useState<{ message: string; type?: ToastType } | null>(null);
 
@@ -171,8 +177,71 @@ export const PosCashierScreen: FC = () => {
     [getProductByBarcode, addProduct, addToCart, focusBarcodeInput]
   );
 
-  // Listen to remote barcodes scanned from mobile scanner client
+  // Directly handle pre-resolved product broadcast from SignalR ScannerHub
+  const handleRemoteProductScanned = useCallback(
+    (scannedProduct: ScannedProductDto) => {
+      if (!scannedProduct?.barcode) return;
+
+      const trimmed = scannedProduct.barcode.trim();
+      const now = Date.now();
+      if (
+        lastCashierScannedCodeRef.current === trimmed &&
+        now - lastCashierScannedTimeRef.current < 1500
+      ) {
+        return;
+      }
+      lastCashierScannedCodeRef.current = trimmed;
+      lastCashierScannedTimeRef.current = now;
+
+      // 1. Check if already exists in local memory
+      let found = getProductByBarcode(trimmed);
+
+      // 2. If not found locally, build product object from the backend pre-resolved data!
+      if (!found) {
+        const resolvedProduct: Product = {
+          id: String(scannedProduct.productId),
+          barcode: trimmed,
+          name: scannedProduct.productName,
+          category: 'عام',
+          salePrice: Number(scannedProduct.salePrice || 0),
+          costPrice: 0,
+          stock: Number(scannedProduct.stockQuantity || 0),
+          minAlertThreshold: 0,
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        addProduct(resolvedProduct);
+        found = resolvedProduct;
+      }
+
+      addToCart(found, 1);
+      playScannerBeep('scan');
+      setBarcodeQuery('');
+      setToast({ message: `تمت إضافة (${found.name}) إلى الفاتورة عبر الماسح 📱`, type: 'info' });
+      setTimeout(focusBarcodeInput, 50);
+    },
+    [getProductByBarcode, addProduct, addToCart, focusBarcodeInput]
+  );
+
+  // Subscribe to SignalR ScannerHub events and keep local fallback
   useEffect(() => {
+    // 1. Central SignalR ScannerHub manager subscription
+    const unsubScanner = cashierScannerManager.subscribeStatus(setScannerStatus);
+    cashierScannerManager.setCallbacks({
+      onProductScanned: (prod) => {
+        handleRemoteProductScanned(prod);
+      },
+      onBarcodeScanned: (data) => {
+        if (data.product) {
+          handleRemoteProductScanned(data.product);
+        } else if (data.barcode) {
+          handleResolveBarcode(data.barcode);
+        }
+      },
+    });
+
+    // 2. BroadcastChannel fallback (for same-machine browser testing)
     let channel: BroadcastChannel | null = null;
     try {
       channel = new BroadcastChannel('watheq_pos_scanner');
@@ -185,6 +254,7 @@ export const PosCashierScreen: FC = () => {
       // Fallback
     }
 
+    // 3. StorageEvent fallback (for same-machine tabs)
     const handleStorageEvent = (e: StorageEvent) => {
       if (e.key === 'watheq_last_scanned_barcode' && e.newValue) {
         try {
@@ -200,31 +270,12 @@ export const PosCashierScreen: FC = () => {
 
     window.addEventListener('storage', handleStorageEvent);
 
-    // Cross-device relay polling: Fetch barcodes pushed by mobile phone
-    const pollInterval = window.setInterval(async () => {
-      try {
-        const res = await fetch('/api/local-scanner/pull');
-        if (res.ok) {
-          const data = (await res.json()) as { items?: { barcode: string }[] };
-          if (data?.items && Array.isArray(data.items)) {
-            data.items.forEach((item) => {
-              if (item.barcode) {
-                handleResolveBarcode(item.barcode);
-              }
-            });
-          }
-        }
-      } catch {
-        // Silent poll error
-      }
-    }, 700);
-
     return () => {
+      unsubScanner();
       channel?.close();
       window.removeEventListener('storage', handleStorageEvent);
-      window.clearInterval(pollInterval);
     };
-  }, [handleResolveBarcode]);
+  }, [handleResolveBarcode, handleRemoteProductScanned]);
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -481,11 +532,39 @@ export const PosCashierScreen: FC = () => {
           <button
             type="button"
             onClick={() => setIsMobileScannerModalOpen(true)}
-            className="px-3 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/40 text-xs font-bold flex items-center gap-1.5 transition-all"
-            title="ربط ماسح الجوال 📲"
+            className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              scannerStatus === 'connected'
+                ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/50 shadow-sm shadow-emerald-500/20'
+                : scannerStatus === 'connecting' || scannerStatus === 'paired'
+                ? 'bg-amber-500/20 text-amber-400 border-amber-500/50 animate-pulse'
+                : scannerStatus === 'disconnected'
+                ? 'bg-rose-500/20 text-rose-400 border-rose-500/50'
+                : 'bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border-emerald-500/40'
+            }`}
+            title="ربط ماسح الجوال (SignalR WebSocket)"
           >
             <Smartphone className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">ربط ماسح الجوال 📲</span>
+            {scannerStatus === 'connected' && (
+              <>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block" />
+                <span className="hidden sm:inline">الماسح متصل 🟢</span>
+              </>
+            )}
+            {(scannerStatus === 'connecting' || scannerStatus === 'paired') && (
+              <>
+                <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
+                <span className="hidden sm:inline">جاري الاتصال... 🟡</span>
+              </>
+            )}
+            {scannerStatus === 'disconnected' && (
+              <>
+                <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
+                <span className="hidden sm:inline">الماسح مفصول 🔴</span>
+              </>
+            )}
+            {scannerStatus === 'idle' && (
+              <span className="hidden sm:inline">ربط ماسح الجوال 📲</span>
+            )}
           </button>
         </div>
       </header>
@@ -1051,6 +1130,9 @@ export const PosCashierScreen: FC = () => {
         }}
         onSimulateBarcode={(scanned) => {
           handleResolveBarcode(scanned);
+        }}
+        onProductScanned={(scannedProduct) => {
+          handleRemoteProductScanned(scannedProduct);
         }}
       />
 

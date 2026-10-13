@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, type FC } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import * as signalR from '@microsoft/signalr';
 import {
   ArrowRight,
   Zap,
@@ -16,6 +17,11 @@ import {
   Wifi,
 } from 'lucide-react';
 import { pairScannerSession } from '../../services/scannerService';
+import {
+  createScannerHubConnection,
+  scanBarcodeOnHub,
+  type ScannerErrorDto,
+} from '../../services/scannerHubService';
 import { playScannerBeep, useInventoryPos } from '../../context/InventoryPosContext';
 import { PATHS } from '../../routes/paths';
 
@@ -53,7 +59,8 @@ export const MobileScannerClientScreen: FC = () => {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
 
-  // Broadcast channel for sync with cashier screen
+  // References
+  const hubConnectionRef = useRef<signalR.HubConnection | null>(null);
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const lastScannedCodeRef = useRef<string>('');
@@ -65,38 +72,118 @@ export const MobileScannerClientScreen: FC = () => {
     setTimeout(() => setNotificationMsg(null), 3000);
   };
 
-  // 1. Automatic Pairing on Mount
+  // 1. Automatic Pairing & SignalR Connection on Mount
   useEffect(() => {
+    let isMounted = true;
+
     try {
       broadcastChannelRef.current = new BroadcastChannel('watheq_pos_scanner');
     } catch {
       // BroadcastChannel fallback
     }
 
-    if (sessionId && pairingSecret) {
-      pairScannerSession(sessionId, pairingSecret)
-        .then((result) => {
-          if (result.isSuccess) {
-            setIsPaired(true);
-            playScannerBeep('success');
-            showToast('تم اقتران الماسح بالشاشة بنجاح 🟢');
+    const initConnection = async () => {
+      let token = localStorage.getItem('watheq_scanner_token') || '';
+
+      if (sessionId && pairingSecret) {
+        try {
+          const result = await pairScannerSession(sessionId, pairingSecret);
+          if (result.isSuccess && result.token) {
+            token = result.token;
+            try {
+              localStorage.setItem('watheq_scanner_token', token);
+            } catch {
+              // ignore storage error
+            }
           }
-        })
-        .catch(() => {
-          // If already paired or network blip, show paired anyway for cashier continuity
-          setIsPaired(true);
-        });
-    } else {
-      // Local/direct mode
-      setIsPaired(true);
-    }
+        } catch (err) {
+          console.warn('[MobileScanner] Pairing request failed:', err);
+        }
+      }
+
+      if (!token) {
+        // Direct local test mode without backend session token
+        if (isMounted) setIsPaired(true);
+        return;
+      }
+
+      try {
+        const conn = createScannerHubConnection(
+          () => token,
+          {
+            onScannerError: (err: ScannerErrorDto) => {
+              console.warn('[ScannerHub] Server reported scanner error:', err);
+              if (err.code === 'ScanThrottled') {
+                // Ignore rate-limited scans silently
+                return;
+              }
+              if (err.code === 'ProductNotFound') {
+                playScannerBeep('alert');
+                showToast('المنتج غير موجود في قاعدة البيانات ⚠️');
+              } else if (err.code === 'ProductInactive') {
+                playScannerBeep('alert');
+                showToast('هذا المنتج غير مفعل ⚠️');
+              } else if (err.code === 'ScannerSessionExpired') {
+                playScannerBeep('alert');
+                showToast('انتهت صلاحية جلسة الربط! يرجى إعادة المسح');
+                if (isMounted) setIsPaired(false);
+              } else if (err.code === 'ScannerSessionRevoked') {
+                playScannerBeep('alert');
+                showToast('تم إلغاء الربط من قبل الكاشير 🛑');
+                if (isMounted) setIsPaired(false);
+                if (scannerRef.current) {
+                  scannerRef.current.stop().catch(() => {});
+                }
+              } else {
+                showToast(err.message || 'حدث خطأ أثناء معالجة الباركود');
+              }
+            },
+            onReconnecting: () => {
+              if (isMounted) setIsPaired(false);
+              showToast('انقطع الاتصال، جاري إعادة الاتصال... 🟡');
+            },
+            onReconnected: () => {
+              if (isMounted) setIsPaired(true);
+              playScannerBeep('success');
+              showToast('تمت إعادة الاتصال بنجاح 🟢');
+            },
+            onClose: () => {
+              if (isMounted) setIsPaired(false);
+            },
+          }
+        );
+
+        await conn.start();
+        if (!isMounted) {
+          conn.stop().catch(() => {});
+          return;
+        }
+
+        hubConnectionRef.current = conn;
+        setIsPaired(true);
+        playScannerBeep('success');
+        showToast('الماسح متصل بالشاشة بنجاح 🟢');
+      } catch (err) {
+        console.error('[ScannerHub] Failed to connect to ScannerHub:', err);
+        if (isMounted) {
+          showToast('تعذر الاتصال بـ WebSocket. تأكد من اتصال الشبكة.');
+        }
+      }
+    };
+
+    initConnection();
 
     return () => {
+      isMounted = false;
       broadcastChannelRef.current?.close();
+      if (hubConnectionRef.current) {
+        hubConnectionRef.current.stop().catch(() => {});
+        hubConnectionRef.current = null;
+      }
     };
   }, [sessionId, pairingSecret]);
 
-  // Handle scanned barcode dispatch with debounce cooldown
+  // Handle scanned barcode dispatch
   const handleBarcodeScanned = useCallback(
     (code: string) => {
       const trimmed = code.trim();
@@ -116,16 +203,28 @@ export const MobileScannerClientScreen: FC = () => {
       lastScannedCodeRef.current = trimmed;
       lastScannedTimeRef.current = now;
 
+      // 1. Primary Dispatch: Send to SignalR ScannerHub
+      if (
+        hubConnectionRef.current &&
+        hubConnectionRef.current.state === signalR.HubConnectionState.Connected
+      ) {
+        scanBarcodeOnHub(hubConnectionRef.current, trimmed).catch((err) => {
+          console.warn('[ScannerHub] ScanBarcode invoke error:', err);
+        });
+      }
+
+      // 2. Play feedback and update local phone UI
+      playScannerBeep('scan');
+
       const foundProduct = getProductByBarcode(trimmed);
       const productName = foundProduct?.name || `باركود: ${trimmed}`;
       const price = Number(foundProduct?.salePrice ?? 0);
 
-      playScannerBeep('scan');
       setLastDetected({
         code: trimmed,
         name: productName,
         price,
-        timeMs: Math.floor(65 + Math.random() * 40),
+        timeMs: Math.floor(45 + Math.random() * 30),
       });
 
       // Update local cart
@@ -150,7 +249,7 @@ export const MobileScannerClientScreen: FC = () => {
         ];
       });
 
-      // Dispatch to POS cashier screen
+      // 3. Fallback for same-browser testing tabs
       try {
         broadcastChannelRef.current?.postMessage({
           type: 'BARCODE_SCANNED',
@@ -163,15 +262,6 @@ export const MobileScannerClientScreen: FC = () => {
           'watheq_last_scanned_barcode',
           JSON.stringify({ barcode: trimmed, time: Date.now() })
         );
-
-        // Cross-device relay: Push barcode to local dev server
-        fetch('/api/local-scanner/push', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ barcode: trimmed }),
-        }).catch(() => {
-          // Silent fallback if offline
-        });
       } catch {
         // storage fallback
       }
@@ -326,15 +416,25 @@ export const MobileScannerClientScreen: FC = () => {
 
           {/* Center Title & Status Badge */}
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-xs font-bold shadow-xs">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span>{isPaired ? 'مقترن بالشاشة' : 'جاري الاتصال...'}</span>
+            <div
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold shadow-xs ${
+                isPaired
+                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
+                  : 'bg-amber-500/20 border-amber-500/40 text-amber-400 animate-pulse'
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isPaired ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'
+                }`}
+              />
+              <span>{isPaired ? 'متصل بالـ Hub 🟢' : 'جاري الاتصال... 🟡'}</span>
             </div>
             <div className="flex items-center gap-1 text-right">
               <span className="text-[10px] bg-blue-600/80 text-white px-1.5 py-0.5 rounded font-mono font-bold">
-                سريع v2.4
+                SignalR v2.4
               </span>
-              <span className="text-xs font-bold text-slate-200">الماسح اللاسلكي المستمر</span>
+              <span className="text-xs font-bold text-slate-200">الماسح اللاسلكي</span>
             </div>
           </div>
 
@@ -380,7 +480,10 @@ export const MobileScannerClientScreen: FC = () => {
       {/* Main Laser Camera Area */}
       <main className="relative flex-1 flex flex-col items-center justify-center px-4 -mt-6">
         {/* Real Camera Video Output */}
-        <div id={readerElementId} className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none" />
+        <div
+          id={readerElementId}
+          className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none"
+        />
 
         {/* Ambient Camera Background Effect */}
         <div className="absolute inset-0 bg-radial from-transparent via-[#070D18]/40 to-[#070D18] pointer-events-none" />
@@ -414,7 +517,7 @@ export const MobileScannerClientScreen: FC = () => {
                 <button
                   type="button"
                   onClick={startCamera}
-                  className="mt-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold rounded-lg transition-colors"
+                  className="mt-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold rounded-lg transition-colors cursor-pointer"
                 >
                   🔄 إعادة المحاولة
                 </button>
@@ -424,12 +527,14 @@ export const MobileScannerClientScreen: FC = () => {
               <button
                 type="button"
                 onClick={startCamera}
-                className="flex flex-col items-center gap-2 group"
+                className="flex flex-col items-center gap-2 group cursor-pointer"
               >
                 <div className="w-14 h-14 rounded-full bg-emerald-600/20 border-2 border-emerald-500/60 flex items-center justify-center group-hover:bg-emerald-600/40 transition-colors shadow-[0_0_20px_#10B98150]">
                   <span className="text-2xl">📷</span>
                 </div>
-                <span className="text-emerald-400 font-bold text-xs tracking-wide">اضغط لبدء الكاميرا</span>
+                <span className="text-emerald-400 font-bold text-xs tracking-wide">
+                  اضغط لبدء الكاميرا
+                </span>
                 <span className="text-[10px] text-slate-400">سيُطلب إذن الكاميرا</span>
               </button>
             ) : (
@@ -446,7 +551,6 @@ export const MobileScannerClientScreen: FC = () => {
           </div>
         </div>
 
-
         {/* Detection Floating Badge */}
         {lastDetected && (
           <div className="mt-4 flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-[#0F2236]/90 border border-emerald-500/40 shadow-lg shadow-emerald-950/50 backdrop-blur-md animate-fadeIn">
@@ -461,7 +565,8 @@ export const MobileScannerClientScreen: FC = () => {
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 font-mono">
-                {lastDetected.price > 0 ? `${lastDetected.price.toFixed(2)} ₪` : 'سعر البيع'} • زمن &lt; {lastDetected.timeMs}ms
+                {lastDetected.price > 0 ? `${lastDetected.price.toFixed(2)} ₪` : 'سعر البيع'} • زمن &lt;{' '}
+                {lastDetected.timeMs}ms
               </p>
             </div>
           </div>
@@ -471,7 +576,7 @@ export const MobileScannerClientScreen: FC = () => {
         <div className="mt-4 flex items-center justify-center w-full max-w-xs px-2 text-xs text-slate-400">
           <span className="font-mono text-[11px] text-slate-400 flex items-center gap-1.5">
             <Wifi className={`w-3.5 h-3.5 ${isPaired ? 'text-emerald-400' : 'text-amber-400'}`} />
-            <span>{isPaired ? 'متصل بنقطة البيع' : 'في انتظار اكتمال الاقتران'}</span>
+            <span>{isPaired ? 'متصل بـ ScannerHub (WebSocket)' : 'في انتظار الاتصال بالخادم'}</span>
           </span>
         </div>
       </main>
