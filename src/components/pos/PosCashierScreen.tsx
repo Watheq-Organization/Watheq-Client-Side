@@ -224,21 +224,19 @@ export const PosCashierScreen: FC = () => {
     [getProductByBarcode, addProduct, addToCart, focusBarcodeInput]
   );
 
-  // Subscribe to SignalR ScannerHub events and keep local fallback
+  // Subscribe to SignalR ScannerHub events, WebRTC P2P events, and local fallbacks
   useEffect(() => {
-    // 1. Central SignalR ScannerHub manager subscription
+    // 1. Central Scanner manager subscriptions (Hub + P2P DataChannel)
     const unsubScanner = cashierScannerManager.subscribeStatus(setScannerStatus);
-    cashierScannerManager.setCallbacks({
-      onProductScanned: (prod) => {
-        handleRemoteProductScanned(prod);
-      },
-      onBarcodeScanned: (data) => {
-        if (data.product) {
-          handleRemoteProductScanned(data.product);
-        } else if (data.barcode) {
-          handleResolveBarcode(data.barcode);
-        }
-      },
+    const unsubBarcode = cashierScannerManager.subscribeBarcode((data) => {
+      if (data.product) {
+        handleRemoteProductScanned(data.product);
+      } else if (data.barcode) {
+        handleResolveBarcode(data.barcode);
+      }
+    });
+    const unsubProduct = cashierScannerManager.subscribeProduct((prod) => {
+      handleRemoteProductScanned(prod);
     });
 
     // 2. BroadcastChannel fallback (for same-machine browser testing)
@@ -272,6 +270,8 @@ export const PosCashierScreen: FC = () => {
 
     return () => {
       unsubScanner();
+      unsubBarcode();
+      unsubProduct();
       channel?.close();
       window.removeEventListener('storage', handleStorageEvent);
     };

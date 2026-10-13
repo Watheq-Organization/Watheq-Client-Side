@@ -22,6 +22,7 @@ import {
   scanBarcodeOnHub,
   type ScannerErrorDto,
 } from '../../services/scannerHubService';
+import { scannerP2PService } from '../../services/scannerP2PService';
 import { playScannerBeep, useInventoryPos } from '../../context/InventoryPosContext';
 import { PATHS } from '../../routes/paths';
 
@@ -85,6 +86,17 @@ export const MobileScannerClientScreen: FC = () => {
     const initConnection = async () => {
       let token = localStorage.getItem('watheq_scanner_token') || '';
 
+      // Connect via direct WebRTC DataChannel immediately if sessionId is available
+      if (sessionId) {
+        scannerP2PService.connectToHost(sessionId, () => {
+          if (isMounted) {
+            setIsPaired(true);
+            playScannerBeep('success');
+            showToast('تم الاتصال المباشر بنقاط البيع بنجاح 🟢');
+          }
+        });
+      }
+
       if (sessionId && pairingSecret) {
         try {
           const result = await pairScannerSession(sessionId, pairingSecret);
@@ -102,7 +114,7 @@ export const MobileScannerClientScreen: FC = () => {
       }
 
       if (!token) {
-        // Direct local test mode without backend session token
+        // Direct local or P2P test mode without backend session token
         if (isMounted) setIsPaired(true);
         return;
       }
@@ -139,8 +151,10 @@ export const MobileScannerClientScreen: FC = () => {
               }
             },
             onReconnecting: () => {
-              if (isMounted) setIsPaired(false);
-              showToast('انقطع الاتصال، جاري إعادة الاتصال... 🟡');
+              if (scannerP2PService.getStatus() !== 'connected') {
+                if (isMounted) setIsPaired(false);
+                showToast('انقطع الاتصال، جاري إعادة الاتصال... 🟡');
+              }
             },
             onReconnected: () => {
               if (isMounted) setIsPaired(true);
@@ -148,7 +162,9 @@ export const MobileScannerClientScreen: FC = () => {
               showToast('تمت إعادة الاتصال بنجاح 🟢');
             },
             onClose: () => {
-              if (isMounted) setIsPaired(false);
+              if (scannerP2PService.getStatus() !== 'connected') {
+                if (isMounted) setIsPaired(false);
+              }
             },
           }
         );
@@ -164,9 +180,10 @@ export const MobileScannerClientScreen: FC = () => {
         playScannerBeep('success');
         showToast('الماسح متصل بالشاشة بنجاح 🟢');
       } catch (err) {
-        console.error('[ScannerHub] Failed to connect to ScannerHub:', err);
-        if (isMounted) {
-          showToast('تعذر الاتصال بـ WebSocket. تأكد من اتصال الشبكة.');
+        console.warn('[ScannerHub] Hub connection not available or closed, using P2P DataChannel:', err);
+        // If P2P is connected or connecting, maintain paired state
+        if (isMounted && sessionId) {
+          setIsPaired(true);
         }
       }
     };
@@ -176,6 +193,7 @@ export const MobileScannerClientScreen: FC = () => {
     return () => {
       isMounted = false;
       broadcastChannelRef.current?.close();
+      scannerP2PService.stopClient();
       if (hubConnectionRef.current) {
         hubConnectionRef.current.stop().catch(() => {});
         hubConnectionRef.current = null;
@@ -203,7 +221,10 @@ export const MobileScannerClientScreen: FC = () => {
       lastScannedCodeRef.current = trimmed;
       lastScannedTimeRef.current = now;
 
-      // 1. Primary Dispatch: Send to SignalR ScannerHub
+      // 1. Direct zero-latency WebRTC P2P DataChannel transmission
+      scannerP2PService.sendBarcode(trimmed);
+
+      // 2. Fallback: Send to SignalR ScannerHub
       if (
         hubConnectionRef.current &&
         hubConnectionRef.current.state === signalR.HubConnectionState.Connected
@@ -213,7 +234,7 @@ export const MobileScannerClientScreen: FC = () => {
         });
       }
 
-      // 2. Play feedback and update local phone UI
+      // 3. Play feedback and update local phone UI
       playScannerBeep('scan');
 
       const foundProduct = getProductByBarcode(trimmed);

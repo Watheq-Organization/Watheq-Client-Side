@@ -1,6 +1,7 @@
 import * as signalR from '@microsoft/signalr';
 import { API_BASE_URL } from '../config/env';
 import { getStoredToken } from '../lib/authToken';
+import { scannerP2PService } from './scannerP2PService';
 
 // ============================================================================
 // DTOs & Types for ScannerHub
@@ -191,6 +192,8 @@ class CashierScannerHubManager {
   private sessionId: string | null = null;
   private status: CashierScannerStatus = 'idle';
   private statusListeners = new Set<(status: CashierScannerStatus) => void>();
+  private barcodeListeners = new Set<(data: BarcodeScannedEventDto) => void>();
+  private productListeners = new Set<(product: ScannedProductDto) => void>();
   private onProductScannedCallback: ((product: ScannedProductDto) => void) | null = null;
   private onBarcodeScannedCallback: ((data: BarcodeScannedEventDto) => void) | null = null;
   private onScannerErrorCallback: ((error: ScannerErrorDto) => void) | null = null;
@@ -215,6 +218,20 @@ class CashierScannerHubManager {
     };
   }
 
+  subscribeBarcode(listener: (data: BarcodeScannedEventDto) => void): () => void {
+    this.barcodeListeners.add(listener);
+    return () => {
+      this.barcodeListeners.delete(listener);
+    };
+  }
+
+  subscribeProduct(listener: (product: ScannedProductDto) => void): () => void {
+    this.productListeners.add(listener);
+    return () => {
+      this.productListeners.delete(listener);
+    };
+  }
+
   private setStatus(newStatus: CashierScannerStatus) {
     this.status = newStatus;
     this.statusListeners.forEach((cb) => {
@@ -224,6 +241,20 @@ class CashierScannerHubManager {
         console.error('[CashierScannerManager] Listener error:', err);
       }
     });
+  }
+
+  public setManualStatus(newStatus: CashierScannerStatus) {
+    this.setStatus(newStatus);
+  }
+
+  public dispatchBarcode(barcode: string, product?: ScannedProductDto) {
+    if (product) {
+      this.productListeners.forEach((fn) => fn(product));
+      this.onProductScannedCallback?.(product);
+    }
+    const evt = { barcode, product };
+    this.barcodeListeners.forEach((fn) => fn(evt));
+    this.onBarcodeScannedCallback?.(evt);
   }
 
   setCallbacks(callbacks: {
@@ -236,7 +267,7 @@ class CashierScannerHubManager {
     if (callbacks.onScannerError) this.onScannerErrorCallback = callbacks.onScannerError;
   }
 
-  async startSession(sessionId: string): Promise<signalR.HubConnection> {
+  async startSession(sessionId: string): Promise<signalR.HubConnection | null> {
     // If already connected to the same session, reuse
     if (this.connection && this.sessionId === sessionId && this.connection.state === signalR.HubConnectionState.Connected) {
       return this.connection;
@@ -255,6 +286,25 @@ class CashierScannerHubManager {
     this.sessionId = sessionId;
     this.setStatus('connecting');
 
+    // 1. Start WebRTC P2P Host in parallel for zero-latency, cross-network scanner transport
+    try {
+      scannerP2PService.startHost(
+        sessionId,
+        (barcode) => {
+          console.info('[CashierScannerManager] Received barcode via direct P2P:', barcode);
+          this.setStatus('connected');
+          this.dispatchBarcode(barcode);
+        },
+        () => {
+          console.info('[CashierScannerManager] Mobile paired & connected via P2P');
+          this.setStatus('connected');
+        }
+      );
+    } catch (p2pErr) {
+      console.warn('[CashierScannerManager] P2P Host init error:', p2pErr);
+    }
+
+    // 2. Start SignalR Hub connection
     const conn = createScannerHubConnection(
       () => getStoredToken() || '',
       {
@@ -271,26 +321,36 @@ class CashierScannerHubManager {
         },
         onScannerDisconnected: (data) => {
           console.info('[ScannerHub] Mobile scanner disconnected:', data.sessionId);
-          this.setStatus('disconnected');
+          // Only mark disconnected if P2P is not connected
+          if (scannerP2PService.getStatus() !== 'connected') {
+            this.setStatus('disconnected');
+          }
         },
         onProductScanned: (product) => {
+          this.productListeners.forEach((fn) => fn(product));
           this.onProductScannedCallback?.(product);
         },
         onBarcodeScanned: (data) => {
+          this.barcodeListeners.forEach((fn) => fn(data));
           this.onBarcodeScannedCallback?.(data);
         },
         onScannerError: (err) => {
           this.onScannerErrorCallback?.(err);
         },
         onReconnecting: () => {
-          this.setStatus('connecting');
+          if (scannerP2PService.getStatus() !== 'connected') {
+            this.setStatus('connecting');
+          }
         },
         onReconnected: () => {
           this.setStatus('connected');
         },
         onClose: () => {
-          if (this.status === 'connected' || this.status === 'paired') {
-            this.setStatus('disconnected');
+          // If P2P is connected, do not mark disconnected
+          if (scannerP2PService.getStatus() !== 'connected') {
+            if (this.status === 'connected' || this.status === 'paired') {
+              this.setStatus('disconnected');
+            }
           }
         },
       }
@@ -303,13 +363,18 @@ class CashierScannerHubManager {
       await joinScannerSession(conn, sessionId);
       return conn;
     } catch (err) {
-      this.setStatus('disconnected');
-      throw err;
+      console.warn('[ScannerHub] SignalR connection not available or closed, using P2P DataChannel transport:', err);
+      // Keep connecting or connected status so P2P continues running without interruption
+      if (scannerP2PService.getStatus() === 'connected') {
+        this.setStatus('connected');
+      }
+      return conn;
     }
   }
 
   async stopSession() {
     this.sessionId = null;
+    scannerP2PService.stopHost();
     if (this.connection) {
       try {
         await this.connection.stop();

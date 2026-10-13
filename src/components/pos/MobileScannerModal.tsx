@@ -16,6 +16,7 @@ import {
 import {
   createScannerSession,
   revokeScannerSession,
+  getScannerSessionStatus,
   toScannerErrorMessage,
   type CreateScannerSessionData,
 } from '../../services/scannerService';
@@ -51,13 +52,24 @@ export const MobileScannerModal: FC<MobileScannerModalProps> = ({
 
   const activeSessionIdRef = useRef<string | null>(null);
   const countdownTimerRef = useRef<number | null>(null);
+  const statusPollTimerRef = useRef<number | null>(null);
+  const autoCloseTimerRef = useRef<number | null>(null);
 
   // Subscribe to CashierScannerManager status and set callbacks
   useEffect(() => {
     const unsubscribe = cashierScannerManager.subscribeStatus((newStatus) => {
       setStatus(newStatus);
-      if (newStatus === 'connected') {
+      if (newStatus === 'connected' || newStatus === 'paired') {
         playScannerBeep('success');
+        if (statusPollTimerRef.current) {
+          window.clearInterval(statusPollTimerRef.current);
+          statusPollTimerRef.current = null;
+        }
+        if (!autoCloseTimerRef.current) {
+          autoCloseTimerRef.current = window.setTimeout(() => {
+            onClose();
+          }, 1500);
+        }
       }
     });
 
@@ -82,7 +94,7 @@ export const MobileScannerModal: FC<MobileScannerModalProps> = ({
     return () => {
       unsubscribe();
     };
-  }, [onProductScanned, onSimulateBarcode]);
+  }, [onProductScanned, onSimulateBarcode, onClose]);
 
   // Network origin configuration
   const isLocalhost =
@@ -113,16 +125,24 @@ export const MobileScannerModal: FC<MobileScannerModalProps> = ({
         )}&secret=${encodeURIComponent(session.pairingSecret)}`
       : '';
 
-  const clearTimer = useCallback(() => {
+  const clearTimers = useCallback(() => {
     if (countdownTimerRef.current) {
       window.clearInterval(countdownTimerRef.current);
       countdownTimerRef.current = null;
+    }
+    if (statusPollTimerRef.current) {
+      window.clearInterval(statusPollTimerRef.current);
+      statusPollTimerRef.current = null;
+    }
+    if (autoCloseTimerRef.current) {
+      window.clearTimeout(autoCloseTimerRef.current);
+      autoCloseTimerRef.current = null;
     }
   }, []);
 
   // Initialize or renew a scanner session
   const initSession = useCallback(async () => {
-    clearTimer();
+    clearTimers();
     setIsLoading(true);
     setError(null);
 
@@ -135,10 +155,35 @@ export const MobileScannerModal: FC<MobileScannerModalProps> = ({
       setSession(data);
       activeSessionIdRef.current = data.sessionId;
 
-      // Start SignalR Hub connection and join session group asynchronously
+      // Start SignalR Hub connection + WebRTC P2P Host asynchronously
       cashierScannerManager.startSession(data.sessionId).catch((hubErr) => {
-        console.warn('[MobileScannerModal] Hub connection error:', hubErr);
+        console.warn('[MobileScannerModal] Hub/P2P connection error:', hubErr);
       });
+
+      // Start active polling to detect when phone scans QR and pairs with server
+      statusPollTimerRef.current = window.setInterval(async () => {
+        if (!activeSessionIdRef.current) return;
+        try {
+          const check = await getScannerSessionStatus(activeSessionIdRef.current);
+          if (check.status === 'Paired' || check.status === 'Connected') {
+            console.info('[MobileScannerModal] Mobile scan paired detected via polling:', check.sessionId);
+            cashierScannerManager.setManualStatus('connected');
+            setStatus('connected');
+            playScannerBeep('success');
+            if (statusPollTimerRef.current) {
+              window.clearInterval(statusPollTimerRef.current);
+              statusPollTimerRef.current = null;
+            }
+            if (!autoCloseTimerRef.current) {
+              autoCloseTimerRef.current = window.setTimeout(() => {
+                onClose();
+              }, 1200);
+            }
+          }
+        } catch {
+          // ignore transient poll error
+        }
+      }, 1500);
 
       // Calculate countdown in seconds from expiresAt
       const expiry = data.expiresAt ? new Date(data.expiresAt).getTime() : Date.now() + 600000;
@@ -150,7 +195,7 @@ export const MobileScannerModal: FC<MobileScannerModalProps> = ({
       countdownTimerRef.current = window.setInterval(() => {
         setRemainingSeconds((prev) => {
           if (prev <= 1) {
-            clearTimer();
+            clearTimers();
             return 0;
           }
           return prev - 1;
@@ -161,7 +206,7 @@ export const MobileScannerModal: FC<MobileScannerModalProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [clearTimer]);
+  }, [clearTimers, onClose]);
 
   useEffect(() => {
     if (isOpen) {
@@ -175,13 +220,13 @@ export const MobileScannerModal: FC<MobileScannerModalProps> = ({
         initSession();
       }
     } else {
-      clearTimer();
+      clearTimers();
     }
 
     return () => {
-      clearTimer();
+      clearTimers();
     };
-  }, [isOpen, initSession, clearTimer]);
+  }, [isOpen, initSession, clearTimers]);
 
   if (!isOpen) return null;
 
@@ -193,6 +238,7 @@ export const MobileScannerModal: FC<MobileScannerModalProps> = ({
   };
 
   const handleClose = () => {
+    clearTimers();
     // If closed while still connecting/idle (never paired), revoke session
     if (status === 'connecting' || status === 'idle') {
       if (activeSessionIdRef.current) {
@@ -205,6 +251,7 @@ export const MobileScannerModal: FC<MobileScannerModalProps> = ({
   };
 
   const handleDisconnect = async () => {
+    clearTimers();
     if (activeSessionIdRef.current) {
       try {
         await revokeScannerSession(activeSessionIdRef.current);
@@ -280,10 +327,10 @@ export const MobileScannerModal: FC<MobileScannerModalProps> = ({
                 <CheckCircle2 className="w-8 h-8" />
               </div>
               <h4 className="text-base font-bold text-emerald-800 dark:text-emerald-300">
-                {status === 'connected' ? 'الماسح متصل وجاهز للعمل! 🟢' : 'تم اقتران الماسح بنجاح! 🟡'}
+                {status === 'connected' ? 'الماسح متصل وجاهز للعمل! 🟢' : 'تم اقتران الماسح بنجاح! 🟢'}
               </h4>
               <p className="text-xs text-emerald-700 dark:text-emerald-400">
-                يمكنك الآن مسح أي باركود بهاتفك وسيظهر مباشرة في سلة البيع في الكاشير.
+                تم الربط بهاتفك بنجاح! سيتم نقلك لشاشة الكاشير لمسح المنتجات فوراً...
               </p>
               <div className="pt-2 flex items-center justify-center gap-2">
                 <button
