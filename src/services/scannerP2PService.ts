@@ -20,6 +20,7 @@ class ScannerP2PService {
   }
 
   private setStatus(newStatus: P2PConnectionStatus) {
+    if (this.status === newStatus) return;
     this.status = newStatus;
     this.statusListeners.forEach((fn) => fn(newStatus));
   }

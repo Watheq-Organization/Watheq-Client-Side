@@ -54,13 +54,17 @@ export const MobileScannerModal: FC<MobileScannerModalProps> = ({
   const countdownTimerRef = useRef<number | null>(null);
   const statusPollTimerRef = useRef<number | null>(null);
   const autoCloseTimerRef = useRef<number | null>(null);
+  const hasPlayedBeepRef = useRef(false);
 
   // Subscribe to CashierScannerManager status and set callbacks
   useEffect(() => {
     const unsubscribe = cashierScannerManager.subscribeStatus((newStatus) => {
       setStatus(newStatus);
       if (newStatus === 'connected' || newStatus === 'paired') {
-        playScannerBeep('success');
+        if (!hasPlayedBeepRef.current) {
+          hasPlayedBeepRef.current = true;
+          playScannerBeep('success');
+        }
         if (statusPollTimerRef.current) {
           window.clearInterval(statusPollTimerRef.current);
           statusPollTimerRef.current = null;
@@ -126,6 +130,7 @@ export const MobileScannerModal: FC<MobileScannerModalProps> = ({
       : '';
 
   const clearTimers = useCallback(() => {
+    hasPlayedBeepRef.current = false;
     if (countdownTimerRef.current) {
       window.clearInterval(countdownTimerRef.current);
       countdownTimerRef.current = null;
@@ -167,13 +172,16 @@ export const MobileScannerModal: FC<MobileScannerModalProps> = ({
           const check = await getScannerSessionStatus(activeSessionIdRef.current);
           if (check.status === 'Paired' || check.status === 'Connected') {
             console.info('[MobileScannerModal] Mobile scan paired detected via polling:', check.sessionId);
-            cashierScannerManager.setManualStatus('connected');
-            setStatus('connected');
-            playScannerBeep('success');
             if (statusPollTimerRef.current) {
               window.clearInterval(statusPollTimerRef.current);
               statusPollTimerRef.current = null;
             }
+            if (!hasPlayedBeepRef.current) {
+              hasPlayedBeepRef.current = true;
+              playScannerBeep('success');
+            }
+            cashierScannerManager.setManualStatus('connected');
+            setStatus('connected');
             if (!autoCloseTimerRef.current) {
               autoCloseTimerRef.current = window.setTimeout(() => {
                 onClose();

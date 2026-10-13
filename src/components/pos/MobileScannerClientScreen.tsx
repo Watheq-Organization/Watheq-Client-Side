@@ -66,6 +66,7 @@ export const MobileScannerClientScreen: FC = () => {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const lastScannedCodeRef = useRef<string>('');
   const lastScannedTimeRef = useRef<number>(0);
+  const hasPlayedConnectedBeepRef = useRef(false);
   const readerElementId = 'mobile-continuous-reader';
 
   const showToast = (msg: string) => {
@@ -73,9 +74,17 @@ export const MobileScannerClientScreen: FC = () => {
     setTimeout(() => setNotificationMsg(null), 3000);
   };
 
+  const triggerConnectedBeepOnce = () => {
+    if (!hasPlayedConnectedBeepRef.current) {
+      hasPlayedConnectedBeepRef.current = true;
+      playScannerBeep('success');
+    }
+  };
+
   // 1. Automatic Pairing & SignalR Connection on Mount
   useEffect(() => {
     let isMounted = true;
+    hasPlayedConnectedBeepRef.current = false;
 
     try {
       broadcastChannelRef.current = new BroadcastChannel('watheq_pos_scanner');
@@ -91,7 +100,7 @@ export const MobileScannerClientScreen: FC = () => {
         scannerP2PService.connectToHost(sessionId, () => {
           if (isMounted) {
             setIsPaired(true);
-            playScannerBeep('success');
+            triggerConnectedBeepOnce();
             showToast('تم الاتصال المباشر بنقاط البيع بنجاح 🟢');
           }
         });
@@ -158,7 +167,6 @@ export const MobileScannerClientScreen: FC = () => {
             },
             onReconnected: () => {
               if (isMounted) setIsPaired(true);
-              playScannerBeep('success');
               showToast('تمت إعادة الاتصال بنجاح 🟢');
             },
             onClose: () => {
@@ -177,7 +185,7 @@ export const MobileScannerClientScreen: FC = () => {
 
         hubConnectionRef.current = conn;
         setIsPaired(true);
-        playScannerBeep('success');
+        triggerConnectedBeepOnce();
         showToast('الماسح متصل بالشاشة بنجاح 🟢');
       } catch (err) {
         console.warn('[ScannerHub] Hub connection not available or closed, using P2P DataChannel:', err);

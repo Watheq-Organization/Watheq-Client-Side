@@ -233,6 +233,7 @@ class CashierScannerHubManager {
   }
 
   private setStatus(newStatus: CashierScannerStatus) {
+    if (this.status === newStatus) return;
     this.status = newStatus;
     this.statusListeners.forEach((cb) => {
       try {
