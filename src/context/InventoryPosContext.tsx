@@ -541,6 +541,20 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
         items: checkoutItems,
       });
 
+      // Notify any active POS transactions lists or listeners that a new transaction occurred
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('watheq:pos-transaction-created', {
+            detail: {
+              transactionId: posResult?.transactionId,
+              saleType,
+              paymentMethod,
+              totalAmount: posResult?.totalAmount,
+            },
+          })
+        );
+      }
+
       // Update local product inventory based on server returned remainingStock
       if (posResult?.items && Array.isArray(posResult.items)) {
         setProducts((prevProducts) => {

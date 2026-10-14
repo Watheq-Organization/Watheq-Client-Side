@@ -37,6 +37,7 @@ export const PATHS = {
   MIZAN: '/mizan',
   INVENTORY: '/inventory',
   POS: '/pos',
+  POS_TRANSACTIONS: '/pos/transactions',
   MOBILE_SCANNER: '/pos/scanner',
   SCAN: '/scan',
 } as const;

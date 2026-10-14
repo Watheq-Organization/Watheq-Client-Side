@@ -274,28 +274,171 @@ export async function posReturnTransaction(
 }
 
 /**
+ * Maps a single raw transaction item from the backend into a strongly-typed PosTransactionListItem.
+ * Handles both camelCase and PascalCase properties as well as missing or fallback customer names.
+ */
+export function mapRawPosTransaction(raw: unknown): PosTransactionListItem {
+  const r = (raw || {}) as Record<string, unknown>;
+
+  const rawId = r.id ?? r.Id ?? r.transactionId ?? r.TransactionId ?? '';
+  const rawSaleType = String(r.transactionType ?? r.TransactionType ?? r.saleType ?? r.SaleType ?? 'Cash');
+  const saleType: PosSaleType = rawSaleType.toLowerCase() === 'debt' ? 'Debt' : 'Cash';
+
+  const rawPaymentMethod = String(r.paymentMethod ?? r.PaymentMethod ?? 'None');
+  let paymentMethod: PosPaymentMethod;
+  const pmLower = rawPaymentMethod.toLowerCase();
+  if (pmLower === 'cash') {
+    paymentMethod = 'Cash';
+  } else if (pmLower.includes('bank') || pmLower.includes('transfer')) {
+    paymentMethod = 'BankTransfer';
+  } else if (pmLower === 'none' || !rawPaymentMethod) {
+    paymentMethod = 'None';
+  } else {
+    paymentMethod = rawPaymentMethod as PosPaymentMethod;
+  }
+
+  const rawCustId = r.customerId ?? r.CustomerId;
+  const customerId = rawCustId != null && !isNaN(Number(rawCustId)) ? Number(rawCustId) : null;
+
+  const customerName = r.customerName ?? r.CustomerName ? String(r.customerName ?? r.CustomerName) : null;
+  const guestCustomerName = r.guestCustomerName ?? r.GuestCustomerName ? String(r.guestCustomerName ?? r.GuestCustomerName) : null;
+
+  const totalAmount = Number(r.totalAmount ?? r.TotalAmount ?? r.amount ?? r.Amount ?? 0);
+
+  // Items count might come as itemsCount, itemCount, or items.length
+  let itemsCount = 0;
+  if (r.itemsCount != null || r.ItemsCount != null) {
+    itemsCount = Number(r.itemsCount ?? r.ItemsCount);
+  } else if (r.itemCount != null || r.ItemCount != null) {
+    itemsCount = Number(r.itemCount ?? r.ItemCount);
+  } else if (Array.isArray(r.items ?? r.Items)) {
+    itemsCount = ((r.items ?? r.Items) as unknown[]).length;
+  }
+
+  const createdAt = String(r.createdAt ?? r.CreatedAt ?? r.date ?? r.Date ?? r.createdDate ?? r.CreatedDate ?? new Date().toISOString());
+
+  return {
+    id: String(rawId),
+    transactionType: saleType,
+    paymentMethod,
+    customerId,
+    customerName,
+    guestCustomerName,
+    totalAmount,
+    itemsCount,
+    createdAt,
+  };
+}
+
+/**
+ * Maps raw transaction details into a typed PosTransactionDetails model.
+ */
+export function mapRawPosTransactionDetails(raw: unknown): PosTransactionDetails {
+  let root: unknown = raw;
+  if (root && typeof root === 'object') {
+    const r = root as Record<string, unknown>;
+    if (r.data !== undefined && typeof r.data === 'object' && !Array.isArray(r.data)) root = r.data;
+    else if (r.result !== undefined && typeof r.result === 'object' && !Array.isArray(r.result)) root = r.result;
+    else if (r.value !== undefined && typeof r.value === 'object' && !Array.isArray(r.value)) root = r.value;
+  }
+
+  const d = (root || {}) as Record<string, unknown>;
+  const rawId = String(d.id ?? d.Id ?? d.transactionId ?? d.TransactionId ?? '');
+  const rawSaleType = String(d.transactionType ?? d.TransactionType ?? d.saleType ?? d.SaleType ?? 'Cash');
+  const transactionType: PosSaleType = rawSaleType.toLowerCase() === 'debt' ? 'Debt' : 'Cash';
+
+  const rawPaymentMethod = String(d.paymentMethod ?? d.PaymentMethod ?? 'None');
+  let paymentMethod: PosPaymentMethod;
+  const pmLower = rawPaymentMethod.toLowerCase();
+  if (pmLower === 'cash') {
+    paymentMethod = 'Cash';
+  } else if (pmLower.includes('bank') || pmLower.includes('transfer')) {
+    paymentMethod = 'BankTransfer';
+  } else if (pmLower === 'none' || !rawPaymentMethod) {
+    paymentMethod = 'None';
+  } else {
+    paymentMethod = rawPaymentMethod as PosPaymentMethod;
+  }
+
+  const rawCustId = d.customerId ?? d.CustomerId;
+  const customerId = rawCustId != null && !isNaN(Number(rawCustId)) ? Number(rawCustId) : null;
+  const customerName = d.customerName ?? d.CustomerName ? String(d.customerName ?? d.CustomerName) : null;
+  const guestCustomerName = d.guestCustomerName ?? d.GuestCustomerName ? String(d.guestCustomerName ?? d.GuestCustomerName) : null;
+  const totalAmount = Number(d.totalAmount ?? d.TotalAmount ?? d.amount ?? d.Amount ?? 0);
+  const createdAt = String(d.createdAt ?? d.CreatedAt ?? d.date ?? d.Date ?? d.createdDate ?? d.CreatedDate ?? new Date().toISOString());
+
+  const rawItems = (d.items ?? d.Items ?? []) as unknown[];
+  const items: PosTransactionDetailItem[] = Array.isArray(rawItems)
+    ? rawItems.map((itRaw) => {
+        const it = (itRaw || {}) as Record<string, unknown>;
+        const quantity = Number(it.quantity ?? it.Quantity ?? 0);
+        const unitPrice = Number(it.unitPrice ?? it.UnitPrice ?? 0);
+        const subTotal = Number(it.subTotal ?? it.SubTotal ?? it.total ?? it.Total ?? (quantity * unitPrice));
+        return {
+          productId: Number(it.productId ?? it.ProductId ?? 0),
+          productName: String(it.productName ?? it.ProductName ?? it.name ?? it.Name ?? 'منتج'),
+          barcode: it.barcode ?? it.Barcode ? String(it.barcode ?? it.Barcode) : null,
+          quantity,
+          unitPrice,
+          subTotal,
+        };
+      })
+    : [];
+
+  return {
+    id: rawId,
+    transactionType,
+    paymentMethod,
+    customerId,
+    customerName,
+    guestCustomerName,
+    totalAmount,
+    createdAt,
+    items,
+  };
+}
+
+/**
  * 3. GET /api/pos/transactions/{id}
  *
  * Retrieves the full details of a single POS transaction (Cash or Debt).
+ * Automatically supports both prefixed IDs ("CASH-101", "DEBT-205") and bare numeric IDs.
  *
- * @param transactionId - Must use prefix: "CASH-{id}" or "DEBT-{id}"
+ * @param transactionId - Transaction identifier (e.g. "CASH-101", "DEBT-205", or "101")
  */
 export async function getPosTransactionDetails(transactionId: string): Promise<PosTransactionDetails> {
-  const encodedId = encodeURIComponent(transactionId);
-  const response = await httpClient.get<unknown>(`/pos/transactions/${encodedId}`);
-  const parsed = response as Record<string, unknown>;
+  const cleanId = String(transactionId).trim();
+  const encodedId = encodeURIComponent(cleanId);
 
-  if (parsed?.data && typeof parsed.data === 'object') {
-    return parsed.data as PosTransactionDetails;
+  try {
+    const response = await httpClient.get<unknown>(`/pos/transactions/${encodedId}`);
+    return mapRawPosTransactionDetails(response);
+  } catch (err: unknown) {
+    // If backend rejects with 400 or 404 and cleanId contains a prefix (e.g. CASH-101),
+    // try fallback with the numeric portion (101) just in case this environment expects it without prefix:
+    if (err instanceof ApiError && (err.status === 400 || err.status === 404)) {
+      if (cleanId.includes('-')) {
+        const parts = cleanId.split('-');
+        const numOnly = parts[1];
+        if (numOnly) {
+          try {
+            const fallbackResp = await httpClient.get<unknown>(`/pos/transactions/${encodeURIComponent(numOnly)}`);
+            return mapRawPosTransactionDetails(fallbackResp);
+          } catch {
+            // Keep original error if fallback also fails
+          }
+        }
+      }
+    }
+    throw err;
   }
-
-  return parsed as unknown as PosTransactionDetails;
 }
 
 /**
  * 4. GET /api/pos/transactions
  *
  * Retrieves a paginated and filtered list of POS transactions for the merchant.
+ * Robustly parses multiple backend envelope formats (direct array, { data: { items } }, { items }, { result }, etc.).
  */
 export async function getPosTransactions(
   params?: GetPosTransactionsParams
@@ -306,37 +449,65 @@ export async function getPosTransactions(
   if (params?.pageSize) qs.append('PageSize', String(params.pageSize));
   if (params?.saleType) qs.append('SaleType', params.saleType);
   if (params?.paymentMethod) qs.append('PaymentMethod', params.paymentMethod);
-  if (params?.customerId != null) qs.append('CustomerId', String(params.customerId));
-  if (params?.search) qs.append('Search', params.search);
-  if (params?.fromDate) qs.append('FromDate', params.fromDate);
-  if (params?.toDate) qs.append('ToDate', params.toDate);
+  if (params?.customerId != null && !isNaN(params.customerId)) qs.append('CustomerId', String(params.customerId));
+  if (params?.search && params.search.trim()) qs.append('Search', params.search.trim());
+  if (params?.fromDate && params.fromDate.trim()) qs.append('FromDate', params.fromDate.trim());
+  if (params?.toDate && params.toDate.trim()) qs.append('ToDate', params.toDate.trim());
 
   const query = qs.toString() ? `?${qs.toString()}` : '';
   const response = await httpClient.get<unknown>(`/pos/transactions${query}`);
-  const parsed = response as Record<string, unknown>;
 
-  const payload = (parsed?.data && typeof parsed.data === 'object') ? parsed.data : parsed;
-  const paged = payload as Record<string, unknown>;
-
-  if (paged && Array.isArray(paged.items)) {
-    return {
-      items: paged.items as PosTransactionListItem[],
-      totalCount: Number(paged.totalCount ?? paged.items.length),
-      pageNumber: Number(paged.pageNumber ?? 1),
-      pageSize: Number(paged.pageSize ?? 20),
-      totalPages: paged.totalPages != null ? Number(paged.totalPages) : undefined,
-    };
+  // Unwrap response if wrapped in data, result, or value
+  let root: unknown = response;
+  if (root && typeof root === 'object') {
+    const r = root as Record<string, unknown>;
+    if (r.data !== undefined) root = r.data;
+    else if (r.result !== undefined) root = r.result;
+    else if (r.value !== undefined) root = r.value;
   }
 
-  if (Array.isArray(payload)) {
-    return {
-      items: payload as PosTransactionListItem[],
-      totalCount: payload.length,
-      pageNumber: 1,
-      pageSize: payload.length,
-      totalPages: 1,
-    };
+  let rawItems: unknown[] = [];
+  let totalCount = 0;
+  let pageNumber = params?.pageNumber ?? 1;
+  let pageSize = params?.pageSize ?? 20;
+  let totalPages: number | undefined = undefined;
+
+  if (Array.isArray(root)) {
+    rawItems = root;
+    totalCount = root.length;
+    totalPages = Math.max(1, Math.ceil(totalCount / (pageSize || 20)));
+  } else if (root && typeof root === 'object') {
+    const obj = root as Record<string, unknown>;
+
+    // Check nested arrays: items, Items, data, Data, list
+    if (Array.isArray(obj.items)) rawItems = obj.items;
+    else if (Array.isArray(obj.Items)) rawItems = obj.Items;
+    else if (Array.isArray(obj.data)) rawItems = obj.data;
+    else if (Array.isArray(obj.Data)) rawItems = obj.Data;
+    else if (Array.isArray(obj.list)) rawItems = obj.list;
+
+    const rawTotal = obj.totalCount ?? obj.TotalCount ?? obj.totalItems ?? obj.TotalItems ?? obj.count ?? obj.Count;
+    totalCount = rawTotal != null && !isNaN(Number(rawTotal)) ? Number(rawTotal) : rawItems.length;
+
+    const rawPageNum = obj.pageNumber ?? obj.PageNumber ?? obj.page ?? obj.Page;
+    if (rawPageNum != null && !isNaN(Number(rawPageNum))) pageNumber = Number(rawPageNum);
+
+    const rawPageSize = obj.pageSize ?? obj.PageSize;
+    if (rawPageSize != null && !isNaN(Number(rawPageSize))) pageSize = Number(rawPageSize);
+
+    const rawPages = obj.totalPages ?? obj.TotalPages;
+    if (rawPages != null && !isNaN(Number(rawPages))) {
+      totalPages = Number(rawPages);
+    } else {
+      totalPages = Math.max(1, Math.ceil(totalCount / (pageSize || 20)));
+    }
   }
 
-  return { items: [], totalCount: 0, pageNumber: 1, pageSize: 20, totalPages: 1 };
+  return {
+    items: rawItems.map(mapRawPosTransaction),
+    totalCount,
+    pageNumber,
+    pageSize,
+    totalPages,
+  };
 }

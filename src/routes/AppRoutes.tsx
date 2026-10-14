@@ -30,6 +30,7 @@ import TermsPage from '../pages/TermsPage.tsx';
 import { MizanPage } from '../pages/MizanPage.tsx';
 import { InventoryPage } from '../pages/InventoryPage';
 import { PosCashierPage } from '../pages/PosCashierPage';
+import { PosTransactionsPage } from '../pages/PosTransactionsPage';
 import { MobileScannerPage } from '../pages/MobileScannerPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { useOAuthHandler } from '../hooks/useOAuthHandler';
@@ -197,6 +198,14 @@ export const AppRoutes: FC = () => {
         element={
           <ProtectedRoute>
             <PosCashierPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={PATHS.POS_TRANSACTIONS}
+        element={
+          <ProtectedRoute>
+            <PosTransactionsPage />
           </ProtectedRoute>
         }
       />
