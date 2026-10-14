@@ -56,8 +56,6 @@ export const CustomersScreen: FC = () => {
   const [remindedCustomerIds, setRemindedCustomerIds] = useState<Record<string, boolean>>({});
   /** customerId → currently sending (in-flight) */
   const [sendingCustomerIds, setSendingCustomerIds] = useState<Record<string, boolean>>({});
-  /** customerId → first overdue debtId (used for sending reminders) */
-  const [customerOverdueDebtIds, setCustomerOverdueDebtIds] = useState<Record<string, string>>({});
 
   // Add Customer Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -127,21 +125,15 @@ export const CustomersScreen: FC = () => {
         if (!isMounted) return;
         const overdueCustomerIds = new Set<string>();
         const overdueCustomerNames = new Set<string>();
-        const debtIdMap: Record<string, string> = {};
 
         if (overdueReport?.details?.items) {
           for (const item of overdueReport.details.items) {
             if (item.customerId) {
               overdueCustomerIds.add(String(item.customerId));
-              if (item.debtId && !debtIdMap[String(item.customerId)]) {
-                debtIdMap[String(item.customerId)] = String(item.debtId);
-              }
             }
             if (item.customerName) overdueCustomerNames.add(item.customerName.trim().toLowerCase());
           }
         }
-        
-        setCustomerOverdueDebtIds(debtIdMap);
 
         const mapped = dtos.map((dto, idx) => {
           const c = mapCustomerDtoToCustomer(dto, idx);
