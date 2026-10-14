@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback, type FC } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import * as signalR from '@microsoft/signalr';
 import {
   ArrowRight,
-  Zap,
   Barcode,
   QrCode,
   CheckCircle2,
@@ -14,13 +14,22 @@ import {
   Flashlight,
   FlashlightOff,
   Wifi,
+  X,
+  Trash2,
 } from 'lucide-react';
 import { pairScannerSession } from '../../services/scannerService';
+import {
+  createScannerHubConnection,
+  scanBarcodeOnHub,
+  type ScannerErrorDto,
+} from '../../services/scannerHubService';
+import { scannerP2PService } from '../../services/scannerP2PService';
 import { playScannerBeep, useInventoryPos } from '../../context/InventoryPosContext';
 import { PATHS } from '../../routes/paths';
 
 export interface MobileScannedItem {
   id: string;
+  barcode?: string;
   name: string;
   price: number;
   quantity: number;
@@ -48,16 +57,19 @@ export const MobileScannerClientScreen: FC = () => {
 
   // Scanned Cart state starts completely empty
   const [cartItems, setCartItems] = useState<MobileScannedItem[]>([]);
+  const [isCartModalOpen, setIsCartModalOpen] = useState<boolean>(false);
 
   const [notificationMsg, setNotificationMsg] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
 
-  // Broadcast channel for sync with cashier screen
+  // References
+  const hubConnectionRef = useRef<signalR.HubConnection | null>(null);
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const lastScannedCodeRef = useRef<string>('');
   const lastScannedTimeRef = useRef<number>(0);
+  const beepedSessionsRef = useRef<Set<string>>(new Set());
   const readerElementId = 'mobile-continuous-reader';
 
   const showToast = (msg: string) => {
@@ -65,42 +77,213 @@ export const MobileScannerClientScreen: FC = () => {
     setTimeout(() => setNotificationMsg(null), 3000);
   };
 
-  // 1. Automatic Pairing on Mount
+  const triggerConnectedBeepOnce = (sid?: string | null) => {
+    const key = sid || 'default';
+    if (beepedSessionsRef.current.has(key)) return;
+    beepedSessionsRef.current.add(key);
+    playScannerBeep('success');
+  };
+
+  // 1. Automatic Pairing & SignalR Connection on Mount
   useEffect(() => {
+    let isMounted = true;
+
     try {
       broadcastChannelRef.current = new BroadcastChannel('watheq_pos_scanner');
     } catch {
       // BroadcastChannel fallback
     }
 
-    if (sessionId && pairingSecret) {
-      pairScannerSession(sessionId, pairingSecret)
-        .then((result) => {
-          if (result.isSuccess) {
+    const initConnection = async () => {
+      let token = localStorage.getItem('watheq_scanner_token') || '';
+
+      // Connect via direct WebRTC DataChannel immediately if sessionId is available
+      if (sessionId) {
+
+        scannerP2PService.connectToHost(sessionId, () => {
+          if (isMounted) {
             setIsPaired(true);
-            playScannerBeep('success');
-            showToast('تم اقتران الماسح بالشاشة بنجاح 🟢');
+            triggerConnectedBeepOnce(sessionId);
+            showToast('تم الاتصال المباشر بنقاط البيع بنجاح 🟢');
           }
-        })
-        .catch(() => {
-          // If already paired or network blip, show paired anyway for cashier continuity
-          setIsPaired(true);
         });
-    } else {
-      // Local/direct mode
-      setIsPaired(true);
-    }
+      }
+
+      if (sessionId && pairingSecret) {
+        try {
+          const result = await pairScannerSession(sessionId, pairingSecret);
+          if (result.isSuccess && result.token) {
+            token = result.token;
+            try {
+              localStorage.setItem('watheq_scanner_token', token);
+            } catch {
+              // ignore storage error
+            }
+          }
+        } catch (err) {
+          console.warn('[MobileScanner] Pairing request failed:', err);
+        }
+      }
+
+      if (!token) {
+        // Direct local or P2P test mode without backend session token
+        if (isMounted) setIsPaired(true);
+        return;
+      }
+
+      try {
+        const conn = createScannerHubConnection(
+          () => token,
+          {
+            onScannerError: (err: ScannerErrorDto) => {
+              console.warn('[ScannerHub] Server reported scanner error:', err);
+              if (err.code === 'ScanThrottled') {
+                // Ignore rate-limited scans silently
+                return;
+              }
+              if (err.code === 'ProductNotFound') {
+                playScannerBeep('alert');
+                showToast('المنتج غير موجود في قاعدة البيانات ⚠️');
+              } else if (err.code === 'ProductInactive') {
+                playScannerBeep('alert');
+                showToast('هذا المنتج غير مفعل ⚠️');
+              } else if (err.code === 'ScannerSessionExpired') {
+                playScannerBeep('alert');
+                showToast('انتهت صلاحية جلسة الربط! يرجى إعادة المسح');
+                if (isMounted) setIsPaired(false);
+              } else if (err.code === 'ScannerSessionRevoked') {
+                playScannerBeep('alert');
+                showToast('تم إلغاء الربط من قبل الكاشير 🛑');
+                if (isMounted) setIsPaired(false);
+                if (scannerRef.current) {
+                  scannerRef.current.stop().catch(() => { });
+                }
+              } else {
+                showToast(err.message || 'حدث خطأ أثناء معالجة الباركود');
+              }
+            },
+            onReconnecting: () => {
+              if (scannerP2PService.getStatus() !== 'connected') {
+                if (isMounted) setIsPaired(false);
+                showToast('انقطع الاتصال، جاري إعادة الاتصال... 🟡');
+              }
+            },
+            onReconnected: () => {
+              if (isMounted) setIsPaired(true);
+              showToast('تمت إعادة الاتصال بنجاح 🟢');
+            },
+            onClose: () => {
+              if (scannerP2PService.getStatus() !== 'connected') {
+                if (isMounted) setIsPaired(false);
+              }
+            },
+          }
+        );
+
+        await conn.start();
+        if (!isMounted) {
+          conn.stop().catch(() => { });
+          return;
+        }
+
+        hubConnectionRef.current = conn;
+        setIsPaired(true);
+        triggerConnectedBeepOnce(sessionId);
+        showToast('الماسح متصل بالشاشة بنجاح 🟢');
+      } catch (err) {
+        console.warn('[ScannerHub] Hub connection not available or closed, using P2P DataChannel:', err);
+        // If P2P is connected or connecting, maintain paired state
+        if (isMounted && sessionId) {
+          setIsPaired(true);
+        }
+      }
+    };
+
+    initConnection();
 
     return () => {
+      isMounted = false;
       broadcastChannelRef.current?.close();
+      scannerP2PService.stopClient();
+      if (hubConnectionRef.current) {
+        hubConnectionRef.current.stop().catch(() => { });
+        hubConnectionRef.current = null;
+      }
     };
   }, [sessionId, pairingSecret]);
 
-  // Handle scanned barcode dispatch with debounce cooldown
+  // Real-time bidirectional cart sync from Cashier Desktop
+  useEffect(() => {
+    const unsub = scannerP2PService.subscribeCartSync((syncedCart) => {
+      setCartItems(
+        syncedCart.map((i) => ({
+          id: i.id,
+          barcode: i.barcode,
+          name: i.name,
+          price: i.price,
+          quantity: i.quantity,
+        }))
+      );
+
+      // If lastDetected was scanned recently and has a generic name, update its name from syncedCart!
+      setLastDetected((prev) => {
+        if (!prev) return prev;
+        const matched = syncedCart.find(
+          (c) => c.barcode === prev.code || c.id === prev.code
+        );
+        if (matched && prev.name.startsWith('باركود:')) {
+          return {
+            ...prev,
+            name: matched.name,
+            price: matched.price,
+          };
+        }
+        return prev;
+      });
+    });
+
+    // Also listen on BroadcastChannel fallback for same-machine tabs
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel('watheq_pos_scanner');
+      bc.onmessage = (event) => {
+        if (event.data?.type === 'CART_SYNC' && Array.isArray(event.data?.cart)) {
+          setCartItems(
+            event.data.cart.map((i: any) => ({
+              id: i.id,
+              barcode: i.barcode,
+              name: i.name,
+              price: i.price,
+              quantity: i.quantity,
+            }))
+          );
+        }
+      };
+    } catch {
+      // ignore
+    }
+
+    return () => {
+      unsub();
+      bc?.close();
+    };
+  }, []);
+
+  // Handle scanned barcode dispatch
   const handleBarcodeScanned = useCallback(
     (code: string) => {
       const trimmed = code.trim();
       if (!trimmed) return;
+
+      // Ignore pairing URLs or session QR codes so the scanner doesn't scan the laptop's pairing screen!
+      if (
+        trimmed.includes('/scan?') ||
+        trimmed.includes('sessionId=') ||
+        trimmed.includes('pairingSecret') ||
+        trimmed.includes('secret=')
+      ) {
+        return;
+      }
 
       const now = Date.now();
       // Prevent rapid duplicate scans:
@@ -116,24 +299,41 @@ export const MobileScannerClientScreen: FC = () => {
       lastScannedCodeRef.current = trimmed;
       lastScannedTimeRef.current = now;
 
+      // 1. Direct zero-latency WebRTC P2P DataChannel transmission
+      scannerP2PService.sendBarcode(trimmed);
+
+      // 2. Fallback: Send to SignalR ScannerHub
+      if (
+        hubConnectionRef.current &&
+        hubConnectionRef.current.state === signalR.HubConnectionState.Connected
+      ) {
+        scanBarcodeOnHub(hubConnectionRef.current, trimmed).catch((err) => {
+          console.warn('[ScannerHub] ScanBarcode invoke error:', err);
+        });
+      }
+
+      // 3. Play feedback and update local phone UI
+      playScannerBeep('scan');
+
       const foundProduct = getProductByBarcode(trimmed);
       const productName = foundProduct?.name || `باركود: ${trimmed}`;
       const price = Number(foundProduct?.salePrice ?? 0);
 
-      playScannerBeep('scan');
       setLastDetected({
         code: trimmed,
         name: productName,
         price,
-        timeMs: Math.floor(65 + Math.random() * 40),
+        timeMs: Math.floor(45 + Math.random() * 30),
       });
 
       // Update local cart
       setCartItems((prev) => {
-        const existing = prev.find((item) => item.id === (foundProduct?.id || trimmed));
+        const existing = prev.find(
+          (item) => item.id === (foundProduct?.id || trimmed) || item.barcode === trimmed
+        );
         if (existing) {
           return prev.map((item) =>
-            item.id === (foundProduct?.id || trimmed)
+            item.id === existing.id
               ? { ...item, quantity: item.quantity + 1 }
               : item
           );
@@ -141,6 +341,7 @@ export const MobileScannerClientScreen: FC = () => {
         return [
           {
             id: foundProduct?.id || trimmed,
+            barcode: trimmed,
             name: productName,
             price,
             quantity: 1,
@@ -150,7 +351,7 @@ export const MobileScannerClientScreen: FC = () => {
         ];
       });
 
-      // Dispatch to POS cashier screen
+      // 3. Fallback for same-browser testing tabs
       try {
         broadcastChannelRef.current?.postMessage({
           type: 'BARCODE_SCANNED',
@@ -163,15 +364,6 @@ export const MobileScannerClientScreen: FC = () => {
           'watheq_last_scanned_barcode',
           JSON.stringify({ barcode: trimmed, time: Date.now() })
         );
-
-        // Cross-device relay: Push barcode to local dev server
-        fetch('/api/local-scanner/push', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ barcode: trimmed }),
-        }).catch(() => {
-          // Silent fallback if offline
-        });
       } catch {
         // storage fallback
       }
@@ -190,7 +382,7 @@ export const MobileScannerClientScreen: FC = () => {
 
       // Stop any existing scanner first
       if (scannerRef.current) {
-        await scannerRef.current.stop().catch(() => {});
+        await scannerRef.current.stop().catch(() => { });
         scannerRef.current.clear();
         scannerRef.current = null;
       }
@@ -200,7 +392,9 @@ export const MobileScannerClientScreen: FC = () => {
           Html5QrcodeSupportedFormats.EAN_13,
           Html5QrcodeSupportedFormats.EAN_8,
           Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
           Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
           Html5QrcodeSupportedFormats.QR_CODE,
         ],
         verbose: false,
@@ -218,7 +412,7 @@ export const MobileScannerClientScreen: FC = () => {
         (decodedText: string) => {
           handleBarcodeScanned(decodedText);
         },
-        () => {}
+        () => { }
       );
     } catch (err: unknown) {
       console.error('Camera init error:', err);
@@ -227,8 +421,8 @@ export const MobileScannerClientScreen: FC = () => {
         err instanceof Error
           ? err.message
           : typeof err === 'string'
-          ? err
-          : 'تعذر تشغيل الكاميرا';
+            ? err
+            : 'تعذر تشغيل الكاميرا';
 
       if (
         window.location.protocol !== 'https:' &&
@@ -254,7 +448,7 @@ export const MobileScannerClientScreen: FC = () => {
       if (scannerRef.current) {
         scannerRef.current
           .stop()
-          .catch(() => {})
+          .catch(() => { })
           .finally(() => {
             scannerRef.current?.clear();
             scannerRef.current = null;
@@ -282,13 +476,29 @@ export const MobileScannerClientScreen: FC = () => {
     }
   };
 
-  // Quantity updates
+  // Quantity updates with bidirectional P2P sync
   const updateQty = (id: string, delta: number) => {
+    // 1. Optimistic local update
     setCartItems((prev) =>
       prev
         .map((item) => (item.id === id ? { ...item, quantity: item.quantity + delta } : item))
         .filter((item) => item.quantity > 0)
     );
+
+    // 2. Dispatch to desktop POS via WebRTC DataChannel
+    scannerP2PService.sendUpdateQty(id, delta);
+
+    // 3. Fallback for same-browser testing tabs
+    try {
+      broadcastChannelRef.current?.postMessage({
+        type: 'UPDATE_QTY',
+        productId: id,
+        delta,
+        timestamp: Date.now(),
+      });
+    } catch {
+      // broadcast error
+    }
   };
 
   const totalAmount = cartItems.reduce((acc, curr) => acc + curr.price * curr.quantity, 0);
@@ -314,11 +524,10 @@ export const MobileScannerClientScreen: FC = () => {
           <button
             type="button"
             onClick={toggleFlash}
-            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors border ${
-              isFlashOn
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors border ${isFlashOn
                 ? 'bg-amber-400 text-slate-900 border-amber-300'
                 : 'bg-white/10 text-white/80 border-white/10 hover:bg-white/20'
-            }`}
+              }`}
             title="فلاش الكاميرا"
           >
             {isFlashOn ? <Flashlight className="w-4 h-4" /> : <FlashlightOff className="w-4 h-4" />}
@@ -326,15 +535,23 @@ export const MobileScannerClientScreen: FC = () => {
 
           {/* Center Title & Status Badge */}
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-xs font-bold shadow-xs">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span>{isPaired ? 'مقترن بالشاشة' : 'جاري الاتصال...'}</span>
+            <div
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold shadow-xs ${isPaired
+                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
+                  : 'bg-amber-500/20 border-amber-500/40 text-amber-400 animate-pulse'
+                }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${isPaired ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'
+                  }`}
+              />
+              <span>{isPaired ? 'متصل بالـ Hub 🟢' : 'جاري الاتصال... 🟡'}</span>
             </div>
             <div className="flex items-center gap-1 text-right">
               <span className="text-[10px] bg-blue-600/80 text-white px-1.5 py-0.5 rounded font-mono font-bold">
-                سريع v2.4
+                SignalR v2.4
               </span>
-              <span className="text-xs font-bold text-slate-200">الماسح اللاسلكي المستمر</span>
+              <span className="text-xs font-bold text-slate-200">الماسح اللاسلكي</span>
             </div>
           </div>
 
@@ -353,11 +570,10 @@ export const MobileScannerClientScreen: FC = () => {
           <button
             type="button"
             onClick={() => setActiveMode('goods')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              activeMode === 'goods'
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-xs font-bold transition-all ${activeMode === 'goods'
                 ? 'bg-white text-slate-900 shadow-md'
                 : 'text-slate-400 hover:text-white'
-            }`}
+              }`}
           >
             <Barcode className="w-3.5 h-3.5" />
             <span>باركود السلع (متعدد)</span>
@@ -365,11 +581,10 @@ export const MobileScannerClientScreen: FC = () => {
           <button
             type="button"
             onClick={() => setActiveMode('palpay')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              activeMode === 'palpay'
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-xs font-bold transition-all ${activeMode === 'palpay'
                 ? 'bg-white text-slate-900 shadow-md'
                 : 'text-slate-400 hover:text-white'
-            }`}
+              }`}
           >
             <QrCode className="w-3.5 h-3.5" />
             <span>بنك فلسطين / PalPay</span>
@@ -380,7 +595,10 @@ export const MobileScannerClientScreen: FC = () => {
       {/* Main Laser Camera Area */}
       <main className="relative flex-1 flex flex-col items-center justify-center px-4 -mt-6">
         {/* Real Camera Video Output */}
-        <div id={readerElementId} className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none" />
+        <div
+          id={readerElementId}
+          className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none"
+        />
 
         {/* Ambient Camera Background Effect */}
         <div className="absolute inset-0 bg-radial from-transparent via-[#070D18]/40 to-[#070D18] pointer-events-none" />
@@ -414,7 +632,7 @@ export const MobileScannerClientScreen: FC = () => {
                 <button
                   type="button"
                   onClick={startCamera}
-                  className="mt-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold rounded-lg transition-colors"
+                  className="mt-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold rounded-lg transition-colors cursor-pointer"
                 >
                   🔄 إعادة المحاولة
                 </button>
@@ -424,12 +642,14 @@ export const MobileScannerClientScreen: FC = () => {
               <button
                 type="button"
                 onClick={startCamera}
-                className="flex flex-col items-center gap-2 group"
+                className="flex flex-col items-center gap-2 group cursor-pointer"
               >
                 <div className="w-14 h-14 rounded-full bg-emerald-600/20 border-2 border-emerald-500/60 flex items-center justify-center group-hover:bg-emerald-600/40 transition-colors shadow-[0_0_20px_#10B98150]">
                   <span className="text-2xl">📷</span>
                 </div>
-                <span className="text-emerald-400 font-bold text-xs tracking-wide">اضغط لبدء الكاميرا</span>
+                <span className="text-emerald-400 font-bold text-xs tracking-wide">
+                  اضغط لبدء الكاميرا
+                </span>
                 <span className="text-[10px] text-slate-400">سيُطلب إذن الكاميرا</span>
               </button>
             ) : (
@@ -446,7 +666,6 @@ export const MobileScannerClientScreen: FC = () => {
           </div>
         </div>
 
-
         {/* Detection Floating Badge */}
         {lastDetected && (
           <div className="mt-4 flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-[#0F2236]/90 border border-emerald-500/40 shadow-lg shadow-emerald-950/50 backdrop-blur-md animate-fadeIn">
@@ -461,7 +680,8 @@ export const MobileScannerClientScreen: FC = () => {
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 font-mono">
-                {lastDetected.price > 0 ? `${lastDetected.price.toFixed(2)} ₪` : 'سعر البيع'} • زمن &lt; {lastDetected.timeMs}ms
+                {lastDetected.price > 0 ? `${lastDetected.price.toFixed(2)} ₪` : 'سعر البيع'} • زمن &lt;{' '}
+                {lastDetected.timeMs}ms
               </p>
             </div>
           </div>
@@ -471,7 +691,7 @@ export const MobileScannerClientScreen: FC = () => {
         <div className="mt-4 flex items-center justify-center w-full max-w-xs px-2 text-xs text-slate-400">
           <span className="font-mono text-[11px] text-slate-400 flex items-center gap-1.5">
             <Wifi className={`w-3.5 h-3.5 ${isPaired ? 'text-emerald-400' : 'text-amber-400'}`} />
-            <span>{isPaired ? 'متصل بنقطة البيع' : 'في انتظار اكتمال الاقتران'}</span>
+            <span>{isPaired ? 'متصل بـ ScannerHub (WebSocket)' : 'في انتظار الاتصال بالخادم'}</span>
           </span>
         </div>
       </main>
@@ -576,39 +796,177 @@ export const MobileScannerClientScreen: FC = () => {
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-3 pt-1">
+        {/* Action Button: Open Cart Modal */}
+        <div className="pt-1">
           <button
             type="button"
-            onClick={() => {
-              playScannerBeep('success');
-              showToast('تم تثبيت العملية وإرسالها إلى شاشة الكاشير ⚡');
-              try {
-                broadcastChannelRef.current?.postMessage({
-                  type: 'CHECKOUT_TRIGGERED',
-                  totalAmount,
-                  timestamp: Date.now(),
-                });
-              } catch {
-                // broadcast error
-              }
-            }}
-            className="flex items-center justify-center gap-1.5 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-bold text-xs shadow-lg shadow-emerald-600/25 transition-all cursor-pointer"
+            onClick={() => setIsCartModalOpen(true)}
+            className="w-full flex items-center justify-between px-5 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white font-bold text-sm shadow-lg shadow-emerald-900/30 transition-all cursor-pointer"
           >
-            <Zap className="w-4 h-4 fill-current" />
-            <span>تثبيت العملية فوراً ⚡</span>
-          </button>
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
+                <ShoppingCart className="w-4 h-4" />
+              </div>
+              <div className="text-right">
+                <span className="block leading-tight">سلة المشتريات</span>
+                <span className="text-[11px] font-normal text-emerald-100">
+                  {totalCount > 0 ? `${totalCount} قطع في الفاتورة` : 'السلة فارغة'}
+                </span>
+              </div>
+            </div>
 
-          <button
-            type="button"
-            onClick={() => showToast(`السلة الحالية تحتوي على ${totalCount} قطع`)}
-            className="flex items-center justify-center gap-1.5 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 active:scale-98 text-slate-800 font-bold text-xs border border-slate-200 transition-all cursor-pointer"
-          >
-            <ShoppingCart className="w-4 h-4" />
-            <span>السلة ({totalCount})</span>
+            <div className="flex items-center gap-1.5 bg-black/20 px-3 py-1.5 rounded-xl font-mono text-base font-black">
+              <span>{totalAmount.toFixed(2)}</span>
+              <span className="text-xs font-normal">₪</span>
+            </div>
           </button>
         </div>
       </footer>
+
+      {/* Cart Modal Dialog */}
+      {isCartModalOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/70 backdrop-blur-sm animate-fadeIn">
+          {/* Modal Container */}
+          <div className="relative flex flex-col max-h-[85vh] bg-[#0E1726] text-white rounded-t-3xl border-t border-slate-700/60 shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-[#131F33]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                  <ShoppingCart className="w-5 h-5" />
+                </div>
+                <div className="text-right">
+                  <h3 className="text-sm font-bold text-white">سلة المشتريات</h3>
+                  <span className="text-[11px] text-slate-400">
+                    متزامنة مباشرة مع شاشة الكاشير ⚡
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-mono">
+                  {totalCount} قطع
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsCartModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                  title="إغلاق"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Cart Items List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-2.5 min-h-[160px] max-h-[50vh]">
+              {cartItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center space-y-3">
+                  <div className="w-16 h-16 rounded-full bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-slate-500">
+                    <ShoppingCart className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-300">السلة فارغة حالياً</h4>
+                    <p className="text-xs text-slate-500 mt-1">
+                      قم بمسح باركود المنتجات بالكاميرا لإضافتها وتعديل كمياتها فوراً
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                cartItems.map((item) => {
+                  const itemTotal = item.price * item.quantity;
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between p-3 rounded-2xl bg-slate-800/60 border border-slate-700/60 hover:border-slate-600 transition-colors"
+                    >
+                      {/* Product Info */}
+                      <div className="flex-1 text-right pl-3">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h4 className="text-sm font-bold text-white leading-tight">
+                            {item.name}
+                          </h4>
+                          {item.isNew && (
+                            <span className="text-[9px] bg-emerald-500 text-white px-1.5 py-0.2 rounded font-bold">
+                              جديد
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-400 font-mono">
+                          <span>سعر القطعة: {item.price.toFixed(2)} ₪</span>
+                          {item.barcode && (
+                            <span className="text-[10px] text-slate-500">({item.barcode})</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Quantity Controls & Line Total */}
+                      <div className="flex items-center gap-3">
+                        {/* Qty +/- Buttons */}
+                        <div className="flex items-center gap-1 bg-slate-900/90 border border-slate-700 rounded-xl p-1">
+                          <button
+                            type="button"
+                            onClick={() => updateQty(item.id, 1)}
+                            className="w-7 h-7 rounded-lg bg-emerald-600/30 hover:bg-emerald-600 text-emerald-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                            title="زيادة الكمية"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+
+                          <span className="w-7 text-center font-mono font-bold text-sm text-white">
+                            {item.quantity}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => updateQty(item.id, -1)}
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                              item.quantity <= 1
+                                ? 'bg-rose-600/30 hover:bg-rose-600 text-rose-300 hover:text-white'
+                                : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white'
+                            }`}
+                            title={item.quantity <= 1 ? 'حذف من السلة' : 'تقليل الكمية'}
+                          >
+                            {item.quantity <= 1 ? (
+                              <Trash2 className="w-3.5 h-3.5" />
+                            ) : (
+                              <Minus className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Line Total */}
+                        <div className="text-left min-w-[65px]">
+                          <span className="block text-xs font-mono font-bold text-emerald-400">
+                            {itemTotal.toFixed(2)} ₪
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer Summary & Action */}
+            <div className="p-4 border-t border-slate-800 bg-[#131F33] space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-400">المجموع النهائي المطلوب:</span>
+                <span className="font-mono font-black text-xl text-emerald-400">
+                  {totalAmount.toFixed(2)} ₪
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsCartModalOpen(false)}
+                className="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white font-bold text-xs transition-colors cursor-pointer"
+              >
+                العودة إلى الماسح ومتابعة المسح 📷
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

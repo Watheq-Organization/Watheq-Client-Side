@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo, type FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Barcode,
   ShoppingCart,
   Trash2,
   Plus,
@@ -11,14 +10,21 @@ import {
   CreditCard,
   Building2,
   Smartphone,
-  Camera,
+  Search,
+  X,
   Users,
   ChevronLeft,
   Clock,
   Package,
 } from 'lucide-react';
 import { useInventoryPos, playScannerBeep } from '../../context/InventoryPosContext';
-import type { CartItem } from '../../types/inventory';
+import type { CartItem, Product } from '../../types/inventory';
+import {
+  cashierScannerManager,
+  type ScannedProductDto,
+  type CashierScannerStatus,
+} from '../../services/scannerHubService';
+import { scannerP2PService, type P2PCartItem } from '../../services/scannerP2PService';
 import { QuickAddProductModal } from './QuickAddProductModal';
 import { CashPaymentModal } from './CashPaymentModal';
 import { DebtPaymentModal } from './DebtPaymentModal';
@@ -29,11 +35,20 @@ import { ReceiptModal } from './ReceiptModal';
 import { CustomerSelectModal } from './CustomerSelectModal';
 import { ModifyQtyModal } from './ModifyQtyModal';
 import { NegativeStockModal } from './NegativeStockModal';
-import { CameraScannerModal } from '../common/CameraScannerModal';
 import { Toast, type ToastType } from '../ui/Toast';
 import { PATHS } from '../../routes/paths';
 import { toPosErrorMessage } from '../../services/posService';
 import { createProduct, getProductByBarcodeApi } from '../../services/productService';
+
+const normalizeArabic = (text: string) => {
+  return (text || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/[\u064B-\u065F]/g, '');
+};
 
 export const PosCashierScreen: FC = () => {
   const navigate = useNavigate();
@@ -80,9 +95,9 @@ export const PosCashierScreen: FC = () => {
   const [isBankModalOpen, setIsBankModalOpen] = useState(false);
   const [isHeldBillsModalOpen, setIsHeldBillsModalOpen] = useState(false);
   const [isMobileScannerModalOpen, setIsMobileScannerModalOpen] = useState(false);
-  const [isCameraScannerOpen, setIsCameraScannerOpen] = useState(false);
   const [isCustomerSelectModalOpen, setIsCustomerSelectModalOpen] = useState(false);
   const [isModifyQtyModalOpen, setIsModifyQtyModalOpen] = useState(false);
+  const [scannerStatus, setScannerStatus] = useState<CashierScannerStatus>('idle');
 
   const [toast, setToast] = useState<{ message: string; type?: ToastType } | null>(null);
 
@@ -94,7 +109,6 @@ export const PosCashierScreen: FC = () => {
       isBankModalOpen ||
       isHeldBillsModalOpen ||
       isMobileScannerModalOpen ||
-      isCameraScannerOpen ||
       isCustomerSelectModalOpen ||
       isModifyQtyModalOpen ||
       Boolean(activeReceipt) ||
@@ -110,7 +124,6 @@ export const PosCashierScreen: FC = () => {
     isBankModalOpen,
     isHeldBillsModalOpen,
     isMobileScannerModalOpen,
-    isCameraScannerOpen,
     isCustomerSelectModalOpen,
     isModifyQtyModalOpen,
     activeReceipt,
@@ -122,6 +135,11 @@ export const PosCashierScreen: FC = () => {
     focusBarcodeInput();
   }, [focusBarcodeInput, refreshProducts]);
 
+  const handleCloseMobileScanner = useCallback(() => {
+    setIsMobileScannerModalOpen(false);
+    setTimeout(focusBarcodeInput, 100);
+  }, [focusBarcodeInput]);
+
   const lastCashierScannedCodeRef = useRef<string>('');
   const lastCashierScannedTimeRef = useRef<number>(0);
 
@@ -129,6 +147,16 @@ export const PosCashierScreen: FC = () => {
     async (codeToScan: string) => {
       const trimmed = codeToScan.trim();
       if (!trimmed) return;
+
+      // Ignore pairing URLs or session QR codes accidentally scanned
+      if (
+        trimmed.includes('/scan?') ||
+        trimmed.includes('sessionId=') ||
+        trimmed.includes('pairingSecret') ||
+        trimmed.includes('secret=')
+      ) {
+        return;
+      }
 
       const now = Date.now();
       if (
@@ -140,7 +168,7 @@ export const PosCashierScreen: FC = () => {
       lastCashierScannedCodeRef.current = trimmed;
       lastCashierScannedTimeRef.current = now;
 
-      // 1. Check in local products list
+      // 1. Check in local products list by barcode
       let found = getProductByBarcode(trimmed);
 
       // 2. If not found in local memory, check the Backend API directly (it might exist in DB but wasn't synced yet)
@@ -156,6 +184,24 @@ export const PosCashierScreen: FC = () => {
         }
       }
 
+      // 3. If not found by barcode, search by product name in local inventory
+      if (!found) {
+        const norm = normalizeArabic(trimmed);
+        const exactNameMatch = products.find(
+          (p) => normalizeArabic(p.name) === norm
+        );
+        if (exactNameMatch) {
+          found = exactNameMatch;
+        } else {
+          const nameMatches = products.filter((p) =>
+            normalizeArabic(p.name).includes(norm)
+          );
+          if (nameMatches.length === 1) {
+            found = nameMatches[0];
+          }
+        }
+      }
+
       if (found) {
         addToCart(found, 1);
         setBarcodeQuery('');
@@ -168,23 +214,113 @@ export const PosCashierScreen: FC = () => {
       }
       setTimeout(focusBarcodeInput, 50);
     },
+    [getProductByBarcode, addProduct, addToCart, focusBarcodeInput, products]
+  );
+
+  // Directly handle pre-resolved product broadcast from SignalR ScannerHub
+  const handleRemoteProductScanned = useCallback(
+    (scannedProduct: ScannedProductDto) => {
+      if (!scannedProduct?.barcode) return;
+
+      const trimmed = scannedProduct.barcode.trim();
+      const now = Date.now();
+      if (
+        lastCashierScannedCodeRef.current === trimmed &&
+        now - lastCashierScannedTimeRef.current < 1500
+      ) {
+        return;
+      }
+      lastCashierScannedCodeRef.current = trimmed;
+      lastCashierScannedTimeRef.current = now;
+
+      // 1. Check if already exists in local memory
+      let found = getProductByBarcode(trimmed);
+
+      // 2. If not found locally, build product object from the backend pre-resolved data!
+      if (!found) {
+        const resolvedProduct: Product = {
+          id: String(scannedProduct.productId),
+          barcode: trimmed,
+          name: scannedProduct.productName,
+          category: 'عام',
+          salePrice: Number(scannedProduct.salePrice || 0),
+          costPrice: 0,
+          stock: Number(scannedProduct.stockQuantity || 0),
+          minAlertThreshold: 0,
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        addProduct(resolvedProduct);
+        found = resolvedProduct;
+      }
+
+      addToCart(found, 1);
+      playScannerBeep('scan');
+      setBarcodeQuery('');
+      setToast({ message: `تمت إضافة (${found.name}) إلى الفاتورة عبر الماسح 📱`, type: 'info' });
+      setTimeout(focusBarcodeInput, 50);
+    },
     [getProductByBarcode, addProduct, addToCart, focusBarcodeInput]
   );
 
-  // Listen to remote barcodes scanned from mobile scanner client
+  // Handle remote quantity changes from connected Mobile Scanner
+  const handleRemoteUpdateQty = useCallback(
+    (target: string, delta: number) => {
+      const cleanTarget = target.trim().toLowerCase();
+      const existing = cart.find(
+        (i) =>
+          String(i.product.id).trim().toLowerCase() === cleanTarget ||
+          (i.product.barcode && i.product.barcode.trim().toLowerCase() === cleanTarget)
+      );
+      if (existing) {
+        const newQty = existing.quantity + delta;
+        if (newQty <= 0) {
+          removeFromCart(existing.product.id);
+          setToast({ message: `تم حذف (${existing.product.name}) من السلة عبر الجوال 📱`, type: 'info' });
+        } else {
+          updateCartQty(existing.product.id, newQty);
+          setToast({
+            message: `تعديل كمية (${existing.product.name}) إلى ${newQty} عبر الجوال 📱`,
+            type: 'info',
+          });
+        }
+      }
+    },
+    [cart, updateCartQty, removeFromCart]
+  );
+
+  // Subscribe to SignalR ScannerHub events, WebRTC P2P events, and local fallbacks
   useEffect(() => {
+    // 1. Central Scanner manager subscriptions (Hub + P2P DataChannel)
+    const unsubScanner = cashierScannerManager.subscribeStatus(setScannerStatus);
+    const unsubBarcode = cashierScannerManager.subscribeBarcode((data) => {
+      if (data.product) {
+        handleRemoteProductScanned(data.product);
+      } else if (data.barcode) {
+        handleResolveBarcode(data.barcode);
+      }
+    });
+    const unsubProduct = cashierScannerManager.subscribeProduct((prod) => {
+      handleRemoteProductScanned(prod);
+    });
+
+    // 2. BroadcastChannel fallback (for same-machine browser testing)
     let channel: BroadcastChannel | null = null;
     try {
       channel = new BroadcastChannel('watheq_pos_scanner');
       channel.onmessage = (event) => {
         if (event.data?.type === 'BARCODE_SCANNED' && event.data?.barcode) {
           handleResolveBarcode(event.data.barcode);
+        } else if (event.data?.type === 'UPDATE_QTY' && event.data?.productId && typeof event.data?.delta === 'number') {
+          handleRemoteUpdateQty(event.data.productId, event.data.delta);
         }
       };
     } catch {
       // Fallback
     }
 
+    // 3. StorageEvent fallback (for same-machine tabs)
     const handleStorageEvent = (e: StorageEvent) => {
       if (e.key === 'watheq_last_scanned_barcode' && e.newValue) {
         try {
@@ -200,31 +336,66 @@ export const PosCashierScreen: FC = () => {
 
     window.addEventListener('storage', handleStorageEvent);
 
-    // Cross-device relay polling: Fetch barcodes pushed by mobile phone
-    const pollInterval = window.setInterval(async () => {
-      try {
-        const res = await fetch('/api/local-scanner/pull');
-        if (res.ok) {
-          const data = (await res.json()) as { items?: { barcode: string }[] };
-          if (data?.items && Array.isArray(data.items)) {
-            data.items.forEach((item) => {
-              if (item.barcode) {
-                handleResolveBarcode(item.barcode);
-              }
-            });
-          }
-        }
-      } catch {
-        // Silent poll error
-      }
-    }, 700);
-
     return () => {
+      unsubScanner();
+      unsubBarcode();
+      unsubProduct();
       channel?.close();
       window.removeEventListener('storage', handleStorageEvent);
-      window.clearInterval(pollInterval);
     };
-  }, [handleResolveBarcode]);
+  }, [handleResolveBarcode, handleRemoteProductScanned, handleRemoteUpdateQty]);
+
+  useEffect(() => {
+    const unsub = scannerP2PService.subscribeUpdateQty((target, delta) => {
+      handleRemoteUpdateQty(target, delta);
+    });
+    return () => unsub();
+  }, [handleRemoteUpdateQty]);
+
+  // Sync full cart to connected Mobile Scanner in real-time
+  useEffect(() => {
+    const p2pCart: P2PCartItem[] = cart.map((i) => ({
+      id: i.product.id,
+      barcode: i.product.barcode || '',
+      name: i.product.name,
+      price: i.unitPrice,
+      quantity: i.quantity,
+    }));
+
+    if (scannerP2PService.getStatus() === 'connected') {
+      scannerP2PService.sendCartSync(p2pCart, cartTotalDue, totalItemsCount);
+    }
+
+    // Broadcast channel fallback for same-machine tabs
+    try {
+      const bc = new BroadcastChannel('watheq_pos_scanner');
+      bc.postMessage({
+        type: 'CART_SYNC',
+        cart: p2pCart,
+        totalAmount: cartTotalDue,
+        totalCount: totalItemsCount,
+      });
+      bc.close();
+    } catch {
+      // ignore
+    }
+  }, [cart, cartTotalDue, totalItemsCount]);
+
+  useEffect(() => {
+    const unsub = scannerP2PService.subscribeStatus((st) => {
+      if (st === 'connected') {
+        const p2pCart: P2PCartItem[] = cart.map((i) => ({
+          id: i.product.id,
+          barcode: i.product.barcode || '',
+          name: i.product.name,
+          price: i.unitPrice,
+          quantity: i.quantity,
+        }));
+        scannerP2PService.sendCartSync(p2pCart, cartTotalDue, totalItemsCount);
+      }
+    });
+    return () => unsub();
+  }, [cart, cartTotalDue, totalItemsCount]);
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -235,7 +406,6 @@ export const PosCashierScreen: FC = () => {
         isBankModalOpen ||
         isHeldBillsModalOpen ||
         isMobileScannerModalOpen ||
-        isCameraScannerOpen ||
         isCustomerSelectModalOpen ||
         isModifyQtyModalOpen ||
         Boolean(activeReceipt) ||
@@ -312,7 +482,6 @@ export const PosCashierScreen: FC = () => {
           setIsBankModalOpen(false);
           setIsHeldBillsModalOpen(false);
           setIsMobileScannerModalOpen(false);
-          setIsCameraScannerOpen(false);
           setIsCustomerSelectModalOpen(false);
           setIsModifyQtyModalOpen(false);
           setActiveReceipt(null);
@@ -334,7 +503,6 @@ export const PosCashierScreen: FC = () => {
     isBankModalOpen,
     isHeldBillsModalOpen,
     isMobileScannerModalOpen,
-    isCameraScannerOpen,
     isCustomerSelectModalOpen,
     isModifyQtyModalOpen,
     activeReceipt,
@@ -352,12 +520,47 @@ export const PosCashierScreen: FC = () => {
   }, [products]);
 
   const displayedQuickItems = useMemo(() => {
-    if (activeCategoryTab === 'all') {
-      return products;
-    } else {
+    const rawQ = barcodeQuery.trim();
+
+    if (!rawQ) {
+      if (activeCategoryTab === 'all') {
+        return products;
+      }
       return products.filter((p) => p.category === activeCategoryTab);
     }
-  }, [products, activeCategoryTab]);
+
+    const normQ = normalizeArabic(rawQ);
+    const queryTokens = normQ.split(/\s+/).filter(Boolean);
+
+    // Filter by name, barcode, or category (all tokens must match at least one field)
+    const matchesQuery = (p: Product) => {
+      const prodName = normalizeArabic(p.name || '');
+      const prodBarcode = (p.barcode || '').toLowerCase();
+      const prodCategory = normalizeArabic(p.category || '');
+
+      return queryTokens.every((token) => {
+        return (
+          prodName.includes(token) ||
+          prodBarcode.includes(token) ||
+          prodCategory.includes(token)
+        );
+      });
+    };
+
+    // 1. If inside a specific category tab, check if there are matches in this category
+    if (activeCategoryTab !== 'all') {
+      const inTabMatches = products
+        .filter((p) => p.category === activeCategoryTab)
+        .filter(matchesQuery);
+
+      if (inTabMatches.length > 0) {
+        return inTabMatches;
+      }
+    }
+
+    // 2. Otherwise search across all products
+    return products.filter(matchesQuery);
+  }, [products, activeCategoryTab, barcodeQuery]);
 
   const activeCartItemForEdit: CartItem | null = useMemo(() => {
     if (cart.length === 0) return null;
@@ -481,11 +684,39 @@ export const PosCashierScreen: FC = () => {
           <button
             type="button"
             onClick={() => setIsMobileScannerModalOpen(true)}
-            className="px-3 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/40 text-xs font-bold flex items-center gap-1.5 transition-all"
-            title="ربط ماسح الجوال 📲"
+            className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              scannerStatus === 'connected'
+                ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/50 shadow-sm shadow-emerald-500/20'
+                : scannerStatus === 'connecting' || scannerStatus === 'paired'
+                ? 'bg-amber-500/20 text-amber-400 border-amber-500/50 animate-pulse'
+                : scannerStatus === 'disconnected'
+                ? 'bg-rose-500/20 text-rose-400 border-rose-500/50'
+                : 'bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border-emerald-500/40'
+            }`}
+            title="ربط ماسح الجوال (SignalR WebSocket)"
           >
             <Smartphone className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">ربط ماسح الجوال 📲</span>
+            {scannerStatus === 'connected' && (
+              <>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block" />
+                <span className="hidden sm:inline">الماسح متصل 🟢</span>
+              </>
+            )}
+            {(scannerStatus === 'connecting' || scannerStatus === 'paired') && (
+              <>
+                <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
+                <span className="hidden sm:inline">جاري الاتصال... 🟡</span>
+              </>
+            )}
+            {scannerStatus === 'disconnected' && (
+              <>
+                <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
+                <span className="hidden sm:inline">الماسح مفصول 🔴</span>
+              </>
+            )}
+            {scannerStatus === 'idle' && (
+              <span className="hidden sm:inline">ربط ماسح الجوال 📲</span>
+            )}
           </button>
         </div>
       </header>
@@ -750,42 +981,49 @@ export const PosCashierScreen: FC = () => {
         {/* Right Side: 60% Input & Grid */}
         <section className="flex-1 flex flex-col min-h-0 bg-slate-950 p-3 sm:p-5 space-y-4 overflow-hidden">
           <div className="relative">
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Barcode className="w-5 h-5 text-emerald-400 absolute right-4 top-3.5" />
-                <input
-                  ref={barcodeInputRef}
-                  type="text"
-                  value={barcodeQuery}
-                  onChange={(e) => setBarcodeQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleResolveBarcode(barcodeQuery);
-                    }
+            <div className="relative flex items-center">
+              <Search className="w-5 h-5 text-emerald-400 absolute right-4 top-3.5 pointer-events-none" />
+              <input
+                ref={barcodeInputRef}
+                type="text"
+                value={barcodeQuery}
+                onChange={(e) => setBarcodeQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleResolveBarcode(barcodeQuery);
+                  }
+                }}
+                placeholder="ابحث باسم المنتج، أو الباركود، أو التصنيف (أو امسح بالليزر)..."
+                className="w-full pr-12 pl-11 py-3.5 rounded-2xl border-2 border-emerald-500/50 bg-slate-900 text-white font-mono text-sm sm:text-base placeholder:text-slate-500 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/20 outline-hidden transition-all shadow-inner"
+                autoFocus
+              />
+              {barcodeQuery && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBarcodeQuery('');
+                    setTimeout(focusBarcodeInput, 50);
                   }}
-                  placeholder="امسح الباركود بجهاز الليزر أو اكتب الرقم واضغط Enter..."
-                  className="w-full pr-12 pl-4 py-3.5 rounded-2xl border-2 border-emerald-500/50 bg-slate-900 text-white font-mono text-sm sm:text-base placeholder:text-slate-500 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/20 outline-hidden transition-all shadow-inner"
-                  autoFocus
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsCameraScannerOpen(true)}
-                className="p-3.5 rounded-2xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition-all flex items-center gap-1.5 text-xs font-bold shrink-0 hover:scale-[1.02]"
-                title="مسح بالكاميرا"
-              >
-                <Camera className="w-5 h-5" />
-                <span className="hidden sm:inline">كاميرا</span>
-              </button>
+                  className="absolute left-3.5 top-3 text-slate-400 hover:text-white p-1 rounded-xl hover:bg-slate-800 transition-colors cursor-pointer"
+                  title="مسح البحث"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
 
             <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1.5 px-2">
-              <span>قارئ الباركود نشط تلقائياً • استجابة فورية &lt;50ms</span>
-              <span className="font-mono text-emerald-400/80">
-                إذا كان الباركود غير مسجل، ستظهر نافذة الإضافة السريعة فوراً!
-              </span>
+              <span>قارئ الباركود والبحث الفوري نشط تلقائياً • اضغط Enter للإضافة</span>
+              {barcodeQuery.trim() ? (
+                <span className="font-bold text-emerald-400">
+                  تم العثور على {displayedQuickItems.length} صنف مطابقة
+                </span>
+              ) : (
+                <span className="font-mono text-emerald-400/80">
+                  إذا كان الباركود غير مسجل، ستظهر نافذة الإضافة السريعة فوراً!
+                </span>
+              )}
             </div>
           </div>
 
@@ -799,7 +1037,7 @@ export const PosCashierScreen: FC = () => {
                   : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800'
               }`}
             >
-              جميع الأصناف ({products.length})
+              جميع الأصناف ({barcodeQuery.trim() ? displayedQuickItems.length : products.length})
             </button>
 
             {categories.map((cat) => (
@@ -819,7 +1057,45 @@ export const PosCashierScreen: FC = () => {
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-3">
+            {displayedQuickItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 text-center p-6 bg-slate-900/40 rounded-2xl border border-dashed border-slate-800">
+                <Package className="w-12 h-12 text-slate-600 mb-3" />
+                <h4 className="text-sm font-bold text-slate-300 mb-1">
+                  {barcodeQuery.trim()
+                    ? `لا توجد نتائج مطابقة لـ "${barcodeQuery.trim()}"`
+                    : 'لا توجد أصناف في هذا التصنيف'}
+                </h4>
+                <p className="text-xs text-slate-500 mb-4 max-w-xs">
+                  تأكد من كتابة الاسم أو الباركود بشكل صحيح، أو اضغط أدناه لإضافة هذا الصنف مباشرة.
+                </p>
+                {barcodeQuery.trim() && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBarcodeQuery('');
+                        setTimeout(focusBarcodeInput, 50);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 transition-colors cursor-pointer"
+                    >
+                      إلغاء البحث
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUnresolvedBarcode(barcodeQuery.trim());
+                        setIsQuickAddModalOpen(true);
+                        setBarcodeQuery('');
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white transition-colors cursor-pointer"
+                    >
+                      + إضافة كصنف جديد
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-3">
               {displayedQuickItems.map((prod) => {
                 const isOutOfStock = prod.stock <= 0;
                 const isLowStock = !isOutOfStock && prod.stock <= prod.minAlertThreshold;
@@ -869,7 +1145,8 @@ export const PosCashierScreen: FC = () => {
                 );
               })}
             </div>
-          </div>
+          )}
+        </div>
         </section>
       </div>
 
@@ -1045,25 +1322,7 @@ export const PosCashierScreen: FC = () => {
 
       <MobileScannerModal
         isOpen={isMobileScannerModalOpen}
-        onClose={() => {
-          setIsMobileScannerModalOpen(false);
-          setTimeout(focusBarcodeInput, 100);
-        }}
-        onSimulateBarcode={(scanned) => {
-          handleResolveBarcode(scanned);
-        }}
-      />
-
-      <CameraScannerModal
-        isOpen={isCameraScannerOpen}
-        onClose={() => {
-          setIsCameraScannerOpen(false);
-          setTimeout(focusBarcodeInput, 100);
-        }}
-        onScan={(scanned) => {
-          handleResolveBarcode(scanned);
-        }}
-        title="مسح باركود السلعة بكاميرا الكاشير"
+        onClose={handleCloseMobileScanner}
       />
 
       <CustomerSelectModal
