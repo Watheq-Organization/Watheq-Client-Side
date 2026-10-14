@@ -1,4 +1,4 @@
-import type { FC } from 'react';
+import { useEffect, useRef, useState, useCallback, type FC } from 'react';
 import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
@@ -7,6 +7,8 @@ export interface ToastProps {
   message: string | null;
   type?: ToastType;
   onClose: () => void;
+  /** Auto-dismiss duration in milliseconds. Defaults to 1500ms (1.5 seconds) */
+  duration?: number;
 }
 
 /**
@@ -43,7 +45,30 @@ export function detectToastType(msg: string): ToastType {
   return 'success';
 }
 
-export const Toast: FC<ToastProps> = ({ message, type, onClose }) => {
+export const Toast: FC<ToastProps> = ({ message, type, onClose, duration = 1500 }) => {
+  const [isExiting, setIsExiting] = useState(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  const handleClose = useCallback(() => {
+    setIsExiting(true);
+    const exitTimer = setTimeout(() => {
+      onCloseRef.current?.();
+    }, 180);
+    return () => clearTimeout(exitTimer);
+  }, []);
+
+  useEffect(() => {
+    if (!message || duration <= 0) return;
+
+    setIsExiting(false);
+    const timer = setTimeout(() => {
+      handleClose();
+    }, duration);
+
+    return () => clearTimeout(timer);
+  }, [message, duration, handleClose]);
+
   if (!message) return null;
 
   const resolvedType = type || detectToastType(message);
@@ -88,7 +113,9 @@ export const Toast: FC<ToastProps> = ({ message, type, onClose }) => {
 
   return (
     <div
-      className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] max-w-lg w-[calc(100%-2rem)] sm:w-auto animate-toast-in print:hidden pointer-events-auto"
+      className={`fixed top-6 left-1/2 -translate-x-1/2 z-[100] max-w-lg w-[calc(100%-2rem)] sm:w-auto print:hidden ${
+        isExiting ? 'animate-toast-out pointer-events-none' : 'animate-toast-in pointer-events-auto'
+      }`}
       dir="rtl"
       role="alert"
     >
