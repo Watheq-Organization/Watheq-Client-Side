@@ -6,12 +6,10 @@ import {
   Pencil,
   Award,
   User,
-  MessageSquare,
   ShieldCheck,
   SlidersHorizontal,
   ChevronLeft,
   Check,
-  Link as LinkIcon,
   Loader2,
   AlertCircle,
   Lock,
@@ -177,13 +175,6 @@ export const SettingsScreen: FC = () => {
     }
   };
 
-  const handleSaveReminderSettings = () => {
-    setStoredReminderSettings({
-      autoReminderEnabled: autoReminder,
-      messageTemplate: messageTemplate,
-    });
-    showToast('تم تحديث إعدادات التذكير بنجاح!');
-  };
 
   const handleSaveSecurity = (e: FormEvent) => {
     e.preventDefault();
