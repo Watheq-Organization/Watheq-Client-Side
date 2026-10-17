@@ -92,9 +92,9 @@ export const TargetAudienceSection: React.FC = () => {
                 key={cat.id}
                 onMouseEnter={() => setActiveCategory(idx)}
                 onMouseLeave={() => setActiveCategory(null)}
-                className={`bg-white dark:bg-[#111C35] rounded-3xl p-6 sm:p-7 border transition-all duration-300 flex flex-col justify-between text-right cursor-pointer relative overflow-hidden ${
+                className={`bg-white dark:bg-[#111C35] rounded-3xl p-6 sm:p-7 border transition-all duration-300 flex flex-col justify-between text-right cursor-pointer relative overflow-hidden card-hover-luxury ${
                   isHovered
-                    ? 'border-[#00D685] shadow-[0_12px_30px_-5px_rgba(0,214,133,0.2)] -translate-y-1'
+                    ? 'border-[#00D685] shadow-[0_12px_30px_-5px_rgba(0,214,133,0.25)] -translate-y-1'
                     : 'border-slate-200 dark:border-white/10 shadow-sm'
                 }`}
               >

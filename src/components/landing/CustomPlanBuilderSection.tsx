@@ -104,9 +104,9 @@ export const CustomPlanBuilderSection: React.FC = () => {
                       <div
                         key={mod.id}
                         onClick={() => toggleModule(mod.id)}
-                        className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+                        className={`p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer flex items-center justify-between select-none card-hover-luxury active:scale-[0.98] ${
                           isSelected
-                            ? 'bg-[#E6F9F0]/70 dark:bg-[#00D685]/10 border-[#00D685] text-[#0B132B] dark:text-white shadow-sm'
+                            ? 'bg-[#E6F9F0]/80 dark:bg-[#00D685]/15 border-[#00D685] text-[#0B132B] dark:text-white shadow-[0_4px_16px_rgba(0,214,133,0.2)]'
                             : 'bg-slate-50 dark:bg-[#0B132B] border-slate-200 dark:border-white/5 text-slate-600 dark:text-slate-400 hover:border-slate-300'
                         }`}
                       >
@@ -226,9 +226,11 @@ export const CustomPlanBuilderSection: React.FC = () => {
             </div>
 
             {/* Left Column (Summary Panel): Dynamic Price & CTA */}
-            <div className="lg:col-span-5 bg-gradient-to-br from-[#0B132B] to-[#111C35] text-white rounded-3xl p-6 sm:p-8 border border-white/10 shadow-2xl text-right space-y-6">
-              
-              <div className="pb-4 border-b border-white/10">
+            <div className="lg:col-span-5 bg-gradient-to-br from-[#0B132B] to-[#111C35] text-white rounded-3xl p-6 sm:p-8 border border-white/10 shadow-2xl text-right space-y-6 relative overflow-hidden card-hover-luxury">
+              {/* Subtle sweeping light shimmer */}
+              <div className="absolute inset-0 animate-shimmer pointer-events-none opacity-20"></div>
+
+              <div className="pb-4 border-b border-white/10 relative z-10">
                 <span className="text-xs font-bold text-[#00D685]">ملخص خطتك المخصصة</span>
                 <h3 className="text-xl font-black text-white mt-1">
                   الباقة الشهرية التقديرية
@@ -236,7 +238,7 @@ export const CustomPlanBuilderSection: React.FC = () => {
               </div>
 
               {/* Price Calculation breakdown */}
-              <div className="space-y-3 text-xs text-slate-300">
+              <div className="space-y-3 text-xs text-slate-300 relative z-10">
                 <div className="flex justify-between items-center">
                   <span>الوحدات المختارة ({selectedModules.length} وحدات):</span>
                   <span className="font-mono font-bold text-white">
@@ -267,7 +269,10 @@ export const CustomPlanBuilderSection: React.FC = () => {
                     <span className="text-[10px] text-[#00D685]">بدون عقود طويلة الأجل</span>
                   </div>
                   <div className="text-right">
-                    <span className="text-4xl sm:text-5xl font-black text-[#00D685] font-mono">
+                    <span
+                      key={totalPrice}
+                      className="text-4xl sm:text-5xl font-black text-[#00D685] font-mono inline-block animate-pulse-glow"
+                    >
                       {totalPrice}
                     </span>
                     <span className="text-sm font-bold text-white mr-1">₪ / شهرياً</span>

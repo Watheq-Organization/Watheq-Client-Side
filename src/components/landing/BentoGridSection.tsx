@@ -81,9 +81,12 @@ export const BentoGridSection: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
           
           {/* 1. Large Featured Dark Card (#0B132B, spans 2 columns on desktop) */}
-          <div className="md:col-span-2 bg-[#0B132B] text-white rounded-3xl p-6 sm:p-8 lg:p-10 border border-white/10 shadow-xl relative overflow-hidden flex flex-col justify-between group">
+          <div className="md:col-span-2 bg-[#0B132B] text-white rounded-3xl p-6 sm:p-8 lg:p-10 border border-white/10 shadow-xl relative overflow-hidden flex flex-col justify-between group card-hover-luxury">
             {/* Background subtle security grid lines */}
             <div className="absolute inset-0 bg-[radial-gradient(#00D685_1px,transparent_1px)] [background-size:18px_18px] opacity-10 pointer-events-none"></div>
+
+            {/* Subtle sweeping light shimmer */}
+            <div className="absolute inset-0 animate-shimmer pointer-events-none opacity-25"></div>
             
             {/* Emerald glow in corner */}
             <div className="absolute -top-24 -left-24 w-72 h-72 bg-[#00D685]/20 rounded-full blur-[90px] pointer-events-none"></div>
@@ -155,7 +158,7 @@ export const BentoGridSection: React.FC = () => {
           </div>
 
           {/* 2. Light Card 2: إدارة الديون وحسابات الزبائن */}
-          <div className="bg-white dark:bg-[#111C35] rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-white/10 shadow-sm hover:border-[#00D685] hover:shadow-lg transition-all flex flex-col justify-between text-right group">
+          <div className="bg-white dark:bg-[#111C35] rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-white/10 shadow-sm hover:border-[#00D685] transition-all flex flex-col justify-between text-right group card-hover-luxury">
             <div className="space-y-3">
               <div className="w-12 h-12 rounded-2xl bg-[#E6F9F0] dark:bg-[#00D685]/10 text-[#00A86B] dark:text-[#00D685] flex items-center justify-center font-bold mb-4 group-hover:scale-105 transition-transform">
                 <BookOpenCheck className="w-6 h-6" />
@@ -187,7 +190,7 @@ export const BentoGridSection: React.FC = () => {
           </div>
 
           {/* 3. Light Card 3: المبيعات والكاشير والعمل أوفلاين */}
-          <div className="bg-white dark:bg-[#111C35] rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-white/10 shadow-sm hover:border-[#00D685] hover:shadow-lg transition-all flex flex-col justify-between text-right group">
+          <div className="bg-white dark:bg-[#111C35] rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-white/10 shadow-sm hover:border-[#00D685] transition-all flex flex-col justify-between text-right group card-hover-luxury">
             <div className="space-y-3">
               <div className="w-12 h-12 rounded-2xl bg-teal-50 dark:bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold mb-4 group-hover:scale-105 transition-transform">
                 <Receipt className="w-6 h-6" />
@@ -218,7 +221,7 @@ export const BentoGridSection: React.FC = () => {
           </div>
 
           {/* 4. Light Card 4: إدارة المخزون الذكية */}
-          <div className="bg-white dark:bg-[#111C35] rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-white/10 shadow-sm hover:border-[#00D685] hover:shadow-lg transition-all flex flex-col justify-between text-right group">
+          <div className="bg-white dark:bg-[#111C35] rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-white/10 shadow-sm hover:border-[#00D685] transition-all flex flex-col justify-between text-right group card-hover-luxury">
             <div className="space-y-3">
               <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold mb-4 group-hover:scale-105 transition-transform">
                 <Boxes className="w-6 h-6" />
@@ -246,7 +249,7 @@ export const BentoGridSection: React.FC = () => {
           </div>
 
           {/* 5. Light Card 5: الموظفين والصلاحيات */}
-          <div className="bg-white dark:bg-[#111C35] rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-white/10 shadow-sm hover:border-[#00D685] hover:shadow-lg transition-all flex flex-col justify-between text-right group">
+          <div className="bg-white dark:bg-[#111C35] rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-white/10 shadow-sm hover:border-[#00D685] transition-all flex flex-col justify-between text-right group card-hover-luxury">
             <div className="space-y-3">
               <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold mb-4 group-hover:scale-105 transition-transform">
                 <Users className="w-6 h-6" />
@@ -276,7 +279,7 @@ export const BentoGridSection: React.FC = () => {
           </div>
 
           {/* 6. Light Card 6: إدارة الفروع المتعددة */}
-          <div className="bg-white dark:bg-[#111C35] rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-white/10 shadow-sm hover:border-[#00D685] hover:shadow-lg transition-all flex flex-col justify-between text-right group">
+          <div className="bg-white dark:bg-[#111C35] rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-white/10 shadow-sm hover:border-[#00D685] transition-all flex flex-col justify-between text-right group card-hover-luxury">
             <div className="space-y-3">
               <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold mb-4 group-hover:scale-105 transition-transform">
                 <Store className="w-6 h-6" />

@@ -243,7 +243,7 @@ export const OverviewTabletSection: React.FC = () => {
             )}
 
             {/* Floating Customer Verification Card in Emerald (Bottom-Left of Tablet) */}
-            <div className="absolute -bottom-8 -left-2 sm:-left-8 z-20 w-[290px] sm:w-[330px] bg-white dark:bg-[#0E1A16] border-2 border-[#00D685] rounded-2xl p-4 shadow-[0_15px_35px_rgba(0,214,133,0.25)] text-right space-y-2">
+            <div className="absolute -bottom-8 -left-2 sm:-left-8 z-20 w-[290px] sm:w-[330px] bg-white dark:bg-[#0E1A16] border-2 border-[#00D685] rounded-2xl p-4 shadow-[0_15px_35px_rgba(0,214,133,0.3)] text-right space-y-2 animate-float-delayed backdrop-blur-sm">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/10">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-full bg-[#00D685] text-[#0B132B] flex items-center justify-center font-bold">

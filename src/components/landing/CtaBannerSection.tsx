@@ -16,8 +16,11 @@ export const CtaBannerSection: React.FC = () => {
           {/* Subtle Security Grid Pattern */}
           <div className="absolute inset-0 bg-[radial-gradient(#00D685_1px,transparent_1px)] [background-size:24px_24px] opacity-15 pointer-events-none"></div>
 
-          {/* Emerald Radial Gradient Glow */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[radial-gradient(circle_at_center,rgba(0,214,133,0.25)_0%,transparent_70%)] pointer-events-none blur-3xl"></div>
+          {/* Emerald Radial Gradient Glow with Pulsing Breathing Animation */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[radial-gradient(circle_at_center,rgba(0,214,133,0.3)_0%,transparent_70%)] pointer-events-none blur-3xl animate-pulse-glow"></div>
+
+          {/* Subtle sweeping light shimmer */}
+          <div className="absolute inset-0 animate-shimmer pointer-events-none opacity-20"></div>
 
           <div className="relative z-10 max-w-3xl mx-auto space-y-6">
             

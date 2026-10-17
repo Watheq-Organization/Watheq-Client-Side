@@ -11,6 +11,7 @@ import { CustomPlanBuilderSection } from './CustomPlanBuilderSection';
 import { FaqSection } from './FaqSection';
 import { CtaBannerSection } from './CtaBannerSection';
 import { LandingFooter } from './LandingFooter';
+import { useScrollReveal } from '../../hooks/useScrollReveal';
 
 export const LandingScreen: React.FC = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -21,6 +22,9 @@ export const LandingScreen: React.FC = () => {
     }
     return 'light';
   });
+
+  // Activate luxury viewport scroll reveal observer
+  useScrollReveal();
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -45,36 +49,56 @@ export const LandingScreen: React.FC = () => {
       {/* Section 1: Sticky Glassmorphic Navbar */}
       <LandingNavbar theme={theme} onToggleTheme={toggleTheme} />
 
-      <main>
+      <main className="space-y-4">
         {/* Section 2: Interactive Hero Section with Orbital Feature Wheel (#top) */}
-        <HeroOrbitalSection />
+        <div className="reveal-init">
+          <HeroOrbitalSection />
+        </div>
 
         {/* Section 3: Features Overview & Live Tablet Mockup (تعرّف على وثّق) */}
-        <OverviewTabletSection />
+        <div className="reveal-init">
+          <OverviewTabletSection />
+        </div>
 
         {/* Section 4: Detailed Features Bento Grid (#features) */}
-        <BentoGridSection />
+        <div className="reveal-init">
+          <BentoGridSection />
+        </div>
 
         {/* Section 5: Target Audience (لمين وثّق؟) */}
-        <TargetAudienceSection />
+        <div className="reveal-init">
+          <TargetAudienceSection />
+        </div>
 
         {/* Section 6: How It Works (#how-it-works) */}
-        <HowItWorksSection />
+        <div className="reveal-init">
+          <HowItWorksSection />
+        </div>
 
         {/* Section 7: Comparison Matrix (#comparison) */}
-        <ComparisonSection />
+        <div className="reveal-init">
+          <ComparisonSection />
+        </div>
 
         {/* Section 8: Pricing Plans (#pricing) */}
-        <PricingSection />
+        <div className="reveal-init">
+          <PricingSection />
+        </div>
 
         {/* Section 9: Interactive Custom Plan Builder (ركّب الخطة على قدّ محلك) */}
-        <CustomPlanBuilderSection />
+        <div className="reveal-init">
+          <CustomPlanBuilderSection />
+        </div>
 
         {/* Section 10: FAQ Accordion (#faq) */}
-        <FaqSection />
+        <div className="reveal-init">
+          <FaqSection />
+        </div>
 
         {/* Section 11: Final Call-to-Action Banner */}
-        <CtaBannerSection />
+        <div className="reveal-init">
+          <CtaBannerSection />
+        </div>
       </main>
 
       {/* Section 12: Footer */}
@@ -82,3 +106,4 @@ export const LandingScreen: React.FC = () => {
     </div>
   );
 };
+

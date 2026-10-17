@@ -123,12 +123,17 @@ export const PricingSection: React.FC = () => {
             return (
               <div
                 key={plan.id}
-                className={`rounded-3xl p-8 transition-all duration-300 flex flex-col justify-between text-right relative overflow-hidden ${
+                className={`rounded-3xl p-8 transition-all duration-300 flex flex-col justify-between text-right relative overflow-hidden card-hover-luxury ${
                   isGrowth
-                    ? 'bg-[#0B132B] text-white border-2 border-[#00D685] shadow-[0_15px_40px_-5px_rgba(0,214,133,0.3)] lg:-translate-y-2'
+                    ? 'bg-[#0B132B] text-white border-2 border-[#00D685] shadow-[0_15px_40px_-5px_rgba(0,214,133,0.35)] lg:-translate-y-2'
                     : 'bg-white dark:bg-[#111C35] text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-white/10 shadow-sm hover:shadow-lg'
                 }`}
               >
+                {/* Subtle Light Shimmer for Featured Growth Card */}
+                {isGrowth && (
+                  <div className="absolute inset-0 animate-shimmer pointer-events-none opacity-25"></div>
+                )}
+
                 {/* Featured Badge for Growth Card */}
                 {isGrowth && (
                   <div className="absolute top-0 right-0 left-0 bg-[#00D685] text-[#0B132B] text-center text-xs font-black py-1 tracking-wider uppercase">

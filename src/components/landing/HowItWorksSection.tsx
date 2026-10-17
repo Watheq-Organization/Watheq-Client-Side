@@ -74,7 +74,7 @@ export const HowItWorksSection: React.FC = () => {
               return (
                 <div
                   key={step.num}
-                  className="bg-slate-50/80 dark:bg-[#111C35] rounded-3xl p-8 border border-slate-200/80 dark:border-white/10 shadow-sm hover:border-[#00D685] hover:shadow-xl transition-all duration-300 flex flex-col justify-between text-right group relative overflow-hidden"
+                  className="bg-slate-50/80 dark:bg-[#111C35] rounded-3xl p-8 border border-slate-200/80 dark:border-white/10 shadow-sm hover:border-[#00D685] transition-all duration-300 flex flex-col justify-between text-right group relative overflow-hidden card-hover-luxury"
                 >
                   {/* Subtle hover gradient background */}
                   <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-l from-[#00D685] to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>

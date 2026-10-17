@@ -237,13 +237,48 @@ export const HeroOrbitalSection: React.FC = () => {
               {/* Middle Primary Orbital Track */}
               <div className="absolute w-[280px] h-[280px] rounded-full border border-slate-200 dark:border-white/10 shadow-[inset_0_0_30px_rgba(0,214,133,0.05)]"></div>
 
+              {/* SVG Connecting Ray Lines & Orbit Visuals */}
+              <svg className="absolute inset-0 w-full h-full pointer-events-none z-10 overflow-visible">
+                {/* Dynamic laser connecting line to active node */}
+                {(() => {
+                  const angle = (activeFeatureIndex * 60 - 90) * (Math.PI / 180);
+                  const targetX = 170 + Math.round(orbitRadius * Math.cos(angle));
+                  const targetY = 170 + Math.round(orbitRadius * Math.sin(angle));
+                  return (
+                    <g>
+                      <line
+                        x1="170"
+                        y1="170"
+                        x2={targetX}
+                        y2={targetY}
+                        stroke="#00D685"
+                        strokeWidth="2"
+                        strokeDasharray="4 4"
+                        className="opacity-70 animate-pulse"
+                      />
+                      <circle
+                        cx={targetX}
+                        cy={targetY}
+                        r="8"
+                        fill="none"
+                        stroke="#00D685"
+                        strokeWidth="1.5"
+                        className="animate-ping opacity-60"
+                      />
+                    </g>
+                  );
+                })()}
+              </svg>
+
               {/* Central Glowing Shield Node */}
-              <div className="relative z-10 w-24 h-24 rounded-2xl bg-gradient-to-br from-[#0B132B] to-[#111C35] border-2 border-[#00D685] shadow-[0_0_30px_rgba(0,214,133,0.4)] flex flex-col items-center justify-center p-3 text-center transition-transform hover:scale-105">
-                <div className="w-10 h-10 rounded-xl bg-[#00D685]/20 flex items-center justify-center text-[#00D685] mb-1">
-                  <ShieldCheck className="w-7 h-7" />
-                </div>
-                <span className="text-white text-xs font-black font-cairo">وثّـق</span>
-                <span className="text-[9px] text-[#00D685] font-jakarta">Watheq</span>
+              <div className="relative z-10 w-24 h-24 rounded-2xl bg-gradient-to-br from-[#0B132B] to-[#111C35] border-2 border-[#00D685] shadow-[0_0_35px_rgba(0,214,133,0.5)] flex flex-col items-center justify-center p-3 text-center transition-all duration-300 hover:scale-105">
+                <img
+                  src="/logo-hd.png"
+                  alt="شعار وثّق"
+                  className="w-11 h-11 object-contain drop-shadow-[0_0_12px_rgba(0,214,133,0.7)] mb-0.5"
+                />
+                <span className="text-white text-xs font-black font-cairo leading-none">وثّـق</span>
+                <span className="text-[9px] text-[#00D685] font-jakarta leading-none mt-0.5">Watheq</span>
 
                 {/* Central Pulse Ring */}
                 <div className="absolute -inset-1 rounded-2xl border border-[#00D685]/40 animate-ping pointer-events-none opacity-40"></div>

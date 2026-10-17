@@ -27,34 +27,15 @@ export const WatheqBrandLogo: React.FC<WatheqBrandLogoProps> = ({
 
   return (
     <div className={`flex items-center gap-3 select-none ${className}`}>
-      {/* Glassmorphic Security Shield Icon with Glowing Emerald Checkmark */}
-      <div className={`relative ${iconSizes[size]} rounded-xl flex items-center justify-center bg-gradient-to-br from-[#00D685]/20 via-[#00D685]/10 to-transparent border border-[#00D685]/40 shadow-[0_0_15px_rgba(0,214,133,0.3)] overflow-hidden shrink-0 group`}>
-        {/* Subtle grid lines background inside shield */}
-        <div className="absolute inset-0 bg-[radial-gradient(#00D685_1px,transparent_1px)] [background-size:6px_6px] opacity-30"></div>
-        
-        {/* Shield Vector */}
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          className="w-5/6 h-5/6 text-[#00D685] relative z-10 drop-shadow-[0_0_8px_rgba(0,214,133,0.6)]"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
-          />
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2.2"
-            d="m9 12 2 2 4-4"
-          />
-        </svg>
-
-        {/* Ambient subtle glow pulse */}
-        <div className="absolute inset-0 bg-[#00D685]/10 rounded-xl blur-sm animate-pulse-glow"></div>
+      {/* Official Watheq 3D Shield Emblem */}
+      <div className={`relative ${iconSizes[size]} flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-105`}>
+        <img
+          src="/logo-hd.png"
+          alt="شعار وثّق"
+          className="w-full h-full object-contain drop-shadow-[0_4px_12px_rgba(0,214,133,0.3)]"
+        />
+        {/* Subtle ambient glow behind emblem */}
+        <div className="absolute -inset-1 bg-[#00D685]/15 rounded-full blur-md -z-10 animate-pulse-glow pointer-events-none"></div>
       </div>
 
       {/* Brand Typography */}
