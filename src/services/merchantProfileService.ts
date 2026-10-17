@@ -257,76 +257,88 @@ export async function getMerchantProfile(): Promise<MerchantProfile> {
 
 /**
  * PUT https://whateq.runasp.net/api/MerchantProfile/UpdateProfile
- * Updates merchant profile on backend and updates local cache
+ * Updates merchant profile on backend (FullName, BusinessName, ProfileImageFile, ProfileImagePath)
+ * Note: UserId is automatically retrieved by backend from JWT, so it must NOT be sent in FormData.
  */
 export async function updateMerchantProfile(
   profile: Partial<MerchantProfile>,
   imageFile?: File
 ): Promise<MerchantProfile> {
-  // Always update local cache first
-  setStoredMerchantProfile(profile);
+  const formData = new FormData();
 
-  try {
-    const formData = new FormData();
-    if (profile.fullName) formData.append('FullName', profile.fullName.trim());
-    if (profile.businessName) formData.append('BusinessName', profile.businessName.trim());
-    if (profile.address) formData.append('Address', profile.address.trim());
-    if (profile.phoneNumber) formData.append('PhoneNumber', profile.phoneNumber.trim());
-    if (profile.email) formData.append('Email', profile.email.trim());
-
-    // Extract UserId from JWT if available
-    const token = getStoredToken();
-    if (token) {
-      const claims = parseJwtClaims(token);
-      if (claims) {
-        const userId =
-          (claims['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] as string) ||
-          (claims['sub'] as string) ||
-          (claims['UserId'] as string) ||
-          (claims['nameid'] as string);
-        if (userId) formData.append('UserId', userId);
-      }
-    }
-
-    if (imageFile) {
-      formData.append('ProfileImageFile', imageFile);
-    }
-
-    const response = await httpClient.putForm<unknown>('/MerchantProfile/UpdateProfile', formData);
-    const unwrapped = extractProfileObject(response);
-
-    if (unwrapped && typeof unwrapped === 'object') {
-      const obj = unwrapped as Record<string, unknown>;
-      const serverImage =
-        (typeof obj.profileImage === 'string' && obj.profileImage) ||
-        (typeof obj.ProfileImage === 'string' && obj.ProfileImage) ||
-        (typeof obj.profileImagePath === 'string' && obj.profileImagePath) ||
-        (typeof obj.ProfileImagePath === 'string' && obj.ProfileImagePath) ||
-        (typeof obj.logoPath === 'string' && obj.logoPath);
-      if (serverImage) {
-        setStoredMerchantProfile({
-          ...profile,
-          profileImagePath: normalizeProfileImageUrl(serverImage),
-        });
-      }
-    }
-  } catch (error) {
-    console.warn('Profile update with form-data error:', error);
-    // If form-data with extra fields failed, try with only standard Swagger fields
-    if (imageFile) {
-      try {
-        const minimalForm = new FormData();
-        if (profile.fullName) minimalForm.append('FullName', profile.fullName.trim());
-        if (profile.businessName) minimalForm.append('BusinessName', profile.businessName.trim());
-        minimalForm.append('ProfileImageFile', imageFile);
-        await httpClient.putForm<unknown>('/MerchantProfile/UpdateProfile', minimalForm);
-      } catch (fallbackErr) {
-        console.warn('Fallback minimal form update also failed:', fallbackErr);
-      }
-    }
+  // 1. FullName (2 - 150 chars)
+  if (profile.fullName && profile.fullName.trim().length >= 2) {
+    formData.append('FullName', profile.fullName.trim());
   }
 
-  return getStoredMerchantProfile();
+  // 2. BusinessName (2 - 150 chars)
+  if (profile.businessName && profile.businessName.trim().length >= 2) {
+    formData.append('BusinessName', profile.businessName.trim());
+  }
+
+  // 3. Profile Image:
+  // If a new image file is selected, send it as ProfileImageFile
+  if (imageFile) {
+    formData.append('ProfileImageFile', imageFile);
+  } else if (profile.profileImagePath && !profile.profileImagePath.startsWith('data:')) {
+    // If no new file is uploaded, send existing image path (ignore local base64 preview strings)
+    formData.append('ProfileImagePath', profile.profileImagePath.trim());
+  }
+
+  // Send multipart/form-data request with Bearer token
+  const response = await httpClient.putForm<unknown>('/MerchantProfile/UpdateProfile', formData);
+  const unwrapped = extractProfileObject(response);
+
+  const localCurrent = getStoredMerchantProfile();
+  let serverImage: string | undefined;
+
+  let updatedFullName = profile.fullName?.trim() || localCurrent.fullName;
+  let updatedBusinessName = profile.businessName?.trim() || localCurrent.businessName;
+  let updatedEmail = profile.email?.trim() || localCurrent.email;
+  let updatedPhoneNumber = profile.phoneNumber?.trim() || localCurrent.phoneNumber;
+
+  if (unwrapped && typeof unwrapped === 'object') {
+    const obj = unwrapped as Record<string, unknown>;
+    if (typeof obj.fullName === 'string' && obj.fullName.trim()) updatedFullName = obj.fullName.trim();
+    else if (typeof obj.FullName === 'string' && obj.FullName.trim()) updatedFullName = obj.FullName.trim();
+
+    if (typeof obj.businessName === 'string' && obj.businessName.trim()) updatedBusinessName = obj.businessName.trim();
+    else if (typeof obj.BusinessName === 'string' && obj.BusinessName.trim()) updatedBusinessName = obj.BusinessName.trim();
+
+    if (typeof obj.email === 'string' && obj.email.trim()) updatedEmail = obj.email.trim();
+    else if (typeof obj.Email === 'string' && obj.Email.trim()) updatedEmail = obj.Email.trim();
+
+    if (typeof obj.phoneNumber === 'string' && obj.phoneNumber.trim()) updatedPhoneNumber = obj.phoneNumber.trim();
+    else if (typeof obj.PhoneNumber === 'string' && obj.PhoneNumber.trim()) updatedPhoneNumber = obj.PhoneNumber.trim();
+
+    serverImage =
+      (typeof obj.profileImage === 'string' && obj.profileImage) ||
+      (typeof obj.ProfileImage === 'string' && obj.ProfileImage) ||
+      (typeof obj.profileImagePath === 'string' && obj.profileImagePath) ||
+      (typeof obj.ProfileImagePath === 'string' && obj.ProfileImagePath) ||
+      (typeof obj.logoPath === 'string' && obj.logoPath) ||
+      (typeof obj.LogoPath === 'string' && obj.LogoPath);
+  }
+
+  const finalProfile: MerchantProfile = {
+    ...localCurrent,
+    ...profile,
+    fullName: updatedFullName,
+    businessName: updatedBusinessName,
+    email: updatedEmail,
+    phoneNumber: updatedPhoneNumber,
+    address: profile.address !== undefined ? profile.address.trim() : localCurrent.address,
+    profileImagePath: serverImage
+      ? normalizeProfileImageUrl(serverImage)
+      : (profile.profileImagePath && !profile.profileImagePath.startsWith('data:')
+          ? normalizeProfileImageUrl(profile.profileImagePath)
+          : localCurrent.profileImagePath),
+  };
+
+  // Save to local storage cache only upon successful server response
+  setStoredMerchantProfile(finalProfile);
+
+  return finalProfile;
 }
 
 /**

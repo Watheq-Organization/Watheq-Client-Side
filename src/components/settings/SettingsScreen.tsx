@@ -160,6 +160,11 @@ export const SettingsScreen: FC = () => {
       // 1. Update merchant profile through the API
       const updated = await updateMerchantProfile(formData, selectedFile);
       setProfile(updated);
+      setFormData(updated);
+      if (updated.profileImagePath) {
+        setAvatarPreview(updated.profileImagePath);
+      }
+      setSelectedFile(undefined);
 
       // 2. Save reminder settings
       setStoredReminderSettings({
@@ -168,8 +173,9 @@ export const SettingsScreen: FC = () => {
       });
 
       showToast('تم حفظ التغييرات بنجاح!');
-    } catch {
-      showToast('حدث خطأ أثناء حفظ التغييرات. يرجى المحاولة لاحقاً.', 'error');
+    } catch (err: unknown) {
+      console.error('Save profile error:', err);
+      showToast('حدث خطأ أثناء حفظ التغييرات في الخادم. يرجى المحاولة لاحقاً.', 'error');
     } finally {
       setIsSaving(false);
     }
