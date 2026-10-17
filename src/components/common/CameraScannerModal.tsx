@@ -50,9 +50,7 @@ export const CameraScannerModal: FC<CameraScannerModalProps> = ({
             Html5QrcodeSupportedFormats.EAN_13,
             Html5QrcodeSupportedFormats.EAN_8,
             Html5QrcodeSupportedFormats.CODE_128,
-            Html5QrcodeSupportedFormats.CODE_39,
             Html5QrcodeSupportedFormats.UPC_A,
-            Html5QrcodeSupportedFormats.UPC_E,
             Html5QrcodeSupportedFormats.QR_CODE,
           ],
           verbose: false,
@@ -78,6 +76,12 @@ export const CameraScannerModal: FC<CameraScannerModalProps> = ({
           config,
           (decodedText: string) => {
             if (!isMounted) return;
+
+            // Haptic vibration feedback on successful scan
+            if ('vibrate' in navigator) {
+              navigator.vibrate(60);
+            }
+
             setScannedCode(decodedText);
             html5QrCode.stop().catch(() => {}).finally(() => {
               html5QrCode.clear();
@@ -91,6 +95,38 @@ export const CameraScannerModal: FC<CameraScannerModalProps> = ({
           },
           () => {}
         );
+
+        // Apply continuous auto-focus and hardware zoom for sharper reads
+        try {
+          const scannerWithConstraints = html5QrCode as unknown as {
+            applyVideoConstraints?: (constraints: unknown) => Promise<void>;
+            getRunningTrackCapabilities?: () => Record<string, unknown>;
+          };
+          if (typeof scannerWithConstraints.applyVideoConstraints === 'function') {
+            await scannerWithConstraints.applyVideoConstraints({
+              focusMode: 'continuous',
+              advanced: [{ focusMode: 'continuous' }],
+            });
+
+            // Hardware zoom (1.5x) for comfortable scanning distance
+            try {
+              const capabilities = typeof scannerWithConstraints.getRunningTrackCapabilities === 'function'
+                ? scannerWithConstraints.getRunningTrackCapabilities()
+                : null;
+              const zoomCaps = capabilities?.zoom as { min?: number; max?: number } | undefined;
+              if (zoomCaps && typeof zoomCaps.max === 'number' && zoomCaps.max > 1) {
+                const desiredZoom = Math.min(1.5, zoomCaps.max);
+                await scannerWithConstraints.applyVideoConstraints({
+                  advanced: [{ zoom: desiredZoom }],
+                });
+              }
+            } catch {
+              // Zoom not supported on this device
+            }
+          }
+        } catch {
+          // Focus/zoom not exposed by this browser
+        }
 
         if (isMounted) {
           setIsScanning(true);

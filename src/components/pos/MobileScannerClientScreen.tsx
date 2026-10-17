@@ -315,6 +315,11 @@ export const MobileScannerClientScreen: FC = () => {
       // 3. Play feedback and update local phone UI
       playScannerBeep('scan');
 
+      // Haptic vibration feedback — crisp 60ms pulse like professional barcode scanners
+      if ('vibrate' in navigator) {
+        navigator.vibrate(60);
+      }
+
       const foundProduct = getProductByBarcode(trimmed);
       const productName = foundProduct?.name || `باركود: ${trimmed}`;
       const price = Number(foundProduct?.salePrice ?? 0);
@@ -387,16 +392,17 @@ export const MobileScannerClientScreen: FC = () => {
         scannerRef.current = null;
       }
 
+      // Essential retail formats + QR code (removes heavy CODE_39 and UPC_E for maximum speed)
+      const scanFormats = [
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.QR_CODE,
+      ];
+
       const html5QrCode = new Html5Qrcode(readerElementId, {
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.CODE_39,
-          Html5QrcodeSupportedFormats.UPC_A,
-          Html5QrcodeSupportedFormats.UPC_E,
-          Html5QrcodeSupportedFormats.QR_CODE,
-        ],
+        formatsToSupport: scanFormats,
         verbose: false,
         experimentalFeatures: {
           useBarCodeDetectorIfSupported: true,
@@ -431,19 +437,38 @@ export const MobileScannerClientScreen: FC = () => {
         () => { }
       );
 
-      // Apply continuous auto-focus if supported by the phone's browser & camera
+      // Apply continuous auto-focus and hardware zoom for sharp reads at comfortable distance
       try {
         const scannerWithConstraints = html5QrCode as unknown as {
           applyVideoConstraints?: (constraints: unknown) => Promise<void>;
+          getRunningTrackCapabilities?: () => Record<string, unknown>;
         };
         if (typeof scannerWithConstraints.applyVideoConstraints === 'function') {
+          // 1. Continuous auto-focus
           await scannerWithConstraints.applyVideoConstraints({
             focusMode: 'continuous',
             advanced: [{ focusMode: 'continuous' }],
           });
+
+          // 2. Hardware zoom (1.5x) — lets the cashier scan from 25-35cm comfortably
+          try {
+            const capabilities = typeof scannerWithConstraints.getRunningTrackCapabilities === 'function'
+              ? scannerWithConstraints.getRunningTrackCapabilities()
+              : null;
+            const zoomCaps = capabilities?.zoom as { min?: number; max?: number } | undefined;
+            if (zoomCaps && typeof zoomCaps.max === 'number' && zoomCaps.max > 1) {
+              const desiredZoom = Math.min(1.5, zoomCaps.max);
+              await scannerWithConstraints.applyVideoConstraints({
+                advanced: [{ zoom: desiredZoom }],
+              });
+              console.log(`[Scanner] Hardware zoom applied: ${desiredZoom}x`);
+            }
+          } catch {
+            // Zoom not supported on this device — continue without it
+          }
         }
       } catch {
-        // Fallback gracefully if continuous focus is not exposed by this browser
+        // Fallback gracefully if focus/zoom is not exposed by this browser
       }
     } catch (err: unknown) {
       console.error('Camera init error:', err);
