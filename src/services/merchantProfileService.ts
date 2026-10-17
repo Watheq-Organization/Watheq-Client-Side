@@ -311,13 +311,16 @@ export async function updateMerchantProfile(
     if (typeof obj.phoneNumber === 'string' && obj.phoneNumber.trim()) updatedPhoneNumber = obj.phoneNumber.trim();
     else if (typeof obj.PhoneNumber === 'string' && obj.PhoneNumber.trim()) updatedPhoneNumber = obj.PhoneNumber.trim();
 
-    serverImage =
+    const rawImage =
       (typeof obj.profileImage === 'string' && obj.profileImage) ||
       (typeof obj.ProfileImage === 'string' && obj.ProfileImage) ||
       (typeof obj.profileImagePath === 'string' && obj.profileImagePath) ||
       (typeof obj.ProfileImagePath === 'string' && obj.ProfileImagePath) ||
       (typeof obj.logoPath === 'string' && obj.logoPath) ||
       (typeof obj.LogoPath === 'string' && obj.LogoPath);
+    if (typeof rawImage === 'string' && rawImage.trim()) {
+      serverImage = rawImage.trim();
+    }
   }
 
   const finalProfile: MerchantProfile = {

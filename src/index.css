@@ -3,6 +3,8 @@
 
 @theme {
   --font-cairo: "Cairo", system-ui, sans-serif;
+  --font-readex: "Readex Pro", system-ui, sans-serif;
+  --font-jakarta: "Plus Jakarta Sans", system-ui, sans-serif;
   --font-tajawal: "Cairo", system-ui, sans-serif;
   --font-sans: "Cairo", system-ui, sans-serif;
 }
@@ -131,3 +133,31 @@ html:not(.dark)::view-transition-new(root) {
 html.is-transitioning * {
   transition: none !important;
 }
+
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.06);
+  }
+}
+
+.animate-float-slow {
+  animation: floatSlow 4s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 3s ease-in-out infinite;
+}
