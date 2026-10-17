@@ -1021,54 +1021,182 @@ export function toAddCustomerErrorMessage(error: unknown): string {
 }
 
 /**
- * GET https://whateq.runasp.net/api/Telegram/link/{customerId}
- * 
- * Fetches the Telegram bot linking URL for the specific customer.
+ * Options for generating a Telegram link.
+ * linkType uses friendly names internally; the service maps them to backend enum integers:
+ *   'Customer' → 0, 'Merchant' → 1
  */
-export async function getTelegramLink(customerId: string): Promise<string> {
-  try {
-    const response = await httpClient.post<unknown>(`/Telegram/link/generate`, { customerId: Number(customerId) });
-    console.log('[getTelegramLink] API Response:', response);
-    
-    if (typeof response === 'string') {
-      const cleanString = response.replace(/^"|"$/g, '').trim();
+export interface GenerateTelegramLinkOptions {
+  linkType?: 'Customer' | 'Merchant';
+  sendViaWhatsApp?: boolean;
+}
+
+/**
+ * Structured response from POST /api/Telegram/link/generate
+ * matching the backend's actual JSON schema.
+ */
+export interface GenerateTelegramLinkResponse {
+  success: boolean;
+  customerId: number | null;
+  telegramLink: string;
+  message: string;
+  linkType: number;            // 0 = Customer, 1 = Merchant
+  whatsAppSent: boolean;
+}
+
+// /** Maps our friendly linkType name to the backend's integer enum value. */
+// const LINK_TYPE_MAP: Record<'Customer' | 'Merchant', number> = {
+//   Customer: 0,
+//   Merchant: 1,
+// };
+
+/**
+ * POST https://whateq.runasp.net/api/Telegram/link/generate
+ *
+ * Generates a Telegram bot linking URL for a customer or merchant.
+ *
+ * Backend contract:
+ * - linkType is an integer enum (0 = Customer, 1 = Merchant).
+ * - customerId is required (> 0) when linkType = 0 (Customer).
+ * - customerId must NOT be sent when linkType = 1 (Merchant).
+ * - sendViaWhatsApp defaults to false if omitted.
+ * - userId / businessId are never sent; they are derived from JWT.
+ *
+ * Returns the full structured response so callers can inspect
+ * `whatsAppSent` independently from `success`.
+ */
+async function sendGenerateTelegramLinkPayload(
+  payload: Record<string, unknown>,
+  customerId?: string | number,
+  isMerchant?: boolean
+): Promise<GenerateTelegramLinkResponse> {
+  console.log('[getTelegramLink] Sending payload:', payload);
+  const response = await httpClient.post<unknown>(`/Telegram/link/generate`, payload);
+  console.log('[getTelegramLink] API Response:', response);
+
+  // --- Parse the structured response ---
+  const r = (response && typeof response === 'object' ? response : {}) as Record<string, unknown>;
+
+  // Handle case where response is a JSON string
+  let parsed = r;
+  if (typeof response === 'string') {
+    try {
+      parsed = JSON.parse(response.replace(/^"|"$/g, '').trim()) as Record<string, unknown>;
+    } catch {
+      // If parsing fails, try to use the raw string as the link
+      const cleanString = (response as string).replace(/^"|"$/g, '').trim();
       if (cleanString.startsWith('http') || cleanString.includes('t.me')) {
-          return cleanString;
+        return {
+          success: true,
+          customerId: customerId ? Number(customerId) : null,
+          telegramLink: cleanString,
+          message: 'تم إنشاء رابط Telegram بنجاح.',
+          linkType: isMerchant ? 1 : 0,
+          whatsAppSent: false,
+        };
       }
-      try {
-        const parsed = JSON.parse(cleanString);
-        if (parsed.telegramBotLink) return parsed.telegramBotLink;
-        if (parsed.telegramLink) return parsed.telegramLink;
-        if (parsed.link) return parsed.link;
-        if (parsed.url) return parsed.url;
-      } catch (e) {
-        return cleanString;
-      }
+      parsed = {};
     }
-    
-    const checkObj = (obj: any): string | null => {
-        if (!obj || typeof obj !== 'object') return null;
-        if (typeof obj.telegramBotLink === 'string') return obj.telegramBotLink;
-        if (typeof obj.telegramLink === 'string') return obj.telegramLink;
-        if (typeof obj.link === 'string') return obj.link;
-        if (typeof obj.url === 'string') return obj.url;
-        return null;
+  }
+
+  // Handle nested data/result wrappers
+  const data = (parsed.data ?? parsed.result ?? parsed) as Record<string, unknown>;
+
+  // Extract telegramLink — try multiple possible field names for robustness
+  const telegramLink =
+    String(data.telegramLink ?? data.TelegramLink ??
+      data.telegramBotLink ?? data.TelegramBotLink ??
+      data.link ?? data.Link ??
+      data.url ?? data.Url ?? '');
+
+  if (!telegramLink) {
+    console.error('[getTelegramLink] No telegramLink in response:', response);
+    throw new Error('Invalid response format for Telegram link: ' + JSON.stringify(response));
+  }
+
+  const rawLinkType = data.linkType ?? data.LinkType;
+  const parsedLinkType =
+    typeof rawLinkType === 'number'
+      ? rawLinkType
+      : String(rawLinkType).toLowerCase() === 'merchant'
+      ? 1
+      : 0;
+
+  return {
+    success: Boolean(data.success ?? data.Success ?? true),
+    customerId: data.customerId != null ? Number(data.customerId) : null,
+    telegramLink,
+    message: String(data.message ?? data.Message ?? 'تم إنشاء رابط Telegram بنجاح.'),
+    linkType: parsedLinkType,
+    whatsAppSent: Boolean(data.whatsAppSent ?? data.WhatsAppSent ?? false),
+  };
+}
+
+/**
+ * POST https://whateq.runasp.net/api/Telegram/link/generate
+ *
+ * Generates a Telegram bot linking URL for a customer or merchant.
+ *
+ * Handles both string enum ('Merchant' / 'Customer') and numeric enum (1 / 0)
+ * along with PascalCase and camelCase keys for seamless compatibility with the backend.
+ */
+export async function getTelegramLink(
+  customerId?: string | number,
+  options?: GenerateTelegramLinkOptions
+): Promise<GenerateTelegramLinkResponse> {
+  const isMerchant = options?.linkType === 'Merchant';
+  const sendViaWhatsApp = options?.sendViaWhatsApp ?? false;
+
+  const buildPayload = (useStringEnum: boolean): Record<string, unknown> => {
+    const typeValue = useStringEnum
+      ? (isMerchant ? 'Merchant' : 'Customer')
+      : (isMerchant ? 1 : 0);
+
+    const payload: Record<string, unknown> = {
+      linkType: typeValue,
+      LinkType: typeValue,
+      sendViaWhatsApp,
+      SendViaWhatsApp: sendViaWhatsApp,
     };
 
-    let link = checkObj(response);
-    if (!link && response && typeof response === 'object') {
-        const resObj = response as any;
-        link = checkObj(resObj.data) || checkObj(resObj.result);
+    if (!isMerchant) {
+      if (customerId !== undefined && customerId !== null && customerId !== '') {
+        payload.customerId = Number(customerId);
+        payload.CustomerId = Number(customerId);
+      }
     }
-    
-    if (link) return link;
-    
-    console.error('[getTelegramLink] Unrecognized response format:', response);
-    throw new Error('Invalid response format for Telegram link: ' + JSON.stringify(response));
-  } catch (err) {
-    console.error('[getTelegramLink] API Call Failed:', err);
+
+    return payload;
+  };
+
+  try {
+    // Attempt 1: String enum ("Merchant" / "Customer") with dual casing
+    return await sendGenerateTelegramLinkPayload(buildPayload(true), customerId, isMerchant);
+  } catch (err: any) {
+    const errorDetails = err?.message || JSON.stringify(err?.body || '');
+    console.warn('[getTelegramLink] Attempt 1 failed:', errorDetails);
+
+    // If it failed due to CustomerId requirement or 400, retry with numeric enum (1 / 0) and dual casing
+    if (err?.status === 400 || errorDetails.includes('CustomerId is required')) {
+      console.log('[getTelegramLink] Attempt 2: Retrying with numeric enum (1 / 0) and dual casing...');
+      return await sendGenerateTelegramLinkPayload(buildPayload(false), customerId, isMerchant);
+    }
     throw err;
   }
+}
+
+/**
+ * POST https://whateq.runasp.net/api/Telegram/link/generate
+ *
+ * Convenience wrapper that generates a Telegram link for the current merchant
+ * (linkType = 1). CustomerId is omitted per backend specification.
+ */
+export async function getMerchantTelegramLink(
+  sendViaWhatsApp: boolean = false
+): Promise<GenerateTelegramLinkResponse> {
+  return getTelegramLink(undefined, {
+    linkType: 'Merchant',
+    sendViaWhatsApp,
+  });
 }
 
 /**

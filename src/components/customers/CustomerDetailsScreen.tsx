@@ -193,7 +193,13 @@ export const CustomerDetailsScreen: FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeActivityTab, setActiveActivityTab] = useState<'all' | 'debt' | 'payment'>('all');
   const [searchActivityQuery, setSearchActivityQuery] = useState('');
-  const [telegramModalCustomer, setTelegramModalCustomer] = useState<{ id: string; name: string; phone: string; mode: 'generate' | 'regenerate' } | null>(null);
+  const [telegramModalCustomer, setTelegramModalCustomer] = useState<{
+    id: string;
+    name: string;
+    phone: string;
+    mode: 'generate' | 'regenerate';
+    sendViaWhatsApp?: boolean;
+  } | null>(null);
   const [showUnlinkConfirm, setShowUnlinkConfirm] = useState(false);
   const [isUnlinkingTelegram, setIsUnlinkingTelegram] = useState(false);
 
@@ -996,7 +1002,13 @@ export const CustomerDetailsScreen: FC = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setTelegramModalCustomer({ id: customer.id, name: customer.name, phone: customer.phone || '', mode: 'regenerate' })}
+                        onClick={() => setTelegramModalCustomer({
+                          id: customer.id,
+                          name: customer.name,
+                          phone: customer.phone || '',
+                          mode: 'regenerate',
+                          sendViaWhatsApp: false,
+                        })}
                         className="py-2.5 px-3 rounded-xl text-[#2AABEE] font-bold text-xs border border-blue-200 hover:bg-blue-50 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <RefreshCw className="w-4 h-4" />
@@ -1006,7 +1018,13 @@ export const CustomerDetailsScreen: FC = () => {
                   ) : (
                     <button
                       type="button"
-                      onClick={() => setTelegramModalCustomer({ id: customer.id, name: customer.name, phone: customer.phone || '', mode: 'generate' })}
+                      onClick={() => setTelegramModalCustomer({
+                        id: customer.id,
+                        name: customer.name,
+                        phone: customer.phone || '',
+                        mode: 'generate',
+                        sendViaWhatsApp: false, // Case B: Re-linking / viewing QR code only, do not send WhatsApp
+                      })}
                       className="w-full py-3 px-4 bg-[#2AABEE] hover:bg-[#2299d6] text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-sm hover:shadow-md transition-all active:scale-[0.99] mt-auto cursor-pointer"
                     >
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -1722,6 +1740,8 @@ export const CustomerDetailsScreen: FC = () => {
           customerName={telegramModalCustomer.name}
           customerPhone={telegramModalCustomer.phone}
           mode={telegramModalCustomer.mode}
+          linkType="Customer"
+          sendViaWhatsApp={telegramModalCustomer.sendViaWhatsApp ?? false}
         />
       )}
     </div>

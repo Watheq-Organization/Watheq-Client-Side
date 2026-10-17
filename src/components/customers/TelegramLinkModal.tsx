@@ -2,56 +2,82 @@ import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { X, Copy, Send, ExternalLink, Loader2, RefreshCw } from 'lucide-react';
 import { getTelegramLink, regenerateTelegramLink } from '../../services/customerService';
+import type { GenerateTelegramLinkResponse } from '../../services/customerService';
 
 interface TelegramLinkModalProps {
   isOpen: boolean;
   onClose: () => void;
-  customerId: string;
-  customerName: string;
-  customerPhone: string;
+  customerId?: string;
+  customerName?: string;
+  customerPhone?: string;
   mode?: 'generate' | 'regenerate';
+  linkType?: 'Customer' | 'Merchant';
+  sendViaWhatsApp?: boolean;
+  onLinked?: () => void;
 }
 
 export const TelegramLinkModal: React.FC<TelegramLinkModalProps> = ({
   isOpen,
   onClose,
   customerId,
-  customerName,
-  customerPhone,
+  customerName = '',
+  customerPhone = '',
   mode = 'generate',
+  linkType = 'Customer',
+  sendViaWhatsApp = false,
+  onLinked,
 }) => {
   const [telegramLink, setTelegramLink] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  /** Tracks whether the backend actually delivered the link via WhatsApp */
+  const [whatsAppSent, setWhatsAppSent] = useState<boolean>(false);
 
   const hasFetchedRef = React.useRef(false);
 
   useEffect(() => {
-    if (isOpen && customerId && !hasFetchedRef.current) {
+    const shouldFetch = isOpen && (customerId || linkType === 'Merchant') && !hasFetchedRef.current;
+    if (shouldFetch) {
       hasFetchedRef.current = true;
       fetchLink();
     }
-  }, [isOpen, customerId, mode]);
+  }, [isOpen, customerId, mode, linkType, sendViaWhatsApp]);
 
   useEffect(() => {
     if (!isOpen) {
       hasFetchedRef.current = false;
       setTelegramLink(null);
+      setWhatsAppSent(false);
     }
   }, [isOpen]);
 
   const fetchLink = async () => {
     setIsLoading(true);
     setError(null);
+    setWhatsAppSent(false);
     try {
       let link: string;
-      if (mode === 'regenerate') {
+      if (mode === 'regenerate' && customerId) {
         link = await regenerateTelegramLink(customerId);
+        setWhatsAppSent(false);
       } else {
-        link = await getTelegramLink(customerId);
+        const result: GenerateTelegramLinkResponse = await getTelegramLink(customerId, {
+          linkType,
+          sendViaWhatsApp,
+        });
+
+        if (!result.success) {
+          throw new Error(result.message || 'فشل إنشاء رابط Telegram.');
+        }
+
+        link = result.telegramLink;
+
+        // Track actual WhatsApp delivery status from backend (independent from success)
+        setWhatsAppSent(result.whatsAppSent);
       }
       setTelegramLink(link);
+      onLinked?.();
     } catch (err: any) {
       let errorMsg = err?.message || 'Unknown error';
       if (err?.body) {
@@ -84,9 +110,15 @@ export const TelegramLinkModal: React.FC<TelegramLinkModalProps> = ({
       cleanPhone = `970${cleanPhone}`;
     }
 
-    const message = `مرحباً ${customerName}،\n\nتفضل رابط تفعيل الإشعارات وتأكيد المعاملات عبر تيليجرام الخاص بك:\n${telegramLink}\n\nيرجى الضغط على الرابط ثم اختيار Start.`;
+    const greeting = customerName ? `مرحباً ${customerName}` : 'مرحباً';
+    const message = linkType === 'Merchant'
+      ? `${greeting}،\n\nتفضل رابط ربط حساب متجرك ببوت تيليجرام:\n${telegramLink}\n\nيرجى الضغط على الرابط ثم اختيار Start لتفعيل التنبيهات وإدارة الحساب.`
+      : `${greeting}،\n\nتفضل رابط تفعيل الإشعارات وتأكيد المعاملات عبر تيليجرام الخاص بك:\n${telegramLink}\n\nيرجى الضغط على الرابط ثم اختيار Start.`;
+
     const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
+    const whatsappUrl = cleanPhone
+      ? `https://wa.me/${cleanPhone}?text=${encodedMessage}`
+      : `https://wa.me/?text=${encodedMessage}`;
     window.open(whatsappUrl, '_blank');
   };
 
@@ -104,7 +136,7 @@ export const TelegramLinkModal: React.FC<TelegramLinkModalProps> = ({
         <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
           <div>
             <h3 className="text-xl font-bold font-cairo text-[#0c2444] dark:text-blue-400">
-              ربط حساب الزبون بـ تيليجرام
+              {linkType === 'Merchant' ? 'ربط حساب التاجر بـ تيليجرام' : 'ربط حساب الزبون بـ تيليجرام'}
             </h3>
           </div>
           <button
@@ -118,9 +150,28 @@ export const TelegramLinkModal: React.FC<TelegramLinkModalProps> = ({
 
         {/* Content */}
         <div className="p-6 flex-1 flex flex-col items-center">
-          <p className="text-sm text-slate-500 dark:text-slate-400 text-center mb-6 max-w-sm">
-            امسح الكود لتفعيل استلام الإشعارات وتأكيد المعاملات لـ <strong className="text-slate-700 dark:text-slate-200">{customerName}</strong>.
-          </p>
+          {linkType === 'Merchant' ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400 text-center mb-4 max-w-sm">
+              امسح الكود لتفعيل استلام التنبيهات وإدارة المتجر عبر بوت تيليجرام.
+            </p>
+          ) : (
+            <p className="text-sm text-slate-500 dark:text-slate-400 text-center mb-4 max-w-sm">
+              امسح الكود لتفعيل استلام الإشعارات وتأكيد المعاملات لـ <strong className="text-slate-700 dark:text-slate-200">{customerName}</strong>.
+            </p>
+          )}
+
+          {/* WhatsApp delivery status — based on actual backend response, not just the request flag */}
+          {!isLoading && !error && telegramLink && sendViaWhatsApp && (
+            whatsAppSent ? (
+              <div className="mb-4 inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 rounded-full text-xs font-semibold border border-emerald-200 dark:border-emerald-800 animate-fade-in">
+                <span>✓ تم إرسال رابط التفعيل عبر واتساب تلقائياً</span>
+              </div>
+            ) : (
+              <div className="mb-4 inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 rounded-full text-xs font-semibold border border-amber-200 dark:border-amber-800 animate-fade-in">
+                <span>⚠ تم إنشاء الرابط لكن تعذر إرساله عبر واتساب</span>
+              </div>
+            )
+          )}
 
           <div className="min-h-[220px] flex items-center justify-center w-full mb-6 relative">
             {isLoading ? (

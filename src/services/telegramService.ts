@@ -17,7 +17,8 @@ export interface BankStatementImportResponse {
  * POST /api/Telegram/link
  * Links a Telegram account to a customer using the provided token or data.
  */
-export async function linkTelegramAccount(payload: { customerId: number; token: string }): Promise<void> {
+export async function linkTelegramAccount(payload: { customerId: number; token: string }): Promise<
+  void> {
   await httpClient.post<unknown>('/Telegram/link', payload);
 }
 
@@ -43,13 +44,20 @@ export async function getTelegramCustomerLink(customerId: number | string): Prom
 export async function importBankStatement(file: File): Promise<BankStatementImportResponse> {
   const formData = new FormData();
   formData.append('file', file);
-  
+
   const response = await httpClient.post<unknown>('/bankstatement/import', formData);
   const r = (response || {}) as Record<string, unknown>;
-  
+
   return {
     success: Boolean(r.success ?? r.Success ?? true),
     message: String(r.message ?? r.Message ?? 'تم الاستيراد بنجاح'),
     importedCount: typeof r.importedCount === 'number' ? r.importedCount : undefined,
   };
 }
+
+export {
+  getTelegramLink,
+  getMerchantTelegramLink,
+  type GenerateTelegramLinkOptions,
+} from './customerService';
+

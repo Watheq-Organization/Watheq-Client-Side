@@ -75,7 +75,12 @@ export const CustomersScreen: FC = () => {
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   const [addSubmitError, setAddSubmitError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type?: ToastType } | null>(null);
-  const [telegramModalCustomer, setTelegramModalCustomer] = useState<{ id: string; name: string; phone: string } | null>(null);
+  const [telegramModalCustomer, setTelegramModalCustomer] = useState<{
+    id: string;
+    name: string;
+    phone: string;
+    sendViaWhatsApp?: boolean;
+  } | null>(null);
 
   // Shows a one-off success toast passed via navigation state (e.g. after
   // deleting a customer from the details screen), then clears it from
@@ -298,6 +303,16 @@ export const CustomersScreen: FC = () => {
       closeAddModal();
       showToast('تمت إضافة العميل بنجاح.');
       
+      // Case A: When adding a new customer, send Telegram link via WhatsApp and show QR code
+      const createdCustId = dto.id ? String(dto.id) : newCustomerItem.id;
+      if (createdCustId) {
+        setTelegramModalCustomer({
+          id: createdCustId,
+          name: newCustomerItem.name,
+          phone: newCustomerItem.phone || formattedPhone || '',
+          sendViaWhatsApp: true,
+        });
+      }
 
     } catch (err) {
       console.error('[handleAddCustomer] API error:', err);
@@ -679,7 +694,8 @@ export const CustomersScreen: FC = () => {
                                 setTelegramModalCustomer({
                                   id: String(customer.id),
                                   name: customer.name,
-                                  phone: customer.phone || ''
+                                  phone: customer.phone || '',
+                                  sendViaWhatsApp: false, // Case B: Re-linking / viewing QR code only, do not send WhatsApp
                                 });
                               }}
                               className="p-1.5 rounded-lg text-[#2AABEE] hover:bg-sky-50 dark:hover:bg-sky-900/30 transition-colors cursor-pointer"
@@ -926,6 +942,8 @@ export const CustomersScreen: FC = () => {
           customerId={telegramModalCustomer.id}
           customerName={telegramModalCustomer.name}
           customerPhone={telegramModalCustomer.phone}
+          linkType="Customer"
+          sendViaWhatsApp={telegramModalCustomer.sendViaWhatsApp ?? false}
         />
       )}
     </div>
