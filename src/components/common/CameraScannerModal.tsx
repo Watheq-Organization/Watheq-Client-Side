@@ -56,18 +56,25 @@ export const CameraScannerModal: FC<CameraScannerModalProps> = ({
             Html5QrcodeSupportedFormats.QR_CODE,
           ],
           verbose: false,
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true,
+          },
         });
 
         scannerRef.current = html5QrCode;
 
         const config = {
-          fps: 15,
-          qrbox: { width: 260, height: 160 },
+          fps: 12,
+          qrbox: { width: 280, height: 160 },
           aspectRatio: 1.333333,
         };
 
         await html5QrCode.start(
-          { facingMode: 'environment' },
+          {
+            facingMode: 'environment',
+            width: { ideal: 1280, min: 640 },
+            height: { ideal: 720, min: 480 },
+          },
           config,
           (decodedText: string) => {
             if (!isMounted) return;

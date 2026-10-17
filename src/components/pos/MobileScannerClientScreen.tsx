@@ -398,22 +398,53 @@ export const MobileScannerClientScreen: FC = () => {
           Html5QrcodeSupportedFormats.QR_CODE,
         ],
         verbose: false,
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true,
+        },
       });
 
       scannerRef.current = html5QrCode;
 
+      // Dynamic qrbox matching the wide horizontal 1D barcode scanning window
+      const qrboxFunction = (viewfinderWidth: number, viewfinderHeight: number) => {
+        const width = Math.min(Math.floor(viewfinderWidth * 0.85), 360);
+        const height = Math.min(Math.floor(viewfinderHeight * 0.45), 220);
+        return {
+          width: Math.max(width, 240),
+          height: Math.max(height, 130),
+        };
+      };
+
       await html5QrCode.start(
-        { facingMode: 'environment' },
         {
-          fps: 20,
-          qrbox: { width: 280, height: 180 },
-          aspectRatio: 1.0,
+          facingMode: 'environment',
+          width: { ideal: 1280, min: 640 },
+          height: { ideal: 720, min: 480 },
+        },
+        {
+          fps: 12,
+          qrbox: qrboxFunction,
         },
         (decodedText: string) => {
           handleBarcodeScanned(decodedText);
         },
         () => { }
       );
+
+      // Apply continuous auto-focus if supported by the phone's browser & camera
+      try {
+        const scannerWithConstraints = html5QrCode as unknown as {
+          applyVideoConstraints?: (constraints: unknown) => Promise<void>;
+        };
+        if (typeof scannerWithConstraints.applyVideoConstraints === 'function') {
+          await scannerWithConstraints.applyVideoConstraints({
+            focusMode: 'continuous',
+            advanced: [{ focusMode: 'continuous' }],
+          });
+        }
+      } catch {
+        // Fallback gracefully if continuous focus is not exposed by this browser
+      }
     } catch (err: unknown) {
       console.error('Camera init error:', err);
       setIsCameraActive(false);
@@ -597,14 +628,14 @@ export const MobileScannerClientScreen: FC = () => {
         {/* Real Camera Video Output */}
         <div
           id={readerElementId}
-          className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none"
+          className="absolute inset-0 w-full h-full object-cover opacity-90 pointer-events-none"
         />
 
-        {/* Ambient Camera Background Effect */}
-        <div className="absolute inset-0 bg-radial from-transparent via-[#070D18]/40 to-[#070D18] pointer-events-none" />
+        {/* Ambient Camera Background Effect — clear center, shaded edges */}
+        <div className="absolute inset-0 bg-radial from-transparent via-[#070D18]/25 to-[#070D18]/85 pointer-events-none" />
 
-        {/* Cyber Neon Targeting Frame */}
-        <div className="relative w-72 h-72 flex items-center justify-center">
+        {/* Cyber Neon Targeting Frame — wide horizontal ratio aligned with 1D barcodes */}
+        <div className="relative w-80 max-w-[90vw] h-52 flex items-center justify-center">
           {/* Top-Right Neon Corner */}
           <div className="absolute top-0 right-0 w-8 h-8 border-t-[3px] border-r-[3px] border-emerald-400 rounded-tr-lg shadow-[0_0_15px_#10B981]" />
           {/* Top-Left Neon Corner */}
@@ -615,7 +646,7 @@ export const MobileScannerClientScreen: FC = () => {
           <div className="absolute bottom-0 left-0 w-8 h-8 border-b-[3px] border-l-[3px] border-emerald-400 rounded-bl-lg shadow-[0_0_15px_#10B981]" />
 
           {/* Inner Dotted Scan Area */}
-          <div className="w-56 h-44 border border-emerald-500/20 bg-emerald-500/5 rounded-2xl flex flex-col items-center justify-center p-3 relative overflow-hidden backdrop-blur-2xs">
+          <div className="w-72 max-w-[82vw] h-44 border border-emerald-500/30 bg-emerald-500/5 rounded-2xl flex flex-col items-center justify-center p-3 relative overflow-hidden backdrop-blur-2xs">
             {/* Animated Laser Sweep Line — only when camera active */}
             {isCameraActive && !cameraError && (
               <div
