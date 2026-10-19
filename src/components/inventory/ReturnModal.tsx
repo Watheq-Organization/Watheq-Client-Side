@@ -89,7 +89,7 @@ export const ReturnModal: FC<ReturnModalProps> = ({
                 الرصيد الحالي
               </p>
               <p className="font-mono text-lg font-bold text-slate-800 dark:text-white">
-                {product.stock}
+                {product.stock} {product.unit && <span className="text-xs font-normal text-slate-500 mr-1">{product.unit}</span>}
               </p>
             </div>
           </div>
@@ -97,7 +97,7 @@ export const ReturnModal: FC<ReturnModalProps> = ({
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                كمية الإرجاع المراد إضافتها للمخزون *
+                كمية الإرجاع المراد إضافتها للمخزون ({product.unit || 'وحدة'}) *
               </label>
             </div>
             <input
@@ -132,10 +132,12 @@ export const ReturnModal: FC<ReturnModalProps> = ({
               <span className="font-medium">الرصيد بعد اعتماد الإرجاع:</span>
             </div>
             <div className="flex items-center gap-2 font-mono">
-              <span className="text-slate-500 dark:text-slate-400">{product.stock}</span>
+              <span className="text-slate-500 dark:text-slate-400">
+                {product.stock} {product.unit || ''}
+              </span>
               <ArrowLeft className="w-4 h-4 text-emerald-500" />
               <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
-                {newStockTotal} وحدة
+                {newStockTotal} {product.unit || 'وحدة'}
               </span>
             </div>
           </div>

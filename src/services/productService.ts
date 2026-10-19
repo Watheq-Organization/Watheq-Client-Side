@@ -12,6 +12,8 @@ export interface CreateProductPayload {
   costPrice: number;
   minStockAlert: number;
   quantity?: number;
+  category?: string;
+  unit?: string;
 }
 
 /** Payload sent to PUT /api/Products/{id} */
@@ -22,6 +24,8 @@ export interface UpdateProductPayload {
   salePrice: number;
   costPrice: number;
   minStockAlert: number;
+  category?: string;
+  unit?: string;
 }
 
 /** Payload sent to POST /api/Products/{id}/stock/supply */
@@ -70,6 +74,8 @@ export interface ProductApiData {
   isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
+  category?: string;
+  unit?: string;
 }
 
 /** Standard wrapper for success responses */
@@ -94,7 +100,8 @@ export function mapApiProductToLocal(api: ProductApiData): Product {
     id: String(api.id),
     barcode: api.barcode,
     name: api.productName,
-    category: 'عام', // category not in backend yet, defaulting to 'عام'
+    category: api.category || (api as any).categoryName || undefined,
+    unit: api.unit || (api as any).unitName || undefined,
     salePrice: api.salePrice,
     costPrice: api.costPrice ?? 0,
     stock: api.quantity ?? 0,
@@ -239,6 +246,8 @@ export async function createProduct(
   // Handle possible response wrappers
   const rawData = response?.data ?? response;
   const created = mapApiProductToLocal(rawData);
+  if (payload.category) created.category = payload.category.trim();
+  if (payload.unit) created.unit = payload.unit.trim();
 
   // If user provided initial stock > 0, supply it to the product
   if (payload.quantity && payload.quantity > 0 && created.id) {
@@ -258,17 +267,32 @@ export async function createProduct(
  * PUT /api/Products/{id}
  *
  * Updates an existing product for the authenticated merchant.
+ * Strictly adheres to backend contract for PUT /api/Products/{id}.
  * Does not update stock.
  */
 export async function updateProductApi(
   id: string | number,
   payload: UpdateProductPayload
 ): Promise<Product> {
-  const response = await httpClient.put<ApiResponse<ProductApiData>>(
+  const numId = typeof payload.id === 'string' && !isNaN(Number(payload.id)) ? Number(payload.id) : payload.id;
+  const requestBody = {
+    id: numId,
+    productName: String(payload.productName).trim(),
+    barcode: String(payload.barcode).trim(),
+    salePrice: Number(payload.salePrice),
+    costPrice: Number(payload.costPrice),
+    minStockAlert: Number(payload.minStockAlert),
+  };
+
+  const response = await httpClient.put<any>(
     `/Products/${id}`,
-    payload
+    requestBody
   );
-  return mapApiProductToLocal(response.data);
+  const rawData = response?.data ?? response;
+  const updated = mapApiProductToLocal(rawData);
+  if (payload.category) updated.category = payload.category.trim();
+  if (payload.unit) updated.unit = payload.unit.trim();
+  return updated;
 }
 
 /**

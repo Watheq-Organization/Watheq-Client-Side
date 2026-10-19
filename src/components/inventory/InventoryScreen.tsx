@@ -34,6 +34,7 @@ import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
 import { Toast, type ToastType } from '../ui/Toast';
 import { PATHS } from '../../routes/paths';
+import { PRODUCT_CATEGORIES, FALLBACK_UNSPECIFIED } from '../../constants/productOptions';
 
 export const InventoryScreen: FC = () => {
   const navigate = useNavigate();
@@ -66,9 +67,11 @@ export const InventoryScreen: FC = () => {
   const [toast, setToast] = useState<{ message: string; type?: ToastType } | null>(null);
 
   const categories = useMemo(() => {
-    const set = new Set<string>();
+    const set = new Set<string>(PRODUCT_CATEGORIES);
     products.forEach((p) => {
-      if (p.category) set.add(p.category);
+      if (p.category && p.category.trim() && p.category !== FALLBACK_UNSPECIFIED) {
+        set.add(p.category.trim());
+      }
     });
     return Array.from(set);
   }, [products]);
@@ -103,10 +106,14 @@ export const InventoryScreen: FC = () => {
         !q ||
         p.name.toLowerCase().includes(q) ||
         p.barcode.toLowerCase().includes(q) ||
-        (p.category && p.category.toLowerCase().includes(q));
+        (p.category && p.category.toLowerCase().includes(q)) ||
+        (p.unit && p.unit.toLowerCase().includes(q));
 
       const matchesCategory =
-        selectedCategory === 'all' || p.category === selectedCategory;
+        selectedCategory === 'all' ||
+        (selectedCategory === FALLBACK_UNSPECIFIED
+          ? !p.category || p.category.trim() === '' || p.category === FALLBACK_UNSPECIFIED
+          : p.category === selectedCategory);
 
       let matchesStock = true;
       if (stockFilter === 'in_stock') {
@@ -400,12 +407,15 @@ export const InventoryScreen: FC = () => {
                   onChange={(e) => setSelectedCategory(e.target.value)}
                   className="px-3 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:border-emerald-500 outline-hidden cursor-pointer"
                 >
-                  <option value="all">جميع الأقسام ({categories.length})</option>
+                  <option value="all">جميع التصنيفات ({categories.length})</option>
                   {categories.map((cat) => (
                     <option key={cat} value={cat}>
                       {cat}
                     </option>
                   ))}
+                  {products.some((p) => !p.category || p.category.trim() === '' || p.category === FALLBACK_UNSPECIFIED) && (
+                    <option value={FALLBACK_UNSPECIFIED}>غير محدد (أصناف سابقة)</option>
+                  )}
                 </select>
 
                 <ArrowUpDown className="w-4 h-4 text-slate-400 shrink-0 mr-2" />
@@ -484,7 +494,9 @@ export const InventoryScreen: FC = () => {
                 <thead>
                   <tr className="bg-slate-50/80 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
                     <th className="py-3.5 px-4">الباركود</th>
-                    <th className="py-3.5 px-4">اسم الصنف والقسم</th>
+                    <th className="py-3.5 px-4">اسم الصنف</th>
+                    <th className="py-3.5 px-4">التصنيف</th>
+                    <th className="py-3.5 px-4">الوحدة</th>
                     <th className="py-3.5 px-4">سعر البيع</th>
                     <th className="py-3.5 px-4">سعر التكلفة</th>
                     <th className="py-3.5 px-4">رصيد المخزون</th>
@@ -495,7 +507,7 @@ export const InventoryScreen: FC = () => {
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60 text-xs sm:text-sm">
                   {filteredProducts.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-12 text-center text-slate-400">
+                      <td colSpan={9} className="py-12 text-center text-slate-400">
                         <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
                         <p className="font-semibold text-slate-600 dark:text-slate-300">
                           لا توجد أصناف مطابقة لبحثك
@@ -539,16 +551,36 @@ export const InventoryScreen: FC = () => {
                             <div className="font-bold text-slate-900 dark:text-white">
                               {product.name}
                             </div>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                                {product.category || 'عام'}
+                            {product.isActive === false && (
+                              <span className="inline-block mt-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-sm bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20">
+                                غير نشط 🚫
                               </span>
-                              {product.isActive === false && (
-                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20">
-                                  غير نشط 🚫
-                                </span>
-                              )}
-                            </div>
+                            )}
+                          </td>
+
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            {product.category && product.category.trim() && product.category !== FALLBACK_UNSPECIFIED ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40">
+                                <Layers className="w-3 h-3 text-emerald-500" />
+                                <span>{product.category}</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500">
+                                {FALLBACK_UNSPECIFIED}
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            {product.unit && product.unit.trim() && product.unit !== FALLBACK_UNSPECIFIED ? (
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800/40">
+                                {product.unit}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500">
+                                {FALLBACK_UNSPECIFIED}
+                              </span>
+                            )}
                           </td>
 
                           <td className="py-3.5 px-4 whitespace-nowrap">
@@ -565,6 +597,11 @@ export const InventoryScreen: FC = () => {
                             <div className="flex items-center gap-2">
                               <span className="font-black text-base text-slate-900 dark:text-white">
                                 {product.stock}
+                                {product.unit && product.unit.trim() && product.unit !== FALLBACK_UNSPECIFIED ? (
+                                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 mr-1">
+                                    {product.unit}
+                                  </span>
+                                ) : null}
                               </span>
                               {isOutOfStock ? (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">

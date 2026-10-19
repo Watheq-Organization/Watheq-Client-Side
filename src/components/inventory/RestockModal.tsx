@@ -93,13 +93,13 @@ export const RestockModal: FC<RestockModalProps> = ({
               </span>
               <h4 className="font-bold text-slate-900 dark:text-white text-sm">{product.name}</h4>
               <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
-                التصنيف: {product.category}
+                التصنيف: {product.category || 'غير محدد'}
               </span>
             </div>
             <div className="text-left">
               <span className="text-xs text-slate-500 dark:text-slate-400 block">الرصيد الحالي</span>
               <span className="text-lg font-black text-slate-800 dark:text-slate-100">
-                {product.stock} <span className="text-xs font-normal">وحدة</span>
+                {product.stock} <span className="text-xs font-normal">{product.unit || 'وحدة'}</span>
               </span>
             </div>
           </div>
@@ -109,7 +109,7 @@ export const RestockModal: FC<RestockModalProps> = ({
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
               <PlusCircle className="w-4 h-4 text-emerald-600" />
-              <span>الكمية الموردة الجديدة (وحدة/حبة) *</span>
+              <span>الكمية الموردة الجديدة ({product.unit || 'وحدة'}) *</span>
             </label>
             <input
               type="number"
@@ -181,10 +181,12 @@ export const RestockModal: FC<RestockModalProps> = ({
               <span className="font-medium">الرصيد بعد اعتماد التوريد:</span>
             </div>
             <div className="flex items-center gap-2 font-mono">
-              <span className="text-slate-500 dark:text-slate-400">{product.stock}</span>
+              <span className="text-slate-500 dark:text-slate-400">
+                {product.stock} {product.unit || ''}
+              </span>
               <ArrowLeft className="w-4 h-4 text-emerald-500" />
               <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
-                {newStockTotal} وحدة
+                {newStockTotal} {product.unit || 'وحدة'}
               </span>
             </div>
           </div>

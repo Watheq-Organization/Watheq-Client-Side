@@ -811,7 +811,7 @@ export const PosCashierScreen: FC = () => {
                               : 'bg-slate-800 text-slate-400'
                           }`}
                         >
-                          [المتبقي بالمحل: {remainingInStore}]
+                          [المتبقي بالمحل: {remainingInStore}{item.product.unit ? ` ${item.product.unit}` : ''}]
                         </span>
                       </div>
                     </div>
@@ -1122,7 +1122,7 @@ export const PosCashierScreen: FC = () => {
                   >
                     <div className="flex items-start justify-between w-full mb-2">
                       <span className="text-[10px] font-semibold text-slate-400 truncate max-w-[100px]">
-                        {prod.category}
+                        {prod.category || 'غير محدد'}
                       </span>
 
                       {isOutOfStock ? (
@@ -1131,11 +1131,11 @@ export const PosCashierScreen: FC = () => {
                         </span>
                       ) : isLowStock ? (
                         <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-950/80 text-amber-400 border border-amber-800">
-                          {prod.stock} حبات 🟡
+                          {prod.stock} {prod.unit || 'حبات'} 🟡
                         </span>
                       ) : (
                         <span className="text-[9px] font-mono text-slate-500">
-                          {prod.stock} بالمحل
+                          {prod.stock} {prod.unit || 'بالمحل'}
                         </span>
                       )}
                     </div>

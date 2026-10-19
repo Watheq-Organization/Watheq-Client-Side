@@ -1,9 +1,11 @@
 import { useState, useEffect, type FC, type FormEvent } from 'react';
-import { X, Camera, Barcode, Package, DollarSign, AlertTriangle, Check, Layers, Loader2 } from 'lucide-react';
+import { X, Camera, Barcode, Package, DollarSign, AlertTriangle, Check, Loader2 } from 'lucide-react';
 import type { Product } from '../../types/inventory';
 import { CameraScannerModal } from '../common/CameraScannerModal';
 import { createProduct, updateProductApi } from '../../services/productService';
 import { ApiError } from '../../api/httpClient';
+import { CategorySelect } from './CategorySelect';
+import { UnitSelect } from './UnitSelect';
 
 interface ProductModalProps {
   isOpen: boolean;
@@ -63,7 +65,8 @@ export const ProductModal: FC<ProductModalProps> = ({
 }) => {
   const [barcode, setBarcode] = useState('');
   const [name, setName] = useState('');
-  const [category, setCategory] = useState('عام');
+  const [category, setCategory] = useState('');
+  const [unit, setUnit] = useState('');
   const [salePrice, setSalePrice] = useState('');
   const [costPrice, setCostPrice] = useState('');
   const [stock, setStock] = useState('10');
@@ -78,7 +81,8 @@ export const ProductModal: FC<ProductModalProps> = ({
     if (editingProduct) {
       setBarcode(editingProduct.barcode);
       setName(editingProduct.name);
-      setCategory(editingProduct.category || 'عام');
+      setCategory(editingProduct.category || '');
+      setUnit(editingProduct.unit || '');
       setSalePrice(String(editingProduct.salePrice));
       setCostPrice(String(editingProduct.costPrice));
       setStock(String(editingProduct.stock));
@@ -86,7 +90,8 @@ export const ProductModal: FC<ProductModalProps> = ({
     } else {
       setBarcode('');
       setName('');
-      setCategory('عام');
+      setCategory('');
+      setUnit('');
       setSalePrice('');
       setCostPrice('');
       setStock('10');
@@ -117,6 +122,14 @@ export const ProductModal: FC<ProductModalProps> = ({
 
     if (!name.trim()) {
       errs.name = 'اسم الصنف مطلوب';
+    }
+
+    if (!category.trim()) {
+      errs.category = 'تصنيف الصنف مطلوب *';
+    }
+
+    if (!unit.trim()) {
+      errs.unit = 'وحدة الصنف مطلوبة *';
     }
 
     const sale = parseFloat(salePrice);
@@ -164,6 +177,8 @@ export const ProductModal: FC<ProductModalProps> = ({
             id: editingProduct.id,
             name: name.trim(),
             barcode: barcode.trim(),
+            category: category.trim(),
+            unit: unit.trim(),
             salePrice: parseFloat(salePrice),
             costPrice: parseFloat(costPrice) || 0,
             stock: editingProduct.stock,
@@ -177,6 +192,8 @@ export const ProductModal: FC<ProductModalProps> = ({
             id: numId,
             productName: name.trim(),
             barcode: barcode.trim(),
+            category: category.trim(),
+            unit: unit.trim(),
             salePrice: parseFloat(salePrice),
             costPrice: parseFloat(costPrice) || 0,
             minStockAlert: parseInt(minAlertThreshold, 10) || 5,
@@ -185,7 +202,8 @@ export const ProductModal: FC<ProductModalProps> = ({
 
         const enriched: Product = {
           ...serverProduct,
-          category: category.trim() || 'عام',
+          category: category.trim(),
+          unit: unit.trim(),
         };
 
         onSave(enriched);
@@ -198,7 +216,8 @@ export const ProductModal: FC<ProductModalProps> = ({
             ...editingProduct,
             barcode: barcode.trim(),
             name: name.trim(),
-            category: category.trim() || 'عام',
+            category: category.trim(),
+            unit: unit.trim(),
             salePrice: parseFloat(salePrice),
             costPrice: parseFloat(costPrice) || 0,
             minAlertThreshold: parseInt(minAlertThreshold, 10) || 5,
@@ -226,6 +245,8 @@ export const ProductModal: FC<ProductModalProps> = ({
       const serverProduct = await createProduct({
         productName: name.trim(),
         barcode: barcode.trim(),
+        category: category.trim(),
+        unit: unit.trim(),
         salePrice: parseFloat(salePrice),
         costPrice: parseFloat(costPrice) || 0,
         minStockAlert: parseInt(minAlertThreshold, 10) || 5,
@@ -235,7 +256,8 @@ export const ProductModal: FC<ProductModalProps> = ({
       // Merge local-only fields that the server doesn't know about
       const enriched: Product = {
         ...serverProduct,
-        category: category.trim() || 'عام',
+        category: category.trim(),
+        unit: unit.trim(),
       };
 
       onSave(enriched);
@@ -250,7 +272,8 @@ export const ProductModal: FC<ProductModalProps> = ({
           id: `prod-local-${Date.now()}`,
           barcode: barcode.trim(),
           name: name.trim(),
-          category: category.trim() || 'عام',
+          category: category.trim(),
+          unit: unit.trim(),
           salePrice: parseFloat(salePrice),
           costPrice: parseFloat(costPrice) || 0,
           stock: parseInt(stock, 10),
@@ -385,23 +408,29 @@ export const ProductModal: FC<ProductModalProps> = ({
               )}
             </div>
 
-            {/* Category */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-slate-500" />
-                <span>التصنيف / القسم</span>
-              </label>
-              <input
-                type="text"
+            {/* Category & Unit of Measurement */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <CategorySelect
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                disabled
-                placeholder="عام"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/50 text-slate-900 dark:text-white text-sm outline-hidden opacity-60 cursor-not-allowed"
+                onChange={(val) => {
+                  setCategory(val);
+                  if (errors.category) setErrors((prev) => ({ ...prev, category: '' }));
+                }}
+                error={errors.category}
+                label="تصنيف الصنف *"
+                placeholder="اختر تصنيف الصنف..."
               />
-              <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
-                إدارة الأقسام والتصنيفات مغلقة حالياً
-              </p>
+
+              <UnitSelect
+                value={unit}
+                onChange={(val) => {
+                  setUnit(val);
+                  if (errors.unit) setErrors((prev) => ({ ...prev, unit: '' }));
+                }}
+                error={errors.unit}
+                label="وحدة الصنف *"
+                placeholder="اختر وحدة الصنف..."
+              />
             </div>
 
             {/* Pricing */}

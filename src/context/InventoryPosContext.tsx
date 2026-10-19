@@ -200,7 +200,22 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
     try {
       const res = await getProductsApi({ PageNumber: 1, PageSize: 1000 });
       if (res?.items && Array.isArray(res.items)) {
-        setProducts(res.items);
+        setProducts((prev) => {
+          return res.items.map((apiItem) => {
+            const existing = prev.find(
+              (p) =>
+                p.id === apiItem.id ||
+                (p.barcode &&
+                  apiItem.barcode &&
+                  p.barcode.trim().toLowerCase() === apiItem.barcode.trim().toLowerCase())
+            );
+            return {
+              ...apiItem,
+              category: apiItem.category || existing?.category,
+              unit: apiItem.unit || existing?.unit,
+            };
+          });
+        });
       }
     } catch (err) {
       if (err instanceof ApiError && (err.status === 404 || err.status === 0)) {

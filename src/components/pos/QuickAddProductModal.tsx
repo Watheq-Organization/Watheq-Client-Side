@@ -2,6 +2,8 @@ import { useState, useEffect, type FC, type FormEvent } from 'react';
 import { X, AlertCircle, Sparkles, Check, Loader2 } from 'lucide-react';
 import type { Product } from '../../types/inventory';
 import { ApiError } from '../../api/httpClient';
+import { CategorySelect } from '../inventory/CategorySelect';
+import { UnitSelect } from '../inventory/UnitSelect';
 
 interface QuickAddProductModalProps {
   isOpen: boolean;
@@ -21,7 +23,8 @@ export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
   const [costPrice, setCostPrice] = useState('');
   const [initialStock, setInitialStock] = useState('20');
   const [minAlertThreshold, setMinAlertThreshold] = useState('5');
-  const [category, setCategory] = useState('عام');
+  const [category, setCategory] = useState('');
+  const [unit, setUnit] = useState('حبة');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -32,7 +35,8 @@ export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
       setCostPrice('');
       setInitialStock('20');
       setMinAlertThreshold('5');
-      setCategory('عام');
+      setCategory('');
+      setUnit('حبة');
       setError(null);
     }
   }, [isOpen, barcode]);
@@ -70,13 +74,24 @@ export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
       return;
     }
 
+    if (!category.trim()) {
+      setError('يرجى اختيار تصنيف الصنف');
+      return;
+    }
+
+    if (!unit.trim()) {
+      setError('يرجى اختيار وحدة قياس الصنف');
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
     try {
       await onConfirm({
         barcode: barcode.trim(),
         name: name.trim(),
-        category: category.trim() || 'عام',
+        category: category.trim(),
+        unit: unit.trim(),
         salePrice: price,
         costPrice: cost,
         stock,
@@ -177,6 +192,29 @@ export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
               placeholder="مثال: شيبس بطاطا مستورد"
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-medium focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-hidden"
               autoFocus
+            />
+          </div>
+
+          {/* Category & Unit */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <CategorySelect
+              value={category}
+              onChange={(val) => {
+                setCategory(val);
+                setError(null);
+              }}
+              label="تصنيف الصنف *"
+              placeholder="اختر تصنيف..."
+            />
+
+            <UnitSelect
+              value={unit}
+              onChange={(val) => {
+                setUnit(val);
+                setError(null);
+              }}
+              label="وحدة الصنف *"
+              placeholder="اختر وحدة..."
             />
           </div>
 
