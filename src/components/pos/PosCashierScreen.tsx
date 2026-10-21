@@ -1192,6 +1192,8 @@ export const PosCashierScreen: FC = () => {
             savedProduct = await createProduct({
               productName: newProductData.name,
               barcode: newProductData.barcode,
+              category: newProductData.category,
+              unit: newProductData.unit,
               salePrice: newProductData.salePrice,
               costPrice: newProductData.costPrice,
               quantity: newProductData.stock,
@@ -1225,12 +1227,19 @@ export const PosCashierScreen: FC = () => {
           }
 
           // ── Step 2: Add to Local State ──
-          const created = addProduct(savedProduct);
+          const enrichedProduct: Product = {
+            ...savedProduct,
+            category: savedProduct.category || newProductData.category,
+            unit: savedProduct.unit || newProductData.unit,
+            stock: savedProduct.stock !== undefined ? savedProduct.stock : newProductData.stock,
+          };
+          const created = addProduct(enrichedProduct);
           addToCart(created, 1);
           setToast({
             message: `تم حفظ الصنف (${created.name}) في قاعدة بيانات المخزون وإضافته للسلة فوراً!`,
             type: 'success',
           });
+          setIsQuickAddModalOpen(false);
           setTimeout(focusBarcodeInput, 100);
         }}
       />

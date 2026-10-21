@@ -203,6 +203,7 @@ export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
                 setCategory(val);
                 setError(null);
               }}
+              error={error && !category.trim() ? error : undefined}
               label="تصنيف الصنف *"
               placeholder="اختر تصنيف..."
             />
@@ -213,6 +214,7 @@ export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
                 setUnit(val);
                 setError(null);
               }}
+              error={error && !unit.trim() ? error : undefined}
               label="وحدة الصنف *"
               placeholder="اختر وحدة..."
             />
@@ -267,7 +269,7 @@ export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                الرصيد الافتتاحي بالمحل *
+                الرصيد الافتتاحي بالمحل {unit ? `(${unit})` : ''} *
               </label>
               <input
                 type="number"
