@@ -205,7 +205,25 @@ export const httpClient = {
       method: 'PATCH',
       ...(data !== undefined ? { body: JSON.stringify(data) } : {}),
     }),
-  get: <TResponse>(path: string) => request<TResponse>(path, { method: 'GET' }),
+  get: <TResponse>(
+    path: string,
+    options?: { params?: Record<string, any>; headers?: HeadersInit }
+  ) => {
+    let url = path;
+    if (options?.params) {
+      const searchParams = new URLSearchParams();
+      Object.entries(options.params).forEach(([key, val]) => {
+        if (val !== undefined && val !== null && val !== '') {
+          searchParams.append(key, String(val));
+        }
+      });
+      const qs = searchParams.toString();
+      if (qs) {
+        url += (url.includes('?') ? '&' : '?') + qs;
+      }
+    }
+    return request<TResponse>(url, { method: 'GET', headers: options?.headers });
+  },
   getBlob: async (path: string): Promise<Blob> => {
     const token = getStoredToken();
     const url = `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
@@ -230,3 +248,5 @@ export const httpClient = {
       ...(data !== undefined ? { body: JSON.stringify(data) } : {}),
     }),
 };
+
+export const api = httpClient;

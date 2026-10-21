@@ -11,8 +11,8 @@ export interface CreateDebtPayload {
   amount: number;
   currencyId: number;
   reason: string;
-  dueDate: string; // ISO datetime string, e.g. "2026-10-01T00:00:00"
-  notes?: string;
+  dueDate: string; // ISO datetime string, e.g. "2026-10-15T00:00:00"
+  notes?: string | null;
 }
 
 /**
@@ -28,6 +28,7 @@ export interface DebtDto {
   amount?: number;
   currencyId?: number;
   currencyCode?: string;
+  currency?: string;
   status?: string;
   reason?: string;
   dueDate?: string;
@@ -46,10 +47,10 @@ export interface DebtDto {
 export interface UpdateDebtPayload {
   customerId: number;
   amount: number;
-  currencyId?: number;
+  currencyId: number;
   reason: string;
-  dueDate: string; // ISO datetime string, e.g. "2026-10-15T00:00:00"
-  notes?: string;
+  dueDate: string; // ISO datetime string, e.g. "2026-10-20T00:00:00"
+  notes?: string | null;
 }
 
 /**

@@ -29,6 +29,10 @@ export const PAYMENT_METHOD_OPTIONS: { value: PaymentMethod; label: string }[] =
 export interface NewPaymentFormState {
   amount: string;
   method: PaymentMethod;
+  currencyId?: number;
+  currencyCode?: string;
+  currency?: string;
+  debtId?: number | string;
   paymentDate?: string;
   receiptNumber?: string;
   notes: string;
@@ -111,6 +115,10 @@ export interface UpdatePaymentResponseDto {
 export interface EditingPaymentState {
   paymentId: number;
   amount: number;
+  currency?: string;
+  currencyCode?: string;
+  currencyId?: number;
+  debtId?: number | string;
   customerId?: string;
   customerFullName?: string;
   date?: string;
@@ -127,6 +135,8 @@ export interface PaymentHistoryQueryParams {
   fromDate?: string;
   toDate?: string;
   userId?: string;
+  currencyId?: number;
+  currencyCode?: string;
 }
 
 /**
@@ -138,6 +148,9 @@ export interface PaymentHistoryItemDto {
   customerId?: number | string;
   customerName?: string;
   amount: number;
+  currency?: string;
+  currencyCode?: string;
+  currencyId?: number;
   paymentDate?: string;
   date?: string;
   paymentMethod?: number | string | null;

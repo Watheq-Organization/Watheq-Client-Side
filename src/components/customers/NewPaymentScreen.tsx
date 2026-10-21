@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FC } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
@@ -13,10 +13,21 @@ import {
   CreditCard,
   Save,
   CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
 import { Textarea } from '../ui/Textarea';
+import { CurrencySelector } from '../common/CurrencySelector';
+import {
+  type CurrencyCode,
+  getCurrencyConfig,
+  getCurrencyId,
+  normalizeCurrencyCode,
+  groupTotalsByCurrency,
+  formatCurrency,
+  getActiveCurrencySummaries,
+} from '../../utils/currency';
 import {
   getCustomerProfile,
   setStoredTotalPaid,
@@ -101,13 +112,40 @@ export const NewPaymentScreen: FC = () => {
   }, [loadCustomerProfile]);
 
   const location = useLocation();
-  const navState = location.state as { editingPayment?: EditingPaymentState } | null;
+  const navState = location.state as {
+    editingPayment?: EditingPaymentState;
+    targetDebt?: {
+      id: number | string;
+      reference?: string;
+      amount?: number;
+      remainingAmount?: number;
+      currencyCode?: string;
+      currencyId?: number;
+    };
+  } | null;
   const editingPayment = navState?.editingPayment ?? null;
+  const targetDebt = navState?.targetDebt ?? null;
   const isEditMode = editingPayment !== null;
+
+  // Initial currency: default to target debt's currency if available, or editing payment's currency, or 'ILS'
+  const initialCurrency: CurrencyCode = useMemo(() => {
+    if (editingPayment?.currencyCode || editingPayment?.currency) {
+      return normalizeCurrencyCode(editingPayment.currencyCode || editingPayment.currency);
+    }
+    if (targetDebt?.currencyCode) {
+      return normalizeCurrencyCode(targetDebt.currencyCode);
+    }
+    if (targetDebt?.currencyId) {
+      return normalizeCurrencyCode(targetDebt.currencyId);
+    }
+    return 'ILS';
+  }, [editingPayment, targetDebt]);
+
+  const [currency, setCurrency] = useState<CurrencyCode>(initialCurrency);
 
   // Form state
   const [amount, setAmount] = useState(
-    editingPayment ? String(editingPayment.amount) : ''
+    editingPayment ? String(editingPayment.amount) : targetDebt?.remainingAmount ? String(targetDebt.remainingAmount) : ''
   );
   const [method, setMethod] = useState<PaymentMethod>(() =>
     parsePaymentMethod(editingPayment?.method)
@@ -130,6 +168,13 @@ export const NewPaymentScreen: FC = () => {
   }>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Mismatch warning when merchant selects a different currency than target debt
+  const isCurrencyMismatched = useMemo(() => {
+    if (!targetDebt) return false;
+    const debtCurrency = normalizeCurrencyCode(targetDebt.currencyCode || targetDebt.currencyId);
+    return debtCurrency !== currency;
+  }, [targetDebt, currency]);
 
   // Re-sync form state whenever the navigation state (editingPayment) changes.
   // useState initialises only once, but if the user navigates between payments
@@ -172,20 +217,36 @@ export const NewPaymentScreen: FC = () => {
   const totalPaid = customerProfile?.totalPaid ?? 0;
   const currentBalance = customerProfile?.currentBalance ?? totalDebt;
 
-  // Balance after payment — only computable once a valid amount is entered,
-  // otherwise shown as "---" exactly as in the reference.
+  // Calculate per-currency breakdown from customer transactions
+  const currencyGroups = useMemo(() => {
+    return groupTotalsByCurrency(customerProfile?.transactions || []);
+  }, [customerProfile?.transactions]);
+
+  const activeCurrencies = useMemo(() => {
+    return getActiveCurrencySummaries(currencyGroups);
+  }, [currencyGroups]);
+
+  // Balance in the currently selected currency
+  const selectedCurrencyBalance = useMemo(() => {
+    if (customerProfile?.transactions && customerProfile.transactions.length > 0) {
+      const group = currencyGroups[currency];
+      if (group && (group.debtCount > 0 || group.paymentCount > 0)) {
+        return Math.max(group.balance, 0);
+      }
+    }
+    return currentBalance;
+  }, [currencyGroups, currency, customerProfile?.transactions, currentBalance]);
+
+  // Balance after payment
   const parsedAmount = Number(amount);
   const hasValidAmount = amount.trim() !== '' && Number.isFinite(parsedAmount) && parsedAmount > 0;
   const balanceAfterPayment = hasValidAmount
     ? isEditMode && editingPayment
-      ? Math.max(currentBalance - (parsedAmount - editingPayment.amount), 0)
-      : Math.max(currentBalance - parsedAmount, 0)
+      ? Math.max(selectedCurrencyBalance - (parsedAmount - editingPayment.amount), 0)
+      : Math.max(selectedCurrencyBalance - parsedAmount, 0)
     : null;
 
-  // "مدى التزام العميل" has no dedicated field anywhere in the API — the
-  // closest real signal already available is how much of the customer's
-  // total activity (paid + owed) has actually been paid, so it's derived
-  // from the real totalPaid/totalDebt figures rather than a fixed number.
+  // Commitment percentage
   const commitmentDenominator = totalPaid + totalDebt;
   const commitmentPercent =
     commitmentDenominator > 0 ? Math.round((totalPaid / commitmentDenominator) * 100) : 100;
@@ -240,6 +301,10 @@ export const NewPaymentScreen: FC = () => {
       const res = await registerPayment(id, {
         amount,
         method,
+        currencyId: getCurrencyId(currency),
+        currencyCode: currency,
+        currency: currency,
+        debtId: targetDebt?.id,
         paymentDate: paymentDate || undefined,
         notes: notes.trim(),
         receiptFile,
@@ -377,12 +442,37 @@ export const NewPaymentScreen: FC = () => {
                 <p className="text-xs text-slate-400">تم اختيار العميل من صفحة التفاصيل السابقة.</p>
               </div>
 
+              {/* Currency Selector */}
+              <div className="space-y-1.5 text-right">
+                <label className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">
+                  عملة التحصيل
+                </label>
+                <CurrencySelector
+                  value={currency}
+                  onChange={setCurrency}
+                  disabled={isEditMode}
+                />
+                {isEditMode && (
+                  <p className="text-xs text-slate-400">لا يمكن تغيير عملة الدفعة أثناء التعديل.</p>
+                )}
+                {isCurrencyMismatched && targetDebt && (
+                  <div className="rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs p-3 flex items-start gap-2.5 mt-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+                    <div>
+                      <span className="font-bold">تنبيه اختلاف العملة:</span> أنت تسجل دفعة بعملة (
+                      {getCurrencyConfig(currency).labelAr}) بينما الدين المحدد رقم {targetDebt.reference || targetDebt.id} مسجل بعملة (
+                      {getCurrencyConfig(targetDebt.currencyCode).labelAr}). تأكد من رغبتك بالتحصيل بهذه العملة.
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Amount + Payment Date, side by side */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Payment Amount */}
                 <div className="space-y-1.5 text-right">
                   <label className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    مبلغ الدفعة (شيكل إسرائيلي)
+                    مبلغ الدفعة ({getCurrencyConfig(currency).labelArFull})
                   </label>
                   <div className="relative flex items-center">
                     <input
@@ -397,9 +487,12 @@ export const NewPaymentScreen: FC = () => {
                       }}
                       placeholder="0.00"
                       dir="ltr"
-                      className={`w-full px-3.5 py-2.5 bg-slate-50/70 dark:bg-slate-800/70 border rounded-lg text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-left font-sans ${fieldErrors.amount ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'
+                      className={`w-full pr-3.5 pl-10 py-2.5 bg-slate-50/70 dark:bg-slate-800/70 border rounded-lg text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-left font-sans ${fieldErrors.amount ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'
                         }`}
                     />
+                    <span className="absolute left-3 text-sm font-bold text-slate-400 font-sans pointer-events-none">
+                      {getCurrencyConfig(currency).symbol}
+                    </span>
                   </div>
                   {fieldErrors.amount && (
                     <p className="text-xs text-rose-600">{fieldErrors.amount}</p>
@@ -572,25 +665,44 @@ export const NewPaymentScreen: FC = () => {
 
               {/* Customer Balance Summary Card */}
               <div className="bg-[#0c2444] text-white rounded-2xl p-5 space-y-4">
-                <h3 className="text-sm font-bold">ملخص رصيد العميل</h3>
+                <h3 className="text-sm font-bold font-cairo">ملخص رصيد العميل</h3>
 
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-blue-200/70 font-medium">إجمالي المديونية:</span>
-                  <span className="font-bold" dir="ltr">
-                    {isLoadingProfile ? '...' : `${totalDebt.toFixed(2).replace(/\.00$/, '')} ₪`}
+                  <span className="text-blue-200/70 font-medium">المديونية ({getCurrencyConfig(currency).labelAr}):</span>
+                  <span className="font-bold font-mono" dir="ltr">
+                    {isLoadingProfile ? '...' : formatCurrency(selectedCurrencyBalance, currency)}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-blue-200/70 font-medium">الرصيد بعد الدفع:</span>
-                  <span className="font-bold" dir="ltr">
+                  <span className="font-bold font-mono" dir="ltr">
                     {balanceAfterPayment === null
                       ? '---'
-                      : `${balanceAfterPayment.toFixed(2).replace(/\.00$/, '')} ₪`}
+                      : formatCurrency(balanceAfterPayment, currency)}
                   </span>
                 </div>
 
-                <div className="space-y-1.5">
+                {/* Multi-Currency breakdown if other currencies exist */}
+                {activeCurrencies.length > 1 && (
+                  <div className="pt-3 border-t border-white/10 space-y-1.5">
+                    <span className="text-[11px] text-blue-200/60 block font-medium">أرصدة العملات الأخرى:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {activeCurrencies
+                        .filter((s) => s.currency.code !== currency)
+                        .map((s) => (
+                          <span
+                            key={s.currency.code}
+                            className="px-2 py-0.5 rounded-md text-[11px] bg-white/10 text-white font-mono"
+                          >
+                            {formatCurrency(s.balance, s.currency.code)}
+                          </span>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-1.5 pt-1">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-blue-200/70 font-medium">مدى التزام العميل:</span>
                     <span className="font-bold text-emerald-400">{commitmentPercent}%</span>

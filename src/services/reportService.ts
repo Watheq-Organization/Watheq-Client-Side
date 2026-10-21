@@ -1,4 +1,5 @@
 import { httpClient, ApiError } from '../api/httpClient';
+import { normalizeCurrencyCode, groupTotalsByCurrency } from '../utils/currency';
 import type {
   CollectionsReportParams,
   CollectionsReportResponse,
@@ -141,20 +142,40 @@ export function printCollectionsReportHtml(
     return;
   }
 
+  const totalsByCurrency = groupTotalsByCurrency(
+    data.items.map((it) => ({ amount: it.amount, currency: it.currency }))
+  );
+  const activeCurrencies = (['ILS', 'USD', 'JOD'] as const).filter(
+    (c) => totalsByCurrency[c].count > 0 || totalsByCurrency[c].total > 0
+  );
+
+  const kpiCollectionHtml =
+    activeCurrencies.length === 0
+      ? '0 ₪'
+      : activeCurrencies
+          .map((c) => {
+            const sym = c === 'USD' ? '$' : c === 'JOD' ? 'د.أ' : '₪';
+            return `<div style="margin-bottom: 2px;">${totalsByCurrency[c].total.toLocaleString('en-US')} ${sym}</div>`;
+          })
+          .join('');
+
   const itemsRows = data.items
-    .map(
-      (item, idx) => `
+    .map((item, idx) => {
+      const curr = normalizeCurrencyCode(item.currency);
+      const symbol = curr === 'USD' ? '$' : curr === 'JOD' ? 'د.أ' : '₪';
+      return `
     <tr>
       <td style="text-align: center;">${idx + 1}</td>
       <td style="font-weight: bold;">${item.receiptNumber || item.id}</td>
       <td>${item.customerName}</td>
-      <td style="text-align: left; font-weight: bold; color: #047857;">${item.amount.toLocaleString('en-US')} ₪</td>
+      <td style="text-align: left; font-weight: bold; color: #047857;">${item.amount.toLocaleString('en-US')} ${symbol}</td>
+      <td style="text-align: center;"><span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold;">${curr}</span></td>
       <td style="text-align: center;">${item.date}</td>
       <td style="text-align: center;">${formatPaymentMethod(item.paymentMethod)}</td>
       <td style="text-align: center;"><span style="background: #dcfce7; color: #15803d; padding: 2px 8px; border-radius: 4px; font-size: 11px;">${item.status || 'مكتمل'}</span></td>
     </tr>
-  `
-    )
+  `;
+    })
     .join('');
 
   const html = `
@@ -201,16 +222,18 @@ export function printCollectionsReportHtml(
 
       <div class="kpi-grid">
         <div class="kpi-card">
-          <div class="kpi-label">إجمالي التحصيلات</div>
-          <div class="kpi-val emerald">${data.totalCollected.toLocaleString('en-US')} ₪</div>
+          <div class="kpi-label">إجمالي التحصيلات (حسب العملة)</div>
+          <div class="kpi-val emerald">${kpiCollectionHtml}</div>
         </div>
         <div class="kpi-card">
           <div class="kpi-label">عدد عمليات التحصيل</div>
           <div class="kpi-val">${data.totalRecords.toLocaleString('en-US')} عملية</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-label">متوسط قيمة السند</div>
-          <div class="kpi-val">${(data.totalRecords > 0 ? Math.round(data.totalCollected / data.totalRecords) : 0).toLocaleString('en-US')} ₪</div>
+          <div class="kpi-label">توزيع العملات</div>
+          <div class="kpi-val" style="font-size: 13px; font-weight: 600;">
+            ${activeCurrencies.map(c => `${c}: ${totalsByCurrency[c].count} سند`).join(' | ') || 'لا توجد سندات'}
+          </div>
         </div>
       </div>
 
@@ -221,6 +244,7 @@ export function printCollectionsReportHtml(
             <th>رقم السند</th>
             <th>اسم العميل</th>
             <th>المبلغ المحصل</th>
+            <th style="text-align: center;">العملة</th>
             <th style="text-align: center;">تاريخ السداد</th>
             <th style="text-align: center;">طريقة الدفع</th>
             <th style="text-align: center;">الحالة</th>
@@ -232,7 +256,7 @@ export function printCollectionsReportHtml(
       </table>
 
       <div class="footer">
-        <div>تم استخراج هذا التقرير آلياً عبر منصة وثيق المالية</div>
+        <div>تم استخراج هذا التقرير آلياً عبر منصة وثيق المالية (نظام تعدد العملات ILS / USD / JOD)</div>
         <div>صفحة 1 من 1</div>
       </div>
 
@@ -464,11 +488,12 @@ export function exportCollectionsReportCsv(
   items: CollectionItem[],
   filename = 'تقرير_التحصيلات.csv'
 ): void {
-  const headers = ['رقم العملية', 'اسم العميل', 'المبلغ (₪)', 'تاريخ السداد', 'طريقة الدفع', 'رقم الإيصال', 'الحالة'];
+  const headers = ['رقم العملية', 'اسم العميل', 'المبلغ', 'العملة', 'تاريخ السداد', 'طريقة الدفع', 'رقم الإيصال', 'الحالة'];
   const rows = items.map((item) => [
     item.id,
     item.customerName,
     item.amount,
+    normalizeCurrencyCode(item.currency),
     item.date,
     item.paymentMethod || 'نقداً',
     item.receiptNumber || '—',
@@ -727,7 +752,14 @@ function mapToCollectionItem(item: unknown): CollectionItem {
     customerId: customerIdVal !== undefined ? String(customerIdVal) : undefined,
     customerName: String(customerNameVal),
     amount: Number(amountVal) || 0,
-    currency: String(r.currency || r.Currency || 'ILS'),
+    currency: normalizeCurrencyCode(
+      r.currencyCode ??
+      r.CurrencyCode ??
+      r.currency ??
+      r.Currency ??
+      r.currencyId ??
+      r.CurrencyId
+    ),
     date: String(dateVal).split('T')[0],
     paymentMethod: formatPaymentMethod(
       r.paymentMethod ??

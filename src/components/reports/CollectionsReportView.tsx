@@ -23,6 +23,14 @@ import {
   formatPaymentMethod,
 } from '../../services/reportService';
 import type { CollectionsReportResponse, CollectionItem } from '../../types/report';
+import {
+  formatCurrency,
+  groupTotalsByCurrency,
+  normalizeCurrencyCode,
+  CURRENCY_BADGE_STYLES,
+  SUPPORTED_CURRENCIES,
+  type CurrencyCode,
+} from '../../utils/currency';
 
 type QuickRange = 'all' | 'today' | 'week' | 'month' | 'custom';
 
@@ -39,6 +47,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
 
   // Filter States
   const [quickRange, setQuickRange] = useState<QuickRange>('month');
+  const [selectedCurrency, setSelectedCurrency] = useState<'all' | CurrencyCode>('all');
   const [fromDate, setFromDate] = useState<string>(() => {
     const d = new Date();
     d.setDate(1); // 1st day of current month
@@ -124,6 +133,10 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
       list = list.filter((item) => formatPaymentMethod(item.paymentMethod) === methodFilter);
     }
 
+    if (selectedCurrency !== 'all') {
+      list = list.filter((item) => normalizeCurrencyCode(item.currency) === selectedCurrency);
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       list = list.filter(
@@ -135,7 +148,17 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
     }
 
     return list;
-  }, [reportData, searchQuery, methodFilter]);
+  }, [reportData, searchQuery, methodFilter, selectedCurrency]);
+
+  // Group collections by currency - never sum different currencies together
+  const collectionsByCurrency = useMemo(() => {
+    return groupTotalsByCurrency(
+      displayedItems.map((item) => ({
+        amount: item.amount,
+        currency: item.currency,
+      }))
+    );
+  }, [displayedItems]);
 
   // Derived KPI metrics
   const kpiMetrics = useMemo(() => {
@@ -274,15 +297,40 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
               <Banknote className="w-5 h-5" />
             </div>
           </div>
-          <div className="mt-4 flex items-baseline gap-1.5">
-            <span className="text-2xl font-bold font-cairo text-[#047857]">
-              {kpiMetrics.totalCollected.toLocaleString('en-US')}
-            </span>
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 font-cairo">شيكل</span>
+          <div className="mt-4 flex flex-col gap-1.5 justify-start">
+            {selectedCurrency !== 'all' ? (
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-bold font-cairo text-[#047857]">
+                  {collectionsByCurrency[selectedCurrency].total.toLocaleString('en-US')}
+                </span>
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 font-cairo">
+                  {SUPPORTED_CURRENCIES[selectedCurrency].symbol} ({SUPPORTED_CURRENCIES[selectedCurrency].labelAr})
+                </span>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {(['ILS', 'USD', 'JOD'] as const).map((curr) => {
+                  const total = collectionsByCurrency[curr].total;
+                  return (
+                    <div
+                      key={curr}
+                      className={`px-2 py-0.5 rounded-lg text-xs font-bold border flex items-center gap-1 ${
+                        total > 0
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                          : 'bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-800 dark:text-slate-500 dark:border-slate-700'
+                      }`}
+                    >
+                      <span>{SUPPORTED_CURRENCIES[curr].labelAr}:</span>
+                      <span className="font-mono">{total.toLocaleString('en-US')} {SUPPORTED_CURRENCIES[curr].symbol}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
           <div className="mt-2 flex items-center gap-1 text-[11px] text-emerald-600 font-medium">
             <TrendingUp className="w-3 h-3" />
-            <span>مدفوعات مؤكدة في الخزينة</span>
+            <span>مدفوعات مؤكدة مفصولة بالعملة</span>
           </div>
         </div>
 
@@ -371,6 +419,31 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
                 }`}
               >
                 {chip.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Currency Filter Tabs */}
+          <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-700 rounded-xl">
+            {(
+              [
+                { id: 'all', label: 'كافة العملات' },
+                { id: 'ILS', label: '₪ شيكل' },
+                { id: 'USD', label: '$ دولار' },
+                { id: 'JOD', label: 'د.أ دينار' },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setSelectedCurrency(tab.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+                  selectedCurrency === tab.id
+                    ? 'bg-[#051838] dark:bg-blue-600 text-white font-bold shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                }`}
+              >
+                {tab.label}
               </button>
             ))}
           </div>
@@ -479,6 +552,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
                 <th className="px-6 py-3.5">رقم السند</th>
                 <th className="px-6 py-3.5">اسم العميل</th>
                 <th className="px-6 py-3.5">المبلغ المحصل</th>
+                <th className="px-6 py-3.5 text-center">العملة</th>
                 <th className="px-6 py-3.5">تاريخ السداد</th>
                 <th className="px-6 py-3.5">طريقة الدفع</th>
                 <th className="px-6 py-3.5">الحالة</th>
@@ -488,7 +562,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                  <td colSpan={8} className="py-12 text-center text-slate-400">
                     <div className="flex flex-col items-center gap-2">
                       <RotateCw className="w-6 h-6 animate-spin text-[#051838] dark:text-white" />
                       <span className="text-xs">جاري تحميل سجلات التحصيل من الخادم...</span>
@@ -497,7 +571,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
                 </tr>
               ) : displayedItems.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                  <td colSpan={8} className="py-12 text-center text-slate-400">
                     <div className="flex flex-col items-center gap-2">
                       <Receipt className="w-8 h-8 text-slate-300" />
                       <p className="font-semibold text-slate-600 dark:text-slate-400">لا توجد عمليات تحصيل مطابقة</p>
@@ -527,7 +601,18 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
 
                     {/* Collected Amount */}
                     <td className="px-6 py-4 font-bold font-cairo text-[#047857]">
-                      {item.amount.toLocaleString('en-US')} <span className="text-base font-bold text-slate-500 dark:text-slate-400 mr-1">₪</span>
+                      {formatCurrency(item.amount, item.currency)}
+                    </td>
+
+                    {/* Currency Badge */}
+                    <td className="px-6 py-4 text-center">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold ${
+                          CURRENCY_BADGE_STYLES[normalizeCurrencyCode(item.currency)]
+                        }`}
+                      >
+                        {normalizeCurrencyCode(item.currency)}
+                      </span>
                     </td>
 
                     {/* Payment Date */}

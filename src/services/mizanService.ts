@@ -1,4 +1,4 @@
-import { httpClient } from '../api/httpClient';
+import { httpClient, api } from '../api/httpClient';
 
 export interface ReconciliationSummary {
   period?: string;
@@ -11,6 +11,36 @@ export interface ReconciliationSummary {
   missingInBank?: number;
   discrepancies?: number;
   finalApproved?: number;
+}
+
+export interface ReconciliationHistoryParams {
+  bankName?: string;
+  fromDate?: string;
+  toDate?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface HistoricalReconciliationSession {
+  id: string;
+  sessionId?: string;
+  bankName: string;
+  period?: string;
+  periodName?: string;
+  createdAt?: string;
+  statementFileName?: string;
+  fileName?: string;
+  totalTransactions?: number;
+  matchedCount?: number;
+  discrepanciesCount?: number;
+  uncollectedCount?: number;
+  unmatchedCount?: number;
+  totalAmount?: number;
+  matchedAmount?: number;
+  status?: string;
+  approvedAt?: string;
+  notes?: string;
+  summary?: ReconciliationSummary;
 }
 
 export interface ReconciledSale {
@@ -65,9 +95,14 @@ export async function uploadAndStartReconciliation(formData: FormData, period?: 
   return response.data ? response.data : response;
 }
 
-export async function getReconciliations(): Promise<any> {
-  const response = await httpClient.get<any>('/mizan/reconciliations');
-  return response.data ? response.data : response;
+// Fetch historical reconciliation sessions with optional pagination/filtering
+export const getReconciliationHistory = async (params?: { bankName?: string; fromDate?: string; toDate?: string; page?: number; pageSize?: number }) => {
+  const response = await api.get<any>('/mizan/reconciliations', { params });
+  return response?.data !== undefined ? response.data : response;
+};
+
+export async function getReconciliations(params?: { bankName?: string; fromDate?: string; toDate?: string; page?: number }): Promise<any> {
+  return getReconciliationHistory(params);
 }
 
 export async function getReconciliationSummary(sessionId: string): Promise<ReconciliationSummary> {

@@ -35,6 +35,7 @@ import { getOverdueDebtsReport } from '../../services/reportService';
 import { sendDebtReminder, toSendReminderErrorMessage } from '../../services/debtService';
 import { Toast, type ToastType } from '../ui/Toast';
 import { PhoneInputWithCountry, type CountryCode } from '../ui/PhoneInputWithCountry';
+import { formatCurrency } from '../../utils/currency';
 
 export const CustomersScreen: FC = () => {
   const navigate = useNavigate();
@@ -619,8 +620,7 @@ export const CustomersScreen: FC = () => {
 
                         {/* 3. Total Debt */}
                         <td className="py-4 px-4 sm:px-6 font-bold text-slate-900 dark:text-white font-cairo text-sm sm:text-base">
-                          <span>{customer.totalDebt.toLocaleString('en-US')}</span>{' '}
-                          <span className="text-base font-bold text-slate-400 font-cairo mr-1">₪</span>
+                          <span dir="ltr">{formatCurrency(customer.totalDebt, 'ILS')}</span>
                         </td>
 
                         {/* 4. Status Badge */}

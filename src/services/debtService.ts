@@ -40,11 +40,15 @@ function resolveDebtReason(notes: string | undefined): string {
   return notes?.trim() || DEFAULT_DEBT_REASON;
 }
 
+import { getCurrencyConfig, getCurrencyId, type CurrencyCode } from '../utils/currency';
+
 export interface AddDebtFormValues {
   customerId: string;
   amount: string;
   dueDate: string; // yyyy-mm-dd, as produced by <input type="date">
   notes: string;
+  currencyId?: number;
+  currencyCode?: CurrencyCode | string;
 }
 
 /**
@@ -58,17 +62,21 @@ function toIsoDueDate(dateOnly: string): string {
 /**
  * Assembles the exact request body sent to the Create Debt API from the
  * values the visible form actually collects, applying the reason/currency
- * fallbacks documented above. Kept separate from createDebt() so the
- * mapping itself is easy to unit test without a network call.
+ * fallbacks.
  */
 export function buildCreateDebtPayload(values: AddDebtFormValues): CreateDebtPayload {
+  const currencyId = Number(
+    values.currencyId ??
+    (values.currencyCode ? getCurrencyId(values.currencyCode) : DEFAULT_CURRENCY_ID)
+  );
+
   return {
     customerId: Number(values.customerId),
     amount: Number(values.amount),
-    currencyId: DEFAULT_CURRENCY_ID,
+    currencyId,
     reason: resolveDebtReason(values.notes),
     dueDate: toIsoDueDate(values.dueDate),
-    ...(values.notes.trim() ? { notes: values.notes.trim() } : {}),
+    notes: values.notes?.trim() ? values.notes.trim() : null,
   };
 }
 
@@ -98,16 +106,22 @@ function resolveUpdateReason(notes: string | undefined): string {
 export interface UpdateDebtFormValues extends AddDebtFormValues {
   /** Kept from the debt's current currency unless the caller overrides it. */
   currencyId?: number;
+  currencyCode?: CurrencyCode | string;
 }
 
 export function buildUpdateDebtPayload(values: UpdateDebtFormValues): UpdateDebtPayload {
+  const currencyId = Number(
+    values.currencyId ??
+    (values.currencyCode ? getCurrencyId(values.currencyCode) : DEFAULT_CURRENCY_ID)
+  );
+
   return {
     customerId: Number(values.customerId),
     amount: Number(values.amount),
-    ...(values.currencyId ? { currencyId: values.currencyId } : {}),
+    currencyId,
     reason: resolveUpdateReason(values.notes),
     dueDate: toIsoDueDate(values.dueDate),
-    ...(values.notes.trim() ? { notes: values.notes.trim() } : {}),
+    notes: values.notes?.trim() ? values.notes.trim() : null,
   };
 }
 
@@ -356,6 +370,7 @@ export interface EditableDebtRecord {
   notes: string;
   status: string | null;
   currencyId?: number;
+  currencyCode?: string;
 }
 
 function editableDebtStorageKey(customerId: string, debtNumber: string): string {
@@ -385,6 +400,8 @@ export function rememberEditableDebt(
   const id = dto.id != null ? String(dto.id) : '';
   if (!debtNumber || !id) return; // nothing usable to cache
   try {
+    const rawCurrency = dto.currencyId ?? values.currencyId ?? DEFAULT_CURRENCY_ID;
+    const currencyConfig = getCurrencyConfig(dto.currencyCode ?? dto.currency ?? values.currencyCode ?? rawCurrency);
     const record: EditableDebtRecord = {
       id,
       debtNumber,
@@ -393,7 +410,8 @@ export function rememberEditableDebt(
       dueDate: values.dueDate,
       notes: values.notes.trim(),
       status: typeof dto.status === 'string' ? dto.status : null,
-      ...(typeof dto.currencyId === 'number' ? { currencyId: dto.currencyId } : {}),
+      currencyId: Number(dto.currencyId ?? values.currencyId ?? currencyConfig.id),
+      currencyCode: String(dto.currencyCode ?? dto.currency ?? values.currencyCode ?? currencyConfig.code),
     };
     localStorage.setItem(editableDebtStorageKey(customerId, debtNumber), JSON.stringify(record));
   } catch {

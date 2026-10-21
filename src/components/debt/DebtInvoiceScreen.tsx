@@ -25,6 +25,12 @@ import {
 import { getCustomerProfile, getCustomers } from '../../services/customerService';
 import { formatApiDate, getDeviceLocalDateString } from '../../lib/dateUtils';
 import type { DebtInvoiceDto } from '../../types/invoice';
+import {
+  getCurrencyConfig,
+  normalizeCurrencyCode,
+  CURRENCY_BADGE_STYLES,
+  type CurrencyCode,
+} from '../../utils/currency';
 
 interface DebtItem {
   id: string;
@@ -251,8 +257,14 @@ export const DebtInvoiceScreen: FC = () => {
       serverInvoice?.remainingAmount ??
       navState?.totalCurrentDebt ??
       (invoiceAmount + previousDebt - previousPaid);
-    const currency =
-      serverInvoice?.currency ?? serverInvoice?.currencyCode ?? 'شيكل';
+    const rawCurrency =
+      serverInvoice?.currencyCode ??
+      serverInvoice?.currency ??
+      (serverInvoice as any)?.currencyId ??
+      (navState as any)?.currency ??
+      'ILS';
+    const currencyCode: CurrencyCode = normalizeCurrencyCode(rawCurrency);
+    const currencyConfig = getCurrencyConfig(currencyCode);
 
     return {
       invoiceNumber,
@@ -270,7 +282,9 @@ export const DebtInvoiceScreen: FC = () => {
       previousDebt,
       previousPaid,
       totalCurrentDebt,
-      currency,
+      currency: currencyConfig.labelAr,
+      currencyCode,
+      currencyConfig,
       hash: serverInvoice?.hash ?? (serverInvoice?.invoiceNumber ? `WTQ-${serverInvoice.invoiceNumber}-SECURE` : 'WTQ-SECURE-STAMP'),
     };
   }, [serverInvoice, navState, id, customerRegistrationDate, merchant.businessName]);
@@ -312,7 +326,7 @@ export const DebtInvoiceScreen: FC = () => {
       // Graceful fallback to client direct WhatsApp link
     }
     const message = encodeURIComponent(
-      `مرحباً ${invoiceData.customerName}،\nتم إصدار سند إثبات وقيد دين رقمي #${invoiceData.invoiceNumber} بمبلغ ${invoiceData.invoiceAmount.toLocaleString()} شيكل إسرائيلي من ${merchant.businessName}.\nموعد السداد الأقصى: ${invoiceData.dueDate}.\nيمكنكم التحقق من السند عبر الرابط: ${window.location.origin}/debts/${cleanId}/invoice`
+      `مرحباً ${invoiceData.customerName}،\nتم إصدار سند إثبات وقيد دين رقمي #${invoiceData.invoiceNumber} بمبلغ ${invoiceData.invoiceAmount.toLocaleString()} ${invoiceData.currencyConfig.labelArFull} من ${merchant.businessName}.\nموعد السداد الأقصى: ${invoiceData.dueDate}.\nيمكنكم التحقق من السند عبر الرابط: ${window.location.origin}/debts/${cleanId}/invoice`
     );
     window.open(`https://wa.me/?text=${message}`, '_blank');
   };
@@ -514,8 +528,8 @@ export const DebtInvoiceScreen: FC = () => {
                       <th className="py-3 px-4 w-12 text-center">#</th>
                       <th className="py-3 px-4">البيان</th>
                       <th className="py-3 px-4 text-center">الكمية</th>
-                      <th className="py-3 px-4 text-center">سعر الوحدة</th>
-                      <th className="py-3 px-4 text-left">الإجمالي</th>
+                      <th className="py-3 px-4 text-center">سعر الوحدة ({invoiceData.currencyConfig.symbol})</th>
+                      <th className="py-3 px-4 text-left">الإجمالي ({invoiceData.currencyConfig.symbol})</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -555,8 +569,14 @@ export const DebtInvoiceScreen: FC = () => {
                   
                   <div className="w-full md:w-1/2 text-center md:text-left border-t md:border-t-0 md:border-r border-slate-200 dark:border-slate-700 pt-4 md:pt-0 md:pr-6">
                     <span className="text-sm font-medium text-slate-500 block mb-2">إجمالي المديونية المطلوبة الآن</span>
-                    <div className="text-3xl sm:text-4xl font-bold text-rose-600 font-mono" dir="ltr">
-                      {invoiceData.totalCurrentDebt.toFixed(2)} <span className="text-xl font-cairo text-slate-700 dark:text-slate-300">{invoiceData.currency}</span>
+                    <div className="text-3xl sm:text-4xl font-bold text-rose-600 font-mono flex items-center justify-center md:justify-start gap-2" dir="ltr">
+                      <span>{invoiceData.totalCurrentDebt.toFixed(2)}</span>
+                      <span className="text-xl font-cairo text-slate-700 dark:text-slate-300">
+                        {invoiceData.currencyConfig.symbol} ({invoiceData.currencyConfig.labelAr})
+                      </span>
+                      <span className={`text-xs px-2 py-0.5 rounded-md font-bold font-sans ${CURRENCY_BADGE_STYLES[invoiceData.currencyCode]}`}>
+                        {invoiceData.currencyCode}
+                      </span>
                     </div>
                   </div>
                 </div>

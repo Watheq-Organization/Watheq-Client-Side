@@ -14,6 +14,13 @@ import {
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
 import { Textarea } from '../ui/Textarea';
+import {
+  type CurrencyCode,
+  getCurrencyConfig,
+  getCurrencyId,
+  normalizeCurrencyCode,
+} from '../../utils/currency';
+import { getCurrencies, type CurrencyDto, DEFAULT_CURRENCIES } from '../../services/currencyService';
 import type { CustomerDto } from '../../types/customer';
 import {
   searchCustomersByIdOrPhone,
@@ -148,7 +155,26 @@ export const AddDebtScreen: FC = () => {
     if (selectedCustomer) setSelectedCustomer(null);
   };
 
-  // Form state
+  // Currencies from GET /api/Currency/getCurrencies
+  const [currencies, setCurrencies] = useState<CurrencyDto[]>(DEFAULT_CURRENCIES);
+  const [currencyId, setCurrencyId] = useState<number>(() => {
+    if (editingDebt?.currencyId) return editingDebt.currencyId;
+    if (editingDebt?.currencyCode) return getCurrencyId(editingDebt.currencyCode);
+    return 1; // default ILS (id: 1)
+  });
+
+  useEffect(() => {
+    getCurrencies().then((list) => {
+      if (list && list.length > 0) {
+        setCurrencies(list);
+      }
+    });
+  }, []);
+
+  const activeCurrencyDto = currencies.find((c) => c.id === currencyId) || currencies[0] || DEFAULT_CURRENCIES[0];
+  const activeCurrencyCode: CurrencyCode = normalizeCurrencyCode(activeCurrencyDto.code);
+  const activeCurrencyConfig = getCurrencyConfig(activeCurrencyCode);
+
   const [amount, setAmount] = useState(editingDebt ? String(editingDebt.amount) : '');
   const [dueDate, setDueDate] = useState(editingDebt?.dueDate ?? '');
   const [notes, setNotes] = useState(editingDebt?.notes ?? '');
@@ -260,16 +286,34 @@ export const AddDebtScreen: FC = () => {
           amount,
           dueDate,
           notes,
-          currencyId: editingDebt.currencyId,
+          currencyId,
         });
-        rememberEditableDebt(customerId, { customerId, amount, dueDate, notes }, dto);
+        rememberEditableDebt(customerId, {
+          customerId,
+          amount,
+          dueDate,
+          notes,
+          currencyId,
+        }, dto);
         window.dispatchEvent(new Event('watheq:activity-updated'));
         navigate(`/customers/${customerId}`, {
           state: { toast: 'تم تحديث الدين بنجاح.' },
         });
       } else {
-        const dto = await createDebt({ customerId, amount, dueDate, notes });
-        rememberEditableDebt(customerId, { customerId, amount, dueDate, notes }, dto);
+        const dto = await createDebt({
+          customerId,
+          amount,
+          dueDate,
+          notes,
+          currencyId,
+        });
+        rememberEditableDebt(customerId, {
+          customerId,
+          amount,
+          dueDate,
+          notes,
+          currencyId,
+        }, dto);
         window.dispatchEvent(new Event('watheq:activity-updated'));
         navigate(`/customers/${customerId}`, {
           state: { toast: 'تم تسجيل الدين بنجاح.' },
@@ -480,12 +524,34 @@ export const AddDebtScreen: FC = () => {
               )}
             </div>
 
+            {/* Currency Selector (Confirmed Backend Dropdown Spec) */}
+            <div className="space-y-1.5 text-right">
+              <label className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">
+                عملة الدين
+              </label>
+              <select
+                value={currencyId}
+                onChange={(e) => setCurrencyId(Number(e.target.value))}
+                disabled={isEditMode}
+                className="w-full pr-3.5 pl-3 py-2.5 bg-[#F7F7FC] dark:bg-slate-900 border rounded-lg text-sm font-bold text-slate-800 dark:text-slate-200 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#00204F]/20 dark:focus:ring-blue-500/20 focus:border-[#00204F] dark:focus:border-blue-500 transition-all text-right disabled:cursor-not-allowed disabled:opacity-70 border-slate-200 dark:border-slate-700 cursor-pointer"
+              >
+                {currencies.map((curr) => (
+                  <option key={curr.id} value={curr.id}>
+                    {curr.name} ({curr.code})
+                  </option>
+                ))}
+              </select>
+              {isEditMode && (
+                <p className="text-xs text-slate-400">لا يمكن تغيير عملة الدين أثناء تعديل بياناته.</p>
+              )}
+            </div>
+
             {/* Amount + Due Date, side by side (amount renders on the right in RTL) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Amount */}
               <div className="space-y-1.5 text-right">
                 <label className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  المبلغ (شيكل إسرائيلي)
+                  المبلغ ({activeCurrencyConfig.labelArFull})
                 </label>
                 <div
                   className={`w-full flex items-center gap-1 pr-3.5 pl-3 py-2.5 bg-[#F7F7FC] dark:bg-slate-900 border rounded-lg focus-within:bg-white dark:bg-slate-800 focus-within:ring-2 focus-within:ring-[#00204F]/20 dark:focus-within:ring-blue-500/20 focus-within:border-[#00204F] dark:focus-within:border-blue-500 transition-all ${fieldErrors.amount ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'
@@ -508,7 +574,9 @@ export const AddDebtScreen: FC = () => {
                     dir="ltr"
                     className="min-w-0 flex-1 bg-transparent text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none text-right font-sans"
                   />
-                  <span className="text-base font-bold text-slate-400 shrink-0 mr-1">₪</span>
+                  <span className="text-base font-bold text-slate-500 dark:text-slate-300 shrink-0 mr-1 font-sans">
+                    {activeCurrencyConfig.symbol}
+                  </span>
                 </div>
                 {fieldErrors.amount && <p className="text-xs text-rose-600">{fieldErrors.amount}</p>}
               </div>

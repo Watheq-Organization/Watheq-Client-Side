@@ -14,12 +14,14 @@ import {
   RefreshCw,
   Search,
   ArrowRightLeft,
-  AlertCircle
+  AlertCircle,
+  History
 } from 'lucide-react';
 
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
 import { Toast } from '../ui/Toast';
+import { MizanHistoryAuditLog } from './MizanHistoryAuditLog';
 import { 
   uploadAndStartReconciliation,
   getReconciliationSummary,
@@ -37,6 +39,8 @@ import type {
 } from '../../services/mizanService';
 
 export default function MizanReconciliation() {
+  const [mainView, setMainView] = useState<'studio' | 'history'>('studio');
+  const [historyCount, setHistoryCount] = useState<number>(0);
   const [activeTab, setActiveTab] = useState('reconciled');
   const [isUploading, setIsUploading] = useState(false);
   const [isParsed, setIsParsed] = useState(false);
@@ -303,21 +307,69 @@ export default function MizanReconciliation() {
 
         <main className="p-4 sm:p-6 lg:p-8 space-y-6 flex-1 max-w-7xl mx-auto w-full">
           {/* Header Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <RefreshCw className="w-6 h-6 text-emerald-600" />
-            ميزان — مطابقة المبيعات الفورية مع كشف البنك
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">
-            تأكد من دخول جميع مبيعاتك الفورية إلى حساباتك البنكية والمحافظ الإلكترونية
-          </p>
-        </div>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <RefreshCw className="w-6 h-6 text-emerald-600" />
+                ميزان — مطابقة المبيعات الفورية مع كشف البنك
+              </h1>
+              <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">
+                تأكد من دخول جميع مبيعاتك الفورية إلى حساباتك البنكية والمحافظ الإلكترونية
+              </p>
+            </div>
 
-        <div className="flex items-center gap-3 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-          
-          <div className="relative">
-            <button 
+            {/* Mode Switcher */}
+            <div className="flex items-center gap-1.5 p-1.5 bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+              <button
+                onClick={() => setMainView('studio')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  mainView === 'studio'
+                    ? 'bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-400 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>مطابقة كشف جديد</span>
+              </button>
+
+              <button
+                onClick={() => setMainView('history')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  mainView === 'history'
+                    ? 'bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-400 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <History className="w-3.5 h-3.5" />
+                <span>سجل وأرشيف المطابقات</span>
+                {historyCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400">
+                    {historyCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {mainView === 'history' ? (
+            <MizanHistoryAuditLog
+              onOpenSessionInStudio={(sessId, bank) => {
+                setSelectedBank(bank);
+                setSessionId(sessId);
+                setIsParsed(true);
+                fetchData(sessId);
+                setMainView('studio');
+                setToastMsg(`تم فتح جلسة المطابقة (${sessId}) بنجاح`);
+              }}
+              onRefreshParentCount={setHistoryCount}
+            />
+          ) : (
+            <>
+              {/* Period and Bank Filter Header */}
+              <div className="flex justify-end mb-6">
+                <div className="flex items-center gap-3 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                  <div className="relative">
+                    <button 
               onClick={() => setIsPeriodDropdownOpen(!isPeriodDropdownOpen)}
               onBlur={() => setTimeout(() => setIsPeriodDropdownOpen(false), 200)}
               className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg border border-slate-100 dark:border-slate-700 transition-colors"
@@ -880,6 +932,8 @@ export default function MizanReconciliation() {
           تصدير تقرير المطابقة اليومي (PDF)
         </button>
       </div>
+      </>
+      )}
 
         </main>
       </div>

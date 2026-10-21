@@ -28,6 +28,12 @@ import type {
   OverdueDebtsReportResponse,
   OverdueDebtReportItem,
 } from '../../types/report';
+import {
+  formatCurrency,
+  getCurrencyConfig,
+  CURRENCY_BADGE_STYLES,
+  type CurrencyCode,
+} from '../../utils/currency';
 
 type QuickPeriod = '30days' | '7days' | 'month' | 'all' | 'custom';
 
@@ -294,19 +300,16 @@ export const OverdueDebtsReportView: FC = () => {
                   <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
                     <TrendingDown className="w-5 h-5" />
                   </div>
-                  <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
-                    عملة {sumItem.currencyCode}
+                  <span className={`px-2.5 py-1 rounded-md text-xs font-bold font-mono ${CURRENCY_BADGE_STYLES[sumItem.currencyCode as CurrencyCode] || 'bg-slate-100 text-slate-700'}`}>
+                    {getCurrencyConfig(sumItem.currencyCode).symbol} {sumItem.currencyCode}
                   </span>
                 </div>
 
                 <div className="mt-4 text-right">
-                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400">إجمالي المبالغ المتأخرة</div>
-                  <div className="mt-1 flex items-baseline gap-1.5">
+                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400">إجمالي المبالغ المتأخرة ({getCurrencyConfig(sumItem.currencyCode).labelAr})</div>
+                  <div className="mt-1 flex items-baseline gap-1.5" dir="ltr">
                     <span className="text-2xl sm:text-3xl font-bold font-cairo text-rose-600 tracking-tight">
-                      {sumItem.totalOverdueAmount.toLocaleString('en-US')}
-                    </span>
-                    <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">
-                      {sumItem.currencyCode}
+                      {formatCurrency(sumItem.totalOverdueAmount, sumItem.currencyCode)}
                     </span>
                   </div>
                 </div>
@@ -625,18 +628,18 @@ export const OverdueDebtsReportView: FC = () => {
                     </td>
 
                     {/* Original Amount */}
-                    <td className="px-6 py-4 text-slate-600 dark:text-slate-400 font-medium">
-                      {item.originalAmount.toLocaleString('en-US')}
+                    <td className="px-6 py-4 text-slate-600 dark:text-slate-400 font-medium" dir="ltr">
+                      {formatCurrency(item.originalAmount, item.currencyCode)}
                     </td>
 
                     {/* Remaining Amount */}
-                    <td className="px-6 py-4 font-bold font-cairo text-rose-600">
-                      {item.remainingAmount.toLocaleString('en-US')}
+                    <td className="px-6 py-4 font-bold font-cairo text-rose-600" dir="ltr">
+                      {formatCurrency(item.remainingAmount, item.currencyCode)}
                     </td>
 
                     {/* Currency Code */}
                     <td className="px-6 py-4">
-                      <span className="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                      <span className={`inline-block px-2.5 py-0.5 rounded text-xs font-bold font-mono ${CURRENCY_BADGE_STYLES[item.currencyCode as CurrencyCode] || 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}`}>
                         {item.currencyCode}
                       </span>
                     </td>

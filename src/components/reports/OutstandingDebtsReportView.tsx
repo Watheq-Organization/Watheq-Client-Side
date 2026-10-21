@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { FC } from 'react';
 import {
   FileSpreadsheet,
@@ -21,11 +21,18 @@ import {
 import type {
   OutstandingDebtsReportResponse,
 } from '../../types/report';
+import {
+  formatCurrency,
+  getCurrencyConfig,
+  CURRENCY_BADGE_STYLES,
+  type CurrencyCode,
+} from '../../utils/currency';
 
 export const OutstandingDebtsReportView: FC = () => {
   // Filters & State
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [selectedCurrency, setSelectedCurrency] = useState<string>('all');
   const [isOverdue, setIsOverdue] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<string>('DueDate');
   const [sortDirection, setSortDirection] = useState<'Ascending' | 'Descending'>('Ascending');
@@ -75,14 +82,24 @@ export const OutstandingDebtsReportView: FC = () => {
     fetchReport();
   }, [pageNumber, isOverdue, sortBy, sortDirection, statusFilter]);
 
+  // Filter items by selected currency
+  const filteredItems = useMemo(() => {
+    let list = report?.details?.items ?? [];
+    if (selectedCurrency !== 'all') {
+      list = list.filter((item) => (item.currencyCode || 'ILS') === selectedCurrency);
+    }
+    return list;
+  }, [report, selectedCurrency]);
+
   // Actions
   const handleExportCsv = () => {
-    if (!report?.details?.items || report.details.items.length === 0) {
+    const itemsToExport = filteredItems.length > 0 ? filteredItems : (report?.details?.items ?? []);
+    if (itemsToExport.length === 0) {
       showToast('لا توجد بيانات لتصديرها');
       return;
     }
     exportOutstandingDebtsReportCsv(
-      report.details.items,
+      itemsToExport,
       `تقرير_الديون_المستحقة_${new Date().toISOString().split('T')[0]}.csv`
     );
     showToast('تم تصدير التقرير كملف CSV بنجاح');
@@ -107,48 +124,56 @@ export const OutstandingDebtsReportView: FC = () => {
       );
     }
 
+    const visibleSummary =
+      selectedCurrency !== 'all'
+        ? report.summary.filter((s) => s.currencyCode === selectedCurrency)
+        : report.summary;
+
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {report.summary.map((s) => (
-          <div
-            key={s.currencyCode}
-            className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-5 hover:shadow-md transition-shadow relative overflow-hidden"
-          >
-            <div className="absolute top-0 right-0 w-1 h-full bg-[#051838]" />
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                <Coins className="w-5 h-5" />
+        {visibleSummary.map((s) => {
+          const cfg = getCurrencyConfig(s.currencyCode);
+          return (
+            <div
+              key={s.currencyCode}
+              className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-5 hover:shadow-md transition-shadow relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 w-1 h-full bg-[#051838]" />
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                  <Coins className="w-5 h-5" />
+                </div>
+                <span className={`px-2 py-0.5 rounded-md text-xs font-bold font-mono ${CURRENCY_BADGE_STYLES[s.currencyCode as CurrencyCode] || 'bg-slate-100 text-slate-700'}`}>
+                  {cfg.symbol} {s.currencyCode}
+                </span>
               </div>
-              <span className="text-xs font-bold text-slate-400 uppercase">
-                {s.currencyCode}
-              </span>
-            </div>
 
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium font-cairo mb-1">
-              إجمالي المبلغ المتبقي
-            </p>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-bold font-cairo text-[#051838] dark:text-white">
-                {s.totalOutstandingAmount.toLocaleString('en-US')}
-              </span>
-            </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium font-cairo mb-1">
+                إجمالي المبلغ المتبقي ({cfg.labelAr})
+              </p>
+              <div className="flex items-baseline gap-1.5" dir="ltr">
+                <span className="text-2xl font-bold font-cairo text-[#051838] dark:text-white">
+                  {formatCurrency(s.totalOutstandingAmount, s.currencyCode)}
+                </span>
+              </div>
 
-            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 grid grid-cols-2 gap-2">
-              <div>
-                <p className="text-[10px] text-slate-400 font-medium">المتأخرات</p>
-                <p className="text-sm font-bold text-rose-600">
-                  {s.totalOverdueAmount.toLocaleString('en-US')}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] text-slate-400 font-medium">عدد الديون / العملاء</p>
-                <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                  {s.totalOutstandingDebtsCount} / {s.totalCustomersWithOutstandingDebts}
-                </p>
+              <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 grid grid-cols-2 gap-2">
+                <div>
+                  <p className="text-[10px] text-slate-400 font-medium">المتأخرات</p>
+                  <p className="text-sm font-bold text-rose-600 font-mono" dir="ltr">
+                    {formatCurrency(s.totalOverdueAmount, s.currencyCode)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-400 font-medium">عدد الديون / العملاء</p>
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                    {s.totalOutstandingDebtsCount} / {s.totalCustomersWithOutstandingDebts}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
@@ -260,6 +285,39 @@ export const OutstandingDebtsReportView: FC = () => {
               />
               <span className="text-sm font-medium text-slate-700 dark:text-slate-300">الديون المتأخرة فقط</span>
             </label>
+
+            {/* Currency Filter Tabs */}
+            <div className="flex items-center gap-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setSelectedCurrency('all')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                  selectedCurrency === 'all'
+                    ? 'bg-[#051838] text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                كافة العملات
+              </button>
+              {(['ILS', 'USD', 'JOD'] as const).map((code) => {
+                const cfg = getCurrencyConfig(code);
+                return (
+                  <button
+                    key={code}
+                    type="button"
+                    onClick={() => setSelectedCurrency(code)}
+                    className={`px-2 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                      selectedCurrency === code
+                        ? 'bg-[#051838] text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <span>{cfg.symbol}</span>
+                    <span>{cfg.labelAr}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -314,8 +372,8 @@ export const OutstandingDebtsReportView: FC = () => {
                     جاري تحميل البيانات...
                   </td>
                 </tr>
-              ) : report?.details?.items && report.details.items.length > 0 ? (
-                report.details.items.map((item) => (
+              ) : filteredItems.length > 0 ? (
+                filteredItems.map((item) => (
                   <tr key={item.debtId} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/50 transition-colors">
                     <td className="px-6 py-4 font-mono font-bold text-[#051838] dark:text-white">
                       #{item.debtId}
@@ -325,10 +383,20 @@ export const OutstandingDebtsReportView: FC = () => {
                       <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{item.customerPhone}</p>
                     </td>
                     <td className="px-6 py-4 font-cairo font-semibold text-slate-600 dark:text-slate-400">
-                      {item.amount.toLocaleString('en-US')} <span className="text-xs">{item.currencyCode}</span>
+                      <div className="flex items-center gap-1.5" dir="ltr">
+                        <span>{formatCurrency(item.amount, item.currencyCode)}</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold font-mono ${CURRENCY_BADGE_STYLES[item.currencyCode as CurrencyCode] || ''}`}>
+                          {item.currencyCode}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 font-cairo font-bold text-[#051838] dark:text-white">
-                      {item.remainingAmount.toLocaleString('en-US')} <span className="text-xs">{item.currencyCode}</span>
+                      <div className="flex items-center gap-1.5" dir="ltr">
+                        <span>{formatCurrency(item.remainingAmount, item.currencyCode)}</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold font-mono ${CURRENCY_BADGE_STYLES[item.currencyCode as CurrencyCode] || ''}`}>
+                          {item.currencyCode}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-center font-cairo text-slate-600 dark:text-slate-400">
                       {item.dueDate ? item.dueDate.split('T')[0] : '—'}

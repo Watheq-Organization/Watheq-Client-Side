@@ -1,5 +1,6 @@
 import { httpClient, ApiError } from '../api/httpClient';
 import { getCustomerProfile } from './customerService';
+import { getCurrencyConfig, getCurrencyId } from '../utils/currency';
 import type {
   DeletePaymentResponseDto,
   NewPaymentFormState,
@@ -112,6 +113,17 @@ function buildRegisterPaymentFormData(customerId: string, values: NewPaymentForm
   formData.append('Amount', values.amount.trim());
   const methodNum = String(PAYMENT_METHOD_TO_NUMERIC[values.method] || 1);
   formData.append('PaymentMethod', methodNum);
+
+  // Multi-Currency support
+  const currencyCode = values.currencyCode || values.currency || 'ILS';
+  const currencyId = values.currencyId ?? getCurrencyId(currencyCode);
+  formData.append('CurrencyId', String(currencyId));
+  formData.append('CurrencyCode', currencyCode);
+  formData.append('Currency', currencyCode);
+
+  if (values.debtId) {
+    formData.append('DebtId', String(values.debtId));
+  }
 
   const receiptNumber = values.receiptNumber?.trim();
   if (receiptNumber) {
@@ -440,6 +452,12 @@ export async function getPaymentHistory(
       searchParams.append('UserId', params.userId);
     }
 
+    if (params?.currencyId) {
+      searchParams.append('CurrencyId', String(params.currencyId));
+    } else if (params?.currencyCode) {
+      searchParams.append('CurrencyId', String(getCurrencyId(params.currencyCode)));
+    }
+
     const queryString = searchParams.toString();
     const url = `/Payment/history${queryString ? `?${queryString}` : ''}`;
     console.log('[getPaymentHistory] Fetching:', url);
@@ -512,12 +530,24 @@ export async function getPaymentHistory(
         null) as string | null;
       const notes = it.notes ? String(it.notes) : null;
 
+      const rawCurrency =
+        it.currencyCode ??
+        it.CurrencyCode ??
+        it.currency ??
+        it.Currency ??
+        it.currencyId ??
+        it.CurrencyId;
+      const currencyConfig = getCurrencyConfig(rawCurrency);
+
       return {
         id: id !== undefined ? String(id) : undefined,
         paymentId: id !== undefined ? String(id) : undefined,
         customerId: customerId !== undefined ? String(customerId) : undefined,
         customerName,
         amount,
+        currency: currencyConfig.code,
+        currencyCode: currencyConfig.code,
+        currencyId: currencyConfig.id,
         paymentDate,
         date: paymentDate,
         paymentMethod,

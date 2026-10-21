@@ -35,6 +35,14 @@ import {
 } from '../../services/reportService';
 import type { Customer } from '../../types/customer';
 import type { CollectionItem } from '../../types/report';
+import {
+  type CurrencyCode,
+  formatCurrency,
+  getCurrencyConfig,
+  groupTotalsByCurrency,
+  normalizeCurrencyCode,
+  CURRENCY_BADGE_STYLES,
+} from '../../utils/currency';
 
 interface PaymentRecord {
   id: string;
@@ -43,6 +51,7 @@ interface PaymentRecord {
   customerInitials: string;
   customerAvatarBg: string;
   amount: number;
+  currency: CurrencyCode;
   date: string;
   time: string;
   method: 'تحويل بنكي' | 'نقداً' | 'مدى' | 'بطاقة ائتمان' | string;
@@ -59,6 +68,7 @@ export const PaymentsScreen: FC = () => {
   // Filters
   const [selectedMethod, setSelectedMethod] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedCurrency, setSelectedCurrency] = useState<string>('all');
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
 
@@ -105,6 +115,7 @@ export const PaymentsScreen: FC = () => {
         const mapped: PaymentRecord[] = historyRes.items.map((item) => {
           const name = item.customerName || 'عميل';
           const initials = name.trim().slice(0, 2) || 'عم';
+          const curr = normalizeCurrencyCode(item.currency || item.currencyCode || item.currencyId);
           return {
             id: String(item.id || item.paymentId || Math.random()),
             customerId: String(item.customerId || ''),
@@ -112,6 +123,7 @@ export const PaymentsScreen: FC = () => {
             customerInitials: initials,
             customerAvatarBg: 'bg-blue-100 text-blue-700',
             amount: item.amount,
+            currency: curr,
             date: item.paymentDate || item.date || '—',
             time: '—',
             method: formatPaymentMethod(item.paymentMethod || item.method),
@@ -140,6 +152,7 @@ export const PaymentsScreen: FC = () => {
 
       const mapped: PaymentRecord[] = res.items.map((item: CollectionItem) => {
         const initials = item.customerName.trim().slice(0, 2) || 'عم';
+        const curr = normalizeCurrencyCode(item.currency);
         return {
           id: String(item.id || item.paymentId),
           customerId: String(item.customerId || ''),
@@ -147,6 +160,7 @@ export const PaymentsScreen: FC = () => {
           customerInitials: initials,
           customerAvatarBg: 'bg-blue-100 text-blue-700',
           amount: item.amount,
+          currency: curr,
           date: item.date,
           time: '—',
           method: formatPaymentMethod(item.paymentMethod),
@@ -207,6 +221,7 @@ export const PaymentsScreen: FC = () => {
   const handleResetFilters = () => {
     setSelectedMethod('all');
     setSelectedStatus('all');
+    setSelectedCurrency('all');
     setFromDate('');
     setToDate('');
     setSearchQuery('');
@@ -236,9 +251,27 @@ export const PaymentsScreen: FC = () => {
     showToast('تم تصدير سجل المدفوعات بنجاح.');
   };
 
+  // Group totals by currency for accounting compliance
+  const currencyGroupTotals = useMemo(() => {
+    return groupTotalsByCurrency(
+      payments.map((p) => ({ amount: p.amount, type: 'payment', currencyCode: p.currency }))
+    );
+  }, [payments]);
+
+  const activeCurrenciesInPayments = useMemo(() => {
+    return (['ILS', 'USD', 'JOD'] as CurrencyCode[]).filter(
+      (code) => currencyGroupTotals[code].paymentCount > 0
+    );
+  }, [currencyGroupTotals]);
+
   // Filtered Payments from real server data
   const filteredPayments = useMemo(() => {
     return payments.filter((payment) => {
+      // Currency filter
+      if (selectedCurrency !== 'all' && payment.currency !== selectedCurrency) {
+        return false;
+      }
+
       // Search filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
@@ -268,7 +301,7 @@ export const PaymentsScreen: FC = () => {
 
       return true;
     });
-  }, [payments, searchQuery, selectedMethod, selectedStatus, fromDate, toDate]);
+  }, [payments, searchQuery, selectedMethod, selectedStatus, selectedCurrency, fromDate, toDate]);
 
   const totalPages = Math.ceil(filteredPayments.length / ITEMS_PER_PAGE) || 1;
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -449,14 +482,37 @@ export const PaymentsScreen: FC = () => {
                 <span className="text-xs text-slate-400 font-medium">إجمالي المحصل</span>
               </div>
               <div className="mt-4 text-right">
-                <div className="flex items-baseline gap-1.5 justify-start">
-                  <span className="text-2xl sm:text-3xl font-bold font-cairo text-[#051838] dark:text-white tracking-tight">
-                    {summaryStats.totalCollected.toLocaleString('en-US')}
-                  </span>
-                  <span className="text-xs text-slate-400 font-medium font-cairo">شيكل</span>
-                </div>
-                <div className="mt-1 flex items-center gap-1 text-xs text-emerald-600 font-semibold">
-                  <span>من واقع الخادم المباشر</span>
+                {selectedCurrency !== 'all' ? (
+                  <div className="flex items-baseline gap-1.5 justify-start">
+                    <span className="text-2xl sm:text-3xl font-bold font-cairo text-[#051838] dark:text-white tracking-tight">
+                      {currencyGroupTotals[selectedCurrency as CurrencyCode]?.totalPayments.toLocaleString('en-US') ?? 0}
+                    </span>
+                    <span className="text-xs text-slate-400 font-medium font-cairo">
+                      {getCurrencyConfig(selectedCurrency).symbol} ({getCurrencyConfig(selectedCurrency).labelAr})
+                    </span>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap gap-1.5 justify-start">
+                      {activeCurrenciesInPayments.length > 0 ? (
+                        activeCurrenciesInPayments.map((code) => (
+                          <span
+                            key={code}
+                            className={`px-2 py-0.5 rounded-md text-xs font-bold font-mono border ${CURRENCY_BADGE_STYLES[code].bg} ${CURRENCY_BADGE_STYLES[code].text} ${CURRENCY_BADGE_STYLES[code].border}`}
+                          >
+                            {formatCurrency(currencyGroupTotals[code].totalPayments, code)}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xl font-bold font-cairo text-[#051838] dark:text-white">
+                          0 ₪
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <div className="mt-1 flex items-center gap-1 text-[11px] text-emerald-600 font-semibold">
+                  <span>من واقع العمليات الموثقة</span>
                 </div>
               </div>
             </div>
@@ -538,6 +594,24 @@ export const PaymentsScreen: FC = () => {
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
 
+              {/* Currency Filter Dropdown */}
+              <div className="relative">
+                <select
+                  value={selectedCurrency}
+                  onChange={(e) => {
+                    setSelectedCurrency(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="appearance-none bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100/80 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 pr-4 pl-8 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-hidden cursor-pointer"
+                >
+                  <option value="all">جميع العملات</option>
+                  <option value="ILS">₪ شيكل (ILS)</option>
+                  <option value="USD">$ دولار (USD)</option>
+                  <option value="JOD">د.أ دينار (JOD)</option>
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+
               {/* Status Filter Dropdown */}
               <div className="relative">
                 <select
@@ -601,7 +675,7 @@ export const PaymentsScreen: FC = () => {
                 <thead>
                   <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-medium text-xs bg-slate-50/6 dark:bg-slate-800/60 dark:bg-slate-800/60">
                     <th className="px-6 py-4">اسم العميل</th>
-                    <th className="px-6 py-4">المبلغ (<span className="text-lg font-bold font-sans">₪</span>)</th>
+                    <th className="px-6 py-4">المبلغ والعملة</th>
                     <th className="px-6 py-4">التاريخ</th>
                     <th className="px-6 py-4">طريقة الدفع</th>
                     <th className="px-6 py-4">الحالة</th>
@@ -692,12 +766,27 @@ export const PaymentsScreen: FC = () => {
                           </div>
                         </td>
 
-                        {/* Amount */}
+                        {/* Amount & Currency Badge */}
                         <td className="px-6 py-4 font-bold font-cairo text-slate-900 dark:text-white text-base" dir="ltr">
-                          {payment.amount.toLocaleString('en-US', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
+                          <div className="flex items-center gap-2 justify-end">
+                            <span>
+                              {payment.amount.toLocaleString('en-US', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </span>
+                            <span
+                              className={`px-2 py-0.5 text-xs font-bold rounded-md font-mono border ${
+                                CURRENCY_BADGE_STYLES[payment.currency].bg
+                              } ${
+                                CURRENCY_BADGE_STYLES[payment.currency].text
+                              } ${
+                                CURRENCY_BADGE_STYLES[payment.currency].border
+                              }`}
+                            >
+                              {payment.currency}
+                            </span>
+                          </div>
                         </td>
 
                         {/* Date & Time */}

@@ -50,6 +50,15 @@ import { PhoneInputWithCountry, type CountryCode } from '../ui/PhoneInputWithCou
 import { PATHS } from '../../routes/paths';
 import { formatApiDate } from '../../lib/dateUtils';
 
+import {
+  formatCurrency,
+  getCurrencyConfig,
+  groupTotalsByCurrency,
+  CURRENCY_BADGE_STYLES,
+  normalizeCurrencyCode,
+  type CurrencyCode,
+} from '../../utils/currency';
+
 interface ActivityItem {
   id: string;
   type: 'debt' | 'payment' | 'alert';
@@ -73,6 +82,8 @@ interface ActivityItem {
   /** Unformatted transaction amount (tx.amount, no sign/decimals applied),
    * used to prefill the edit form when no local cache entry exists. */
   rawAmount: number;
+  /** Currency code for transaction ('ILS' | 'USD' | 'JOD') */
+  currencyCode: CurrencyCode;
   /** Raw debt status (tx.status), null for payments. */
   rawStatus: string | null;
   /** Raw payment method (tx.paymentMethod), null for debts. */
@@ -192,6 +203,7 @@ export const CustomerDetailsScreen: FC = () => {
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeActivityTab, setActiveActivityTab] = useState<'all' | 'debt' | 'payment'>('all');
+  const [selectedCurrencyTab, setSelectedCurrencyTab] = useState<'all' | CurrencyCode>('all');
   const [searchActivityQuery, setSearchActivityQuery] = useState('');
   const [telegramModalCustomer, setTelegramModalCustomer] = useState<{
     id: string;
@@ -597,6 +609,7 @@ export const CustomerDetailsScreen: FC = () => {
         String(tx.type || '').toLowerCase().includes('debt') ||
         String(tx.type || '').includes('دين');
       const sign = isDebt ? '+' : '-';
+      const currencyCode = normalizeCurrencyCode(tx.currencyCode || (tx as any).currency || 'ILS');
       const cachedDebt = isDebt && tx.reference ? getEditableDebt(customer.id, tx.reference) : null;
       const rawDueDate = isDebt ? (tx.dueDate || cachedDebt?.dueDate) : null;
       const formattedDueDate = rawDueDate ? formatApiDate(rawDueDate) : undefined;
@@ -619,26 +632,29 @@ export const CustomerDetailsScreen: FC = () => {
         description: tx.description || (isDebt ? 'معاملة دين' : 'معاملة دفع'),
         date: formatApiDate(tx.date, true),
         dueDate: formattedDueDate,
-        balanceLabel: `${tx.balance.toFixed(2)} ${tx.currencyCode || '₪'}`,
+        balanceLabel: `${tx.balance.toFixed(2)} ${getCurrencyConfig(currencyCode).symbol}`,
         reference: tx.reference,
         recordId:
           tx.id ||
           (isDebt && tx.reference ? Number(getEditableDebt(customer.id, tx.reference)?.id) : undefined) ||
           0,
         rawAmount: tx.amount,
+        currencyCode,
         rawStatus: isDebt ? tx.status : null,
         rawPaymentMethod: isDebt ? null : tx.paymentMethod,
         iconBg: isDebt ? 'bg-[#0c2444] text-white' : 'bg-emerald-600 text-white',
         invoiceId: tx.invoiceId,
       };
     });
-  }, [profileTransactions]);
+  }, [profileTransactions, customer.id]);
 
-  // Latest payment amount, used in the debt banner below. Transactions are
+  // Latest payment record, used in the debt banner below. Transactions are
   // already newest-first, so the first Payment entry is the most recent one.
-  const lastPaymentAmount = useMemo(() => {
-    const lastPayment = profileTransactions.find((tx) => tx.type === 'Payment');
-    return lastPayment ? lastPayment.amount : 0;
+  const lastPayment = useMemo(() => {
+    return profileTransactions.find((tx) => {
+      const typeStr = String(tx.type || '').toLowerCase();
+      return typeStr.includes('payment') || typeStr.includes('pay') || typeStr.includes('دفعة');
+    });
   }, [profileTransactions]);
 
   // Real total paid: combines backend customer.totalPaid, transactions history sum,
@@ -672,10 +688,68 @@ export const CustomerDetailsScreen: FC = () => {
     );
   }, [customer.totalPaid, customer.totalDebt, customer.id, profileTransactions, currentBalance]);
 
-  // Filter activities based on tab and search
+  // Strict Accounting Multi-Currency Breakdown (ILS, USD, JOD never merged)
+  const currencyBreakdown = useMemo(() => {
+    const debtItems: { amount: number; currency: string }[] = [];
+    const paymentItems: { amount: number; currency: string }[] = [];
+
+    profileTransactions.forEach((tx) => {
+      const typeStr = String(tx.type || '').toLowerCase();
+      const isDebt = typeStr.includes('debt') || typeStr.includes('دين');
+      const code = normalizeCurrencyCode(tx.currencyCode || (tx as any).currency || 'ILS');
+      if (isDebt) {
+        debtItems.push({ amount: tx.amount, currency: code });
+      } else {
+        paymentItems.push({ amount: tx.amount, currency: code });
+      }
+    });
+
+    const debtsByCur = groupTotalsByCurrency(debtItems);
+    const paymentsByCur = groupTotalsByCurrency(paymentItems);
+
+    const currencies: CurrencyCode[] = ['ILS', 'USD', 'JOD'];
+    const items = currencies.map((c) => {
+      const totalDebt = debtsByCur[c]?.totalDebts ?? 0;
+      const totalPaid = paymentsByCur[c]?.totalPayments ?? 0;
+      const remaining = Math.max(0, totalDebt - totalPaid);
+      return {
+        currency: c,
+        config: getCurrencyConfig(c),
+        totalDebt,
+        totalPaid,
+        remaining,
+        hasActivity: totalDebt > 0 || totalPaid > 0,
+      };
+    });
+
+    const activeCurrencies = items.filter((i) => i.hasActivity);
+    return {
+      items,
+      activeCurrencies:
+        activeCurrencies.length > 0
+          ? activeCurrencies
+          : [
+              {
+                currency: 'ILS' as const,
+                config: getCurrencyConfig('ILS'),
+                totalDebt: customer.totalDebt || 0,
+                totalPaid: computedTotalPaid || 0,
+                remaining: currentBalance || 0,
+                hasActivity: true,
+              },
+            ],
+      debtsByCur,
+      paymentsByCur,
+    };
+  }, [profileTransactions, customer.totalDebt, computedTotalPaid, currentBalance]);
+
+  // Filter activities based on tab, currency, and search query
   const filteredActivities = useMemo(() => {
     return activities.filter((act) => {
       if (activeActivityTab !== 'all' && act.type !== activeActivityTab) {
+        return false;
+      }
+      if (selectedCurrencyTab !== 'all' && act.currencyCode !== selectedCurrencyTab) {
         return false;
       }
       if (searchActivityQuery.trim()) {
@@ -683,12 +757,13 @@ export const CustomerDetailsScreen: FC = () => {
         return (
           act.title.toLowerCase().includes(q) ||
           act.description.toLowerCase().includes(q) ||
-          (act.amount && act.amount.includes(q))
+          (act.amount && act.amount.includes(q)) ||
+          act.currencyCode.toLowerCase().includes(q)
         );
       }
       return true;
     });
-  }, [activities, activeActivityTab, searchActivityQuery]);
+  }, [activities, activeActivityTab, selectedCurrencyTab, searchActivityQuery]);
 
   return (
     <div className="min-h-screen bg-[#f4f7fb] dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-cairo antialiased flex print:bg-white dark:bg-slate-800 print:block" dir="rtl">
@@ -756,6 +831,7 @@ export const CustomerDetailsScreen: FC = () => {
 
               <button
                 type="button"
+                onClick={() => window.print()}
                 className="px-4 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer"
               >
                 تحميل السجل
@@ -870,9 +946,20 @@ export const CustomerDetailsScreen: FC = () => {
                     </div>
                     {isLoadingProfile ? (
                       <div className="h-5 w-16 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
+                    ) : currencyBreakdown.activeCurrencies.length > 1 ? (
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        {currencyBreakdown.activeCurrencies.map((c) => (
+                          <span
+                            key={c.currency}
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-bold font-mono ${CURRENCY_BADGE_STYLES[c.currency]}`}
+                          >
+                            {formatCurrency(c.totalPaid, c.currency)}
+                          </span>
+                        ))}
+                      </div>
                     ) : (
                       <span className="font-bold text-slate-800 dark:text-slate-200 font-mono" dir="ltr">
-                        {computedTotalPaid.toFixed(2)} ₪
+                        {formatCurrency(computedTotalPaid, currencyBreakdown.activeCurrencies[0]?.currency || 'ILS')}
                       </span>
                     )}
                   </div>
@@ -885,9 +972,24 @@ export const CustomerDetailsScreen: FC = () => {
                     </div>
                     {isLoadingProfile ? (
                       <div className="h-5 w-16 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
+                    ) : currencyBreakdown.activeCurrencies.length > 1 ? (
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        {currencyBreakdown.activeCurrencies.map((c) => (
+                          <span
+                            key={c.currency}
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-bold font-mono ${
+                              c.remaining > 0
+                                ? 'bg-rose-50 text-rose-700 border border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300'
+                                : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            {formatCurrency(c.remaining, c.currency)}
+                          </span>
+                        ))}
+                      </div>
                     ) : (
                       <span className="font-bold text-rose-600 dark:text-rose-500 font-mono" dir="ltr">
-                        {currentBalance.toFixed(2)} ₪
+                        {formatCurrency(currentBalance, currencyBreakdown.activeCurrencies[0]?.currency || 'ILS')}
                       </span>
                     )}
                   </div>
@@ -951,6 +1053,7 @@ export const CustomerDetailsScreen: FC = () => {
                 {/* 3. Export Statement PDF */}
                 <button
                   type="button"
+                  onClick={() => window.print()}
                   className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border border-slate-200/90 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 shadow-2xs hover:shadow-xs transition-all cursor-pointer"
                 >
                   <FileText className="w-4 h-4 text-slate-500 dark:text-slate-400" />
@@ -1085,46 +1188,114 @@ export const CustomerDetailsScreen: FC = () => {
                   </div>
                 </div>
 
+                {/* Print-Only Multi-Currency Summary Table */}
+                <div className="hidden print:block my-4 border border-slate-300 rounded-xl overflow-hidden" dir="rtl">
+                  <div className="bg-slate-100 px-4 py-2 text-xs font-bold text-slate-800 border-b border-slate-300">
+                    جدول مطابقة الأرصدة والذمم المالية حسب العملة (Multi-Currency Statement Summary)
+                  </div>
+                  <table className="w-full text-right text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200">
+                        <th className="p-2.5 font-bold">العملة</th>
+                        <th className="p-2.5 font-bold">إجمالي الديون</th>
+                        <th className="p-2.5 font-bold">إجمالي المدفوعات</th>
+                        <th className="p-2.5 font-bold">الرصيد المتبقي</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {currencyBreakdown.activeCurrencies.map((c) => (
+                        <tr key={c.currency}>
+                          <td className="p-2.5 font-bold font-mono">
+                            {c.config.labelArFull} ({c.currency} {c.config.symbol})
+                          </td>
+                          <td className="p-2.5 font-mono">{formatCurrency(c.totalDebt, c.currency)}</td>
+                          <td className="p-2.5 font-mono text-emerald-700">{formatCurrency(c.totalPaid, c.currency)}</td>
+                          <td className="p-2.5 font-mono font-bold text-rose-700">{formatCurrency(c.remaining, c.currency)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
                 {/* Header with Title and Filter Tabs */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-700 pb-5 print:hidden">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-700 pb-5 print:hidden">
                   <h3 className="text-lg sm:text-xl font-extrabold font-cairo text-[#0c2444] dark:text-blue-400">
                     سجل النشاط المالي
                   </h3>
 
-                  {/* Filter Tabs */}
-                  <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-700 p-1 rounded-xl">
-                    <button
-                      type="button"
-                      onClick={() => setActiveActivityTab('all')}
-                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeActivityTab === 'all'
-                        ? 'bg-white dark:bg-slate-800 text-[#0c2444] dark:text-blue-400 shadow-xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'
+                  {/* Filter Tabs & Currency Filter */}
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    {/* Activity Type Tabs */}
+                    <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-700 p-1 rounded-xl">
+                      <button
+                        type="button"
+                        onClick={() => setActiveActivityTab('all')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          activeActivityTab === 'all'
+                            ? 'bg-white dark:bg-slate-800 text-[#0c2444] dark:text-blue-400 shadow-xs'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'
                         }`}
-                    >
-                      الكل
-                    </button>
+                      >
+                        الكل
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => setActiveActivityTab('debt')}
-                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeActivityTab === 'debt'
-                        ? 'bg-white dark:bg-slate-800 text-[#0c2444] dark:text-blue-400 shadow-xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'
+                      <button
+                        type="button"
+                        onClick={() => setActiveActivityTab('debt')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          activeActivityTab === 'debt'
+                            ? 'bg-white dark:bg-slate-800 text-[#0c2444] dark:text-blue-400 shadow-xs'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'
                         }`}
-                    >
-                      الديون
-                    </button>
+                      >
+                        الديون
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => setActiveActivityTab('payment')}
-                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeActivityTab === 'payment'
-                        ? 'bg-white dark:bg-slate-800 text-[#0c2444] dark:text-blue-400 shadow-xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'
+                      <button
+                        type="button"
+                        onClick={() => setActiveActivityTab('payment')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          activeActivityTab === 'payment'
+                            ? 'bg-white dark:bg-slate-800 text-[#0c2444] dark:text-blue-400 shadow-xs'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'
                         }`}
-                    >
-                      المدفوعات
-                    </button>
+                      >
+                        المدفوعات
+                      </button>
+                    </div>
+
+                    {/* Currency Filter Tabs */}
+                    <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700/80 p-1 rounded-xl">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCurrencyTab('all')}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          selectedCurrencyTab === 'all'
+                            ? 'bg-white dark:bg-slate-800 text-[#0c2444] dark:text-blue-400 shadow-xs'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'
+                        }`}
+                      >
+                        كافة العملات
+                      </button>
+                      {(['ILS', 'USD', 'JOD'] as const).map((code) => {
+                        const cfg = getCurrencyConfig(code);
+                        return (
+                          <button
+                            key={code}
+                            type="button"
+                            onClick={() => setSelectedCurrencyTab(code)}
+                            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                              selectedCurrencyTab === code
+                                ? 'bg-white dark:bg-slate-800 text-[#0c2444] dark:text-blue-400 shadow-xs'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'
+                            }`}
+                          >
+                            <span>{cfg.symbol}</span>
+                            <span>{cfg.labelAr}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 
@@ -1178,21 +1349,48 @@ export const CustomerDetailsScreen: FC = () => {
                               )}
                             </div>
 
-                            {/* Amount + Row Actions (Delete / Edit) */}
+                            {/* Amount + Row Actions (Delete / Edit / Register Payment) */}
                             <div className="flex items-center gap-3">
                               {act.amount && (
                                 <div className="text-left" dir="ltr">
-                                  <span className={`text-base sm:text-lg font-extrabold font-cairo ${act.amountColor}`}>
-                                    {act.amount}
-                                  </span>
-                                  <span className="text-[10px] text-slate-400 block font-cairo">
-                                    شيكل إسرائيلي
+                                  <div className="flex items-center gap-1.5 justify-end">
+                                    <span className={`text-base sm:text-lg font-extrabold font-cairo ${act.amountColor}`}>
+                                      {act.type === 'debt' ? '+' : '-'}{act.rawAmount.toFixed(2)}
+                                    </span>
+                                    <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold font-mono ${CURRENCY_BADGE_STYLES[act.currencyCode]}`}>
+                                      {getCurrencyConfig(act.currencyCode).symbol} {act.currencyCode}
+                                    </span>
+                                  </div>
+                                  <span className="text-[10px] text-slate-400 block font-cairo mt-0.5 text-right" dir="rtl">
+                                    {getCurrencyConfig(act.currencyCode).labelArFull}
                                   </span>
                                 </div>
                               )}
 
                               {act.type !== 'alert' && (
                                 <div className="flex items-center gap-2">
+                                  {act.type === 'debt' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        navigate(`/customers/${customer.id}/payments/new`, {
+                                          state: {
+                                            targetDebt: {
+                                              id: act.recordId,
+                                              reference: act.reference,
+                                              amount: act.rawAmount,
+                                              currencyCode: act.currencyCode,
+                                            },
+                                          },
+                                        });
+                                      }}
+                                      aria-label="تسجيل دفعة لهذا الدين"
+                                      title="تسجيل دفعة لهذا الدين"
+                                      className="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 flex items-center justify-center transition-colors cursor-pointer"
+                                    >
+                                      <CreditCard className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
                                   {act.type === 'debt' && (
                                     <button
                                       type="button"
@@ -1211,13 +1409,14 @@ export const CustomerDetailsScreen: FC = () => {
                                               fileOpenDate: customer.registrationDate,
                                               invoiceAmount: act.rawAmount,
                                               issueDate: act.date,
+                                              currency: act.currencyCode,
                                             },
                                           },
                                         });
                                       }}
                                       aria-label="عرض سند إثبات الدين"
                                       title="عرض سند إثبات الدين"
-                                      className="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 flex items-center justify-center transition-colors cursor-pointer"
+                                      className="w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 flex items-center justify-center transition-colors cursor-pointer"
                                     >
                                       <FileText className="w-3.5 h-3.5" />
                                     </button>
@@ -1241,6 +1440,7 @@ export const CustomerDetailsScreen: FC = () => {
                                               method: act.rawPaymentMethod || 'نقداً',
                                               remainingDebt: customer.totalDebt,
                                               previousDebt: (customer.totalDebt ?? 0) + (act.rawAmount ?? 0),
+                                              currency: act.currencyCode,
                                             },
                                           },
                                         });
@@ -1325,24 +1525,40 @@ export const CustomerDetailsScreen: FC = () => {
                   <span className="text-xs sm:text-sm font-semibold text-slate-300 block">
                     إجمالي المديونية الحالية
                   </span>
-                  <div className="flex items-baseline gap-2">
-                    {isLoadingProfile ? (
-                       <div className="h-10 w-32 bg-blue-900/50 rounded-lg animate-pulse" />
-                    ) : (
+                  {isLoadingProfile ? (
+                    <div className="h-10 w-32 bg-blue-900/50 rounded-lg animate-pulse" />
+                  ) : currencyBreakdown.activeCurrencies.length > 1 ? (
+                    <div className="flex items-center gap-3 flex-wrap mt-2">
+                      {currencyBreakdown.activeCurrencies.map((c) => (
+                        <div
+                          key={c.currency}
+                          className="px-3.5 py-1.5 rounded-xl bg-white/10 border border-white/15 backdrop-blur-xs flex items-baseline gap-1.5"
+                        >
+                          <span className="text-xl sm:text-2xl font-black font-cairo">
+                            {c.remaining.toFixed(2)}
+                          </span>
+                          <span className="text-xs font-bold text-slate-300 font-mono">
+                            {c.config.symbol} {c.currency}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-baseline gap-2">
                       <span className="text-3xl sm:text-5xl font-black font-cairo tracking-tight">
                         {currentBalance.toFixed(2)}
                       </span>
-                    )}
-                    <span className="text-sm font-bold text-slate-400 font-cairo">
-                      ₪
-                    </span>
-                  </div>
+                      <span className="text-sm font-bold text-slate-400 font-cairo">
+                        {getCurrencyConfig(currencyBreakdown.activeCurrencies[0]?.currency || 'ILS').symbol}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Left: 2 Inset Cards */}
                 <div className="flex items-center gap-3 w-full md:w-auto relative z-10">
                   {/* Last Payment Card */}
-                  <div className="flex-1 md:w-32 bg-white/5 border border-white/10 rounded-2xl p-3.5 text-center backdrop-blur-xs">
+                  <div className="flex-1 md:w-36 bg-white/5 border border-white/10 rounded-2xl p-3.5 text-center backdrop-blur-xs">
                     <span className="text-[11px] text-slate-400 font-medium block mb-1">
                       آخر دفعة
                     </span>
@@ -1350,12 +1566,9 @@ export const CustomerDetailsScreen: FC = () => {
                       <div className="h-6 w-16 bg-blue-900/50 rounded-md animate-pulse mx-auto" />
                     ) : (
                       <span className="text-sm sm:text-base font-bold text-white font-cairo">
-                        {lastPaymentAmount.toFixed(2)}
+                        {lastPayment ? formatCurrency(lastPayment.amount, lastPayment.currencyCode || 'ILS') : '0.00 ₪'}
                       </span>
                     )}
-                    <span className="text-[10px] text-slate-400 block font-cairo mt-0.5">
-                      ₪
-                    </span>
                   </div>
 
                   {/* Transaction Count Card */}

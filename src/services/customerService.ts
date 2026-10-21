@@ -409,7 +409,9 @@ function normalizeCustomerProfileTransaction(raw: unknown): CustomerProfileTrans
     description: typeof (r.description ?? r.Description) === 'string' ? String(r.description ?? r.Description) : '',
     reference: typeof (r.reference ?? r.Reference) === 'string' ? String(r.reference ?? r.Reference) : '',
     balance: Number(r.balance ?? r.Balance ?? r.runningBalance ?? r.RunningBalance) || 0,
-    currencyCode: typeof (r.currencyCode ?? r.CurrencyCode) === 'string' ? String(r.currencyCode ?? r.CurrencyCode) : '',
+    currencyCode: (typeof (r.currencyCode ?? r.CurrencyCode ?? r.currency ?? r.Currency) === 'string' && (r.currencyCode || r.CurrencyCode || r.currency || r.Currency))
+      ? String(r.currencyCode ?? r.CurrencyCode ?? r.currency ?? r.Currency).toUpperCase()
+      : (r.currencyId ?? r.CurrencyId === 2 ? 'USD' : r.currencyId ?? r.CurrencyId === 3 ? 'JOD' : 'ILS'),
     status: (r.status ?? r.Status) != null ? String(r.status ?? r.Status) : null,
     paymentMethod,
     invoiceId,

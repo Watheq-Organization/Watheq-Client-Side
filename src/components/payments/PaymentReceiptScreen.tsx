@@ -31,6 +31,12 @@ import { getCustomerProfile, getCustomers } from '../../services/customerService
 import { formatApiDate, getDeviceLocalDateString } from '../../lib/dateUtils';
 import type { CustomerProfileDto } from '../../types/customer';
 import type { PaymentInvoiceDto } from '../../types/invoice';
+import {
+  getCurrencyConfig,
+  normalizeCurrencyCode,
+  CURRENCY_BADGE_STYLES,
+  type CurrencyCode,
+} from '../../utils/currency';
 
 interface PaymentState {
   id?: string;
@@ -209,8 +215,13 @@ export const PaymentReceiptScreen: FC = () => {
     }
 
     const rawCurrency =
-      serverPayment?.currency ?? serverPayment?.currencyCode ?? statePayment?.currency ?? 'شيكل';
-    const currency = rawCurrency === 'ILS' ? 'شيكل' : rawCurrency === 'SAR' ? 'شيكل' : rawCurrency;
+      serverPayment?.currencyCode ??
+      serverPayment?.currency ??
+      (serverPayment as any)?.currencyId ??
+      statePayment?.currency ??
+      'ILS';
+    const currencyCode: CurrencyCode = normalizeCurrencyCode(rawCurrency);
+    const currencyConfig = getCurrencyConfig(currencyCode);
 
     const rawDueDate = serverPayment?.nextDueDate ?? serverPayment?.dueDate;
     const nextDueDate = rawDueDate ? formatApiDate(rawDueDate) : null;
@@ -233,7 +244,9 @@ export const PaymentReceiptScreen: FC = () => {
         `WTQ-${receiptNumber.replace(/[^0-9A-Z]/ig, '').slice(-4) || '0821'}-PAY9`,
       previousDebt,
       remainingDebt,
-      currency,
+      currency: currencyConfig.labelAr,
+      currencyCode,
+      currencyConfig,
       nextDueDate,
       invoiceId,
       invoiceNumber,
@@ -271,7 +284,7 @@ export const PaymentReceiptScreen: FC = () => {
 
   const handleSendWhatsApp = () => {
     const message = encodeURIComponent(
-      `مرحباً ${paymentData.customerName}،\nتم إصدار سند قبض مالي إلكتروني موثق برقم ${paymentData.receiptNumber} بمبلغ ${paymentData.amount.toLocaleString()} ${paymentData.currency} من ${merchant.businessName}.\nيمكنكم التحقق من السند عبر الرابط: ${window.location.origin}/payments/${id || 'rec-4821'}/receipt`
+      `مرحباً ${paymentData.customerName}،\nتم إصدار سند قبض مالي إلكتروني موثق برقم ${paymentData.receiptNumber} بمبلغ ${paymentData.amount.toLocaleString()} ${paymentData.currencyConfig.labelArFull} من ${merchant.businessName}.\nيمكنكم التحقق من السند عبر الرابط: ${window.location.origin}/payments/${id || 'rec-4821'}/receipt`
     );
     window.open(`https://wa.me/?text=${message}`, '_blank');
   };
@@ -462,11 +475,17 @@ export const PaymentReceiptScreen: FC = () => {
               {/* Amount */}
               <div className="bg-slate-50 dark:bg-slate-700/30 rounded-2xl p-6 text-center">
                 <span className="text-sm font-medium text-slate-500">المبلغ المقبوض</span>
-                <div className="text-3xl sm:text-4xl font-bold text-emerald-600 mt-2 font-mono" dir="ltr">
-                  {paymentData.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })} <span className="text-xl font-cairo text-slate-700 dark:text-slate-300">{paymentData.currency}</span>
+                <div className="text-3xl sm:text-4xl font-bold text-emerald-600 mt-2 font-mono flex items-center justify-center gap-2" dir="ltr">
+                  <span>{paymentData.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                  <span className="text-xl font-cairo text-slate-700 dark:text-slate-300">
+                    {paymentData.currencyConfig.symbol} ({paymentData.currencyConfig.labelAr})
+                  </span>
+                  <span className={`text-xs px-2 py-0.5 rounded-md font-bold font-sans ${CURRENCY_BADGE_STYLES[paymentData.currencyCode]}`}>
+                    {paymentData.currencyCode}
+                  </span>
                 </div>
                 <div className="text-sm font-medium text-slate-600 dark:text-slate-400 mt-2">
-                  فقط وقدره {tafqeet(paymentData.amount)} لا غير
+                  فقط وقدره {tafqeet(paymentData.amount, paymentData.currencyConfig.labelArFull)} لا غير
                 </div>
                 <div className="inline-flex items-center gap-2 mt-4 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
                   <MethodIcon className="w-4 h-4 text-slate-400" />
@@ -501,19 +520,19 @@ export const PaymentReceiptScreen: FC = () => {
                 <div>
                   <div className="text-xs text-slate-500 mb-1">الرصيد السابق</div>
                   <div className="font-bold text-slate-800 dark:text-slate-200 font-mono" dir="ltr">
-                    {paymentData.previousDebt.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    {paymentData.previousDebt.toLocaleString('en-US', { minimumFractionDigits: 2 })} {paymentData.currencyConfig.symbol}
                   </div>
                 </div>
                 <div>
                   <div className="text-xs text-emerald-600 mb-1">المبلغ المسدد (-)</div>
                   <div className="font-bold text-emerald-600 font-mono" dir="ltr">
-                    {paymentData.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    {paymentData.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })} {paymentData.currencyConfig.symbol}
                   </div>
                 </div>
                 <div>
                   <div className="text-xs text-blue-600 mb-1">الرصيد المتبقي</div>
                   <div className="font-bold text-blue-600 font-mono" dir="ltr">
-                    {paymentData.remainingDebt.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    {paymentData.remainingDebt.toLocaleString('en-US', { minimumFractionDigits: 2 })} {paymentData.currencyConfig.symbol}
                   </div>
                 </div>
               </div>
