@@ -422,11 +422,7 @@ export const MobileScannerClientScreen: FC = () => {
       };
 
       await html5QrCode.start(
-        {
-          facingMode: 'environment',
-          width: { ideal: 1280, min: 640 },
-          height: { ideal: 720, min: 480 },
-        },
+        { facingMode: 'environment' },
         {
           fps: 12,
           qrbox: qrboxFunction,
@@ -581,8 +577,8 @@ export const MobileScannerClientScreen: FC = () => {
             type="button"
             onClick={toggleFlash}
             className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors border ${isFlashOn
-                ? 'bg-amber-400 text-slate-900 border-amber-300'
-                : 'bg-white/10 text-white/80 border-white/10 hover:bg-white/20'
+              ? 'bg-amber-400 text-slate-900 border-amber-300'
+              : 'bg-white/10 text-white/80 border-white/10 hover:bg-white/20'
               }`}
             title="فلاش الكاميرا"
           >
@@ -593,8 +589,8 @@ export const MobileScannerClientScreen: FC = () => {
           <div className="flex items-center gap-2">
             <div
               className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold shadow-xs ${isPaired
-                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
-                  : 'bg-amber-500/20 border-amber-500/40 text-amber-400 animate-pulse'
+                ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
+                : 'bg-amber-500/20 border-amber-500/40 text-amber-400 animate-pulse'
                 }`}
             >
               <span
@@ -627,8 +623,8 @@ export const MobileScannerClientScreen: FC = () => {
             type="button"
             onClick={() => setActiveMode('goods')}
             className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-xs font-bold transition-all ${activeMode === 'goods'
-                ? 'bg-white text-slate-900 shadow-md'
-                : 'text-slate-400 hover:text-white'
+              ? 'bg-white text-slate-900 shadow-md'
+              : 'text-slate-400 hover:text-white'
               }`}
           >
             <Barcode className="w-3.5 h-3.5" />
@@ -638,8 +634,8 @@ export const MobileScannerClientScreen: FC = () => {
             type="button"
             onClick={() => setActiveMode('palpay')}
             className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-xs font-bold transition-all ${activeMode === 'palpay'
-                ? 'bg-white text-slate-900 shadow-md'
-                : 'text-slate-400 hover:text-white'
+              ? 'bg-white text-slate-900 shadow-md'
+              : 'text-slate-400 hover:text-white'
               }`}
           >
             <QrCode className="w-3.5 h-3.5" />
@@ -975,11 +971,10 @@ export const MobileScannerClientScreen: FC = () => {
                           <button
                             type="button"
                             onClick={() => updateQty(item.id, -1)}
-                            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
-                              item.quantity <= 1
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${item.quantity <= 1
                                 ? 'bg-rose-600/30 hover:bg-rose-600 text-rose-300 hover:text-white'
                                 : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white'
-                            }`}
+                              }`}
                             title={item.quantity <= 1 ? 'حذف من السلة' : 'تقليل الكمية'}
                           >
                             {item.quantity <= 1 ? (

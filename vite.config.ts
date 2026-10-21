@@ -19,6 +19,7 @@ export default defineConfig({
       '/api': {
         target: 'https://whateq.runasp.net',
         changeOrigin: true,
+
         secure: false,
       },
     },

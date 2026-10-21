@@ -24,7 +24,7 @@ export const CameraScannerModal: FC<CameraScannerModalProps> = ({
   useEffect(() => {
     if (!isOpen) {
       if (scannerRef.current) {
-        scannerRef.current.stop().catch(() => {}).finally(() => {
+        scannerRef.current.stop().catch(() => { }).finally(() => {
           scannerRef.current?.clear();
           scannerRef.current = null;
           setIsScanning(false);
@@ -83,7 +83,7 @@ export const CameraScannerModal: FC<CameraScannerModalProps> = ({
             }
 
             setScannedCode(decodedText);
-            html5QrCode.stop().catch(() => {}).finally(() => {
+            html5QrCode.stop().catch(() => { }).finally(() => {
               html5QrCode.clear();
               scannerRef.current = null;
               setIsScanning(false);
@@ -93,7 +93,7 @@ export const CameraScannerModal: FC<CameraScannerModalProps> = ({
               }, 400);
             });
           },
-          () => {}
+          () => { }
         );
 
         // Apply continuous auto-focus and hardware zoom for sharper reads
@@ -150,7 +150,7 @@ export const CameraScannerModal: FC<CameraScannerModalProps> = ({
     return () => {
       isMounted = false;
       if (scannerRef.current) {
-        scannerRef.current.stop().catch(() => {}).finally(() => {
+        scannerRef.current.stop().catch(() => { }).finally(() => {
           scannerRef.current?.clear();
           scannerRef.current = null;
         });

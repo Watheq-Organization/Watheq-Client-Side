@@ -847,33 +847,7 @@ export const PaymentsScreen: FC = () => {
               </div>
             </div>
           </div>
-
-          {/* Bottom Floating Activity Banner */}
-          <div className="pt-2 pb-6 flex justify-center">
-            <div className="bg-[#0c2444] text-white rounded-2xl px-6 py-3.5 shadow-xl flex items-center justify-between gap-6 w-full max-w-lg">
-              {/* Right Side: Verified Today */}
-              <div className="flex items-center gap-2.5">
-                <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white shrink-0">
-                  <Check className="w-3.5 h-3.5 stroke-[3]" />
-                </div>
-                <span className="text-xs sm:text-sm font-semibold">
-                  تم التحقق من 4 عمليات اليوم
-                </span>
-              </div>
-
-              {/* Separator */}
-              <div className="w-px h-5 bg-white/20" />
-
-              {/* Left Side: Pending Tasks */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-blue-200/80 font-medium">تحتاج إلى مراجعة:</span>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-600 text-white">
-                  12 مهمة
-                </span>
-              </div>
-            </div>
-          </div>
-          </div>
+        </div>
           ) : (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
               <InstantSalesLogView />
