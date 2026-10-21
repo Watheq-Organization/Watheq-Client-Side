@@ -46,6 +46,7 @@ export interface AdjustStockPayload {
 /** Params for GET /api/Products */
 export interface GetProductsParams {
   Search?: string;
+  category?: string;
   IsActive?: boolean;
   PageNumber?: number;
   PageSize?: number;
@@ -126,6 +127,7 @@ export async function getProductsApi(
 ): Promise<{ items: Product[]; totalCount: number }> {
   const qs = new URLSearchParams();
   if (params?.Search) qs.append('Search', params.Search);
+  if (params?.category) qs.append('category', params.category);
   if (params?.IsActive !== undefined) qs.append('IsActive', String(params.IsActive));
   if (params?.PageNumber !== undefined) qs.append('PageNumber', String(params.PageNumber));
   if (params?.PageSize !== undefined) qs.append('PageSize', String(params.PageSize));
@@ -224,13 +226,23 @@ export async function getProductByBarcodeApi(
 export async function createProduct(
   payload: CreateProductPayload
 ): Promise<Product> {
-  const requestBody = {
+  const requestBody: Record<string, any> = {
     productName: String(payload.productName).trim(),
     barcode: String(payload.barcode).trim(),
     salePrice: Number(payload.salePrice),
     costPrice: Number(payload.costPrice),
     minStockAlert: Number(payload.minStockAlert),
   };
+
+  if (payload.quantity !== undefined) {
+    requestBody.quantity = Number(payload.quantity);
+  }
+  if (payload.category) {
+    requestBody.category = String(payload.category).trim();
+  }
+  if (payload.unit) {
+    requestBody.unit = String(payload.unit).trim();
+  }
 
   // eslint-disable-next-line no-console
   console.log('[createProduct] REQUEST BODY:', JSON.stringify(requestBody, null, 2));
@@ -275,7 +287,7 @@ export async function updateProductApi(
   payload: UpdateProductPayload
 ): Promise<Product> {
   const numId = typeof payload.id === 'string' && !isNaN(Number(payload.id)) ? Number(payload.id) : payload.id;
-  const requestBody = {
+  const requestBody: Record<string, any> = {
     id: numId,
     productName: String(payload.productName).trim(),
     barcode: String(payload.barcode).trim(),
@@ -283,6 +295,13 @@ export async function updateProductApi(
     costPrice: Number(payload.costPrice),
     minStockAlert: Number(payload.minStockAlert),
   };
+
+  if (payload.category !== undefined) {
+    requestBody.category = payload.category ? String(payload.category).trim() : null;
+  }
+  if (payload.unit !== undefined) {
+    requestBody.unit = payload.unit ? String(payload.unit).trim() : null;
+  }
 
   const response = await httpClient.put<any>(
     `/Products/${id}`,

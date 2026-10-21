@@ -243,7 +243,8 @@ export const PosCashierScreen: FC = () => {
           id: String(scannedProduct.productId),
           barcode: trimmed,
           name: scannedProduct.productName,
-          category: 'عام',
+          category: scannedProduct.category || 'غير محدد',
+          unit: scannedProduct.unit || 'غير محدد',
           salePrice: Number(scannedProduct.salePrice || 0),
           costPrice: 0,
           stock: Number(scannedProduct.stockQuantity || 0),
@@ -1131,11 +1132,11 @@ export const PosCashierScreen: FC = () => {
                         </span>
                       ) : isLowStock ? (
                         <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-950/80 text-amber-400 border border-amber-800">
-                          {prod.stock} {prod.unit || 'حبات'} 🟡
+                          {prod.stock} {prod.unit || ''} 🟡
                         </span>
                       ) : (
                         <span className="text-[9px] font-mono text-slate-500">
-                          {prod.stock} {prod.unit || 'بالمحل'}
+                          {prod.stock} {prod.unit || ''}
                         </span>
                       )}
                     </div>

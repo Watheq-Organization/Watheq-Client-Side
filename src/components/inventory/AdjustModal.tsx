@@ -104,7 +104,7 @@ export const AdjustModal: FC<AdjustModalProps> = ({
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                الرصيد الفعلي (على أرض الواقع) ({product.unit || 'وحدة'}) *
+                الرصيد الفعلي (على أرض الواقع) {product.unit ? `(${product.unit})` : ''} *
               </label>
             </div>
             <input
@@ -127,7 +127,7 @@ export const AdjustModal: FC<AdjustModalProps> = ({
               isNegative ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400' :
               'bg-slate-500/10 text-slate-600 dark:text-slate-400'
             }`}>
-              {isPositive ? '+' : ''}{!isNaN(diff) ? diff : 0} {product.unit || 'وحدة'}
+              {isPositive ? '+' : ''}{!isNaN(diff) ? diff : 0} {product.unit || ''}
             </div>
           </div>
 

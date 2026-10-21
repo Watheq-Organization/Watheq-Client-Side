@@ -28,6 +28,7 @@ export interface RestockHistoryItem {
   quantityAdded: number;
   previousStock: number;
   newStock: number;
+  unit?: string;
   supplierNote?: string;
   date: string;
 }

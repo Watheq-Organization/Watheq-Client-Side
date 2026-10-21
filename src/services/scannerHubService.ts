@@ -13,6 +13,8 @@ export interface ScannedProductDto {
   productName: string;
   salePrice: number;
   stockQuantity: number;
+  category?: string;
+  unit?: string;
 }
 
 export interface ScannerErrorDto {

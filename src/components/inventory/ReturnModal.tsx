@@ -97,7 +97,7 @@ export const ReturnModal: FC<ReturnModalProps> = ({
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                كمية الإرجاع المراد إضافتها للمخزون ({product.unit || 'وحدة'}) *
+                كمية الإرجاع المراد إضافتها للمخزون {product.unit ? `(${product.unit})` : ''} *
               </label>
             </div>
             <input
@@ -137,7 +137,7 @@ export const ReturnModal: FC<ReturnModalProps> = ({
               </span>
               <ArrowLeft className="w-4 h-4 text-emerald-500" />
               <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
-                {newStockTotal} {product.unit || 'وحدة'}
+                {newStockTotal} {product.unit || ''}
               </span>
             </div>
           </div>

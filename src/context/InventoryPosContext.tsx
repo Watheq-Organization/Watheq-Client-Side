@@ -321,6 +321,7 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
             quantityAdded: payload.quantity,
             previousStock,
             newStock,
+            unit: item.unit,
             supplierNote: payload.supplierNote,
             date: new Date().toISOString(),
           };

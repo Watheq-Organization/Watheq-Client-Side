@@ -99,7 +99,7 @@ export const RestockModal: FC<RestockModalProps> = ({
             <div className="text-left">
               <span className="text-xs text-slate-500 dark:text-slate-400 block">الرصيد الحالي</span>
               <span className="text-lg font-black text-slate-800 dark:text-slate-100">
-                {product.stock} <span className="text-xs font-normal">{product.unit || 'وحدة'}</span>
+                {product.stock} {product.unit && <span className="text-xs font-normal mr-1">{product.unit}</span>}
               </span>
             </div>
           </div>
@@ -109,7 +109,7 @@ export const RestockModal: FC<RestockModalProps> = ({
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
               <PlusCircle className="w-4 h-4 text-emerald-600" />
-              <span>الكمية الموردة الجديدة ({product.unit || 'وحدة'}) *</span>
+              <span>الكمية الموردة الجديدة {product.unit ? `(${product.unit})` : ''} *</span>
             </label>
             <input
               type="number"
@@ -186,7 +186,7 @@ export const RestockModal: FC<RestockModalProps> = ({
               </span>
               <ArrowLeft className="w-4 h-4 text-emerald-500" />
               <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
-                {newStockTotal} {product.unit || 'وحدة'}
+                {newStockTotal} {product.unit || ''}
               </span>
             </div>
           </div>

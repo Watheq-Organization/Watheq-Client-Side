@@ -124,12 +124,16 @@ export const ProductModal: FC<ProductModalProps> = ({
       errs.name = 'اسم الصنف مطلوب';
     }
 
-    if (!category.trim()) {
-      errs.category = 'تصنيف الصنف مطلوب *';
-    }
+    // Category and unit are required for creating new products.
+    // For editing legacy products, allow keeping unassigned or user may assign them.
+    if (!editingProduct) {
+      if (!category.trim()) {
+        errs.category = 'تصنيف الصنف مطلوب *';
+      }
 
-    if (!unit.trim()) {
-      errs.unit = 'وحدة الصنف مطلوبة *';
+      if (!unit.trim()) {
+        errs.unit = 'وحدة الصنف مطلوبة *';
+      }
     }
 
     const sale = parseFloat(salePrice);
@@ -177,8 +181,8 @@ export const ProductModal: FC<ProductModalProps> = ({
             id: editingProduct.id,
             name: name.trim(),
             barcode: barcode.trim(),
-            category: category.trim(),
-            unit: unit.trim(),
+            category: category.trim() || undefined,
+            unit: unit.trim() || undefined,
             salePrice: parseFloat(salePrice),
             costPrice: parseFloat(costPrice) || 0,
             stock: editingProduct.stock,
@@ -192,8 +196,8 @@ export const ProductModal: FC<ProductModalProps> = ({
             id: numId,
             productName: name.trim(),
             barcode: barcode.trim(),
-            category: category.trim(),
-            unit: unit.trim(),
+            category: category.trim() || undefined,
+            unit: unit.trim() || undefined,
             salePrice: parseFloat(salePrice),
             costPrice: parseFloat(costPrice) || 0,
             minStockAlert: parseInt(minAlertThreshold, 10) || 5,
@@ -202,8 +206,8 @@ export const ProductModal: FC<ProductModalProps> = ({
 
         const enriched: Product = {
           ...serverProduct,
-          category: category.trim(),
-          unit: unit.trim(),
+          category: serverProduct.category ?? (category.trim() || undefined),
+          unit: serverProduct.unit ?? (unit.trim() || undefined),
         };
 
         onSave(enriched);
@@ -417,7 +421,7 @@ export const ProductModal: FC<ProductModalProps> = ({
                   if (errors.category) setErrors((prev) => ({ ...prev, category: '' }));
                 }}
                 error={errors.category}
-                label="تصنيف الصنف *"
+                label={editingProduct ? 'تصنيف الصنف' : 'تصنيف الصنف *'}
                 placeholder="اختر تصنيف الصنف..."
               />
 
@@ -428,7 +432,7 @@ export const ProductModal: FC<ProductModalProps> = ({
                   if (errors.unit) setErrors((prev) => ({ ...prev, unit: '' }));
                 }}
                 error={errors.unit}
-                label="وحدة الصنف *"
+                label={editingProduct ? 'وحدة الصنف' : 'وحدة الصنف *'}
                 placeholder="اختر وحدة الصنف..."
               />
             </div>
