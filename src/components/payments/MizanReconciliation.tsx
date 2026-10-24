@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import type { ChangeEvent, DragEvent } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import type { ChangeEvent, DragEvent, FC } from 'react';
 import { 
   UploadCloud, 
   CheckCircle2, 
@@ -15,43 +15,65 @@ import {
   Search,
   ArrowRightLeft,
   AlertCircle,
-  History
+  History,
+  Sparkles,
+  ChevronRight,
+  ChevronLeft
 } from 'lucide-react';
 
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
 import { Toast } from '../ui/Toast';
 import { MizanHistoryAuditLog } from './MizanHistoryAuditLog';
+import { CreateSaleConfirmModal, type DepositSaleCandidate } from './CreateSaleConfirmModal';
 import { 
   uploadAndStartReconciliation,
   getReconciliationSummary,
   getReconciliationTransactions,
   approveMatchedTransaction,
   convertSaleToDebt,
-  createSaleFromDeposit
+  formatBankName,
+  getClassificationMeta,
+  getApprovalStatusMeta
 } from '../../services/mizanService';
 import type {
   ReconciliationSummary,
-  ReconciledSale,
-  Discrepancy,
-  UncollectedSale,
-  UnmatchedInflow
+  MizanTransactionDto
 } from '../../services/mizanService';
 
-export default function MizanReconciliation() {
+const BANK_OPTIONS = [
+  { id: 'BankOfPalestine', label: 'بنك فلسطين' },
+  { id: 'BankOfAlQuds', label: 'بنك القدس' },
+  { id: 'PalestineIslamicBank', label: 'البنك الإسلامي الفلسطيني' },
+  { id: 'ArabBank', label: 'البنك العربي' },
+  { id: 'TheNationalBank', label: 'البنك الوطني' },
+  { id: 'PalPay', label: 'PalPay' },
+  { id: 'JawwalPay', label: 'جوال باي' }
+];
+
+const PERIOD_OPTIONS = [
+  { id: 'Today', label: 'اليوم' },
+  { id: 'Last2Hours', label: 'آخر ساعتين' },
+  { id: 'Yesterday', label: 'أمس' },
+  { id: 'Last48Hours', label: 'آخر 48 ساعة' },
+  { id: 'ThisWeek', label: 'هذا الأسبوع' }
+];
+
+export const MizanReconciliation: FC = () => {
   const [mainView, setMainView] = useState<'studio' | 'history'>('studio');
   const [historyCount, setHistoryCount] = useState<number>(0);
-  const [activeTab, setActiveTab] = useState('reconciled');
+  const [activeTab, setActiveTab] = useState<'reconciled' | 'uncollected' | 'discrepancies' | 'unmatched'>('reconciled');
   const [isUploading, setIsUploading] = useState(false);
+  const [isProcessingAsync, setIsProcessingAsync] = useState(false);
   const [isParsed, setIsParsed] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [selectedBank, setSelectedBank] = useState('بنك فلسطين');
+  const [selectedBankKey, setSelectedBankKey] = useState('BankOfPalestine');
   const [isBankDropdownOpen, setIsBankDropdownOpen] = useState(false);
-  const banks = ['بنك فلسطين', 'PalPay', 'جوال باي'];
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
+  const [refreshCounter, setRefreshCounter] = useState(0);
 
   const [summary, setSummary] = useState<ReconciliationSummary>({
     totalBankTransactions: 0,
@@ -60,169 +82,213 @@ export default function MizanReconciliation() {
     unclaimedDeposits: 0,
     missingInBank: 0,
     discrepancies: 0,
-    finalApproved: 0
+    finalApproved: 0,
+    totalAmount: 0,
+    matchedAmount: 0
   });
 
-  const [reconciledList, setReconciledList] = useState<ReconciledSale[]>([]);
-  const [discrepanciesList, setDiscrepanciesList] = useState<Discrepancy[]>([]);
-  const [uncollectedSales, setUncollectedSales] = useState<UncollectedSale[]>([]);
-  const [unmatchedInflows, setUnmatchedInflows] = useState<UnmatchedInflow[]>([]);
-
-  const [selectedDiscrepancies, setSelectedDiscrepancies] = useState<string[]>([]);
-  const [selectedReconciled, setSelectedReconciled] = useState<string[]>([]);
-  
-  const [selectedPeriod, setSelectedPeriod] = useState('اليوم');
-  const [isPeriodDropdownOpen, setIsPeriodDropdownOpen] = useState(false);
-  const periods = ['آخر ساعتين', 'اليوم', 'أمس', 'آخر 48 ساعة', 'هذا الأسبوع'];
-
+  // Table pagination and search states per tab
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [tabTotalCount, setTabTotalCount] = useState(0);
+  const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
 
-  const filteredReconciledList = reconciledList.filter(sale => {
-    const matchesSearch = sale.id.includes(searchQuery) || sale.customerName.includes(searchQuery) || sale.bankSender.includes(searchQuery) || sale.amount.toString().includes(searchQuery);
-    const matchesType = filterType === 'all' || 
-                       (filterType === 'auto' && sale.status.includes('تلقائياً')) || 
-                       (filterType === 'manual' && !sale.status.includes('تلقائياً'));
-    return matchesSearch && matchesType;
-  });
+  // Raw current list of items for the active tab
+  const [transactionsList, setTransactionsList] = useState<MizanTransactionDto[]>([]);
+  const [selectedTransactionIds, setSelectedTransactionIds] = useState<string[]>([]);
+  
+  const [selectedPeriodKey, setSelectedPeriodKey] = useState('Today');
+  const [isPeriodDropdownOpen, setIsPeriodDropdownOpen] = useState(false);
 
+  // Create Sale Dialog state
+  const [candidateDeposit, setCandidateDeposit] = useState<DepositSaleCandidate | null>(null);
+  const [isCreateSaleModalOpen, setIsCreateSaleModalOpen] = useState(false);
 
-  const fetchData = async (id: string) => {
-    try {
-      const summaryData = await getReconciliationSummary(id);
-      setSummary(summaryData);
-      const rawData = await getReconciliationTransactions(id);
-      const transactions = Array.isArray(rawData) ? rawData : [];
+  // Convert tab to backend status filter
+  const getTabStatusParam = (tab: 'reconciled' | 'uncollected' | 'discrepancies' | 'unmatched'): string => {
+    switch (tab) {
+      case 'reconciled':
+        return 'Matched';
+      case 'uncollected':
+        return 'Uncollected';
+      case 'discrepancies':
+        return 'NeedsReview';
+      case 'unmatched':
+        return 'DepositWithoutInvoice';
+      default:
+        return '';
+    }
+  };
 
-      const reconciled: ReconciledSale[] = [];
-      const discrepancies: Discrepancy[] = [];
-      const uncollected: UncollectedSale[] = [];
-      const unmatched: UnmatchedInflow[] = [];
+  const triggerRefresh = useCallback(() => {
+    setIsLoadingTransactions(true);
+    setRefreshCounter(c => c + 1);
+  }, []);
 
-      transactions.forEach((t: any) => {
-        let details: any = {};
-        try { details = JSON.parse(t.matchDetails || '{}'); } catch(e) {}
-        
-        // 1 = Matched
-        if (t.classification === 1) {
-          reconciled.push({
-            id: t.id.toString(),
-            time: new Date(t.transactionDate).toLocaleString('ar-EG'),
-            amount: t.amount,
-            customerName: t.senderNameNormalized || 'غير متوفر',
-            bankSender: t.senderNameNormalized || 'غير متوفر',
-            ref: t.referenceNumber || '-',
-            status: 'مطابق تلقائياً'
-          });
-        } 
-        // 2 = Needs Review / Unmatched
-        else if (t.classification === 2) {
-          if (details.reason === 'No matching instant sale found') {
-            unmatched.push({
-              id: t.id.toString(),
-              time: new Date(t.transactionDate).toLocaleString('ar-EG'),
-              amount: t.amount,
-              bankSender: t.senderNameNormalized || 'غير متوفر',
-              ref: t.referenceNumber || '-',
-              notes: 'حوالة بنكية لا يوجد لها فاتورة'
-            });
-          } else {
-            discrepancies.push({
-              id: t.id.toString(),
-              invoiceAmount: t.matchedSales?.[0]?.amount || 0,
-              bankAmount: t.amount,
-              customerName: t.matchedSales?.[0]?.customerName || 'غير متوفر',
-              bankSender: t.senderNameNormalized || 'غير متوفر',
-              issue: details.reason || 'تتطلب مراجعة'
-            });
-          }
+  // Fetch summary and tab transactions in effect
+  useEffect(() => {
+    if (!sessionId) return;
+    let isMounted = true;
+
+    const statusParam = getTabStatusParam(activeTab);
+    Promise.all([
+      getReconciliationSummary(sessionId),
+      getReconciliationTransactions(sessionId, {
+        status: statusParam,
+        search: searchQuery.trim() || undefined,
+        page: currentPage,
+        pageSize
+      })
+    ])
+      .then(([summaryData, res]) => {
+        if (isMounted) {
+          setSummary(summaryData);
+          setTransactionsList(res.items);
+          setTotalPages(res.totalPages || 1);
+          setTabTotalCount(res.totalCount || res.items.length);
+          setIsLoadingTransactions(false);
         }
-        // Assuming 3 = Missing In Bank / Uncollected
-        else if (t.classification === 3) {
-          uncollected.push({
-            id: t.id.toString(),
-            items: 'مبيعات',
-            amount: t.amount,
-            customerInfo: t.senderNameNormalized || 'غير متوفر',
-            status: 'مفقود بنكياً'
-          });
+      })
+      .catch(() => {
+        if (isMounted) {
+          setToastMsg('فشل في جلب أحدث بيانات المطابقة من الخادم');
+          setIsLoadingTransactions(false);
         }
       });
 
-      setReconciledList(reconciled);
-      setDiscrepanciesList(discrepancies);
-      setUncollectedSales(uncollected);
-      setUnmatchedInflows(unmatched);
-    } catch (error) {
-      setToastMsg('فشل في جلب البيانات');
-    }
+    return () => {
+      isMounted = false;
+    };
+  }, [sessionId, activeTab, currentPage, pageSize, searchQuery, refreshCounter]);
+
+  // Reset page when tab or search changes
+  const handleTabChange = (tab: 'reconciled' | 'uncollected' | 'discrepancies' | 'unmatched') => {
+    setActiveTab(tab);
+    setCurrentPage(1);
+    setSelectedTransactionIds([]);
   };
 
-  const handleCloseReconciled = async () => {
-    if (selectedReconciled.length === 0) return;
-    setLoadingAction('approve-all');
+  const handleSearchChange = (val: string) => {
+    setSearchQuery(val);
+    setCurrentPage(1);
+  };
+
+  // Approve Matched Transactions (No Request Body)
+  const handleApproveSelected = async () => {
+    if (selectedTransactionIds.length === 0) return;
+    setLoadingAction('approve-selected');
     try {
-      for (const id of selectedReconciled) {
+      for (const id of selectedTransactionIds) {
         await approveMatchedTransaction(id);
       }
-      setToastMsg('تم اعتماد الإقفال اليومي بنجاح');
-      if (sessionId) fetchData(sessionId);
-      setSelectedReconciled([]);
-    } catch (error) {
-      setToastMsg('تعذر اعتماد الإقفال');
-    }
-    setLoadingAction(null);
-  };
-
-  const handleConfirmSelected = async () => {
-    if (selectedDiscrepancies.length === 0) return;
-    setLoadingAction('confirm-discrepancies');
-    try {
-      for (const id of selectedDiscrepancies) {
-        await approveMatchedTransaction(id);
+      setToastMsg(`تم اعتماد ${selectedTransactionIds.length} معاملة بنجاح وتأكيد الإقفال.`);
+      setSelectedTransactionIds([]);
+      if (sessionId) {
+        triggerRefresh();
       }
-      setToastMsg('تم اعتماد الفروقات بنجاح');
-      if (sessionId) fetchData(sessionId);
-      setSelectedDiscrepancies([]);
-    } catch (error) {
-      setToastMsg('تعذر اعتماد الفروقات');
+    } catch {
+      setToastMsg('تعذر اعتماد المعاملات المحددة.');
+    } finally {
+      setLoadingAction(null);
     }
-    setLoadingAction(null);
   };
 
+  const handleApproveSingle = async (transactionId: string) => {
+    setLoadingAction(`approve-${transactionId}`);
+    try {
+      await approveMatchedTransaction(transactionId);
+      setToastMsg('تم اعتماد المعاملة وتأكيد المطابقة بنجاح.');
+      if (sessionId) {
+        triggerRefresh();
+      }
+    } catch {
+      setToastMsg('تعذر اعتماد المعاملة.');
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
+  // Convert Uncollected Sale to Debt (No Request Body)
+  const handleConvertToDebt = async (saleId: string) => {
+    if (!window.confirm('هل أنت متأكد من تحويل هذه الفاتورة غير المحصلة إلى ذمة مالية (دين) على العميل؟')) {
+      return;
+    }
+
+    setLoadingAction(`debt-${saleId}`);
+    try {
+      const result = await convertSaleToDebt(saleId);
+      const debtNumber = result.debtNumber || (result.data?.debtNumber ? String(result.data.debtNumber) : '');
+      const amount = result.amount || result.data?.amount || 0;
+      
+      const detailsMsg = debtNumber 
+        ? ` (رقم الدين: ${debtNumber}${amount ? `، المبلغ: ${amount} ₪` : ''})` 
+        : '';
+
+      setToastMsg(`تم تحويل المبيعة إلى ذمة مالية بنجاح${detailsMsg}`);
+      if (sessionId) {
+        triggerRefresh();
+      }
+    } catch {
+      setToastMsg('تعذر تحويل المبيعة إلى دين.');
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
+  // Open Create Sale Confirmation Dialog
+  const handleOpenCreateSaleDialog = (t: MizanTransactionDto) => {
+    const rawSender = t.senderNameRaw || t.senderNameNormalized || t.bankSenderName || 'Unknown Deposit';
+    const ref = t.referenceNumber || t.bankReferenceNumber || '—';
+    const dateFormatted = t.transactionDate ? new Date(t.transactionDate).toLocaleString('ar-EG') : 'اليوم';
+
+    setCandidateDeposit({
+      id: String(t.id),
+      bankAmount: Number(t.bankAmount ?? t.amount ?? 0),
+      bankSenderName: rawSender,
+      bankReferenceNumber: ref,
+      transactionDate: dateFormatted
+    });
+    setIsCreateSaleModalOpen(true);
+  };
+
+  // Upload Process
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   const processFile = async (file: File) => {
     setIsUploading(true);
+    setIsProcessingAsync(false);
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('bankName', selectedBank);
-      
-      const periodMap: Record<string, string> = {
-        'آخر ساعتين': '2', // Last2Hours
-        'اليوم': '1', // Today
-        'أمس': '3', // Yesterday
-        'آخر 48 ساعة': '4', // Last48Hours
-        'هذا الأسبوع': '5' // ThisWeek
-      };
-      const periodValue = periodMap[selectedPeriod] || '1';
-      formData.append('period', periodValue);
-      
-      const res = await uploadAndStartReconciliation(formData, periodValue, selectedBank);
+      formData.append('bankName', selectedBankKey);
+      formData.append('period', selectedPeriodKey);
+
+      // POST /api/mizan/reconciliations?period=Today
+      const res = await uploadAndStartReconciliation(formData, selectedPeriodKey, selectedBankKey);
       setSessionId(res.sessionId);
       setIsParsed(true);
-      await fetchData(res.sessionId);
-      setToastMsg('تم رفع الكشف وبدء المطابقة بنجاح');
-    } catch (error: any) {
-      if (error?.status === 401) {
+
+      if (res.status === 'Queued' || res.status === 'Processing') {
+        setIsProcessingAsync(true);
+        setToastMsg('تم إدراج كشف الحساب في طابور المعالجة الآلية (Queued). جاري التحليل...');
+      } else {
+        setToastMsg('تم رفع كشف الحساب وبدء المطابقة بنجاح.');
+      }
+
+      triggerRefresh();
+    } catch (error: unknown) {
+      const err = error as { status?: number };
+      if (err?.status === 401) {
         window.location.href = '/login';
       } else {
-        setToastMsg('تعذر معالجة الملف، الرجاء المحاولة مجدداً');
+        setToastMsg('تعذر معالجة الملف، يرجى التأكد من صيغة الملف والمحاولة مجدداً.');
       }
     } finally {
       setIsUploading(false);
+      setIsProcessingAsync(false);
     }
   };
 
@@ -261,35 +327,33 @@ export default function MizanReconciliation() {
     }
   };
 
-  const handleConvertToDebt = async (saleId: string) => {
-    if (confirm('هل أنت متأكد من تحويل هذه الفاتورة إلى دين؟')) {
-      setLoadingAction(`debt-${saleId}`);
-      try {
-        await convertSaleToDebt(saleId);
-        setToastMsg('تم تحويل الفاتورة إلى دين بنجاح');
-        if (sessionId) fetchData(sessionId);
-      } catch (error) {
-        setToastMsg('تعذر التحويل لدين');
-      }
-      setLoadingAction(null);
-    }
-  };
-
-  const handleCreateSale = async (transactionId: string) => {
-    setLoadingAction(`sale-${transactionId}`);
-    try {
-      await createSaleFromDeposit(transactionId, { notes: 'تم الإنشاء من المطابقة' });
-      setToastMsg('تم إنشاء الفاتورة بنجاح');
-      if (sessionId) fetchData(sessionId);
-    } catch (error) {
-      setToastMsg('تعذر إنشاء الفاتورة');
-    }
-    setLoadingAction(null);
-  };
+  const currentBankLabel = formatBankName(selectedBankKey);
+  const currentPeriodLabel = PERIOD_OPTIONS.find(p => p.id === selectedPeriodKey)?.label || 'اليوم';
 
   return (
     <div className="min-h-screen bg-[#f4f7fb] dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-cairo antialiased flex" dir="rtl">
       <Toast message={toastMsg} onClose={() => setToastMsg(null)} />
+
+      {/* Confirmation Modal for Creating Instant Sale with NO inputs */}
+      <CreateSaleConfirmModal
+        isOpen={isCreateSaleModalOpen}
+        onClose={() => {
+          setIsCreateSaleModalOpen(false);
+          setCandidateDeposit(null);
+        }}
+        deposit={candidateDeposit}
+        onSuccess={(msg) => {
+          setToastMsg(msg);
+          if (sessionId) {
+            triggerRefresh();
+          }
+        }}
+        onRefreshData={() => {
+          if (sessionId) {
+            triggerRefresh();
+          }
+        }}
+      />
       
       <Sidebar
         isOpen={isSidebarOpen}
@@ -302,19 +366,19 @@ export default function MizanReconciliation() {
           onMenuClick={() => setIsSidebarOpen(true)}
           searchQuery=""
           onSearchChange={() => {}}
-          searchPlaceholder="البحث..."
+          searchPlaceholder="البحث في المنظومة..."
         />
 
         <main className="p-4 sm:p-6 lg:p-8 space-y-6 flex-1 max-w-7xl mx-auto w-full">
           {/* Header Section */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
             <div>
               <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <RefreshCw className="w-6 h-6 text-emerald-600" />
                 ميزان — مطابقة المبيعات الفورية مع كشف البنك
               </h1>
               <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">
-                تأكد من دخول جميع مبيعاتك الفورية إلى حساباتك البنكية والمحافظ الإلكترونية
+                تأكد من دخول جميع مبيعاتك الفورية إلى حساباتك البنكية والمحافظ الإلكترونية بدقة متناهية
               </p>
             </div>
 
@@ -354,10 +418,10 @@ export default function MizanReconciliation() {
           {mainView === 'history' ? (
             <MizanHistoryAuditLog
               onOpenSessionInStudio={(sessId, bank) => {
-                setSelectedBank(bank);
+                setSelectedBankKey(bank);
                 setSessionId(sessId);
                 setIsParsed(true);
-                fetchData(sessId);
+                triggerRefresh();
                 setMainView('studio');
                 setToastMsg(`تم فتح جلسة المطابقة (${sessId}) بنجاح`);
               }}
@@ -366,577 +430,537 @@ export default function MizanReconciliation() {
           ) : (
             <>
               {/* Period and Bank Filter Header */}
-              <div className="flex justify-end mb-6">
-                <div className="flex items-center gap-3 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              <div className="flex justify-end mb-4">
+                <div className="flex items-center gap-3 bg-white dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs">
+                  {/* Period Selector */}
                   <div className="relative">
                     <button 
-              onClick={() => setIsPeriodDropdownOpen(!isPeriodDropdownOpen)}
-              onBlur={() => setTimeout(() => setIsPeriodDropdownOpen(false), 200)}
-              className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg border border-slate-100 dark:border-slate-700 transition-colors"
-            >
-              <Calendar className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                فترة المطابقة: <span className="text-emerald-700 dark:text-emerald-500">{selectedPeriod}</span>
-              </span>
-              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isPeriodDropdownOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {isPeriodDropdownOpen && (
-              <div 
-                className="absolute top-full right-0 mt-1 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden z-20"
-                onMouseDown={(e) => e.preventDefault()}
-              >
-                {periods.map(period => (
-                  <button
-                    key={period}
-                    onClick={() => {
-                      setSelectedPeriod(period);
-                      setIsPeriodDropdownOpen(false);
-                    }}
-                    className={`w-full text-right px-4 py-2.5 text-sm font-medium transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${selectedPeriod === period ? 'text-emerald-700 dark:text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'text-slate-700 dark:text-slate-300'}`}
-                  >
-                    {period}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          
-          <div className="h-8 w-px bg-slate-200 dark:bg-slate-700"></div>
-          
-          <div className="relative">
-            <button 
-              onClick={() => setIsBankDropdownOpen(!isBankDropdownOpen)}
-              onBlur={() => setTimeout(() => setIsBankDropdownOpen(false), 200)}
-              className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition-colors"
-            >
-              <Building2 className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{selectedBank}</span>
-              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isBankDropdownOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {isBankDropdownOpen && (
-              <div 
-                className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden z-10"
-                onMouseDown={(e) => e.preventDefault()} // يمنع فقدان التركيز من الزر الرئيسي
-              >
-                {banks.map(bank => (
-                  <button
-                    key={bank}
-                    onClick={() => {
-                      setSelectedBank(bank);
-                      setIsBankDropdownOpen(false);
-                    }}
-                    className={`w-full text-right px-4 py-2.5 text-sm font-medium transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${selectedBank === bank ? 'text-emerald-700 dark:text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20/50' : 'text-slate-700 dark:text-slate-300'}`}
-                  >
-                    {bank}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Upload Dropzone */}
-      {!isParsed ? (
-        <div 
-          className={`bg-white dark:bg-slate-800 rounded-2xl border-2 border-dashed p-12 text-center mb-8 transition-colors cursor-pointer group ${
-            isDragging 
-              ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/40' 
-              : 'border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-50 dark:hover:bg-emerald-900/20/50'
-          }`}
-          onClick={handleUploadClick}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-        >
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleFileChange} 
-            className="hidden" 
-            accept=".pdf,.xlsx,.xls,.csv" 
-          />
-          {isUploading ? (
-            <div className="flex flex-col items-center justify-center animate-pulse">
-              <RefreshCw className="w-12 h-12 text-emerald-500 animate-spin mb-4" />
-              <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200">جاري المعالجة...</h3>
-              <p className="text-slate-500 dark:text-slate-400 mt-2">جاري سحب حركات الإيداع ومطابقتها مع مبيعات اليوم الفورية (الذكاء الاصطناعي)</p>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center">
-              <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <UploadCloud className="w-8 h-8" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2">اسحب وأفلت كشف الحساب هنا</h3>
-              <p className="text-slate-500 dark:text-slate-400 mb-6">يدعم ملفات PDF, Excel (.xlsx), و CSV الخاصة بالبنوك المحلية ومحافظ الدفع</p>
-              <button className="bg-emerald-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 shadow-sm pointer-events-none">
-                <FileSpreadsheet className="w-4 h-4" />
-                تصفح الملفات
-              </button>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-4 mb-8 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-            <div>
-              <h4 className="font-bold text-emerald-900 dark:text-emerald-400">تمت المطابقة بنجاح</h4>
-              <p className="text-sm text-emerald-700 dark:text-emerald-500">تم سحب وتحليل كشف حساب {selectedBank} لـ {selectedPeriod}</p>
-            </div>
-          </div>
-          <button onClick={() => setIsParsed(false)} className="text-emerald-700 dark:text-emerald-500 hover:text-emerald-900 dark:text-emerald-400 text-sm font-medium underline">
-            رفع كشف آخر
-          </button>
-        </div>
-      )}
-
-      {/* KPIs Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden group hover:border-slate-300 transition-colors">
-          <div className="absolute top-0 right-0 w-1 h-full bg-slate-800"></div>
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mb-1">إجمالي الحركات البنكية</p>
-              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{summary.totalBankTransactions?.toLocaleString() || 0}</h3>
-            </div>
-            <div className="p-2 bg-slate-100 dark:bg-slate-700 rounded-lg text-slate-600 dark:text-slate-400">
-              <ArrowRightLeft className="w-5 h-5" />
-            </div>
-          </div>
-          <p className="text-xs text-slate-400 mt-4">إجمالي الحركات المرفوعة</p>
-        </div>
-
-        <div className="bg-emerald-50 dark:bg-emerald-900/20 p-5 rounded-2xl border border-emerald-200 dark:border-emerald-800/50 shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-1 h-full bg-emerald-500"></div>
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm text-emerald-800 dark:text-emerald-400 font-medium mb-1">مطابقة بنكياً 🟢</p>
-              <h3 className="text-2xl font-bold text-emerald-900 dark:text-emerald-400">{summary.matched?.toLocaleString() || 0}</h3>
-            </div>
-            <div className="p-2 bg-emerald-100 dark:bg-emerald-900/50 rounded-lg text-emerald-700 dark:text-emerald-500">
-              <CheckCircle2 className="w-5 h-5" />
-            </div>
-          </div>
-          <p className="text-xs text-emerald-600 mt-4 font-medium">فواتير مطابقة تماماً</p>
-        </div>
-
-        <div className="bg-amber-50 dark:bg-amber-900/20 p-5 rounded-2xl border border-amber-200 dark:border-amber-800/50 shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-1 h-full bg-amber-500"></div>
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm text-amber-800 dark:text-amber-400 font-medium mb-1">تحتاج مراجعة ⚠️</p>
-              <h3 className="text-2xl font-bold text-amber-900 dark:text-amber-400">{summary.needsReview?.toLocaleString() || 0}</h3>
-            </div>
-            <div className="p-2 bg-amber-100 dark:bg-amber-900/50 rounded-lg text-amber-700 dark:text-amber-500">
-              <AlertTriangle className="w-5 h-5" />
-            </div>
-          </div>
-          <p className="text-xs text-amber-600 mt-4 font-medium">فروقات تحتاج تدخل يدوي</p>
-        </div>
-
-        <div className="bg-red-50 dark:bg-red-900/20 p-5 rounded-2xl border border-red-200 dark:border-red-800/50 shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-1 h-full bg-red-500"></div>
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm text-red-800 dark:text-red-400 font-medium mb-1">مفقودة في البنك 🔴</p>
-              <h3 className="text-2xl font-bold text-red-900 dark:text-red-400">{summary.missingInBank?.toLocaleString() || 0}</h3>
-            </div>
-            <div className="p-2 bg-red-100 dark:bg-red-900/50 rounded-lg text-red-700 dark:text-red-500">
-              <AlertCircle className="w-5 h-5" />
-            </div>
-          </div>
-          <p className="text-xs text-red-600 mt-4 font-medium">فواتير بدون حوالة بنكية</p>
-        </div>
-      </div>
-
-      {/* Tabs & Data Section */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm overflow-hidden">
-        {/* Tab Navigation */}
-        <div className="flex overflow-x-auto border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
-          <button 
-            onClick={() => setActiveTab('reconciled')}
-            className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === 'reconciled' ? 'text-emerald-700 dark:text-emerald-500 bg-white dark:bg-slate-800' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
-          >
-            <CheckCircle2 className={`w-4 h-4 ${activeTab === 'reconciled' ? 'text-emerald-600' : 'text-slate-400'}`} />
-            مبيعات مطابقة تماماً
-            <span className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-500 px-2 py-0.5 rounded-full text-xs ml-1">{reconciledList.length}</span>
-            {activeTab === 'reconciled' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600"></div>}
-          </button>
-          
-          <button 
-            onClick={() => setActiveTab('uncollected')}
-            className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === 'uncollected' ? 'text-red-700 dark:text-red-500 bg-white dark:bg-slate-800' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
-          >
-            <XCircle className={`w-4 h-4 ${activeTab === 'uncollected' ? 'text-red-600' : 'text-slate-400'}`} />
-            مبيعات غير محصلة
-            <span className="bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-500 px-2 py-0.5 rounded-full text-xs ml-1">{uncollectedSales.length}</span>
-            {activeTab === 'uncollected' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-600"></div>}
-          </button>
-
-          <button 
-            onClick={() => setActiveTab('discrepancies')}
-            className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === 'discrepancies' ? 'text-amber-700 dark:text-amber-400 bg-white dark:bg-slate-800' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
-          >
-            <AlertTriangle className={`w-4 h-4 ${activeTab === 'discrepancies' ? 'text-amber-500' : 'text-slate-400'}`} />
-            فروقات تحتاج مراجعة
-            <span className="bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full text-xs ml-1">{discrepanciesList.length}</span>
-            {activeTab === 'discrepancies' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500"></div>}
-          </button>
-
-          <button 
-            onClick={() => setActiveTab('unmatched')}
-            className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === 'unmatched' ? 'text-blue-700 dark:text-blue-400 bg-white dark:bg-slate-800' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
-          >
-            <HelpCircle className={`w-4 h-4 ${activeTab === 'unmatched' ? 'text-blue-500' : 'text-slate-400'}`} />
-            حوالات بدون فواتير
-            <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded-full text-xs ml-1">{unmatchedInflows.length}</span>
-            {activeTab === 'unmatched' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500"></div>}
-          </button>
-        </div>
-
-        {/* Tab Content */}
-        <div className="p-0">
-          
-          {/* Reconciled Tab */}
-          {activeTab === 'reconciled' && (
-            <div>
-              <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-800">
-                <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-                  <div className="relative w-full sm:w-auto">
-                    <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
-                    <input 
-                      type="text" 
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="بحث برقم الفاتورة، الاسم، أو المبلغ..." 
-                      className="pl-4 pr-10 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg text-sm w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                    />
-                  </div>
-                  <select
-                    value={filterType}
-                    onChange={(e) => setFilterType(e.target.value)}
-                    className="w-full sm:w-auto px-3 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                  >
-                    <option value="all">جميع المطابقات</option>
-                    <option value="auto">مطابقة تلقائية (100%)</option>
-                    <option value="manual">مطابقة يدوية (بعد المراجعة)</option>
-                  </select>
-                </div>
-                <button 
-                  onClick={handleCloseReconciled}
-                  disabled={selectedReconciled.length === 0}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm ${selectedReconciled.length > 0 ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-100 dark:bg-slate-700 text-slate-400 cursor-not-allowed'}`}
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  اعتماد وتأكيد الإقفال اليومي {selectedReconciled.length > 0 ? `(${selectedReconciled.length})` : ''}
-                </button>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-right">
-                  <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 font-medium border-b border-slate-200 dark:border-slate-700">
-                    <tr>
-                      <th className="px-6 py-3 w-12 text-center">
-                        <input 
-                          type="checkbox" 
-                          className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
-                          checked={selectedReconciled.length === reconciledList.length && reconciledList.length > 0}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedReconciled(reconciledList.map(s => s.id));
-                            } else {
-                              setSelectedReconciled([]);
-                            }
-                          }}
-                        />
-                      </th>
-                      <th className="px-6 py-3">رقم الفاتورة</th>
-                      <th className="px-6 py-3">الوقت</th>
-                      <th className="px-6 py-3">المبلغ (₪)</th>
-                      <th className="px-6 py-3">اسم المشتري (الكاشير)</th>
-                      <th className="px-6 py-3">اسم المحول (البنك)</th>
-                      <th className="px-6 py-3">رقم الحوالة المرجعي</th>
-                      <th className="px-6 py-3 text-center">حالة التطابق</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                    {filteredReconciledList.length === 0 ? (
-                      <tr>
-                        <td colSpan={8} className="px-6 py-10 text-center text-slate-500 dark:text-slate-400 font-medium">
-                          {reconciledList.length === 0 ? 'تم إقفال جميع الفواتير المطابقة بنجاح! 🔒' : 'لا توجد نتائج تطابق خيارات البحث الحالية.'}
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredReconciledList.map((sale, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-                          <td className="px-6 py-4 text-center">
-                            <input 
-                              type="checkbox" 
-                              className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
-                              checked={selectedReconciled.includes(sale.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedReconciled([...selectedReconciled, sale.id]);
-                                } else {
-                                  setSelectedReconciled(selectedReconciled.filter(id => id !== sale.id));
-                                }
-                              }}
-                            />
-                          </td>
-                          <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{sale.id}</td>
-                          <td className="px-6 py-4 text-slate-500 dark:text-slate-400">{sale.time}</td>
-                          <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">{sale.amount}</td>
-                          <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{sale.customerName}</td>
-                          <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{sale.bankSender}</td>
-                          <td className="px-6 py-4 text-slate-500 dark:text-slate-400 font-mono text-xs">{sale.ref}</td>
-                          <td className="px-6 py-4 text-center">
-                            <span className="inline-flex items-center gap-1 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-500 px-2.5 py-1 rounded-full text-xs font-bold">
-                              <CheckCircle2 className="w-3 h-3" />
-                              {sale.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Uncollected Tab */}
-          {activeTab === 'uncollected' && (
-            <div>
-              <div className="p-4 border-b border-red-100 bg-red-50 dark:bg-red-900/20/50">
-                <p className="text-red-700 dark:text-red-500 text-sm flex items-center gap-2 font-medium">
-                  <AlertCircle className="w-4 h-4" />
-                  انتباه: الفواتير التالية تم إخراج بضاعتها وتسجيلها كـ "دفع بنكي"، ولكن لم يظهر أي إيداع مقابل لها في كشف البنك المرفوع!
-                </p>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-right">
-                  <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 font-medium border-b border-slate-200 dark:border-slate-700">
-                    <tr>
-                      <th className="px-6 py-3">رقم الفاتورة</th>
-                      <th className="px-6 py-3">الأصناف المبيعة</th>
-                      <th className="px-6 py-3">المبلغ (₪)</th>
-                      <th className="px-6 py-3">بيانات الزبون</th>
-                      <th className="px-6 py-3">الحالة</th>
-                      <th className="px-6 py-3 text-center">إجراء</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                    {uncollectedSales.map((sale, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-                        <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{sale.id}</td>
-                        <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{sale.items}</td>
-                        <td className="px-6 py-4 font-bold text-red-600">{sale.amount}</td>
-                        <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{sale.customerInfo}</td>
-                        <td className="px-6 py-4">
-                          <span className="inline-flex items-center gap-1 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-500 px-2.5 py-1 rounded-full text-xs font-bold">
-                            <XCircle className="w-3 h-3" />
-                            {sale.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <button 
-                            onClick={() => handleConvertToDebt(sale.id)}
-                            disabled={loadingAction === `debt-${sale.id}`}
-                            className={`border px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shadow-sm whitespace-nowrap ${loadingAction === `debt-${sale.id}` ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white dark:bg-slate-800 border-red-200 dark:border-red-800/50 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20'}`}
-                          >
-                            {loadingAction === `debt-${sale.id}` ? 'جاري التحويل...' : 'تحويل لدين ومطالبة الزبون ⚠️'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Discrepancies Tab */}
-          {activeTab === 'discrepancies' && (
-            <div>
-              {discrepanciesList.length > 0 && (
-                <div className="p-4 border-b border-amber-100 dark:border-amber-800/50 flex justify-between items-center bg-amber-50/30 dark:bg-amber-900/20">
-                  <div className="flex items-center gap-3">
-                    <input 
-                      type="checkbox" 
-                      className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
-                      checked={selectedDiscrepancies.length === discrepanciesList.length && discrepanciesList.length > 0}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedDiscrepancies(discrepanciesList.map(d => d.id));
-                        } else {
-                          setSelectedDiscrepancies([]);
-                        }
-                      }}
-                    />
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">تحديد الكل</span>
-                    {selectedDiscrepancies.length > 0 && (
-                      <span className="text-xs bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-400 px-2 py-0.5 rounded-full font-bold">
-                        {selectedDiscrepancies.length} محدد
+                      onClick={() => setIsPeriodDropdownOpen(!isPeriodDropdownOpen)}
+                      onBlur={() => setTimeout(() => setIsPeriodDropdownOpen(false), 200)}
+                      className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl border border-slate-100 dark:border-slate-700 transition-colors"
+                    >
+                      <Calendar className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                        فترة المطابقة: <span className="text-emerald-700 dark:text-emerald-400 font-bold">{currentPeriodLabel}</span>
                       </span>
+                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isPeriodDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {isPeriodDropdownOpen && (
+                      <div 
+                        className="absolute top-full right-0 mt-1.5 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden z-20"
+                        onMouseDown={(e) => e.preventDefault()}
+                      >
+                        {PERIOD_OPTIONS.map(period => (
+                          <button
+                            key={period.id}
+                            onClick={() => {
+                              setSelectedPeriodKey(period.id);
+                              setIsPeriodDropdownOpen(false);
+                            }}
+                            className={`w-full text-right px-4 py-2.5 text-xs font-medium transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
+                              selectedPeriodKey === period.id 
+                                ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 font-bold' 
+                                : 'text-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            {period.label}
+                          </button>
+                        ))}
+                      </div>
                     )}
                   </div>
                   
+                  <div className="h-6 w-px bg-slate-200 dark:bg-slate-700"></div>
+                  
+                  {/* Bank Selector */}
+                  <div className="relative">
+                    <button 
+                      onClick={() => setIsBankDropdownOpen(!isBankDropdownOpen)}
+                      onBlur={() => setTimeout(() => setIsBankDropdownOpen(false), 200)}
+                      className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-colors"
+                    >
+                      <Building2 className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{currentBankLabel}</span>
+                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isBankDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {isBankDropdownOpen && (
+                      <div 
+                        className="absolute top-full left-0 mt-1.5 w-52 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden z-20"
+                        onMouseDown={(e) => e.preventDefault()}
+                      >
+                        {BANK_OPTIONS.map(bank => (
+                          <button
+                            key={bank.id}
+                            onClick={() => {
+                              setSelectedBankKey(bank.id);
+                              setIsBankDropdownOpen(false);
+                            }}
+                            className={`w-full text-right px-4 py-2.5 text-xs font-medium transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
+                              selectedBankKey === bank.id 
+                                ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 font-bold' 
+                                : 'text-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            {bank.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Upload Dropzone */}
+              {!isParsed ? (
+                <div 
+                  className={`bg-white dark:bg-slate-800 rounded-3xl border-2 border-dashed p-10 text-center mb-6 transition-all cursor-pointer group ${
+                    isDragging 
+                      ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-900/40 shadow-lg' 
+                      : 'border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-50/30 dark:hover:bg-emerald-900/10'
+                  }`}
+                  onClick={handleUploadClick}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    onChange={handleFileChange} 
+                    className="hidden" 
+                    accept=".pdf,.xlsx,.xls,.csv" 
+                  />
+                  {isUploading ? (
+                    <div className="flex flex-col items-center justify-center animate-pulse py-4">
+                      <RefreshCw className="w-12 h-12 text-emerald-500 animate-spin mb-4" />
+                      <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200">جاري المعالجة والمطابقة الآلية...</h3>
+                      <p className="text-slate-500 dark:text-slate-400 mt-2 text-xs">
+                        {isProcessingAsync 
+                          ? 'الكشف قيد المعالجة (Queued Processing) — جاري قراءة الحوالات وربطها بالمبيعات'
+                          : 'جاري سحب حركات الإيداع ومطابقتها مع مبيعات اليوم الفورية'
+                        }
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-4">
+                      <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-xs">
+                        <UploadCloud className="w-8 h-8" />
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-1">
+                        اسحب وأفلت كشف حساب {currentBankLabel} هنا
+                      </h3>
+                      <p className="text-slate-500 dark:text-slate-400 mb-5 text-xs">
+                        يدعم ملفات PDF, Excel (.xlsx/.xls), و CSV الخاصة بالبنوك المحلية الفلسطينية ومحافظ الدفع
+                      </p>
+                      <button className="bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-bold text-xs hover:bg-emerald-700 transition-colors flex items-center gap-2 shadow-sm pointer-events-none">
+                        <FileSpreadsheet className="w-4 h-4" />
+                        تصفح الملفات من جهازك
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-emerald-50/80 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 rounded-2xl p-4 mb-6 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                    <div>
+                      <h4 className="font-bold text-sm text-emerald-950 dark:text-emerald-300">تمت مطابقة الكشف بنجاح</h4>
+                      <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                        كشف حساب {currentBankLabel} • الفترة: {summary.statementPeriod || currentPeriodLabel}
+                      </p>
+                    </div>
+                  </div>
                   <button 
-                    onClick={handleConfirmSelected}
-                    disabled={selectedDiscrepancies.length === 0}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm ${selectedDiscrepancies.length > 0 ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-100 dark:bg-slate-700 text-slate-400 cursor-not-allowed'}`}
+                    onClick={() => setIsParsed(false)} 
+                    className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 text-xs font-bold underline"
                   >
-                    <CheckCircle2 className="w-4 h-4" />
-                    اعتماد وتأكيد المحدد
+                    رفع كشف حساب آخر
                   </button>
                 </div>
               )}
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-right">
-                  <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 font-medium border-b border-slate-200 dark:border-slate-700">
-                    <tr>
-                      <th className="px-6 py-3 w-12 text-center"></th>
-                      <th className="px-6 py-3">رقم الفاتورة</th>
-                      <th className="px-6 py-3">المبلغ بالفاتورة</th>
-                      <th className="px-6 py-3">المبلغ بالبنك</th>
-                      <th className="px-6 py-3">اسم المشتري / المحول</th>
-                      <th className="px-6 py-3">نوع الاختلاف</th>
-                      <th className="px-6 py-3 text-center">الإجراء المطلوب</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                    {discrepanciesList.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="px-6 py-10 text-center text-slate-500 dark:text-slate-400 font-medium">
-                          لا يوجد فروقات تحتاج لمراجعة، كل شيء ممتاز! 🎉
-                        </td>
-                      </tr>
-                    ) : (
-                      discrepanciesList.map((disc, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-                          <td className="px-6 py-4 text-center">
-                            <input 
-                              type="checkbox" 
-                              className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
-                              checked={selectedDiscrepancies.includes(disc.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedDiscrepancies([...selectedDiscrepancies, disc.id]);
-                                } else {
-                                  setSelectedDiscrepancies(selectedDiscrepancies.filter(id => id !== disc.id));
-                                }
-                              }}
-                            />
-                          </td>
-                          <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{disc.id}</td>
-                          <td className="px-6 py-4 font-bold text-slate-700 dark:text-slate-300">{disc.invoiceAmount} ₪</td>
-                          <td className="px-6 py-4 font-bold text-amber-600 dark:text-amber-500">{disc.bankAmount} ₪</td>
-                          <td className="px-6 py-4">
-                            <div className="text-slate-900 dark:text-white">{disc.customerName} (كاشير)</div>
-                            <div className="text-slate-500 dark:text-slate-400 text-xs mt-0.5">{disc.bankSender} (بنك)</div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-400 px-2.5 py-1 rounded-full text-xs font-medium">
-                              {disc.issue}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-center">
-                            <div className="flex justify-center gap-2">
-                              {disc.invoiceAmount !== disc.bankAmount ? (
-                                <button 
-                                  onClick={() => {
-                                    setSelectedDiscrepancies([disc.id]);
-                                    setTimeout(handleConfirmSelected, 0); // Hack to wait for state update
-                                  }}
-                                  className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shadow-sm"
-                                >
-                                  قبول الفرق كعمولة بنكية
-                                </button>
-                              ) : (
-                                <button 
-                                  onClick={() => {
-                                    setSelectedDiscrepancies([disc.id]);
-                                    setTimeout(handleConfirmSelected, 0);
-                                  }}
-                                  className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shadow-sm"
-                                >
-                                  تأكيد ربط الحوالة بالفاتورة
-                                </button>
-                              )}
-                            </div>
-                          </td>
+
+              {/* KPIs Section - All Amounts bound in ILS ₪ */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs relative overflow-hidden group hover:border-slate-300 transition-colors">
+                  <div className="absolute top-0 right-0 w-1.5 h-full bg-slate-800"></div>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">إجمالي الحركات البنكية</p>
+                      <h3 className="text-2xl font-black text-slate-900 dark:text-white">
+                        {(summary.totalBankTransactions ?? 0).toLocaleString()}
+                      </h3>
+                      {summary.totalAmount ? (
+                        <p className="text-xs text-slate-500 font-mono mt-1 font-semibold">
+                          {summary.totalAmount.toLocaleString()} ₪
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="p-2.5 bg-slate-100 dark:bg-slate-700 rounded-xl text-slate-600 dark:text-slate-300">
+                      <ArrowRightLeft className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-3">إجمالي العمليات المقروءة من الكشف</p>
+                </div>
+
+                <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-5 rounded-2xl border border-emerald-200/80 dark:border-emerald-800/50 shadow-xs relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-1.5 h-full bg-emerald-500"></div>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-xs text-emerald-800 dark:text-emerald-400 font-semibold mb-1">مطابقة بنكياً 🟢</p>
+                      <h3 className="text-2xl font-black text-emerald-900 dark:text-emerald-300">
+                        {(summary.matched ?? summary.matchedCount ?? 0).toLocaleString()}
+                      </h3>
+                      {summary.matchedAmount ? (
+                        <p className="text-xs text-emerald-700 dark:text-emerald-400 font-mono mt-1 font-semibold">
+                          {summary.matchedAmount.toLocaleString()} ₪
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="p-2.5 bg-emerald-100 dark:bg-emerald-900/60 rounded-xl text-emerald-700 dark:text-emerald-400">
+                      <CheckCircle2 className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-3 font-medium">مبيعات تطابقت مع الكشف 100%</p>
+                </div>
+
+                <div className="bg-amber-50/50 dark:bg-amber-950/20 p-5 rounded-2xl border border-amber-200/80 dark:border-amber-800/50 shadow-xs relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-1.5 h-full bg-amber-500"></div>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-xs text-amber-800 dark:text-amber-400 font-semibold mb-1">تحتاج مراجعة ⚠️</p>
+                      <h3 className="text-2xl font-black text-amber-900 dark:text-amber-300">
+                        {(summary.needsReview ?? summary.discrepancies ?? 0).toLocaleString()}
+                      </h3>
+                    </div>
+                    <div className="p-2.5 bg-amber-100 dark:bg-amber-900/60 rounded-xl text-amber-700 dark:text-amber-400">
+                      <AlertTriangle className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-3 font-medium">فروقات مبالغ أو عمولات بنكية</p>
+                </div>
+
+                <div className="bg-red-50/50 dark:bg-red-950/20 p-5 rounded-2xl border border-red-200/80 dark:border-red-800/50 shadow-xs relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-1.5 h-full bg-red-500"></div>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-xs text-red-800 dark:text-red-400 font-semibold mb-1">مفقودة في البنك 🔴</p>
+                      <h3 className="text-2xl font-black text-red-900 dark:text-red-300">
+                        {(summary.missingInBank ?? 0).toLocaleString()}
+                      </h3>
+                    </div>
+                    <div className="p-2.5 bg-red-100 dark:bg-red-900/60 rounded-xl text-red-700 dark:text-red-400">
+                      <AlertCircle className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-red-700 dark:text-red-400 mt-3 font-medium">فواتير كاشير لم يظهر إيداع مقابلها</p>
+                </div>
+              </div>
+
+              {/* Tabs Navigation & Transaction Data Section */}
+              <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-xs overflow-hidden">
+                {/* Tabs Strip */}
+                <div className="flex overflow-x-auto border-b border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-850">
+                  <button 
+                    onClick={() => handleTabChange('reconciled')}
+                    className={`flex items-center gap-2 px-6 py-4 text-xs font-bold transition-colors relative whitespace-nowrap ${
+                      activeTab === 'reconciled' 
+                        ? 'text-emerald-700 dark:text-emerald-400 bg-white dark:bg-slate-800' 
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    <CheckCircle2 className={`w-4 h-4 ${activeTab === 'reconciled' ? 'text-emerald-600' : 'text-slate-400'}`} />
+                    <span>مبيعات مطابقة تماماً</span>
+                    <span className="bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                      {summary.matched ?? summary.matchedCount ?? 0}
+                    </span>
+                    {activeTab === 'reconciled' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600"></div>}
+                  </button>
+                  
+                  <button 
+                    onClick={() => handleTabChange('uncollected')}
+                    className={`flex items-center gap-2 px-6 py-4 text-xs font-bold transition-colors relative whitespace-nowrap ${
+                      activeTab === 'uncollected' 
+                        ? 'text-red-700 dark:text-red-400 bg-white dark:bg-slate-800' 
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    <XCircle className={`w-4 h-4 ${activeTab === 'uncollected' ? 'text-red-600' : 'text-slate-400'}`} />
+                    <span>مبيعات غير محصلة</span>
+                    <span className="bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-400 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                      {summary.missingInBank ?? 0}
+                    </span>
+                    {activeTab === 'uncollected' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-600"></div>}
+                  </button>
+
+                  <button 
+                    onClick={() => handleTabChange('discrepancies')}
+                    className={`flex items-center gap-2 px-6 py-4 text-xs font-bold transition-colors relative whitespace-nowrap ${
+                      activeTab === 'discrepancies' 
+                        ? 'text-amber-700 dark:text-amber-400 bg-white dark:bg-slate-800' 
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    <AlertTriangle className={`w-4 h-4 ${activeTab === 'discrepancies' ? 'text-amber-500' : 'text-slate-400'}`} />
+                    <span>فروقات تحتاج مراجعة</span>
+                    <span className="bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                      {summary.needsReview ?? summary.discrepancies ?? 0}
+                    </span>
+                    {activeTab === 'discrepancies' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500"></div>}
+                  </button>
+
+                  <button 
+                    onClick={() => handleTabChange('unmatched')}
+                    className={`flex items-center gap-2 px-6 py-4 text-xs font-bold transition-colors relative whitespace-nowrap ${
+                      activeTab === 'unmatched' 
+                        ? 'text-blue-700 dark:text-blue-400 bg-white dark:bg-slate-800' 
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    <HelpCircle className={`w-4 h-4 ${activeTab === 'unmatched' ? 'text-blue-500' : 'text-slate-400'}`} />
+                    <span>حوالات بدون فواتير (إيداعات غير مطالب بها)</span>
+                    <span className="bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                      {summary.unclaimedDeposits ?? 0}
+                    </span>
+                    {activeTab === 'unmatched' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500"></div>}
+                  </button>
+                </div>
+
+                {/* Filter & Bulk Actions Bar */}
+                <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-800">
+                  <div className="relative w-full sm:w-72">
+                    <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+                    <input 
+                      type="text" 
+                      value={searchQuery}
+                      onChange={(e) => handleSearchChange(e.target.value)}
+                      placeholder="بحث بالرقم المرجعي، الاسم، أو المبلغ..." 
+                      className="pl-4 pr-10 py-2 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white rounded-xl text-xs w-full focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                    />
+                  </div>
+
+                  {activeTab === 'reconciled' && (
+                    <button 
+                      onClick={handleApproveSelected}
+                      disabled={selectedTransactionIds.length === 0 || loadingAction === 'approve-selected'}
+                      className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs ${
+                        selectedTransactionIds.length > 0 && loadingAction !== 'approve-selected'
+                          ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20' 
+                          : 'bg-slate-100 dark:bg-slate-700 text-slate-400 cursor-not-allowed'
+                      }`}
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>اعتماد وتأكيد الإقفال للمحدد ({selectedTransactionIds.length})</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Tab Table Body */}
+                <div className="overflow-x-auto min-h-[280px]">
+                  {isLoadingTransactions ? (
+                    <div className="py-20 flex flex-col items-center justify-center space-y-3">
+                      <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin" />
+                      <p className="text-xs font-semibold text-slate-500">جاري تحميل حركات التبويب...</p>
+                    </div>
+                  ) : transactionsList.length === 0 ? (
+                    <div className="py-16 text-center space-y-2">
+                      <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
+                        <CheckCircle2 className="w-6 h-6" />
+                      </div>
+                      <h4 className="font-bold text-slate-700 dark:text-slate-300 text-sm">
+                        {searchQuery ? 'لا توجد نتائج تطابق كلمة البحث الحالية.' : 'لا توجد حركات مسجلة تحت هذا التصنيف.'}
+                      </h4>
+                    </div>
+                  ) : (
+                    <table className="w-full text-xs text-right">
+                      <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-700">
+                        <tr>
+                          {activeTab === 'reconciled' && (
+                            <th className="px-5 py-3 w-12 text-center">
+                              <input 
+                                type="checkbox" 
+                                className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                                checked={selectedTransactionIds.length === transactionsList.length && transactionsList.length > 0}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedTransactionIds(transactionsList.map(t => String(t.id)));
+                                  } else {
+                                    setSelectedTransactionIds([]);
+                                  }
+                                }}
+                              />
+                            </th>
+                          )}
+                          <th className="px-5 py-3">رقم العملية / المرجع</th>
+                          <th className="px-5 py-3">التوقيت والتاريخ</th>
+                          <th className="px-5 py-3">المبلغ (₪)</th>
+                          <th className="px-5 py-3">اسم المودع / العميل</th>
+                          <th className="px-5 py-3">حالة التطابق والاعتماد</th>
+                          <th className="px-5 py-3 text-center">الإجراء المطلوب</th>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                        {transactionsList.map((t) => {
+                          const meta = getClassificationMeta(t.classification);
+                          const approvalMeta = getApprovalStatusMeta(t.approvalStatus);
+                          const isSelected = selectedTransactionIds.includes(String(t.id));
+                          const senderName = t.senderNameRaw || t.senderNameNormalized || t.bankSenderName || t.customerName || 'غير متوفر';
+                          const refNumber = t.referenceNumber || t.bankReferenceNumber || '—';
+                          const timeStr = t.transactionDate ? new Date(t.transactionDate).toLocaleString('ar-EG') : '—';
+                          const amountVal = Number(t.bankAmount ?? t.amount ?? 0);
+
+                          return (
+                            <tr key={t.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/40 transition-colors">
+                              {activeTab === 'reconciled' && (
+                                <td className="px-5 py-3.5 text-center">
+                                  <input 
+                                    type="checkbox" 
+                                    className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedTransactionIds([...selectedTransactionIds, String(t.id)]);
+                                      } else {
+                                        setSelectedTransactionIds(selectedTransactionIds.filter(id => id !== String(t.id)));
+                                      }
+                                    }}
+                                  />
+                                </td>
+                              )}
+                              
+                              {/* Reference */}
+                              <td className="px-5 py-3.5 font-mono font-bold text-slate-900 dark:text-white">
+                                {refNumber}
+                              </td>
+
+                              {/* Time */}
+                              <td className="px-5 py-3.5 text-slate-500 dark:text-slate-400 font-medium">
+                                {timeStr}
+                              </td>
+
+                              {/* Amount */}
+                              <td className="px-5 py-3.5 font-black text-slate-900 dark:text-white text-sm font-mono">
+                                {amountVal.toLocaleString()} ₪
+                              </td>
+
+                              {/* Sender / Customer */}
+                              <td className="px-5 py-3.5 font-bold text-slate-800 dark:text-slate-200">
+                                {senderName}
+                              </td>
+
+                              {/* Classification Badges */}
+                              <td className="px-5 py-3.5">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${meta.badgeClass}`}>
+                                    {meta.label}
+                                  </span>
+                                  {t.approvalStatus && (
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${approvalMeta.badgeClass}`}>
+                                      {approvalMeta.label}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Actions */}
+                              <td className="px-5 py-3.5 text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  {/* Action: Create Instant Sale (Allowed ONLY on DepositWithoutInvoice/Unclaimed or NeedsReview/Review) */}
+                                  {meta.canCreateSale && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenCreateSaleDialog(t)}
+                                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition-all shadow-xs"
+                                    >
+                                      <Sparkles className="w-3.5 h-3.5" />
+                                      <span>إنشاء مبيعة</span>
+                                    </button>
+                                  )}
+
+                                  {/* Action: Convert Uncollected to Debt */}
+                                  {meta.canConvertToDebt && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleConvertToDebt(t.saleId || String(t.id))}
+                                      disabled={loadingAction === `debt-${t.saleId || t.id}`}
+                                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 border border-red-200 dark:border-red-800 font-bold transition-all"
+                                    >
+                                      <AlertTriangle className="w-3.5 h-3.5" />
+                                      <span>تحويل لدين ومطالبة الزبون ⚠️</span>
+                                    </button>
+                                  )}
+
+                                  {/* Action: Approve Matched or Discrepancy */}
+                                  {meta.canApprove && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleApproveSingle(String(t.id))}
+                                      disabled={loadingAction === `approve-${t.id}`}
+                                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 font-medium transition-all"
+                                    >
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                      <span>اعتماد المطابقة</span>
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+
+                {/* Server Pagination Bar */}
+                {totalPages > 1 && (
+                  <div className="p-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
+                    <span className="text-xs text-slate-500">
+                      صفحة {currentPage} من {totalPages} (إجمالي {tabTotalCount} حركة)
+                    </span>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage <= 1 || isLoadingTransactions}
+                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 disabled:opacity-40"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+
+                      <span className="text-xs font-mono font-bold px-2">
+                        {currentPage}
+                      </span>
+
+                      <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage >= totalPages || isLoadingTransactions}
+                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 disabled:opacity-40"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+
+              {/* Export Button */}
+              <div className="mt-6 flex justify-end">
+                <button 
+                  onClick={() => window.print()}
+                  className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 px-5 py-2.5 rounded-xl text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-xs"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>تصدير تقرير المطابقة اليومي (PDF)</span>
+                </button>
+              </div>
+            </>
           )}
-
-          {/* Unmatched Inflows Tab */}
-          {activeTab === 'unmatched' && (
-            <div>
-              <div className="p-4 border-b border-blue-100 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-900/20/50">
-                <p className="text-blue-700 dark:text-blue-400 text-sm flex items-center gap-2 font-medium">
-                  <HelpCircle className="w-4 h-4" />
-                  مبالغ تم إيداعها في الحساب البنكي، ولكن لا يوجد فواتير مبيعات مسجلة في الكاشير تطابقها.
-                </p>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-right">
-                  <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 font-medium border-b border-slate-200 dark:border-slate-700">
-                    <tr>
-                      <th className="px-6 py-3">وقت الحوالة</th>
-                      <th className="px-6 py-3">المبلغ (₪)</th>
-                      <th className="px-6 py-3">اسم المحول / المصدر</th>
-                      <th className="px-6 py-3">الرقم المرجعي</th>
-                      <th className="px-6 py-3">ملاحظات البنك</th>
-                      <th className="px-6 py-3 text-center">إجراء</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                    {unmatchedInflows.map((inflow, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-                        <td className="px-6 py-4 text-slate-500 dark:text-slate-400">{inflow.time}</td>
-                        <td className="px-6 py-4 font-bold text-blue-600 dark:text-blue-500">{inflow.amount}</td>
-                        <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{inflow.bankSender}</td>
-                        <td className="px-6 py-4 text-slate-500 dark:text-slate-400 font-mono text-xs">{inflow.ref}</td>
-                        <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{inflow.notes}</td>
-                        <td className="px-6 py-4 text-center">
-                          <button 
-                            onClick={() => handleCreateSale(inflow.id || String(Math.random()))}
-                            disabled={loadingAction === `sale-${inflow.id}`}
-                            className={`border px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shadow-sm whitespace-nowrap ${loadingAction === `sale-${inflow.id}` ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-white dark:bg-slate-800 border-blue-200 dark:border-blue-800/50 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
-                          >
-                            {loadingAction === `sale-${inflow.id}` ? 'جاري الإنشاء...' : 'إنشاء فاتورة مبيعات سريعة'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-        </div>
-      </div>
-
-      {/* Footer Actions */}
-      <div className="mt-6 flex justify-end">
-        <button className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors shadow-sm">
-          <Download className="w-4 h-4" />
-          تصدير تقرير المطابقة اليومي (PDF)
-        </button>
-      </div>
-      </>
-      )}
-
         </main>
       </div>
     </div>
   );
-}
+};
+
+export default MizanReconciliation;

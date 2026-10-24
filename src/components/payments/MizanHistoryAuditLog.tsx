@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import type { FC } from 'react';
 import {
   History,
@@ -9,7 +9,6 @@ import {
   Eye,
   CheckCircle2,
   AlertTriangle,
-  HelpCircle,
   FileSpreadsheet,
   FileText,
   RefreshCw,
@@ -22,112 +21,58 @@ import {
   ExternalLink,
   Layers,
   Sparkles,
+  ChevronRight,
+  ChevronLeft,
+  AlertCircle,
 } from 'lucide-react';
+import { ApiError } from '../../api/httpClient';
 import {
   getReconciliationHistory,
   getReconciliationSummary,
   getReconciliationTransactions,
+  approveMatchedTransaction,
+  convertSaleToDebt,
+  formatBankName,
+  normalizeClassification,
+  getClassificationMeta,
+  getApprovalStatusMeta,
 } from '../../services/mizanService';
 import type {
   ReconciliationSummary,
-  ReconciledSale,
-  Discrepancy,
-  UncollectedSale,
-  UnmatchedInflow,
+  HistoricalReconciliationSession,
+  MizanTransactionDto,
 } from '../../services/mizanService';
+import { CreateSaleConfirmModal, type DepositSaleCandidate } from './CreateSaleConfirmModal';
 
 export interface MizanHistoryAuditLogProps {
   onOpenSessionInStudio?: (sessionId: string, bankName: string) => void;
   onRefreshParentCount?: (count: number) => void;
 }
 
-export interface NormalizedHistorySession {
-  id: string;
-  bankName: string;
-  period: string;
-  createdAt: string;
-  fileName: string;
-  totalTransactions: number;
-  matchedCount: number;
-  discrepanciesCount: number;
-  uncollectedCount: number;
-  unmatchedCount: number;
-  totalAmount: number;
-  matchedAmount: number;
-  status: 'completed' | 'needs_review' | 'partial' | string;
-}
-
-// Fallback demo data to guarantee merchant has immediate visibility when database is empty
-const DEMO_SESSIONS: NormalizedHistorySession[] = [
-  {
-    id: 'REC-2026-1021-01',
-    bankName: 'بنك فلسطين',
-    period: 'اليوم',
-    createdAt: new Date().toISOString(),
-    fileName: 'BankOfPalestine_Oct21_Statement.xlsx',
-    totalTransactions: 34,
-    matchedCount: 30,
-    discrepanciesCount: 2,
-    uncollectedCount: 1,
-    unmatchedCount: 1,
-    totalAmount: 14250,
-    matchedAmount: 13100,
-    status: 'needs_review',
-  },
-  {
-    id: 'REC-2026-1020-02',
-    bankName: 'PalPay',
-    period: 'أمس',
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    fileName: 'PalPay_Merchant_20Oct.csv',
-    totalTransactions: 22,
-    matchedCount: 22,
-    discrepanciesCount: 0,
-    uncollectedCount: 0,
-    unmatchedCount: 0,
-    totalAmount: 8940,
-    matchedAmount: 8940,
-    status: 'completed',
-  },
-  {
-    id: 'REC-2026-1018-03',
-    bankName: 'جوال باي',
-    period: 'هذا الأسبوع',
-    createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-    fileName: 'JawwalPay_Settlement_Week42.pdf',
-    totalTransactions: 48,
-    matchedCount: 44,
-    discrepanciesCount: 3,
-    uncollectedCount: 1,
-    unmatchedCount: 0,
-    totalAmount: 19800,
-    matchedAmount: 18200,
-    status: 'needs_review',
-  },
-  {
-    id: 'REC-2026-1015-04',
-    bankName: 'بنك فلسطين',
-    period: 'هذا الأسبوع',
-    createdAt: new Date(Date.now() - 86400000 * 6).toISOString(),
-    fileName: 'BOP_MidOctober_Audit.xlsx',
-    totalTransactions: 65,
-    matchedCount: 65,
-    discrepanciesCount: 0,
-    uncollectedCount: 0,
-    unmatchedCount: 0,
-    totalAmount: 32600,
-    matchedAmount: 32600,
-    status: 'completed',
-  },
+const BANK_FILTER_OPTIONS = [
+  { id: 'all', label: 'جميع البنوك والمحافظ' },
+  { id: 'BankOfPalestine', label: 'بنك فلسطين' },
+  { id: 'BankOfAlQuds', label: 'بنك القدس' },
+  { id: 'PalestineIslamicBank', label: 'البنك الإسلامي الفلسطيني' },
+  { id: 'ArabBank', label: 'البنك العربي' },
+  { id: 'TheNationalBank', label: 'البنك الوطني' },
+  { id: 'PalPay', label: 'PalPay' },
+  { id: 'JawwalPay', label: 'جوال باي' },
 ];
 
 export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
   onOpenSessionInStudio,
   onRefreshParentCount,
 }) => {
-  const [sessions, setSessions] = useState<NormalizedHistorySession[]>([]);
+  const [sessions, setSessions] = useState<HistoricalReconciliationSession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Server-side query parameter states (page >= 1, pageSize 10-100)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Filter states
   const [selectedBank, setSelectedBank] = useState<string>('all');
@@ -135,130 +80,113 @@ export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'needs_review'>('all');
+  const [refreshCounter, setRefreshCounter] = useState(0);
 
-  // Active Session Audit Modal
-  const [auditSession, setAuditSession] = useState<NormalizedHistorySession | null>(null);
+  // Error States
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isNoBusinessError, setIsNoBusinessError] = useState(false);
+
+  // Active Session Audit Modal States
+  const [auditSession, setAuditSession] = useState<HistoricalReconciliationSession | null>(null);
   const [auditSummary, setAuditSummary] = useState<ReconciliationSummary | null>(null);
-  const [auditTransactions, setAuditTransactions] = useState<{
-    reconciled: ReconciledSale[];
-    discrepancies: Discrepancy[];
-    uncollected: UncollectedSale[];
-    unmatched: UnmatchedInflow[];
-  }>({
-    reconciled: [],
-    discrepancies: [],
-    uncollected: [],
-    unmatched: [],
-  });
+  const [auditTransactions, setAuditTransactions] = useState<MizanTransactionDto[]>([]);
   const [isLoadingAuditDetails, setIsLoadingAuditDetails] = useState(false);
   const [auditSearchQuery, setAuditSearchQuery] = useState('');
-  const [auditTab, setAuditTab] = useState<'all' | 'matched' | 'discrepancies' | 'uncollected' | 'unmatched'>('all');
+  const [auditTab, setAuditTab] = useState<'all' | 'Matched' | 'NeedsReview' | 'Uncollected' | 'DepositWithoutInvoice'>('all');
   const [copiedRef, setCopiedRef] = useState<string | null>(null);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [modalToastMsg, setModalToastMsg] = useState<string | null>(null);
 
-  // Normalize backend session object
-  const normalizeSession = (raw: any): NormalizedHistorySession => {
-    const id = String(raw.id || raw.sessionId || raw.Id || raw.SessionId || `REC-${Math.floor(1000 + Math.random() * 9000)}`);
-    const bankName = raw.bankName || raw.BankName || raw.bank || 'بنك فلسطين';
+  // Create Sale Dialog candidate inside modal
+  const [candidateDeposit, setCandidateDeposit] = useState<DepositSaleCandidate | null>(null);
+  const [isCreateSaleModalOpen, setIsCreateSaleModalOpen] = useState(false);
 
-    const periodMap: Record<string, string> = {
-      '1': 'اليوم',
-      '2': 'آخر ساعتين',
-      '3': 'أمس',
-      '4': 'آخر 48 ساعة',
-      '5': 'هذا الأسبوع',
-    };
-    const rawPeriod = String(raw.period || raw.Period || raw.periodName || raw.PeriodName || '');
-    const period = periodMap[rawPeriod] || rawPeriod || 'اليوم';
-
-    const createdAt = raw.createdAt || raw.CreatedAt || raw.sessionDate || raw.date || raw.Date || new Date().toISOString();
-    const fileName = raw.fileName || raw.FileName || raw.statementFileName || raw.StatementFileName || raw.sourceFile || 'كشف_حساب_مؤرشف.xlsx';
-
-    const totalTransactions = Number(raw.totalTransactions ?? raw.TotalTransactions ?? raw.totalBankTransactions ?? raw.TotalBankTransactions ?? 0);
-    const matchedCount = Number(raw.matchedCount ?? raw.MatchedCount ?? raw.matched ?? raw.Matched ?? 0);
-    const discrepanciesCount = Number(raw.discrepanciesCount ?? raw.DiscrepanciesCount ?? raw.discrepancies ?? raw.Discrepancies ?? raw.needsReview ?? raw.NeedsReview ?? 0);
-    const uncollectedCount = Number(raw.uncollectedCount ?? raw.UncollectedCount ?? raw.missingInBank ?? raw.MissingInBank ?? 0);
-    const unmatchedCount = Number(raw.unmatchedCount ?? raw.UnmatchedCount ?? raw.unclaimedDeposits ?? raw.UnclaimedDeposits ?? 0);
-
-    const totalAmount = Number(raw.totalAmount ?? raw.TotalAmount ?? raw.bankTotalAmount ?? raw.BankTotalAmount ?? 0);
-    const matchedAmount = Number(raw.matchedAmount ?? raw.MatchedAmount ?? totalAmount * (matchedCount / (totalTransactions || 1)));
-
-    let status = raw.status || raw.Status || 'completed';
-    if (discrepanciesCount > 0 || uncollectedCount > 0) {
-      status = 'needs_review';
-    } else if (matchedCount > 0 && discrepanciesCount === 0) {
-      status = 'completed';
-    }
-
-    return {
-      id,
-      bankName,
-      period,
-      createdAt,
-      fileName,
-      totalTransactions,
-      matchedCount,
-      discrepanciesCount,
-      uncollectedCount,
-      unmatchedCount,
-      totalAmount,
-      matchedAmount,
-      status,
-    };
-  };
-
-  // Fetch past sessions from backend
-  const fetchHistory = useCallback(async (isSilent = false) => {
-    if (!isSilent) setIsLoading(true);
-    else setIsRefreshing(true);
-
-    try {
-      const params: { bankName?: string; fromDate?: string; toDate?: string; page?: number } = {};
-      if (selectedBank !== 'all') {
-        params.bankName = selectedBank;
-      }
-      if (fromDate) params.fromDate = `${fromDate}T00:00:00Z`;
-      if (toDate) params.toDate = `${toDate}T23:59:59Z`;
-
-      const data = await getReconciliationHistory(params);
-      let rawList: any[] = [];
-      if (Array.isArray(data)) {
-        rawList = data;
-      } else if (data && Array.isArray(data.items)) {
-        rawList = data.items;
-      } else if (data && Array.isArray(data.data)) {
-        rawList = data.data;
-      } else if (data && Array.isArray(data.reconciliations)) {
-        rawList = data.reconciliations;
-      }
-
-      if (rawList.length > 0) {
-        const normalized = rawList.map(normalizeSession);
-        setSessions(normalized);
-        if (onRefreshParentCount) onRefreshParentCount(normalized.length);
-      } else {
-        // Fallback to sample demo sessions so user interface is immediately functional and demonstrative
-        setSessions(DEMO_SESSIONS);
-        if (onRefreshParentCount) onRefreshParentCount(DEMO_SESSIONS.length);
-      }
-    } catch (err: any) {
-      console.warn('[MizanHistoryAuditLog] Backend history call fallback:', err);
-      // Fallback to demo sessions gracefully
-      setSessions(DEMO_SESSIONS);
-      if (onRefreshParentCount) onRefreshParentCount(DEMO_SESSIONS.length);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, [selectedBank, fromDate, toDate, onRefreshParentCount]);
-
+  // Fetch past sessions from backend in effect (Contract: GET /api/Mizan/reconciliations)
   useEffect(() => {
-    fetchHistory();
-  }, [fetchHistory]);
+    let isMounted = true;
+
+    // Validate fromDate <= toDate before sending query
+    if (fromDate && toDate && fromDate > toDate) {
+      return;
+    }
+
+    const params: {
+      page: number;
+      pageSize: number;
+      bankName?: string;
+      fromDate?: string;
+      toDate?: string;
+      search?: string;
+    } = {
+      page: Math.max(1, currentPage),
+      pageSize: Math.max(1, Math.min(100, pageSize)),
+    };
+
+    if (selectedBank && selectedBank !== 'all') {
+      params.bankName = selectedBank;
+    }
+
+    if (fromDate?.trim()) {
+      params.fromDate = fromDate.trim();
+    }
+
+    if (toDate?.trim()) {
+      params.toDate = toDate.trim();
+    }
+
+    if (searchQuery?.trim()) {
+      params.search = searchQuery.trim();
+    }
+
+    getReconciliationHistory(params)
+      .then((paginatedResult) => {
+        if (isMounted) {
+          setSessions(paginatedResult.items);
+          setTotalCount(paginatedResult.totalCount);
+          setTotalPages(paginatedResult.totalPages || 1);
+          setErrorMessage(null);
+          setIsNoBusinessError(false);
+          setIsLoading(false);
+          setIsRefreshing(false);
+          if (onRefreshParentCount) {
+            onRefreshParentCount(paginatedResult.totalCount);
+          }
+        }
+      })
+      .catch((err: unknown) => {
+        if (isMounted) {
+          if (err instanceof ApiError) {
+            if (err.status === 404) {
+              setIsNoBusinessError(true);
+              setErrorMessage(
+                'لا يوجد نشاط تجاري مرتبط بالحساب الحالي. يرجى استكمال بيانات ملف التاجر أولاً.'
+              );
+            } else if (err.status === 400) {
+              const bodyMsg = (err.body as { message?: string })?.message;
+              setErrorMessage(bodyMsg || 'خطأ في معايير البحث والتواريخ المرسلة.');
+            } else {
+              setErrorMessage('تعذر جلب سجل المطابقات من الخادم. يرجى المحاولة لاحقاً.');
+            }
+          } else {
+            setErrorMessage('تعذر الاتصال بالخادم.');
+          }
+          setSessions([]);
+          setTotalCount(0);
+          setTotalPages(1);
+          setIsLoading(false);
+          setIsRefreshing(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentPage, pageSize, selectedBank, fromDate, toDate, searchQuery, onRefreshParentCount, refreshCounter]);
 
   // Handle Quick Date Range Pill clicks
   const handleDateRangePill = (range: 'all' | 'today' | '7days' | '30days') => {
     setDateRangeFilter(range);
+    setCurrentPage(1);
     const today = new Date();
     const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
@@ -280,128 +208,31 @@ export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
     }
   };
 
+  const handleManualRefresh = () => {
+    setIsRefreshing(true);
+    setRefreshCounter((c) => c + 1);
+  };
+
   // Open detailed session audit log
-  const handleInspectSession = async (session: NormalizedHistorySession) => {
+  const handleInspectSession = async (session: HistoricalReconciliationSession) => {
     setAuditSession(session);
     setIsLoadingAuditDetails(true);
     setAuditSearchQuery('');
     setAuditTab('all');
+    setModalToastMsg(null);
 
     try {
       // 1. Fetch summary
-      const summary = await getReconciliationSummary(session.id);
+      const summary = await getReconciliationSummary(session.id || session.sessionId || '');
       setAuditSummary(summary);
 
-      // 2. Fetch transactions
-      const rawData = await getReconciliationTransactions(session.id);
-      const transactions = Array.isArray(rawData) ? rawData : (rawData as any)?.items || (rawData as any)?.data || [];
-
-      const reconciled: ReconciledSale[] = [];
-      const discrepancies: Discrepancy[] = [];
-      const uncollected: UncollectedSale[] = [];
-      const unmatched: UnmatchedInflow[] = [];
-
-      if (Array.isArray(transactions) && transactions.length > 0) {
-        transactions.forEach((t: any) => {
-          let details: any = {};
-          try {
-            details = typeof t.matchDetails === 'string' ? JSON.parse(t.matchDetails || '{}') : t.matchDetails || {};
-          } catch (e) {
-            details = {};
-          }
-
-          if (t.classification === 1) {
-            reconciled.push({
-              id: String(t.id || ''),
-              time: t.transactionDate ? new Date(t.transactionDate).toLocaleString('ar-EG') : 'غير متوفر',
-              amount: Number(t.amount || 0),
-              customerName: t.senderNameNormalized || t.matchedSales?.[0]?.customerName || 'عميل نقدي / فوري',
-              bankSender: t.senderNameNormalized || 'غير متوفر',
-              ref: t.referenceNumber || '-',
-              status: 'مطابق تلقائياً',
-            });
-          } else if (t.classification === 2) {
-            if (details.reason === 'No matching instant sale found') {
-              unmatched.push({
-                id: String(t.id || ''),
-                time: t.transactionDate ? new Date(t.transactionDate).toLocaleString('ar-EG') : 'غير متوفر',
-                amount: Number(t.amount || 0),
-                bankSender: t.senderNameNormalized || 'غير متوفر',
-                ref: t.referenceNumber || '-',
-                notes: 'حوالة بنكية لا يوجد لها فاتورة مبيعات',
-              });
-            } else {
-              discrepancies.push({
-                id: String(t.id || ''),
-                invoiceAmount: Number(t.matchedSales?.[0]?.amount || 0),
-                bankAmount: Number(t.amount || 0),
-                customerName: t.matchedSales?.[0]?.customerName || 'غير متوفر',
-                bankSender: t.senderNameNormalized || 'غير متوفر',
-                issue: details.reason || 'اختلاف في قيمة المبلغ أو عمولة بنكية',
-              });
-            }
-          } else if (t.classification === 3) {
-            uncollected.push({
-              id: String(t.id || ''),
-              items: 'مبيعات الكاشير الفورية',
-              amount: Number(t.amount || 0),
-              customerInfo: t.senderNameNormalized || 'غير متوفر',
-              status: 'مفقود بنكياً',
-            });
-          }
-        });
-      } else {
-        // Realistic synthetic breakdown matching session stats if backend returns aggregated data
-        for (let i = 0; i < (session.matchedCount || 10); i++) {
-          reconciled.push({
-            id: `INV-${1000 + i}`,
-            time: new Date(new Date(session.createdAt).getTime() - i * 1800000).toLocaleString('ar-EG'),
-            amount: Math.round(150 + (i * 85) % 400),
-            customerName: ['أحمد خليل', 'محمود العشي', 'سوبرماركت الأمل', 'خالد النجار', 'متجر القدس'][i % 5],
-            bankSender: ['أحمد خليل علي', 'محمود العشي', 'سوبرماركت الأمل', 'خالد رضوان النجار', 'متجر القدس التجاري'][i % 5],
-            ref: `TXN${987654 + i}`,
-            status: 'مطابق تلقائياً (100%)',
-          });
-        }
-        for (let i = 0; i < session.discrepanciesCount; i++) {
-          discrepancies.push({
-            id: `DISC-${i + 1}`,
-            invoiceAmount: 450,
-            bankAmount: 445,
-            customerName: 'مؤسسة السلام',
-            bankSender: 'مؤسسة السلام للتجارة',
-            issue: 'فارق 5 ₪ عمولة تحويل بنكية',
-          });
-        }
-        for (let i = 0; i < session.uncollectedCount; i++) {
-          uncollected.push({
-            id: `UNCOL-${i + 1}`,
-            items: 'فاتورة كاشير فورية #892',
-            amount: 320,
-            customerInfo: 'سعيد عبد الله',
-            status: 'لم يظهر قيد بنكي بالمبلغ حتى الآن',
-          });
-        }
-        for (let i = 0; i < session.unmatchedCount; i++) {
-          unmatched.push({
-            id: `UNMAT-${i + 1}`,
-            time: new Date(session.createdAt).toLocaleString('ar-EG'),
-            amount: 500,
-            bankSender: 'إياد التميمي',
-            ref: 'REF-BANK-5512',
-            notes: 'إيداع بنكي مباشر بدون رقم فاتورة كاشير',
-          });
-        }
-      }
-
-      setAuditTransactions({
-        reconciled,
-        discrepancies,
-        uncollected,
-        unmatched,
+      // 2. Fetch transactions (server-side with pageSize 100 for audit review)
+      const res = await getReconciliationTransactions(session.id || session.sessionId || '', {
+        pageSize: 100,
       });
-    } catch (e) {
-      console.error('[InspectSession] Error:', e);
+      setAuditTransactions(res.items);
+    } catch {
+      // Graceful fallback to session data
     } finally {
       setIsLoadingAuditDetails(false);
     }
@@ -414,113 +245,123 @@ export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
     setTimeout(() => setCopiedRef(null), 2000);
   };
 
-  // Print historical reconciliation summary
-  const handlePrintSession = () => {
-    window.print();
+  // Inside Modal: Approve Matched
+  const handleModalApprove = async (transactionId: string) => {
+    setActionLoadingId(`approve-${transactionId}`);
+    try {
+      await approveMatchedTransaction(transactionId);
+      setModalToastMsg('تم اعتماد المعاملة بنجاح.');
+      if (auditSession) {
+        const id = auditSession.id || auditSession.sessionId || '';
+        const summary = await getReconciliationSummary(id);
+        setAuditSummary(summary);
+        const res = await getReconciliationTransactions(id, { pageSize: 100 });
+        setAuditTransactions(res.items);
+      }
+    } catch {
+      setModalToastMsg('تعذر اعتماد المعاملة.');
+    } finally {
+      setActionLoadingId(null);
+    }
   };
 
-  // Filtered Sessions List
-  const filteredSessions = useMemo(() => {
-    return sessions.filter((s) => {
-      const matchesBank = selectedBank === 'all' || s.bankName === selectedBank;
-      const matchesStatus =
-        statusFilter === 'all' ||
-        (statusFilter === 'completed' && s.status === 'completed') ||
-        (statusFilter === 'needs_review' && s.status === 'needs_review');
-
-      const matchesSearch =
-        searchQuery === '' ||
-        s.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.fileName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.bankName.includes(searchQuery);
-
-      let matchesDate = true;
-      if (fromDate) {
-        matchesDate = matchesDate && s.createdAt >= `${fromDate}T00:00:00`;
+  // Inside Modal: Convert Sale to Debt
+  const handleModalConvertToDebt = async (saleId: string) => {
+    if (!window.confirm('هل تريد تحويل هذه الفاتورة إلى دين على العميل؟')) return;
+    setActionLoadingId(`debt-${saleId}`);
+    try {
+      const res = await convertSaleToDebt(saleId);
+      const debtNumber = res.debtNumber || (res.data?.debtNumber ? String(res.data.debtNumber) : '');
+      const amount = res.amount || res.data?.amount || 0;
+      setModalToastMsg(`تم تحويل المبيعة إلى ذمة مالية بنجاح${debtNumber ? ` (رقم الدين: ${debtNumber}${amount ? `، المبلغ: ${amount} ₪` : ''})` : ''}`);
+      if (auditSession) {
+        const id = auditSession.id || auditSession.sessionId || '';
+        const summary = await getReconciliationSummary(id);
+        setAuditSummary(summary);
+        const trans = await getReconciliationTransactions(id, { pageSize: 100 });
+        setAuditTransactions(trans.items);
       }
-      if (toDate) {
-        matchesDate = matchesDate && s.createdAt <= `${toDate}T23:59:59`;
-      }
+    } catch {
+      setModalToastMsg('تعذر تحويل المبيعة إلى دين.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
 
-      return matchesBank && matchesStatus && matchesSearch && matchesDate;
+  // Inside Modal: Open Create Sale Confirmation Dialog
+  const handleModalOpenCreateSale = (t: MizanTransactionDto) => {
+    const rawSender = t.senderNameRaw || t.senderNameNormalized || t.bankSenderName || 'Unknown Deposit';
+    const ref = t.referenceNumber || t.bankReferenceNumber || '—';
+    const dateFormatted = t.transactionDate ? new Date(t.transactionDate).toLocaleString('ar-EG') : 'اليوم';
+
+    setCandidateDeposit({
+      id: String(t.id),
+      bankAmount: Number(t.bankAmount ?? t.amount ?? 0),
+      bankSenderName: rawSender,
+      bankReferenceNumber: ref,
+      transactionDate: dateFormatted,
     });
-  }, [sessions, selectedBank, statusFilter, searchQuery, fromDate, toDate]);
+    setIsCreateSaleModalOpen(true);
+  };
 
   // Overall Statistics across sessions
-  const stats = useMemo(() => {
-    const totalSessions = filteredSessions.length;
-    const totalTransactions = filteredSessions.reduce((acc, s) => acc + s.totalTransactions, 0);
-    const totalMatched = filteredSessions.reduce((acc, s) => acc + s.matchedCount, 0);
-    const totalDiscrepancies = filteredSessions.reduce((acc, s) => acc + s.discrepanciesCount, 0);
-    const totalVolume = filteredSessions.reduce((acc, s) => acc + s.totalAmount, 0);
-    const totalMatchedVolume = filteredSessions.reduce((acc, s) => acc + s.matchedAmount, 0);
-    const overallRate = totalTransactions > 0 ? Math.round((totalMatched / totalTransactions) * 100) : 100;
+  const stats = {
+    totalSessions: totalCount,
+    totalTransactions: sessions.reduce((acc, s) => acc + (s.totalTransactions || 0), 0),
+    totalMatched: sessions.reduce((acc, s) => acc + (s.matchedCount || 0), 0),
+    totalDiscrepancies: sessions.reduce((acc, s) => acc + (s.discrepanciesCount || 0), 0),
+    totalVolume: sessions.reduce((acc, s) => acc + (s.totalAmount || 0), 0),
+  };
 
-    return {
-      totalSessions,
-      totalTransactions,
-      totalMatched,
-      totalDiscrepancies,
-      totalVolume,
-      totalMatchedVolume,
-      overallRate,
-    };
-  }, [filteredSessions]);
+  // Filtered audit transactions in active modal
+  const filteredAuditTransactions = auditTransactions.filter((t) => {
+    const norm = normalizeClassification(t.classification);
+    const matchesTab = auditTab === 'all' || norm === auditTab;
 
-  // Filtered Audit Transactions in Active Modal
-  const filteredAuditItems = useMemo(() => {
     const q = auditSearchQuery.trim().toLowerCase();
+    const sender = (t.senderNameRaw || t.senderNameNormalized || t.bankSenderName || '').toLowerCase();
+    const ref = (t.referenceNumber || t.bankReferenceNumber || '').toLowerCase();
+    const amountStr = String(t.amount || t.bankAmount || '');
+    const matchesSearch = !q || sender.includes(q) || ref.includes(q) || amountStr.includes(q);
 
-    const matchesSearch = (text: string) => text.toLowerCase().includes(q);
-
-    const rec = auditTransactions.reconciled.filter(
-      (item) =>
-        q === '' ||
-        matchesSearch(item.customerName) ||
-        matchesSearch(item.bankSender) ||
-        matchesSearch(item.ref) ||
-        matchesSearch(item.id) ||
-        matchesSearch(String(item.amount))
-    );
-
-    const disc = auditTransactions.discrepancies.filter(
-      (item) =>
-        q === '' ||
-        matchesSearch(item.customerName) ||
-        matchesSearch(item.bankSender) ||
-        matchesSearch(item.issue) ||
-        matchesSearch(item.id) ||
-        matchesSearch(String(item.bankAmount)) ||
-        matchesSearch(String(item.invoiceAmount))
-    );
-
-    const uncol = auditTransactions.uncollected.filter(
-      (item) =>
-        q === '' ||
-        matchesSearch(item.customerInfo) ||
-        matchesSearch(item.items) ||
-        matchesSearch(item.id) ||
-        matchesSearch(String(item.amount))
-    );
-
-    const unmat = auditTransactions.unmatched.filter(
-      (item) =>
-        q === '' ||
-        matchesSearch(item.bankSender) ||
-        matchesSearch(item.ref) ||
-        matchesSearch(item.notes) ||
-        matchesSearch(String(item.amount))
-    );
-
-    return { rec, disc, uncol, unmat };
-  }, [auditTransactions, auditSearchQuery]);
+    return matchesTab && matchesSearch;
+  });
 
   return (
     <div className="space-y-6">
-      {/* Top Banner / Breadcrumb */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-l from-slate-900 to-[#051838] text-white p-6 rounded-2xl shadow-md border border-slate-800">
+      {/* Create Sale Confirm Modal inside Audit View */}
+      <CreateSaleConfirmModal
+        isOpen={isCreateSaleModalOpen}
+        onClose={() => {
+          setIsCreateSaleModalOpen(false);
+          setCandidateDeposit(null);
+        }}
+        deposit={candidateDeposit}
+        onSuccess={(msg) => {
+          setModalToastMsg(msg);
+          if (auditSession) {
+            const id = auditSession.id || auditSession.sessionId || '';
+            getReconciliationSummary(id).then(setAuditSummary).catch(() => {});
+            getReconciliationTransactions(id, { pageSize: 100 })
+              .then((res) => setAuditTransactions(res.items))
+              .catch(() => {});
+          }
+          handleManualRefresh();
+        }}
+        onRefreshData={() => {
+          if (auditSession) {
+            const id = auditSession.id || auditSession.sessionId || '';
+            getReconciliationTransactions(id, { pageSize: 100 })
+              .then((res) => setAuditTransactions(res.items))
+              .catch(() => {});
+          }
+        }}
+      />
+
+      {/* Top Banner */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-l from-slate-900 to-[#051838] text-white p-6 rounded-3xl shadow-md border border-slate-800">
         <div className="space-y-1">
-          <div className="flex items-center gap-2 text-emerald-400 font-semibold text-xs tracking-wider uppercase">
+          <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs tracking-wider uppercase">
             <ShieldCheck className="w-4 h-4" />
             <span>نظام ميزان — سجل الأرشيف والتدقيق المالي</span>
           </div>
@@ -528,16 +369,16 @@ export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
             <History className="w-6 h-6 text-emerald-400" />
             أرشيف كشوفات الحساب والمطابقات السابقة
           </h2>
-          <p className="text-slate-300 text-sm max-w-2xl">
-            استعرض كشوفات البنوك والمحافظ الإلكترونية التي تم رفعها وتدقيقها سابقاً، راجع الحوالات المتنازع عليها، وابحث بالاسم أو الرقم المرجعي أو اطبع ملخص التدقيق المحاسبي.
+          <p className="text-slate-300 text-xs max-w-2xl leading-relaxed">
+            استعرض كشوفات البنوك والمحافظ الإلكترونية التي تم رفعها وتدقيقها سابقاً، راجع الحوالات المطابقة والمتنازع عليها، وابحث بالاسم أو الرقم المرجعي أو اطبع ملخص التدقيق.
           </p>
         </div>
 
         <div className="flex items-center gap-2 self-start md:self-center">
           <button
-            onClick={() => fetchHistory(true)}
-            disabled={isRefreshing}
-            className="flex items-center gap-2 px-4 py-2.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-sm font-medium transition-all shadow-xs"
+            onClick={handleManualRefresh}
+            disabled={isRefreshing || isLoading}
+            className="flex items-center gap-2 px-4 py-2.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-50"
           >
             <RefreshCw className={`w-4 h-4 text-emerald-400 ${isRefreshing ? 'animate-spin' : ''}`} />
             <span>تحديث السجل</span>
@@ -555,7 +396,7 @@ export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
               <h3 className="text-2xl font-black text-slate-900 dark:text-white">{stats.totalSessions}</h3>
               <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 flex items-center gap-1 font-medium">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>جلسة مطابقة معتمدة</span>
+                <span>جلسة مطابقة في السجل</span>
               </p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
@@ -568,7 +409,7 @@ export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
           <div className="absolute top-0 right-0 w-1.5 h-full bg-blue-500"></div>
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">العمليات البنكية المدققة</p>
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">العمليات البنكية بالصفحة</p>
               <h3 className="text-2xl font-black text-slate-900 dark:text-white">{stats.totalTransactions.toLocaleString()}</h3>
               <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 font-medium">
                 <ArrowRightLeft className="w-3.5 h-3.5" />
@@ -585,11 +426,11 @@ export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
           <div className="absolute top-0 right-0 w-1.5 h-full bg-teal-500"></div>
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">معدل الدقة والمطابقة</p>
-              <h3 className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{stats.overallRate}%</h3>
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">المطابقة التامة</p>
+              <h3 className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{stats.totalMatched}</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1 font-medium">
                 <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-                <span>{stats.totalMatched} عملية مطابقة تماماً</span>
+                <span>عملية معتمدة 100%</span>
               </p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 flex items-center justify-center">
@@ -602,13 +443,13 @@ export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
           <div className="absolute top-0 right-0 w-1.5 h-full bg-amber-500"></div>
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">إجمالي المبالغ المطابقة</p>
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white">
-                {stats.totalMatchedVolume.toLocaleString()} <span className="text-sm font-normal text-slate-500">₪</span>
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">إجمالي المبالغ المدققة</p>
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white font-mono">
+                {stats.totalVolume.toLocaleString()} <span className="text-xs font-normal text-slate-400">₪</span>
               </h3>
               <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1 font-medium">
                 <AlertTriangle className="w-3.5 h-3.5" />
-                <span>{stats.totalDiscrepancies} فروقات تم التدقيق فيها</span>
+                <span>{stats.totalDiscrepancies} فروقات مسجلة</span>
               </p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center">
@@ -619,21 +460,27 @@ export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-4">
+      <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-4">
         <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
-          {/* Search Box */}
+          {/* Search Box (Searches in FileName or ErrorMessage) */}
           <div className="relative flex-1 min-w-[240px]">
             <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="بحث باسم الكشف، معرف الجلسة، أو اسم البنك..."
-              className="w-full pl-4 pr-10 py-2.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              placeholder="بحث باسم الملف، الرقم المرجعي، أو الملاحظات..."
+              className="w-full pl-4 pr-10 py-2.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
             />
             {searchQuery && (
               <button
-                onClick={() => setSearchQuery('')}
+                onClick={() => {
+                  setSearchQuery('');
+                  setCurrentPage(1);
+                }}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
               >
                 <X className="w-4 h-4" />
@@ -646,40 +493,48 @@ export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
             <Building2 className="w-4 h-4 text-slate-400" />
             <select
               value={selectedBank}
-              onChange={(e) => setSelectedBank(e.target.value)}
-              className="px-3 py-2.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+              onChange={(e) => {
+                setSelectedBank(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
             >
-              <option value="all">جميع البنوك والمحافظ</option>
-              <option value="بنك فلسطين">بنك فلسطين</option>
-              <option value="PalPay">PalPay</option>
-              <option value="جوال باي">جوال باي</option>
+              {BANK_FILTER_OPTIONS.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.label}
+                </option>
+              ))}
             </select>
           </div>
 
-          {/* Status Filter */}
+          {/* Page Size Selector */}
           <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500">عدد النتائج:</span>
             <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="px-3 py-2.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
             >
-              <option value="all">جميع الحالات</option>
-              <option value="completed">مطابقة تامة ومكتملة (100%)</option>
-              <option value="needs_review">تحتوي فروقات / قيد المراجعة</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
             </select>
           </div>
         </div>
 
         {/* Date Filter Quick Pills & Date Inputs */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
-          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 ml-2">
+        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-100 dark:border-slate-700/60">
+          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 ml-2">
             <Calendar className="w-3.5 h-3.5" />
             الفترة الزمنية:
           </span>
 
           <button
             onClick={() => handleDateRangePill('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               dateRangeFilter === 'all'
                 ? 'bg-emerald-600 text-white shadow-xs'
                 : 'bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
@@ -689,7 +544,7 @@ export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
           </button>
           <button
             onClick={() => handleDateRangePill('today')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               dateRangeFilter === 'today'
                 ? 'bg-emerald-600 text-white shadow-xs'
                 : 'bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
@@ -699,7 +554,7 @@ export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
           </button>
           <button
             onClick={() => handleDateRangePill('7days')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               dateRangeFilter === '7days'
                 ? 'bg-emerald-600 text-white shadow-xs'
                 : 'bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
@@ -709,7 +564,7 @@ export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
           </button>
           <button
             onClick={() => handleDateRangePill('30days')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               dateRangeFilter === '30days'
                 ? 'bg-emerald-600 text-white shadow-xs'
                 : 'bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
@@ -718,7 +573,7 @@ export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
             آخر 30 يوماً
           </button>
 
-          {/* Custom Date Inputs */}
+          {/* Custom Date Inputs (ISO 8601 strings: YYYY-MM-DD) */}
           <div className="flex items-center gap-2 mr-auto">
             <span className="text-xs text-slate-400">من:</span>
             <input
@@ -726,9 +581,10 @@ export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
               value={fromDate}
               onChange={(e) => {
                 setFromDate(e.target.value);
+                setCurrentPage(1);
                 setDateRangeFilter('custom');
               }}
-              className="px-2.5 py-1 text-xs border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg focus:outline-none focus:border-emerald-500"
+              className="px-2.5 py-1 text-xs border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 font-mono"
             />
             <span className="text-xs text-slate-400">إلى:</span>
             <input
@@ -736,191 +592,261 @@ export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
               value={toDate}
               onChange={(e) => {
                 setToDate(e.target.value);
+                setCurrentPage(1);
                 setDateRangeFilter('custom');
               }}
-              className="px-2.5 py-1 text-xs border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg focus:outline-none focus:border-emerald-500"
+              className="px-2.5 py-1 text-xs border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 font-mono"
             />
           </div>
         </div>
+
+        {/* Date Validation Alert if user set fromDate > toDate */}
+        {fromDate && toDate && fromDate > toDate && (
+          <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-xl text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>تنبيه: تاريخ البدء ({fromDate}) يجب أن يكون سابقاً أو مطابقاً لتاريخ الانتهاء ({toDate}).</span>
+          </div>
+        )}
       </div>
 
+      {/* Error Banner if 404 No Business or 400 Bad Request */}
+      {errorMessage && (
+        <div
+          className={`p-4 rounded-2xl text-xs font-bold flex items-start gap-3 border ${
+            isNoBusinessError
+              ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+              : 'bg-red-50 dark:bg-red-950/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800'
+          }`}
+        >
+          <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p>{errorMessage}</p>
+            {isNoBusinessError && (
+              <p className="text-[11px] font-normal text-amber-700 dark:text-amber-400">
+                يمكنك التوجه إلى إعدادات ملف التاجر لربط نشاطك التجاري وتفعيل ميزة مطابقة كشوف الحسابات البنكية.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Sessions Archive Table */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xs overflow-hidden">
-        <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-xs overflow-hidden">
+        <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h3 className="font-bold text-slate-900 dark:text-white text-base">سجلات كشوفات الحساب المؤرشفة</h3>
+            <h3 className="font-bold text-slate-900 dark:text-white text-sm">سجلات كشوفات الحساب المؤرشفة</h3>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
-              {filteredSessions.length} كشف
+              {totalCount} كشف
             </span>
           </div>
 
-          <p className="text-xs text-slate-400">
-            اضغط على "تدقيق العمليات" لعرض تفاصيل الكشف كاملة والبحث بين الحوالات
+          <p className="text-xs text-slate-400 hidden sm:block">
+            اضغط على &quot;تدقيق العمليات&quot; لعرض تفاصيل الكشف كاملة وإدارة الحوالات
           </p>
         </div>
 
         {isLoading ? (
           <div className="py-20 flex flex-col items-center justify-center space-y-3">
             <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin" />
-            <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">جاري تحميل سجل وأرشيف ميزان...</p>
+            <p className="text-xs font-bold text-slate-600 dark:text-slate-300">جاري تحميل سجل وأرشيف ميزان من الخادم...</p>
           </div>
-        ) : filteredSessions.length === 0 ? (
-          <div className="py-16 text-center space-y-4">
-            <div className="w-16 h-16 mx-auto rounded-full bg-slate-100 dark:bg-slate-700/60 flex items-center justify-center text-slate-400">
-              <History className="w-8 h-8" />
+        ) : sessions.length === 0 ? (
+          <div className="py-16 text-center space-y-3">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+              <History className="w-7 h-7" />
             </div>
             <div className="space-y-1">
-              <h4 className="font-bold text-slate-800 dark:text-slate-200 text-base">لا توجد كشوفات مطابقة تطابق الفلاتر</h4>
-              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-                جرب تغيير خيارات البحث أو تحديد فترة زمنية أوسع، أو قم برفع كشف حساب جديد في شاشة المطابقة.
+              <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm">
+                لا توجد عمليات تسوية بنكية تطابق معايير البحث.
+              </h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                جرب تغيير معايير البحث أو اختيار فترة زمنية أخرى، أو ابدأ برفع كشف حساب جديد في شاشة المطابقة.
               </p>
             </div>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-right">
-              <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-700">
-                <tr>
-                  <th className="px-6 py-4">معرف الجلسة والكشف</th>
-                  <th className="px-6 py-4">البنك / المحفظة</th>
-                  <th className="px-6 py-4">تاريخ الرفع والفترة</th>
-                  <th className="px-6 py-4 text-center">إجمالي العمليات</th>
-                  <th className="px-6 py-4 text-center">المطابقة (100%)</th>
-                  <th className="px-6 py-4 text-center">فروقات تحتاج مراجعة</th>
-                  <th className="px-6 py-4">إجمالي المبلغ</th>
-                  <th className="px-6 py-4">حالة التدقيق</th>
-                  <th className="px-6 py-4 text-center">الإجراءات</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                {filteredSessions.map((session) => {
-                  const matchPercentage =
-                    session.totalTransactions > 0
-                      ? Math.round((session.matchedCount / session.totalTransactions) * 100)
-                      : 100;
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-right">
+                <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 font-bold border-b border-slate-200 dark:border-slate-700">
+                  <tr>
+                    <th className="px-6 py-4">معرف الجلسة والكشف</th>
+                    <th className="px-6 py-4">البنك / المحفظة</th>
+                    <th className="px-6 py-4">فترة الكشف المسجلة</th>
+                    <th className="px-6 py-4 text-center">إجمالي العمليات</th>
+                    <th className="px-6 py-4 text-center">المطابقة (100%)</th>
+                    <th className="px-6 py-4 text-center">فروقات تحتاج مراجعة</th>
+                    <th className="px-6 py-4">إجمالي المبلغ</th>
+                    <th className="px-6 py-4">حالة التدقيق</th>
+                    <th className="px-6 py-4 text-center">الإجراءات</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                  {sessions.map((session) => {
+                    const sessionId = session.id || session.sessionId || '';
+                    const arabicBankName = formatBankName(session.bankName);
+                    // Render statementPeriod directly as returned by Backend
+                    const displayPeriod = session.statementPeriod || session.period || session.periodName || '—';
+                    const fileName = session.fileName || session.statementFileName || 'كشف_حساب.xlsx';
+                    const matchPercent =
+                      session.totalTransactions > 0
+                        ? Math.round((session.matchedCount / session.totalTransactions) * 100)
+                        : 100;
 
-                  return (
-                    <tr
-                      key={session.id}
-                      className="hover:bg-slate-50/80 dark:hover:bg-slate-700/50 transition-colors group"
-                    >
-                      {/* Session ID & File */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center flex-shrink-0">
-                            <FileSpreadsheet className="w-5 h-5" />
+                    return (
+                      <tr
+                        key={sessionId}
+                        className="hover:bg-slate-50/80 dark:hover:bg-slate-700/40 transition-colors"
+                      >
+                        {/* Session ID & File */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center flex-shrink-0">
+                              <FileSpreadsheet className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <span className="font-mono text-xs font-bold text-slate-900 dark:text-white block">
+                                {sessionId}
+                              </span>
+                              <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[180px] block" title={fileName}>
+                                {fileName}
+                              </span>
+                            </div>
                           </div>
-                          <div>
-                            <span className="font-mono text-xs font-bold text-slate-900 dark:text-white block">
-                              {session.id}
-                            </span>
-                            <span className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[180px] block" title={session.fileName}>
-                              {session.fileName}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* Bank Name */}
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
-                          <Building2 className="w-3.5 h-3.5 text-slate-500" />
-                          {session.bankName}
-                        </span>
-                      </td>
-
-                      {/* Date & Period */}
-                      <td className="px-6 py-4">
-                        <div className="text-xs text-slate-700 dark:text-slate-300 font-medium">
-                          {new Date(session.createdAt).toLocaleDateString('ar-EG', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                          })}
-                        </div>
-                        <div className="text-xs text-slate-400 font-light mt-0.5">
-                          فترة: <span className="font-medium text-emerald-600 dark:text-emerald-400">{session.period}</span>
-                        </div>
-                      </td>
-
-                      {/* Total Operations */}
-                      <td className="px-6 py-4 text-center font-bold text-slate-800 dark:text-slate-200">
-                        {session.totalTransactions}
-                      </td>
-
-                      {/* Matched Count */}
-                      <td className="px-6 py-4 text-center">
-                        <div className="inline-flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg text-xs">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>{session.matchedCount}</span>
-                          <span className="text-[10px] opacity-75">({matchPercentage}%)</span>
-                        </div>
-                      </td>
-
-                      {/* Discrepancies Count */}
-                      <td className="px-6 py-4 text-center">
-                        {session.discrepanciesCount > 0 ? (
-                          <div className="inline-flex items-center gap-1.5 font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-1 rounded-lg text-xs">
-                            <AlertTriangle className="w-3.5 h-3.5" />
-                            <span>{session.discrepanciesCount} فارق</span>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-slate-400 font-mono">—</span>
-                        )}
-                      </td>
-
-                      {/* Total Amount */}
-                      <td className="px-6 py-4">
-                        <div className="font-bold text-slate-900 dark:text-white">
-                          {session.totalAmount.toLocaleString()} <span className="text-xs font-normal text-slate-400">₪</span>
-                        </div>
-                      </td>
-
-                      {/* Status Badge */}
-                      <td className="px-6 py-4">
-                        {session.status === 'completed' ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            مطابقة معتمدة
+                        {/* Bank Name (Mapped to Arabic) */}
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                            <Building2 className="w-3.5 h-3.5 text-slate-500" />
+                            {arabicBankName}
                           </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40">
-                            <AlertTriangle className="w-3.5 h-3.5" />
-                            تحتاج تدقيق
-                          </span>
-                        )}
-                      </td>
+                        </td>
 
-                      {/* Actions */}
-                      <td className="px-6 py-4 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => handleInspectSession(session)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-semibold transition-all shadow-2xs"
-                            title="عرض وتدقيق تفاصيل الحركات"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>تدقيق العمليات</span>
-                          </button>
-
-                          {onOpenSessionInStudio && (
-                            <button
-                              onClick={() => onOpenSessionInStudio(session.id, session.bankName)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium transition-all"
-                              title="فتح في شاشة المطابقة الحية"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">فتح في ميزان</span>
-                            </button>
+                        {/* Statement Period Displayed directly as returned by Backend */}
+                        <td className="px-6 py-4">
+                          <div className="font-bold text-slate-800 dark:text-slate-200 font-mono text-xs">
+                            {displayPeriod}
+                          </div>
+                          {session.createdAt && (
+                            <div className="text-[10px] text-slate-400 mt-0.5">
+                              رُفع بتاريخ: {new Date(session.createdAt).toLocaleDateString('ar-EG')}
+                            </div>
                           )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        </td>
+
+                        {/* Total Operations */}
+                        <td className="px-6 py-4 text-center font-bold text-slate-800 dark:text-slate-200">
+                          {session.totalTransactions}
+                        </td>
+
+                        {/* Matched Count */}
+                        <td className="px-6 py-4 text-center">
+                          <div className="inline-flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg text-xs">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>{session.matchedCount}</span>
+                            <span className="text-[10px] opacity-75 font-mono">({matchPercent}%)</span>
+                          </div>
+                        </td>
+
+                        {/* Discrepancies Count */}
+                        <td className="px-6 py-4 text-center">
+                          {session.discrepanciesCount > 0 ? (
+                            <div className="inline-flex items-center gap-1.5 font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-1 rounded-lg text-xs">
+                              <AlertTriangle className="w-3.5 h-3.5" />
+                              <span>{session.discrepanciesCount} فارق</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400 font-mono">—</span>
+                          )}
+                        </td>
+
+                        {/* Total Amount in ILS ₪ */}
+                        <td className="px-6 py-4">
+                          <div className="font-bold text-slate-900 dark:text-white font-mono text-xs">
+                            {(session.totalAmount || 0).toLocaleString()} <span className="font-sans text-slate-400">₪</span>
+                          </div>
+                        </td>
+
+                        {/* Status Badge */}
+                        <td className="px-6 py-4">
+                          {session.discrepanciesCount === 0 && session.uncollectedCount === 0 ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              معتمدة بالكامل
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                              <AlertTriangle className="w-3.5 h-3.5" />
+                              تحتاج تدقيق
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Actions */}
+                        <td className="px-6 py-4 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => handleInspectSession(session)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 rounded-xl text-xs font-bold transition-all shadow-2xs"
+                              title="عرض وتدقيق تفاصيل الحركات"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>تدقيق العمليات</span>
+                            </button>
+
+                            {onOpenSessionInStudio && (
+                              <button
+                                onClick={() => onOpenSessionInStudio(sessionId, session.bankName)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all"
+                                title="فتح في شاشة المطابقة الحية"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">فتح في ميزان</span>
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="p-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  صفحة {currentPage} من {totalPages} (إجمالي {totalCount} كشف حساب)
+                </span>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage <= 1 || isLoading}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold disabled:opacity-40"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                    <span>السابق</span>
+                  </button>
+
+                  <span className="text-xs font-mono font-bold px-2 text-slate-800 dark:text-slate-200">
+                    {currentPage}
+                  </span>
+
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage >= totalPages || isLoading}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold disabled:opacity-40"
+                  >
+                    <span>التالي</span>
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -930,50 +856,47 @@ export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
       {auditSession && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-xs overflow-y-auto">
           <div
-            className="bg-white dark:bg-slate-900 rounded-2xl max-w-5xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden"
+            className="bg-white dark:bg-slate-900 rounded-3xl max-w-5xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden"
             dir="rtl"
           >
             {/* Modal Header */}
-            <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between bg-slate-50/50 dark:bg-slate-800/40">
+            <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between bg-slate-50/50 dark:bg-slate-850">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <span className="font-mono font-bold text-xs bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 px-2.5 py-0.5 rounded-md">
-                    {auditSession.id}
+                    {auditSession.id || auditSession.sessionId}
                   </span>
-                  <span className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                  <span className="inline-flex items-center gap-1 text-xs text-slate-700 dark:text-slate-300 font-bold">
                     <Building2 className="w-3.5 h-3.5" />
-                    {auditSession.bankName}
+                    {formatBankName(auditSession.bankName)}
                   </span>
                   <span className="text-xs text-slate-400">•</span>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
-                    {new Date(auditSession.createdAt).toLocaleString('ar-EG')}
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                    فترة: {auditSession.statementPeriod || auditSession.period || '—'}
                   </span>
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <FileText className="w-5 h-5 text-emerald-600" />
-                  تقرير التدقيق المحاسبي وسجل العمليات
+                  تقرير التدقيق المحاسبي وسجل المعاملات البنكية
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  ملف الكشف المصدر: <span className="font-mono font-medium">{auditSession.fileName}</span>
-                </p>
               </div>
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={handlePrintSession}
-                  className="flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition-all shadow-xs"
+                  onClick={() => window.print()}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all shadow-xs"
                 >
                   <Printer className="w-4 h-4 text-slate-500" />
-                  <span>طباعة تقرير المطابقة</span>
+                  <span>طباعة التقرير</span>
                 </button>
 
                 {onOpenSessionInStudio && (
                   <button
                     onClick={() => {
-                      onOpenSessionInStudio(auditSession.id, auditSession.bankName);
+                      onOpenSessionInStudio(auditSession.id || auditSession.sessionId || '', auditSession.bankName);
                       setAuditSession(null);
                     }}
-                    className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-all shadow-xs"
+                    className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs"
                   >
                     <ExternalLink className="w-4 h-4" />
                     <span>متابعة الاعتماد في ميزان</span>
@@ -991,38 +914,45 @@ export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
 
             {/* Modal Body */}
             <div className="p-6 overflow-y-auto space-y-6 flex-1">
+              {modalToastMsg && (
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 rounded-xl text-xs font-bold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{modalToastMsg}</span>
+                </div>
+              )}
+
               {/* Session KPI Summary Banner */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 text-center">
+                <div className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 text-center">
                   <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block mb-0.5">
                     إجمالي الحركات البنكية
                   </span>
-                  <span className="text-xl font-bold text-slate-900 dark:text-white">
+                  <span className="text-xl font-black text-slate-900 dark:text-white">
                     {auditSummary?.totalBankTransactions ?? auditSession.totalTransactions}
                   </span>
                 </div>
-                <div className="bg-emerald-50 dark:bg-emerald-950/30 p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-800/40 text-center">
+                <div className="bg-emerald-50 dark:bg-emerald-950/30 p-3.5 rounded-2xl border border-emerald-200 dark:border-emerald-800/40 text-center">
                   <span className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400 block mb-0.5">
                     مطابقة تامة (100%)
                   </span>
-                  <span className="text-xl font-bold text-emerald-700 dark:text-emerald-400">
+                  <span className="text-xl font-black text-emerald-700 dark:text-emerald-400">
                     {auditSummary?.matched ?? auditSession.matchedCount}
                   </span>
                 </div>
-                <div className="bg-amber-50 dark:bg-amber-950/30 p-3.5 rounded-xl border border-amber-200 dark:border-amber-800/40 text-center">
+                <div className="bg-amber-50 dark:bg-amber-950/30 p-3.5 rounded-2xl border border-amber-200 dark:border-amber-800/40 text-center">
                   <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400 block mb-0.5">
                     فروقات مسجلة
                   </span>
-                  <span className="text-xl font-bold text-amber-700 dark:text-amber-400">
-                    {auditSummary?.discrepancies ?? auditSession.discrepanciesCount}
+                  <span className="text-xl font-black text-amber-700 dark:text-amber-400">
+                    {auditSummary?.needsReview ?? auditSummary?.discrepancies ?? auditSession.discrepanciesCount}
                   </span>
                 </div>
-                <div className="bg-blue-50 dark:bg-blue-950/30 p-3.5 rounded-xl border border-blue-200 dark:border-blue-800/40 text-center">
+                <div className="bg-blue-50 dark:bg-blue-950/30 p-3.5 rounded-2xl border border-blue-200 dark:border-blue-800/40 text-center">
                   <span className="text-[11px] font-medium text-blue-700 dark:text-blue-400 block mb-0.5">
                     إجمالي مبالغ الكشف
                   </span>
-                  <span className="text-xl font-bold text-blue-700 dark:text-blue-400">
-                    {auditSession.totalAmount.toLocaleString()} ₪
+                  <span className="text-xl font-black text-blue-700 dark:text-blue-400 font-mono">
+                    {(auditSession.totalAmount || 0).toLocaleString()} ₪
                   </span>
                 </div>
               </div>
@@ -1034,43 +964,43 @@ export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
                   <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
                     <button
                       onClick={() => setAuditTab('all')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
                         auditTab === 'all'
                           ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-2xs'
                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                       }`}
                     >
-                      جميع الحركات ({auditTransactions.reconciled.length + auditTransactions.discrepancies.length + auditTransactions.uncollected.length + auditTransactions.unmatched.length})
+                      جميع الحركات ({auditTransactions.length})
                     </button>
                     <button
-                      onClick={() => setAuditTab('matched')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
-                        auditTab === 'matched'
+                      onClick={() => setAuditTab('Matched')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                        auditTab === 'Matched'
                           ? 'bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-400 shadow-2xs'
                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                       }`}
                     >
-                      مطابق ({auditTransactions.reconciled.length})
+                      مطابق
                     </button>
                     <button
-                      onClick={() => setAuditTab('discrepancies')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
-                        auditTab === 'discrepancies'
+                      onClick={() => setAuditTab('NeedsReview')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                        auditTab === 'NeedsReview'
                           ? 'bg-white dark:bg-slate-700 text-amber-700 dark:text-amber-400 shadow-2xs'
                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                       }`}
                     >
-                      فروقات ({auditTransactions.discrepancies.length})
+                      تحتاج مراجعة
                     </button>
                     <button
-                      onClick={() => setAuditTab('unmatched')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
-                        auditTab === 'unmatched'
+                      onClick={() => setAuditTab('DepositWithoutInvoice')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                        auditTab === 'DepositWithoutInvoice'
                           ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-400 shadow-2xs'
                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                       }`}
                     >
-                      بدون فاتورة ({auditTransactions.unmatched.length})
+                      إيداعات بدون فواتير
                     </button>
                   </div>
 
@@ -1088,39 +1018,49 @@ export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
                 </div>
 
                 {/* Audit Transactions Table */}
-                <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-800">
+                <div className="border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden bg-white dark:bg-slate-800">
                   {isLoadingAuditDetails ? (
                     <div className="py-12 flex flex-col items-center justify-center space-y-2">
                       <RefreshCw className="w-6 h-6 text-emerald-500 animate-spin" />
                       <p className="text-xs text-slate-500">جاري قراءة سجل الحركات من الخادم...</p>
                     </div>
+                  ) : filteredAuditTransactions.length === 0 ? (
+                    <div className="py-12 text-center text-slate-400 text-xs font-bold">
+                      لا توجد حركات تطابق معايير البحث الحالية داخل هذه الجلسة.
+                    </div>
                   ) : (
                     <div className="overflow-x-auto max-h-[380px]">
                       <table className="w-full text-xs text-right">
-                        <thead className="bg-slate-50 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-700 sticky top-0 z-10">
+                        <thead className="bg-slate-50 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 font-bold border-b border-slate-200 dark:border-slate-700 sticky top-0 z-10">
                           <tr>
                             <th className="px-4 py-3">رقم العملية / المرجع</th>
-                            <th className="px-4 py-3">اسم العميل / المحول</th>
+                            <th className="px-4 py-3">اسم المودع / العميل</th>
                             <th className="px-4 py-3">المبلغ (₪)</th>
                             <th className="px-4 py-3">التوقيت</th>
                             <th className="px-4 py-3">تصنيف التدقيق</th>
-                            <th className="px-4 py-3">ملاحظات التدقيق المحاسبي</th>
+                            <th className="px-4 py-3 text-center">الإجراء</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                          {/* Matched Sales */}
-                          {(auditTab === 'all' || auditTab === 'matched') &&
-                            filteredAuditItems.rec.map((item) => (
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                          {filteredAuditTransactions.map((item) => {
+                            const meta = getClassificationMeta(item.classification);
+                            const approvalMeta = getApprovalStatusMeta(item.approvalStatus);
+                            const ref = item.referenceNumber || item.bankReferenceNumber || '—';
+                            const sender = item.senderNameRaw || item.senderNameNormalized || item.bankSenderName || 'غير متوفر';
+                            const amount = Number(item.bankAmount ?? item.amount ?? 0);
+                            const timeStr = item.transactionDate ? new Date(item.transactionDate).toLocaleString('ar-EG') : '—';
+
+                            return (
                               <tr key={item.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-700/40">
                                 <td className="px-4 py-3 font-mono font-medium text-slate-800 dark:text-slate-200">
                                   <div className="flex items-center gap-1.5">
-                                    <span>{item.ref}</span>
+                                    <span>{ref}</span>
                                     <button
-                                      onClick={() => handleCopyRef(item.ref)}
+                                      onClick={() => handleCopyRef(ref)}
                                       className="text-slate-400 hover:text-emerald-600 transition-colors"
                                       title="نسخ الرقم المرجعي"
                                     >
-                                      {copiedRef === item.ref ? (
+                                      {copiedRef === ref ? (
                                         <Check className="w-3 h-3 text-emerald-600" />
                                       ) : (
                                         <Copy className="w-3 h-3" />
@@ -1129,102 +1069,68 @@ export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
                                   </div>
                                 </td>
                                 <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">
-                                  {item.customerName}
+                                  {sender}
                                 </td>
-                                <td className="px-4 py-3 font-bold text-emerald-600 dark:text-emerald-400">
-                                  {item.amount.toLocaleString()} ₪
+                                <td className="px-4 py-3 font-black text-slate-900 dark:text-white font-mono">
+                                  {amount.toLocaleString()} ₪
                                 </td>
-                                <td className="px-4 py-3 text-slate-500">{item.time}</td>
+                                <td className="px-4 py-3 text-slate-500 font-medium">{timeStr}</td>
                                 <td className="px-4 py-3">
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40">
-                                    <CheckCircle2 className="w-3 h-3" />
-                                    مطابق تلقائياً
-                                  </span>
-                                </td>
-                                <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                                  تطابق تام بين كشف {auditSession.bankName} وفاتورة الكاشير
-                                </td>
-                              </tr>
-                            ))}
-
-                          {/* Discrepancies */}
-                          {(auditTab === 'all' || auditTab === 'discrepancies') &&
-                            filteredAuditItems.disc.map((item) => (
-                              <tr key={item.id} className="hover:bg-amber-50/40 dark:hover:bg-amber-950/20 bg-amber-50/10">
-                                <td className="px-4 py-3 font-mono font-medium text-amber-700 dark:text-amber-400">
-                                  {item.id}
-                                </td>
-                                <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">
-                                  {item.customerName}
-                                </td>
-                                <td className="px-4 py-3">
-                                  <div className="font-bold text-amber-600 dark:text-amber-400">
-                                    بنك: {item.bankAmount} ₪
-                                  </div>
-                                  <div className="text-[10px] text-slate-400 line-through">
-                                    فاتورة: {item.invoiceAmount} ₪
+                                  <div className="flex flex-wrap items-center gap-1">
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${meta.badgeClass}`}>
+                                      {meta.label}
+                                    </span>
+                                    {item.approvalStatus && (
+                                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${approvalMeta.badgeClass}`}>
+                                        {approvalMeta.label}
+                                      </span>
+                                    )}
                                   </div>
                                 </td>
-                                <td className="px-4 py-3 text-slate-500">—</td>
-                                <td className="px-4 py-3">
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400 border border-amber-200">
-                                    <AlertTriangle className="w-3 h-3" />
-                                    فارق قيمة
-                                  </span>
-                                </td>
-                                <td className="px-4 py-3 text-amber-700 dark:text-amber-400 font-medium">
-                                  {item.issue}
-                                </td>
-                              </tr>
-                            ))}
+                                <td className="px-4 py-3 text-center">
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    {/* Action: Create Sale (Allowed ONLY on DepositWithoutInvoice/Unclaimed or NeedsReview/Review) */}
+                                    {meta.canCreateSale && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleModalOpenCreateSale(item)}
+                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] transition-all shadow-xs"
+                                      >
+                                        <Sparkles className="w-3 h-3" />
+                                        <span>إنشاء مبيعة</span>
+                                      </button>
+                                    )}
 
-                          {/* Unmatched Inflows */}
-                          {(auditTab === 'all' || auditTab === 'unmatched') &&
-                            filteredAuditItems.unmat.map((item, idx) => (
-                              <tr key={idx} className="hover:bg-blue-50/40 dark:hover:bg-blue-950/20 bg-blue-50/10">
-                                <td className="px-4 py-3 font-mono font-medium text-blue-700 dark:text-blue-400">
-                                  <div className="flex items-center gap-1.5">
-                                    <span>{item.ref}</span>
-                                    <button
-                                      onClick={() => handleCopyRef(item.ref)}
-                                      className="text-slate-400 hover:text-blue-600 transition-colors"
-                                    >
-                                      {copiedRef === item.ref ? (
-                                        <Check className="w-3 h-3 text-blue-600" />
-                                      ) : (
-                                        <Copy className="w-3 h-3" />
-                                      )}
-                                    </button>
+                                    {/* Action: Convert Uncollected to Debt */}
+                                    {meta.canConvertToDebt && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleModalConvertToDebt(item.saleId || String(item.id))}
+                                        disabled={actionLoadingId === `debt-${item.saleId || item.id}`}
+                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 border border-red-200 dark:border-red-800 font-bold text-[10px] transition-all"
+                                      >
+                                        <AlertTriangle className="w-3 h-3" />
+                                        <span>تحويل لدين ⚠️</span>
+                                      </button>
+                                    )}
+
+                                    {/* Action: Approve Matched */}
+                                    {meta.canApprove && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleModalApprove(String(item.id))}
+                                        disabled={actionLoadingId === `approve-${item.id}`}
+                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 font-medium text-[10px] transition-all"
+                                      >
+                                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                        <span>اعتماد</span>
+                                      </button>
+                                    )}
                                   </div>
                                 </td>
-                                <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">
-                                  {item.bankSender}
-                                </td>
-                                <td className="px-4 py-3 font-bold text-blue-600 dark:text-blue-400">
-                                  {item.amount.toLocaleString()} ₪
-                                </td>
-                                <td className="px-4 py-3 text-slate-500">{item.time}</td>
-                                <td className="px-4 py-3">
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-400 border border-blue-200">
-                                    <HelpCircle className="w-3 h-3" />
-                                    إيداع بدون فاتورة
-                                  </span>
-                                </td>
-                                <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                                  {item.notes}
-                                </td>
                               </tr>
-                            ))}
-
-                          {filteredAuditItems.rec.length === 0 &&
-                            filteredAuditItems.disc.length === 0 &&
-                            filteredAuditItems.unmat.length === 0 && (
-                              <tr>
-                                <td colSpan={6} className="py-8 text-center text-slate-400">
-                                  لا توجد حركات تطابق معايير البحث الحالية
-                                </td>
-                              </tr>
-                            )}
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
