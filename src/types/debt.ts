@@ -13,6 +13,16 @@ export interface CreateDebtPayload {
   reason: string;
   dueDate: string; // ISO datetime string, e.g. "2026-10-15T00:00:00"
   notes?: string | null;
+  sendNotification?: boolean;
+  sendTelegramNotification?: boolean;
+  sendWhatsAppNotification?: boolean;
+  sendInvoiceNotification?: boolean;
+  notifyCustomer?: boolean;
+  sendTelegram?: boolean;
+  sendWhatsApp?: boolean;
+  sendViaTelegram?: boolean;
+  sendViaWhatsApp?: boolean;
+  [key: string]: unknown;
 }
 
 /**

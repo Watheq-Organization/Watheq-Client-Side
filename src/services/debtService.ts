@@ -45,10 +45,15 @@ import { getCurrencyConfig, getCurrencyId, type CurrencyCode } from '../utils/cu
 export interface AddDebtFormValues {
   customerId: string;
   amount: string;
-  dueDate: string; // yyyy-mm-dd, as produced by <input type="date">
+  dueDate: string; // yyyy-mm-dd or ISO string
   notes: string;
+  reason?: string;
   currencyId?: number;
   currencyCode?: CurrencyCode | string;
+  sendNotification?: boolean;
+  sendTelegramNotification?: boolean;
+  sendWhatsAppNotification?: boolean;
+  notifyCustomer?: boolean;
 }
 
 /**
@@ -62,7 +67,7 @@ function toIsoDueDate(dateOnly: string): string {
 /**
  * Assembles the exact request body sent to the Create Debt API from the
  * values the visible form actually collects, applying the reason/currency
- * fallbacks.
+ * fallbacks and telegram/notification activation flags.
  */
 export function buildCreateDebtPayload(values: AddDebtFormValues): CreateDebtPayload {
   const currencyId = Number(
@@ -70,13 +75,56 @@ export function buildCreateDebtPayload(values: AddDebtFormValues): CreateDebtPay
     (values.currencyCode ? getCurrencyId(values.currencyCode) : DEFAULT_CURRENCY_ID)
   );
 
+  const shouldNotify =
+    values.sendNotification ??
+    values.sendTelegramNotification ??
+    values.sendWhatsAppNotification ??
+    values.notifyCustomer ??
+    true;
+
+  const cleanReason = values.reason?.trim();
+  const cleanNotes = values.notes?.trim();
+
+  let finalReason: string;
+  let finalNotes: string | null = null;
+
+  if (cleanReason && cleanNotes) {
+    if (cleanReason === cleanNotes) {
+      // Backend concatenates Reason + "\n" + Notes into Description.
+      // If both are identical, omit notes so it's not repeated twice.
+      finalReason = cleanReason;
+      finalNotes = null;
+    } else {
+      finalReason = cleanReason;
+      finalNotes = cleanNotes;
+    }
+  } else if (cleanReason) {
+    finalReason = cleanReason;
+    finalNotes = null;
+  } else if (cleanNotes) {
+    finalReason = cleanNotes;
+    finalNotes = null;
+  } else {
+    finalReason = DEFAULT_DEBT_REASON;
+    finalNotes = null;
+  }
+
   return {
     customerId: Number(values.customerId),
     amount: Number(values.amount),
     currencyId,
-    reason: resolveDebtReason(values.notes),
-    dueDate: toIsoDueDate(values.dueDate),
-    notes: values.notes?.trim() ? values.notes.trim() : null,
+    reason: finalReason,
+    dueDate: values.dueDate.includes('T') ? values.dueDate : toIsoDueDate(values.dueDate),
+    notes: finalNotes,
+    sendNotification: shouldNotify,
+    sendTelegramNotification: shouldNotify,
+    sendWhatsAppNotification: shouldNotify,
+    sendInvoiceNotification: shouldNotify,
+    notifyCustomer: shouldNotify,
+    sendTelegram: shouldNotify,
+    sendWhatsApp: shouldNotify,
+    sendViaTelegram: shouldNotify,
+    sendViaWhatsApp: shouldNotify,
   };
 }
 

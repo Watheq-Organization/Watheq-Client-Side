@@ -36,11 +36,12 @@ import { ReceiptModal } from './ReceiptModal';
 import { CustomerSelectModal } from './CustomerSelectModal';
 import { ModifyQtyModal } from './ModifyQtyModal';
 import { NegativeStockModal } from './NegativeStockModal';
+import { RegisterPaymentModal } from './RegisterPaymentModal';
 import { Toast, type ToastType } from '../ui/Toast';
 import { PATHS } from '../../routes/paths';
 import { toPosErrorMessage } from '../../services/posService';
 import { createProduct, getProductByBarcodeApi } from '../../services/productService';
-import { sendDebtReminder, toSendReminderErrorMessage } from '../../services/debtService';
+import { toCreateDebtErrorMessage } from '../../services/debtService';
 
 const normalizeArabic = (text: string) => {
   return (text || '')
@@ -99,6 +100,8 @@ export const PosCashierScreen: FC = () => {
   const [isMobileScannerModalOpen, setIsMobileScannerModalOpen] = useState(false);
   const [isCustomerSelectModalOpen, setIsCustomerSelectModalOpen] = useState(false);
   const [isModifyQtyModalOpen, setIsModifyQtyModalOpen] = useState(false);
+  const [isRegisterPaymentModalOpen, setIsRegisterPaymentModalOpen] = useState(false);
+  const [paymentModalDefaultMethod, setPaymentModalDefaultMethod] = useState<'cash' | 'wallet'>('cash');
   const [scannerStatus, setScannerStatus] = useState<CashierScannerStatus>('idle');
 
   const [toast, setToast] = useState<{ message: string; type?: ToastType } | null>(null);
@@ -113,6 +116,7 @@ export const PosCashierScreen: FC = () => {
       isMobileScannerModalOpen ||
       isCustomerSelectModalOpen ||
       isModifyQtyModalOpen ||
+      isRegisterPaymentModalOpen ||
       Boolean(activeReceipt) ||
       Boolean(pendingNegativeItem);
 
@@ -128,6 +132,7 @@ export const PosCashierScreen: FC = () => {
     isMobileScannerModalOpen,
     isCustomerSelectModalOpen,
     isModifyQtyModalOpen,
+    isRegisterPaymentModalOpen,
     activeReceipt,
     pendingNegativeItem,
   ]);
@@ -451,6 +456,9 @@ export const PosCashierScreen: FC = () => {
         e.preventDefault();
         if (cart.length > 0) {
           setIsCashModalOpen(true);
+        } else if (selectedCustomer.id && selectedCustomer.name !== 'زبون نقدي عام' && (selectedCustomer.totalDebt || 0) > 0) {
+          setPaymentModalDefaultMethod('cash');
+          setIsRegisterPaymentModalOpen(true);
         } else {
           setToast({ message: 'أضف أصنافاً أولاً للبدء بالسداد النقدي', type: 'error' });
         }
@@ -471,6 +479,9 @@ export const PosCashierScreen: FC = () => {
         e.preventDefault();
         if (cart.length > 0) {
           setIsBankModalOpen(true);
+        } else if (selectedCustomer.id && selectedCustomer.name !== 'زبون نقدي عام' && (selectedCustomer.totalDebt || 0) > 0) {
+          setPaymentModalDefaultMethod('wallet');
+          setIsRegisterPaymentModalOpen(true);
         } else {
           setToast({ message: 'أضف أصنافاً أولاً للتحويل البنكي', type: 'error' });
         }
@@ -487,6 +498,7 @@ export const PosCashierScreen: FC = () => {
           setIsMobileScannerModalOpen(false);
           setIsCustomerSelectModalOpen(false);
           setIsModifyQtyModalOpen(false);
+          setIsRegisterPaymentModalOpen(false);
           setActiveReceipt(null);
           setPendingNegativeItem(null);
           setTimeout(focusBarcodeInput, 100);
@@ -508,8 +520,10 @@ export const PosCashierScreen: FC = () => {
     isMobileScannerModalOpen,
     isCustomerSelectModalOpen,
     isModifyQtyModalOpen,
+    isRegisterPaymentModalOpen,
     activeReceipt,
     pendingNegativeItem,
+    selectedCustomer,
     setActiveReceipt,
     setPendingNegativeItem,
   ]);
@@ -625,6 +639,24 @@ export const PosCashierScreen: FC = () => {
 
           <button
             type="button"
+            onClick={() => {
+              if (!selectedCustomer.id || selectedCustomer.name === 'زبون نقدي عام') {
+                setIsCustomerSelectModalOpen(true);
+                setToast({ message: 'يرجى اختيار العميل أولاً لتسجيل دفعة لحسابه', type: 'info' });
+              } else {
+                setPaymentModalDefaultMethod('cash');
+                setIsRegisterPaymentModalOpen(true);
+              }
+            }}
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 text-xs font-semibold transition-colors cursor-pointer"
+            title="تسجيل دفعة مالية للعميل (سواء نقدي أو محفظة)"
+          >
+            <Banknote className="w-3.5 h-3.5 text-emerald-400" />
+            <span>تسجيل دفعة عميل</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => navigate(PATHS.DASHBOARD)}
             className="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-semibold border border-slate-700 transition-colors"
           >
@@ -697,15 +729,14 @@ export const PosCashierScreen: FC = () => {
           <button
             type="button"
             onClick={() => setIsMobileScannerModalOpen(true)}
-            className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-              scannerStatus === 'connected'
+            className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${scannerStatus === 'connected'
                 ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/50 shadow-sm shadow-emerald-500/20'
                 : scannerStatus === 'connecting' || scannerStatus === 'paired'
-                ? 'bg-amber-500/20 text-amber-400 border-amber-500/50 animate-pulse'
-                : scannerStatus === 'disconnected'
-                ? 'bg-rose-500/20 text-rose-400 border-rose-500/50'
-                : 'bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border-emerald-500/40'
-            }`}
+                  ? 'bg-amber-500/20 text-amber-400 border-amber-500/50 animate-pulse'
+                  : scannerStatus === 'disconnected'
+                    ? 'bg-rose-500/20 text-rose-400 border-rose-500/50'
+                    : 'bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border-emerald-500/40'
+              }`}
             title="ربط ماسح الجوال (SignalR WebSocket)"
           >
             <Smartphone className="w-3.5 h-3.5" />
@@ -758,13 +789,30 @@ export const PosCashierScreen: FC = () => {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setIsCustomerSelectModalOpen(true)}
-              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-blue-400 border border-slate-700 text-xs font-bold flex items-center gap-1 shrink-0 transition-colors"
-            >
-              <span>تغيير (F1)</span>
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {selectedCustomer.id && selectedCustomer.name !== 'زبون نقدي عام' && (selectedCustomer.totalDebt || 0) > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentModalDefaultMethod('cash');
+                    setIsRegisterPaymentModalOpen(true);
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                  title="تسجيل دفعة للعميل لسداد الديون المستحقة"
+                >
+                  <Banknote className="w-3.5 h-3.5" />
+                  <span>تسجيل دفعة</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setIsCustomerSelectModalOpen(true)}
+                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-blue-400 border border-slate-700 text-xs font-bold flex items-center gap-1 shrink-0 transition-colors"
+              >
+                <span>تغيير (F1)</span>
+              </button>
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto divide-y divide-slate-800/80 p-2 sm:p-3">
@@ -786,11 +834,10 @@ export const PosCashierScreen: FC = () => {
                   <div
                     key={item.product.id}
                     onClick={() => setSelectedCartItemIndex(index)}
-                    className={`p-2.5 sm:p-3 rounded-2xl transition-all flex items-center justify-between gap-3 ${
-                      isSelected
+                    className={`p-2.5 sm:p-3 rounded-2xl transition-all flex items-center justify-between gap-3 ${isSelected
                         ? 'bg-slate-800/90 ring-1 ring-emerald-500/50'
                         : 'hover:bg-slate-800/40'
-                    }`}
+                      }`}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -805,13 +852,12 @@ export const PosCashierScreen: FC = () => {
                         </span>
 
                         <span
-                          className={`text-[10px] font-mono px-1.5 py-0.2 rounded-md ${
-                            isDepleted
+                          className={`text-[10px] font-mono px-1.5 py-0.2 rounded-md ${isDepleted
                               ? 'bg-rose-950/60 text-rose-400 border border-rose-800 font-bold'
                               : remainingInStore <= item.product.minAlertThreshold
-                              ? 'bg-amber-950/60 text-amber-400 border border-amber-800'
-                              : 'bg-slate-800 text-slate-400'
-                          }`}
+                                ? 'bg-amber-950/60 text-amber-400 border border-amber-800'
+                                : 'bg-slate-800 text-slate-400'
+                            }`}
                         >
                           [المتبقي بالمحل: {remainingInStore}{item.product.unit ? ` ${item.product.unit}` : ''}]
                         </span>
@@ -1044,11 +1090,10 @@ export const PosCashierScreen: FC = () => {
             <button
               type="button"
               onClick={() => setActiveCategoryTab('all')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all ${
-                activeCategoryTab === 'all'
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all ${activeCategoryTab === 'all'
                   ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
                   : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
+                }`}
             >
               جميع الأصناف ({barcodeQuery.trim() ? displayedQuickItems.length : products.length})
             </button>
@@ -1058,11 +1103,10 @@ export const PosCashierScreen: FC = () => {
                 key={cat}
                 type="button"
                 onClick={() => setActiveCategoryTab(cat)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all ${
-                  activeCategoryTab === cat
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all ${activeCategoryTab === cat
                     ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
                     : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800'
-                }`}
+                  }`}
               >
                 {cat}
               </button>
@@ -1109,57 +1153,57 @@ export const PosCashierScreen: FC = () => {
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-3">
-              {displayedQuickItems.map((prod) => {
-                const isOutOfStock = prod.stock <= 0;
-                const isLowStock = !isOutOfStock && prod.stock <= prod.minAlertThreshold;
+                {displayedQuickItems.map((prod) => {
+                  const isOutOfStock = prod.stock <= 0;
+                  const isLowStock = !isOutOfStock && prod.stock <= prod.minAlertThreshold;
 
-                return (
-                  <button
-                    key={prod.id}
-                    type="button"
-                    onClick={() => {
-                      addToCart(prod, 1);
-                    }}
-                    className="p-3 sm:p-4 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/60 text-right transition-all flex flex-col justify-between group active:scale-[0.97] hover:shadow-lg relative overflow-hidden"
-                  >
-                    <div className="flex items-start justify-between w-full mb-2">
-                      <span className="text-[10px] font-semibold text-slate-400 truncate max-w-[100px]">
-                        {prod.category || 'غير محدد'}
-                      </span>
-
-                      {isOutOfStock ? (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-rose-950/80 text-rose-400 border border-rose-800">
-                          نفد 🔴
+                  return (
+                    <button
+                      key={prod.id}
+                      type="button"
+                      onClick={() => {
+                        addToCart(prod, 1);
+                      }}
+                      className="p-3 sm:p-4 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/60 text-right transition-all flex flex-col justify-between group active:scale-[0.97] hover:shadow-lg relative overflow-hidden"
+                    >
+                      <div className="flex items-start justify-between w-full mb-2">
+                        <span className="text-[10px] font-semibold text-slate-400 truncate max-w-[100px]">
+                          {prod.category || 'غير محدد'}
                         </span>
-                      ) : isLowStock ? (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-950/80 text-amber-400 border border-amber-800">
-                          {prod.stock} {prod.unit || ''} 🟡
-                        </span>
-                      ) : (
-                        <span className="text-[9px] font-mono text-slate-500">
-                          {prod.stock} {prod.unit || ''}
-                        </span>
-                      )}
-                    </div>
 
-                    <h4 className="font-bold text-xs sm:text-sm text-white group-hover:text-emerald-300 transition-colors line-clamp-2 leading-tight mb-2">
-                      {prod.name}
-                    </h4>
+                        {isOutOfStock ? (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-rose-950/80 text-rose-400 border border-rose-800">
+                            نفد 🔴
+                          </span>
+                        ) : isLowStock ? (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-950/80 text-amber-400 border border-amber-800">
+                            {prod.stock} {prod.unit || ''} 🟡
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-mono text-slate-500">
+                            {prod.stock} {prod.unit || ''}
+                          </span>
+                        )}
+                      </div>
 
-                    <div className="flex items-center justify-between w-full pt-2 border-t border-slate-800/80 font-mono">
-                      <span className="text-sm sm:text-base font-black text-emerald-400">
-                        ₪{prod.salePrice.toFixed(2)}
-                      </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-all font-bold">
-                        + إضافة
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                      <h4 className="font-bold text-xs sm:text-sm text-white group-hover:text-emerald-300 transition-colors line-clamp-2 leading-tight mb-2">
+                        {prod.name}
+                      </h4>
+
+                      <div className="flex items-center justify-between w-full pt-2 border-t border-slate-800/80 font-mono">
+                        <span className="text-sm sm:text-base font-black text-emerald-400">
+                          ₪{prod.salePrice.toFixed(2)}
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-all font-bold">
+                          + إضافة
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </section>
       </div>
 
@@ -1297,24 +1341,18 @@ export const PosCashierScreen: FC = () => {
             });
 
             if (notifyBot && selectedCustomer.id) {
-              try {
-                await sendDebtReminder(selectedCustomer.id);
-                setToast({
-                  message: 'تم تسجيل البيع بالآجل وإرسال إشعار التوثيق عبر البوت بنجاح ✓',
-                  type: 'success',
-                });
-              } catch (botErr) {
-                const botErrMsg = toSendReminderErrorMessage(botErr);
-                setToast({
-                  message: `تم تسجيل البيع بالآجل، لكن تعذّر إرسال إشعار البوت: ${botErrMsg}`,
-                  type: 'warning',
-                });
-              }
+              setToast({
+                message: 'تم تسجيل البيع بالآجل وإرسال إشعار التوثيق عبر البوت بنجاح ✓',
+                type: 'success',
+              });
             } else {
               setToast({ message: 'تم تسجيل البيع بالآجل وإصدار السند بنجاح', type: 'success' });
             }
           } catch (error) {
-            setToast({ message: toPosErrorMessage(error, 'حدث خطأ أثناء تسجيل الدين في الخادم'), type: 'error' });
+            setToast({
+              message: toCreateDebtErrorMessage(error) || toPosErrorMessage(error, 'حدث خطأ أثناء تسجيل الدين في الخادم'),
+              type: 'error',
+            });
           }
         }}
       />
@@ -1377,6 +1415,35 @@ export const PosCashierScreen: FC = () => {
           setSelectedCustomer(cust);
           setToast({ message: `تم تحديد العميل: ${cust.name}`, type: 'info' });
           setTimeout(focusBarcodeInput, 100);
+        }}
+      />
+
+      <RegisterPaymentModal
+        isOpen={isRegisterPaymentModalOpen}
+        onClose={() => {
+          setIsRegisterPaymentModalOpen(false);
+          setTimeout(focusBarcodeInput, 100);
+        }}
+        customer={selectedCustomer}
+        defaultMethod={paymentModalDefaultMethod}
+        onSuccess={(res, paidAmount) => {
+          setSelectedCustomer((prev) => ({
+            ...prev,
+            totalDebt:
+              typeof res?.totalRemaining === 'number'
+                ? res.totalRemaining
+                : Math.max(0, (prev.totalDebt || 0) - paidAmount),
+          }));
+
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('watheq:activity-updated'));
+          }
+
+          setToast({
+            message: `تم تسجيل الدفعة بقيمة ₪${paidAmount.toFixed(2)} بنجاح وتوزيعها على الديون المستحقة ✓`,
+            type: 'success',
+          });
+          playScannerBeep('success');
         }}
       />
 

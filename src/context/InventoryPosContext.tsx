@@ -22,9 +22,10 @@ const HELD_BILLS_STORAGE_KEY = 'watheq_held_bills_v1';
 const SALES_STORAGE_KEY = 'watheq_sales_history_v1';
 const RESTOCK_STORAGE_KEY = 'watheq_restock_history_v1';
 
-import { getProductsApi } from '../services/productService';
+import { getProductsApi, adjustProductStockApi } from '../services/productService';
 import { ApiError } from '../api/httpClient';
 import { posCheckout, type PosSaleType, type PosPaymentMethod } from '../services/posService';
+import { createDebt, rememberEditableDebt, DEFAULT_CURRENCY_ID } from '../services/debtService';
 
 export const DEFAULT_CASH_CUSTOMER = {
   id: undefined,
@@ -550,71 +551,141 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
 
       const formattedDueDate = payload.debtDueDate
         ? (payload.debtDueDate.includes('T') ? payload.debtDueDate : `${payload.debtDueDate}T00:00:00`)
-        : null;
+        : `${new Date().toISOString().split('T')[0]}T00:00:00`;
 
-      // Call backend POS checkout
-      const posResult = await posCheckout({
-        saleType,
-        paymentMethod,
-        customerId: !isGuest ? parsedCustId : null,
-        guestCustomerName,
-        items: checkoutItems,
-        notes: payload.debtNotes || null,
-        reason: payload.debtNotes || null,
-        dueDate: formattedDueDate,
-      });
+      // =======================================================================
+      // CASE 1: DEBT SALE -> Uses POST /api/Debt/createDebt per API Documentation
+      // =======================================================================
+      if (saleType === 'Debt') {
+        const itemsSummary = cart.map((item) => `${item.product.name} × ${item.quantity}`).join(' | ');
+        const customNotes = payload.debtNotes && payload.debtNotes.trim() !== itemsSummary ? payload.debtNotes.trim() : '';
+        const notesStr = payload.debtNotes || itemsSummary;
+        const custKey = String(parsedCustId);
+        const totalDebtAmount = cartTotalDue;
+        const shouldNotify = payload.notifyCustomerViaBot !== false;
 
-      // Persist debt notes locally for immediate reliable display in customer activity log
-      if (saleType === 'Debt' && parsedCustId) {
+        // 1. Call the main Create Debt API (POST /api/Debt/createDebt)
+        // Passes telegram/notification activation boolean flags set to true
+        const debtDto = await createDebt({
+          customerId: custKey,
+          amount: String(totalDebtAmount),
+          dueDate: formattedDueDate,
+          reason: itemsSummary || 'مشتريات بالدين (نقطة البيع - كاشير)',
+          notes: customNotes,
+          currencyId: DEFAULT_CURRENCY_ID,
+          sendNotification: shouldNotify,
+          sendTelegramNotification: shouldNotify,
+          sendWhatsAppNotification: shouldNotify,
+          notifyCustomer: shouldNotify,
+        });
+
+        const rawTxId = debtDto?.id ?? debtDto?.debtNumber ?? Date.now();
+        const txKey = String(rawTxId);
+        const debtNumber = debtDto?.debtNumber || (debtDto?.id ? `D-${debtDto.id}` : `DEBT-${Date.now()}`);
+
+        // 2. Remember editable debt and cache notes for immediate reliable display across the app
         try {
-          const custKey = String(parsedCustId);
-          const rawTxId =
-            posResult?.transactionId ??
-            (posResult as any)?.TransactionId ??
-            (posResult as any)?.id ??
-            (posResult as any)?.Id;
-          const txKey = rawTxId != null ? String(rawTxId) : '';
-          const notesStr =
-            payload.debtNotes ||
-            cart.map((item) => `${item.product.name} × ${item.quantity}`).join(' | ');
-
-          if (txKey) {
-            const debtData = {
-              id: txKey,
-              debtNumber: txKey,
+          rememberEditableDebt(
+            custKey,
+            {
               customerId: custKey,
-              amount: posResult?.totalAmount ?? cartTotalDue,
-              dueDate: payload.debtDueDate || '',
+              amount: String(totalDebtAmount),
+              dueDate: formattedDueDate.split('T')[0],
               notes: notesStr,
-              status: 'Pending',
-            };
-            localStorage.setItem(`debt-editable:${custKey}:${txKey}`, JSON.stringify(debtData));
-            localStorage.setItem(`debt-editable:${custKey}:DEBT-${txKey}`, JSON.stringify(debtData));
-            localStorage.setItem(`debt-notes:${custKey}:${txKey}`, notesStr);
-            localStorage.setItem(`debt-notes:${custKey}:DEBT-${txKey}`, notesStr);
-            localStorage.setItem(`debt-notes:${txKey}`, notesStr);
-            localStorage.setItem(`debt-notes:DEBT-${txKey}`, notesStr);
-          }
+              currencyId: DEFAULT_CURRENCY_ID,
+            },
+            debtDto
+          );
 
+          localStorage.setItem(`debt-notes:${custKey}:${txKey}`, notesStr);
+          localStorage.setItem(`debt-notes:${custKey}:DEBT-${txKey}`, notesStr);
+          localStorage.setItem(`debt-notes:${custKey}:${debtNumber}`, notesStr);
+          localStorage.setItem(`debt-notes:${txKey}`, notesStr);
+          localStorage.setItem(`debt-notes:DEBT-${txKey}`, notesStr);
+          localStorage.setItem(`debt-notes:${debtNumber}`, notesStr);
           localStorage.setItem(`debt-notes-latest:${custKey}`, notesStr);
         } catch {
           // ignore storage failures
         }
+
+        // 3. Deduct product inventory locally for instant UI update
+        setProducts((prevProducts) => {
+          const productMap = new Map(prevProducts.map((p) => [p.id, { ...p }]));
+          for (const cartItem of cart) {
+            const prod = productMap.get(cartItem.product.id);
+            if (prod) {
+              prod.stock = Math.max(0, prod.stock - cartItem.quantity);
+              prod.updatedAt = new Date().toISOString();
+            }
+          }
+          return Array.from(productMap.values());
+        });
+
+        // 4. Update backend product stock levels
+        Promise.allSettled(
+          cart.map((item) => {
+            const newStock = Math.max(0, (item.product.stock || 0) - item.quantity);
+            return adjustProductStockApi(item.product.id, { actualStock: newStock });
+          })
+        ).catch((stockErr) => {
+          console.warn('[checkout:debt] Background stock adjustment failed:', stockErr);
+        });
+
+        // 5. Notify activity listeners across the application
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('watheq:activity-updated'));
+          window.dispatchEvent(
+            new CustomEvent('watheq:pos-transaction-created', {
+              detail: {
+                transactionId: txKey,
+                debtNumber,
+                saleType: 'Debt',
+                paymentMethod: 'None',
+                totalAmount: totalDebtAmount,
+              },
+            })
+          );
+        }
+
+        const completedSale: CompletedSale = {
+          id: `DEBT-${txKey}`,
+          invoiceNumber: debtNumber,
+          date: debtDto?.createdAt || new Date().toISOString(),
+          customerName: payload.customerName || selectedCustomer.name,
+          customerPhone: payload.customerPhone || selectedCustomer.phone,
+          customerId: payload.customerId || selectedCustomer.id,
+          items: [...cart],
+          subtotal: cartSubtotal,
+          discount: payload.discount !== undefined ? payload.discount : cartDiscount,
+          total: totalDebtAmount,
+          paymentMethod: 'debt',
+          receivedAmount: 0,
+          changeAmount: 0,
+          previousDebt: selectedCustomer.totalDebt || 0,
+          newDebt: (selectedCustomer.totalDebt || 0) + totalDebtAmount,
+          debtNotes: notesStr,
+          debtDueDate: payload.debtDueDate,
+          botVerificationSent: shouldNotify,
+        };
+
+        setCompletedSales((prev) => [completedSale, ...prev]);
+        setActiveReceipt(completedSale);
+        clearCart();
+        playScannerBeep('success');
+
+        return completedSale;
       }
 
-      // Notify any active POS transactions lists or listeners that a new transaction occurred
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(
-          new CustomEvent('watheq:pos-transaction-created', {
-            detail: {
-              transactionId: posResult?.transactionId,
-              saleType,
-              paymentMethod,
-              totalAmount: posResult?.totalAmount,
-            },
-          })
-        );
-      }
+      // =======================================================================
+      // CASE 2: CASH / BANK SALE -> Uses POST /api/pos/checkout
+      // =======================================================================
+      const posResult = await posCheckout({
+        saleType: 'Cash',
+        paymentMethod,
+        customerId: !isGuest ? parsedCustId : null,
+        guestCustomerName,
+        items: checkoutItems,
+      });
 
       // Update local product inventory based on server returned remainingStock
       if (posResult?.items && Array.isArray(posResult.items)) {
@@ -629,13 +700,12 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
           });
         });
       } else {
-        // Fallback: local deduction if server item details were not in expected shape
         setProducts((prevProducts) => {
           const productMap = new Map(prevProducts.map((p) => [p.id, { ...p }]));
           for (const cartItem of cart) {
             const prod = productMap.get(cartItem.product.id);
             if (prod) {
-              prod.stock = prod.stock - cartItem.quantity;
+              prod.stock = Math.max(0, prod.stock - cartItem.quantity);
               prod.updatedAt = new Date().toISOString();
             }
           }
@@ -643,9 +713,22 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
         });
       }
 
-      const prefix = saleType === 'Debt' ? 'DEBT' : 'CASH';
+      // Notify any active POS transactions lists or listeners
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('watheq:pos-transaction-created', {
+            detail: {
+              transactionId: posResult?.transactionId,
+              saleType: 'Cash',
+              paymentMethod,
+              totalAmount: posResult?.totalAmount,
+            },
+          })
+        );
+      }
+
       const invoiceNumber = posResult?.transactionId
-        ? `${prefix}-${posResult.transactionId}`
+        ? `CASH-${posResult.transactionId}`
         : `INV-${new Date().getFullYear()}${String(
             new Date().getMonth() + 1
           ).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}-${Math.floor(
@@ -653,7 +736,7 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
           )}`;
 
       const completedSale: CompletedSale = {
-        id: posResult?.transactionId ? `${prefix}-${posResult.transactionId}` : `sale-${Date.now()}`,
+        id: posResult?.transactionId ? `CASH-${posResult.transactionId}` : `sale-${Date.now()}`,
         invoiceNumber,
         date: new Date().toISOString(),
         customerName: payload.customerName || selectedCustomer.name,
@@ -668,13 +751,10 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
         changeAmount: payload.changeAmount,
         bankRefCode: payload.bankRefCode,
         previousDebt: selectedCustomer.totalDebt || 0,
-        newDebt:
-          payload.method === 'debt'
-            ? (selectedCustomer.totalDebt || 0) + (posResult?.totalAmount ?? cartTotalDue)
-            : selectedCustomer.totalDebt,
-        debtNotes: payload.debtNotes,
-        debtDueDate: payload.debtDueDate,
-        botVerificationSent: payload.method === 'debt' && Boolean(payload.notifyCustomerViaBot),
+        newDebt: selectedCustomer.totalDebt,
+        debtNotes: undefined,
+        debtDueDate: undefined,
+        botVerificationSent: undefined,
         mizanReconciled: payload.method === 'bank' ? false : undefined,
       };
 
