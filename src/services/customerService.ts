@@ -406,7 +406,14 @@ function normalizeCustomerProfileTransaction(raw: unknown): CustomerProfileTrans
     ),
     dueDate,
     amount: Number(r.amount ?? r.Amount) || 0,
-    description: typeof (r.description ?? r.Description) === 'string' ? String(r.description ?? r.Description) : '',
+    description:
+      typeof (r.description ?? r.Description ?? r.notes ?? r.Notes ?? r.reason ?? r.Reason) === 'string'
+        ? String(
+            (r.description === 'POS Debt Checkout' && (r.notes || r.Notes || r.reason || r.Reason))
+              ? (r.notes || r.Notes || r.reason || r.Reason)
+              : (r.description ?? r.Description ?? r.notes ?? r.Notes ?? r.reason ?? r.Reason)
+          )
+        : '',
     reference: typeof (r.reference ?? r.Reference) === 'string' ? String(r.reference ?? r.Reference) : '',
     balance: Number(r.balance ?? r.Balance ?? r.runningBalance ?? r.RunningBalance) || 0,
     currencyCode: (typeof (r.currencyCode ?? r.CurrencyCode ?? r.currency ?? r.Currency) === 'string' && (r.currencyCode || r.CurrencyCode || r.currency || r.Currency))

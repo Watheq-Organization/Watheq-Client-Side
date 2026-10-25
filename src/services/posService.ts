@@ -19,6 +19,9 @@ export interface PosCheckoutPayload {
   customerId?: number | null;
   guestCustomerName?: string | null;
   items: PosCheckoutCartItem[];
+  notes?: string | null;
+  reason?: string | null;
+  dueDate?: string | null;
 }
 
 export interface PosCheckoutResponseItem {
@@ -229,6 +232,9 @@ export async function posCheckout(payload: PosCheckoutPayload): Promise<PosCheck
       productId: Number(item.productId),
       quantity: Number(item.quantity),
     })),
+    notes: payload.notes ?? null,
+    reason: payload.reason ?? payload.notes ?? null,
+    dueDate: payload.dueDate ?? null,
   };
 
   const response = await httpClient.post<unknown>('/pos/checkout', body);

@@ -57,6 +57,7 @@ interface DebtInvoiceState {
   transactionType?: string;
   branch?: string;
   items?: DebtItem[];
+  notes?: string;
   invoiceAmount?: number;
   previousDebt?: number;
   previousPaid?: number;
@@ -231,6 +232,27 @@ export const DebtInvoiceScreen: FC = () => {
     const branch =
       serverInvoice?.branch ?? navState?.branch ?? merchant.businessName ?? 'الفرع الرئيسي';
 
+    const parsedNotesItems: DebtItem[] =
+      navState?.notes && (navState.notes.includes(' | ') || /×\s*\d+/.test(navState.notes))
+        ? navState.notes
+            .split('|')
+            .map((part) => part.trim())
+            .filter(Boolean)
+            .map((part, idx) => {
+              const match = part.match(/^(.*?)\s*[×xX*]\s*(\d+(?:\.\d+)?)$/);
+              const name = match ? match[1].trim() : part;
+              const quantity = match ? parseFloat(match[2]) || 1 : 1;
+              return {
+                id: String(idx + 1).padStart(2, '0'),
+                name,
+                description: 'صنف فاتورة مبيعات بالآجل',
+                quantity,
+                unitPrice: 0,
+                total: 0,
+              };
+            })
+        : [];
+
     const items =
       serverInvoice?.items && serverInvoice.items.length > 0
         ? serverInvoice.items.map((it, idx) => ({
@@ -241,13 +263,21 @@ export const DebtInvoiceScreen: FC = () => {
             unitPrice: it.unitPrice ?? it.price ?? 0,
             total: it.total ?? ((it.quantity ?? 1) * (it.unitPrice ?? it.price ?? 0)),
           }))
-        : (navState?.items ?? DEFAULT_ITEMS);
+        : (navState?.items && navState.items.length > 0
+            ? navState.items
+            : (parsedNotesItems.length > 0 ? parsedNotesItems : DEFAULT_ITEMS));
 
     const invoiceAmount =
       serverInvoice?.invoiceAmount ??
       serverInvoice?.amount ??
       navState?.invoiceAmount ??
       items.reduce((sum, item) => sum + item.total, 0);
+
+    // If items came from notes without individual prices, distribute total if single item
+    if (parsedNotesItems.length === 1 && parsedNotesItems[0].total === 0 && invoiceAmount > 0) {
+      parsedNotesItems[0].total = invoiceAmount;
+      parsedNotesItems[0].unitPrice = invoiceAmount / parsedNotesItems[0].quantity;
+    }
     const previousDebt =
       serverInvoice?.previousDebt ?? navState?.previousDebt ?? 0;
     const previousPaid =

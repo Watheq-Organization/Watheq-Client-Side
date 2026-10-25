@@ -548,6 +548,10 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
         quantity: item.quantity,
       }));
 
+      const formattedDueDate = payload.debtDueDate
+        ? (payload.debtDueDate.includes('T') ? payload.debtDueDate : `${payload.debtDueDate}T00:00:00`)
+        : null;
+
       // Call backend POS checkout
       const posResult = await posCheckout({
         saleType,
@@ -555,7 +559,48 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
         customerId: !isGuest ? parsedCustId : null,
         guestCustomerName,
         items: checkoutItems,
+        notes: payload.debtNotes || null,
+        reason: payload.debtNotes || null,
+        dueDate: formattedDueDate,
       });
+
+      // Persist debt notes locally for immediate reliable display in customer activity log
+      if (saleType === 'Debt' && parsedCustId) {
+        try {
+          const custKey = String(parsedCustId);
+          const rawTxId =
+            posResult?.transactionId ??
+            (posResult as any)?.TransactionId ??
+            (posResult as any)?.id ??
+            (posResult as any)?.Id;
+          const txKey = rawTxId != null ? String(rawTxId) : '';
+          const notesStr =
+            payload.debtNotes ||
+            cart.map((item) => `${item.product.name} × ${item.quantity}`).join(' | ');
+
+          if (txKey) {
+            const debtData = {
+              id: txKey,
+              debtNumber: txKey,
+              customerId: custKey,
+              amount: posResult?.totalAmount ?? cartTotalDue,
+              dueDate: payload.debtDueDate || '',
+              notes: notesStr,
+              status: 'Pending',
+            };
+            localStorage.setItem(`debt-editable:${custKey}:${txKey}`, JSON.stringify(debtData));
+            localStorage.setItem(`debt-editable:${custKey}:DEBT-${txKey}`, JSON.stringify(debtData));
+            localStorage.setItem(`debt-notes:${custKey}:${txKey}`, notesStr);
+            localStorage.setItem(`debt-notes:${custKey}:DEBT-${txKey}`, notesStr);
+            localStorage.setItem(`debt-notes:${txKey}`, notesStr);
+            localStorage.setItem(`debt-notes:DEBT-${txKey}`, notesStr);
+          }
+
+          localStorage.setItem(`debt-notes-latest:${custKey}`, notesStr);
+        } catch {
+          // ignore storage failures
+        }
+      }
 
       // Notify any active POS transactions lists or listeners that a new transaction occurred
       if (typeof window !== 'undefined') {
@@ -627,7 +672,9 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
           payload.method === 'debt'
             ? (selectedCustomer.totalDebt || 0) + (posResult?.totalAmount ?? cartTotalDue)
             : selectedCustomer.totalDebt,
-        botVerificationSent: payload.method === 'debt',
+        debtNotes: payload.debtNotes,
+        debtDueDate: payload.debtDueDate,
+        botVerificationSent: payload.method === 'debt' && Boolean(payload.notifyCustomerViaBot),
         mizanReconciled: payload.method === 'bank' ? false : undefined,
       };
 

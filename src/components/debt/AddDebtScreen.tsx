@@ -34,6 +34,7 @@ import {
   toUpdateDebtErrorMessage,
   validateUpdateNotesForStatus,
   rememberEditableDebt,
+  sendDebtReminder,
   type EditableDebtRecord,
 } from '../../services/debtService';
 
@@ -314,9 +315,20 @@ export const AddDebtScreen: FC = () => {
           notes,
           currencyId,
         }, dto);
+
+        let toastMsg = 'تم تسجيل الدين بنجاح.';
+        if (whatsappEnabled) {
+          try {
+            await sendDebtReminder(customerId);
+            toastMsg = 'تم تسجيل الدين وإرسال إشعار التوثيق بنجاح ✓';
+          } catch (botErr) {
+            console.error('[AddDebtScreen] Failed to send debt reminder:', botErr);
+          }
+        }
+
         window.dispatchEvent(new Event('watheq:activity-updated'));
         navigate(`/customers/${customerId}`, {
-          state: { toast: 'تم تسجيل الدين بنجاح.' },
+          state: { toast: toastMsg },
         });
       }
     } catch (error) {

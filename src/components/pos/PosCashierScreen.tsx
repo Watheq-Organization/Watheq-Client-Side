@@ -40,6 +40,7 @@ import { Toast, type ToastType } from '../ui/Toast';
 import { PATHS } from '../../routes/paths';
 import { toPosErrorMessage } from '../../services/posService';
 import { createProduct, getProductByBarcodeApi } from '../../services/productService';
+import { sendDebtReminder, toSendReminderErrorMessage } from '../../services/debtService';
 
 const normalizeArabic = (text: string) => {
   return (text || '')
@@ -1283,7 +1284,7 @@ export const PosCashierScreen: FC = () => {
           setIsDebtModalOpen(false);
           setIsCustomerSelectModalOpen(true);
         }}
-        onConfirm={async (_dueDate, invoiceNotes) => {
+        onConfirm={async (dueDate, invoiceNotes, notifyBot) => {
           try {
             await checkout({
               method: 'debt',
@@ -1291,8 +1292,27 @@ export const PosCashierScreen: FC = () => {
               customerPhone: selectedCustomer.phone,
               customerId: selectedCustomer.id,
               debtNotes: invoiceNotes,
+              debtDueDate: dueDate,
+              notifyCustomerViaBot: notifyBot,
             });
-            setToast({ message: 'تم تسجيل البيع بالآجل وإصدار السند بنجاح', type: 'success' });
+
+            if (notifyBot && selectedCustomer.id) {
+              try {
+                await sendDebtReminder(selectedCustomer.id);
+                setToast({
+                  message: 'تم تسجيل البيع بالآجل وإرسال إشعار التوثيق عبر البوت بنجاح ✓',
+                  type: 'success',
+                });
+              } catch (botErr) {
+                const botErrMsg = toSendReminderErrorMessage(botErr);
+                setToast({
+                  message: `تم تسجيل البيع بالآجل، لكن تعذّر إرسال إشعار البوت: ${botErrMsg}`,
+                  type: 'warning',
+                });
+              }
+            } else {
+              setToast({ message: 'تم تسجيل البيع بالآجل وإصدار السند بنجاح', type: 'success' });
+            }
           } catch (error) {
             setToast({ message: toPosErrorMessage(error, 'حدث خطأ أثناء تسجيل الدين في الخادم'), type: 'error' });
           }

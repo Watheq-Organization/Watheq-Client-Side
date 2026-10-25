@@ -23,7 +23,7 @@ interface DebtPaymentModalProps {
   };
   cartItems: CartItem[];
   onSelectCustomer: () => void;
-  onConfirm: (dueDate: string, invoiceNotes: string) => void;
+  onConfirm: (dueDate: string, invoiceNotes: string, notifyCustomerViaBot: boolean) => void;
 }
 
 export const DebtPaymentModal: FC<DebtPaymentModalProps> = ({
@@ -50,7 +50,7 @@ export const DebtPaymentModal: FC<DebtPaymentModalProps> = ({
       return;
     }
     const invoiceNotes = cartItems.map((item) => `${item.product.name} × ${item.quantity}`).join(' | ');
-    onConfirm(dueDate, invoiceNotes);
+    onConfirm(dueDate, invoiceNotes, notifyCustomerViaBot);
     onClose();
   };
 

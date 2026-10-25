@@ -16,6 +16,7 @@ import {
   X,
   Pencil,
   RefreshCw,
+  Package,
 } from 'lucide-react';
 import { TelegramLinkModal } from './TelegramLinkModal';
 import { Sidebar } from '../dashboard/Sidebar';
@@ -43,6 +44,7 @@ import {
   toDeleteDebtErrorMessage,
 } from '../../services/debtService';
 import { deletePayment, toDeletePaymentErrorMessage } from '../../services/paymentService';
+import { getPosTransactionDetails } from '../../services/posService';
 import type { Customer, CustomerProfileTransactionDto } from '../../types/customer';
 import { ApiError } from '../../api/httpClient';
 import { Toast, type ToastType } from '../ui/Toast';
@@ -218,6 +220,7 @@ export const CustomerDetailsScreen: FC = () => {
   // Customer Data — fetched from GET /api/Customer/getCustomerProfile/{customerId}
   const [customer, setCustomer] = useState<Customer>(EMPTY_CUSTOMER);
   const [profileTransactions, setProfileTransactions] = useState<CustomerProfileTransactionDto[]>([]);
+  const [posItemsMap, setPosItemsMap] = useState<Record<string, string>>({});
   const [currentBalance, setCurrentBalance] = useState(0);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -250,6 +253,90 @@ export const CustomerDetailsScreen: FC = () => {
   useEffect(() => {
     loadCustomerProfile();
   }, [loadCustomerProfile]);
+
+  // Load real purchased items from POS API for any debt transactions that have placeholder notes
+  useEffect(() => {
+    if (!profileTransactions || profileTransactions.length === 0) return;
+
+    profileTransactions.forEach((tx) => {
+      const isDebt =
+        String(tx.type || '').toLowerCase().includes('debt') ||
+        String(tx.type || '').includes('دين');
+      if (!isDebt) return;
+
+      const desc = String(tx.description || '').trim();
+      const isPlaceholder =
+        !desc ||
+        desc === 'POS Debt Checkout' ||
+        desc.toLowerCase().includes('pos debt') ||
+        desc === 'معاملة دين' ||
+        desc === 'مشتريات بالآجل (نقطة البيع - كاشير)';
+      if (!isPlaceholder) return;
+
+      const txId = tx.id || tx.reference;
+      if (!txId) return;
+
+      const idStr = String(txId);
+      if (posItemsMap[idStr] || posItemsMap[`DEBT-${idStr}`]) return;
+
+      // Check localStorage first
+      const cached =
+        localStorage.getItem(`debt-notes:${customer.id}:${idStr}`) ||
+        localStorage.getItem(`debt-notes:${idStr}`) ||
+        localStorage.getItem(`debt-notes:DEBT-${idStr}`);
+      if (cached) {
+        setPosItemsMap((prev) => ({ ...prev, [idStr]: cached }));
+        return;
+      }
+
+      // Try fetching from POS transactions API
+      const lookupId = idStr.startsWith('DEBT-') ? idStr : `DEBT-${idStr}`;
+      getPosTransactionDetails(lookupId)
+        .then((details) => {
+          if (details?.items && details.items.length > 0) {
+            const itemsText = details.items
+              .map((it) => `${it.productName} × ${it.quantity}`)
+              .join(' | ');
+            if (itemsText) {
+              setPosItemsMap((prev) => ({ ...prev, [idStr]: itemsText, [details.id]: itemsText }));
+              try {
+                localStorage.setItem(`debt-notes:${customer.id}:${idStr}`, itemsText);
+                localStorage.setItem(`debt-notes:${customer.id}:${details.id}`, itemsText);
+                localStorage.setItem(`debt-notes:${idStr}`, itemsText);
+                localStorage.setItem(`debt-notes:${details.id}`, itemsText);
+              } catch {
+                // ignore
+              }
+            }
+          }
+        })
+        .catch(() => {
+          const bareNumeric = idStr.replace(/\D/g, '');
+          if (bareNumeric && bareNumeric !== idStr) {
+            getPosTransactionDetails(bareNumeric)
+              .then((details) => {
+                if (details?.items && details.items.length > 0) {
+                  const itemsText = details.items
+                    .map((it) => `${it.productName} × ${it.quantity}`)
+                    .join(' | ');
+                  if (itemsText) {
+                    setPosItemsMap((prev) => ({ ...prev, [idStr]: itemsText }));
+                    try {
+                      localStorage.setItem(`debt-notes:${customer.id}:${idStr}`, itemsText);
+                      localStorage.setItem(`debt-notes:${idStr}`, itemsText);
+                    } catch {
+                      // ignore
+                    }
+                  }
+                }
+              })
+              .catch(() => {
+                // ignore
+              });
+          }
+        });
+    });
+  }, [profileTransactions, customer.id, posItemsMap]);
 
   // Edit Customer Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -371,7 +458,13 @@ export const CustomerDetailsScreen: FC = () => {
       return;
     }
 
-    const cached = getEditableDebt(customer.id, act.reference);
+    const cleanRef = act.reference ? act.reference.trim() : '';
+    const digitsRef = cleanRef ? cleanRef.replace(/\D/g, '') : '';
+    const cached =
+      getEditableDebt(customer.id, cleanRef) ||
+      (digitsRef ? getEditableDebt(customer.id, digitsRef) : null) ||
+      (digitsRef ? getEditableDebt(customer.id, `DEBT-${digitsRef}`) : null);
+
     const record =
       cached ??
       ({
@@ -380,7 +473,10 @@ export const CustomerDetailsScreen: FC = () => {
         customerId: customer.id,
         amount: act.rawAmount,
         dueDate: '',
-        notes: '',
+        notes:
+          act.description === 'معاملة دين' || act.description === 'POS Debt Checkout'
+            ? ''
+            : act.description,
         status: act.rawStatus,
       } satisfies EditableDebtRecord);
 
@@ -610,9 +706,69 @@ export const CustomerDetailsScreen: FC = () => {
         String(tx.type || '').includes('دين');
       const sign = isDebt ? '+' : '-';
       const currencyCode = normalizeCurrencyCode(tx.currencyCode || (tx as any).currency || 'ILS');
-      const cachedDebt = isDebt && tx.reference ? getEditableDebt(customer.id, tx.reference) : null;
+      const cleanRef = tx.reference ? tx.reference.trim() : '';
+      const digitsRef = cleanRef ? cleanRef.replace(/\D/g, '') : '';
+      const txIdStr = tx.id ? String(tx.id) : '';
+      const digitsFromId = txIdStr ? txIdStr.replace(/\D/g, '') : '';
+      const invoiceIdStr = tx.invoiceId ? String(tx.invoiceId) : '';
+
+      const candidateKeys = [
+        txIdStr,
+        cleanRef,
+        digitsRef,
+        digitsFromId,
+        invoiceIdStr,
+        txIdStr ? `DEBT-${txIdStr}` : '',
+        cleanRef ? `DEBT-${cleanRef}` : '',
+        digitsRef ? `DEBT-${digitsRef}` : '',
+      ].filter(Boolean);
+
+      let storedNotes: string | null = null;
+      for (const k of candidateKeys) {
+        storedNotes =
+          localStorage.getItem(`debt-notes:${customer.id}:${k}`) ||
+          localStorage.getItem(`debt-notes:${k}`);
+        if (storedNotes) break;
+      }
+      if (!storedNotes && isDebt && (posItemsMap[txIdStr] || (cleanRef && posItemsMap[cleanRef]))) {
+        storedNotes = posItemsMap[txIdStr] || posItemsMap[cleanRef];
+      }
+      if (!storedNotes && isDebt && index === 0) {
+        storedNotes = localStorage.getItem(`debt-notes-latest:${customer.id}`);
+      }
+
+      let cachedDebt: EditableDebtRecord | null = null;
+      for (const k of candidateKeys) {
+        cachedDebt = getEditableDebt(customer.id, k);
+        if (cachedDebt) break;
+      }
+
       const rawDueDate = isDebt ? (tx.dueDate || cachedDebt?.dueDate) : null;
       const formattedDueDate = rawDueDate ? formatApiDate(rawDueDate) : undefined;
+
+      let resolvedDescription = tx.description ? tx.description.trim() : '';
+      const isPlaceholder =
+        !resolvedDescription ||
+        resolvedDescription === 'POS Debt Checkout' ||
+        resolvedDescription.toLowerCase().includes('pos debt') ||
+        resolvedDescription === 'مشتريات بالآجل (نقطة البيع - كاشير)' ||
+        resolvedDescription === 'معاملة دين';
+
+      if (isPlaceholder) {
+        if (cachedDebt?.notes) {
+          resolvedDescription = cachedDebt.notes;
+        } else if (storedNotes) {
+          resolvedDescription = storedNotes;
+        } else if (posItemsMap[txIdStr] || (cleanRef && posItemsMap[cleanRef])) {
+          resolvedDescription = posItemsMap[txIdStr] || posItemsMap[cleanRef];
+        } else if (resolvedDescription === 'POS Debt Checkout') {
+          resolvedDescription = 'مشتريات بالآجل (نقطة البيع - كاشير)';
+        } else if (isDebt) {
+          resolvedDescription = 'معاملة دين';
+        } else {
+          resolvedDescription = 'معاملة دفع';
+        }
+      }
 
       return {
         id: `${tx.reference || (isDebt ? 'debt' : 'payment')}-${index}`,
@@ -629,7 +785,7 @@ export const CustomerDetailsScreen: FC = () => {
           : 'bg-emerald-50 text-emerald-600 border border-emerald-100',
         amount: `${sign}${tx.amount.toFixed(2)}`,
         amountColor: isDebt ? 'text-[#e11d48]' : 'text-emerald-600',
-        description: tx.description || (isDebt ? 'معاملة دين' : 'معاملة دفع'),
+        description: resolvedDescription,
         date: formatApiDate(tx.date, true),
         dueDate: formattedDueDate,
         balanceLabel: `${tx.balance.toFixed(2)} ${getCurrencyConfig(currencyCode).symbol}`,
@@ -646,7 +802,7 @@ export const CustomerDetailsScreen: FC = () => {
         invoiceId: tx.invoiceId,
       };
     });
-  }, [profileTransactions, customer.id]);
+  }, [profileTransactions, customer.id, posItemsMap]);
 
   // Latest payment record, used in the debt banner below. Transactions are
   // already newest-first, so the first Payment entry is the most recent one.
@@ -1409,7 +1565,9 @@ export const CustomerDetailsScreen: FC = () => {
                                               fileOpenDate: customer.registrationDate,
                                               invoiceAmount: act.rawAmount,
                                               issueDate: act.date,
+                                              dueDate: act.dueDate,
                                               currency: act.currencyCode,
+                                              notes: act.description,
                                             },
                                           },
                                         });
@@ -1475,10 +1633,48 @@ export const CustomerDetailsScreen: FC = () => {
                             </div>
                           </div>
 
-                          {/* Description */}
-                          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2 leading-relaxed font-normal">
-                            {act.description}
-                          </p>
+                          {/* Description & Items Display */}
+                          {act.description && (
+                            <div className="mt-2.5">
+                              {act.description.includes(' | ') || (act.type === 'debt' && /×\s*\d+/.test(act.description)) ? (
+                                <div className="p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-900/40 border border-slate-200/70 dark:border-slate-700/60 space-y-2">
+                                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
+                                    <Package className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                                    <span>الأصناف المشتراة في الفاتورة:</span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {act.description
+                                      .split('|')
+                                      .map((item) => item.trim())
+                                      .filter(Boolean)
+                                      .map((item, idx) => {
+                                        const match = item.match(/^(.*?)\s*[×xX*]\s*(\d+(?:\.\d+)?)$/);
+                                        const name = match ? match[1].trim() : item;
+                                        const qty = match ? match[2] : null;
+
+                                        return (
+                                          <span
+                                            key={idx}
+                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-2xs"
+                                          >
+                                            <span>{name}</span>
+                                            {qty && (
+                                              <span className="px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-mono font-bold text-[11px]">
+                                                × {qty}
+                                              </span>
+                                            )}
+                                          </span>
+                                        );
+                                      })}
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-normal">
+                                  {act.description}
+                                </p>
+                              )}
+                            </div>
+                          )}
 
                           {/* Date & Running Balance & Due Date */}
                           <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
