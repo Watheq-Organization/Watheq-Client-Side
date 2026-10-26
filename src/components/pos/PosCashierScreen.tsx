@@ -606,8 +606,12 @@ export const PosCashierScreen: FC = () => {
       <header className="h-14 bg-slate-900 border-b border-slate-800 px-4 sm:px-6 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-black shadow-md shadow-emerald-500/20">
-              ⚡
+            <div className="w-9 h-9 flex items-center justify-center shrink-0">
+              <img
+                src="/logo-hd.png"
+                alt="وثّق"
+                className="w-full h-full object-contain drop-shadow-md"
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -636,24 +640,6 @@ export const PosCashierScreen: FC = () => {
           >
             <ReceiptText className="w-3.5 h-3.5 text-emerald-400" />
             <span>معاملات الكاشير</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (!selectedCustomer.id || selectedCustomer.name === 'زبون نقدي عام') {
-                setIsCustomerSelectModalOpen(true);
-                setToast({ message: 'يرجى اختيار العميل أولاً لتسجيل دفعة لحسابه', type: 'info' });
-              } else {
-                setPaymentModalDefaultMethod('cash');
-                setIsRegisterPaymentModalOpen(true);
-              }
-            }}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 text-xs font-semibold transition-colors cursor-pointer"
-            title="تسجيل دفعة مالية للعميل (سواء نقدي أو محفظة)"
-          >
-            <Banknote className="w-3.5 h-3.5 text-emerald-400" />
-            <span>تسجيل دفعة عميل</span>
           </button>
 
           <button
