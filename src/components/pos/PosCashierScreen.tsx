@@ -1410,9 +1410,10 @@ export const PosCashierScreen: FC = () => {
                   profile.currentBalance > 0
                     ? profile.currentBalance
                     : (profile.totalDebt || 0);
-                setSelectedCustomer((prev) =>
-                  prev.id === cust.id ? { ...prev, totalDebt: accurateDebt } : prev
-                );
+                setSelectedCustomer({
+                  ...cust,
+                  totalDebt: accurateDebt,
+                });
               })
               .catch(() => {});
           }
