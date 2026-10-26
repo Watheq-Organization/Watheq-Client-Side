@@ -13,6 +13,13 @@ import {
 } from 'lucide-react';
 import { registerPayment, toRegisterPaymentErrorMessage } from '../../services/paymentService';
 import type { RegisterPaymentResponseDto } from '../../types/payment';
+import {
+  formatCurrency,
+  getCurrencyId,
+  normalizeCurrencyCode,
+  SUPPORTED_CURRENCIES,
+  type CurrencyCode,
+} from '../../utils/currency';
 
 interface RegisterPaymentModalProps {
   isOpen: boolean;
@@ -22,6 +29,7 @@ interface RegisterPaymentModalProps {
     name: string;
     phone?: string;
     totalDebt?: number;
+    currencyCode?: string;
   };
   defaultMethod?: 'cash' | 'wallet';
   onSuccess: (res: RegisterPaymentResponseDto, paidAmount: number) => void;
@@ -34,6 +42,8 @@ export const RegisterPaymentModal: FC<RegisterPaymentModalProps> = ({
   defaultMethod = 'cash',
   onSuccess,
 }) => {
+  const [currency, setCurrency] = useState<CurrencyCode>('ILS');
+  const [currencyId, setCurrencyId] = useState<number>(() => getCurrencyId('ILS'));
   const [amount, setAmount] = useState<string>('');
   const [method, setMethod] = useState<'cash' | 'credit_card'>('cash');
   const [receiptNumber, setReceiptNumber] = useState<string>('');
@@ -47,7 +57,10 @@ export const RegisterPaymentModal: FC<RegisterPaymentModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      const code = normalizeCurrencyCode(customer.currencyCode || 'ILS');
       setMethod(defaultMethod === 'wallet' ? 'credit_card' : 'cash');
+      setCurrency(code);
+      setCurrencyId(getCurrencyId(code));
       setAmount('');
       setReceiptNumber('');
       setNotes('');
@@ -55,7 +68,7 @@ export const RegisterPaymentModal: FC<RegisterPaymentModalProps> = ({
       setFilePreview(null);
       setErrorMessage(null);
     }
-  }, [isOpen, defaultMethod]);
+  }, [isOpen, defaultMethod, customer.currencyCode]);
 
   if (!isOpen) return null;
 
@@ -90,7 +103,7 @@ export const RegisterPaymentModal: FC<RegisterPaymentModalProps> = ({
       return;
     }
     if (totalDebt > 0 && numAmount > totalDebt) {
-      setErrorMessage(`قيمة الدفعة (₪${numAmount}) أكبر من إجمالي الدين المتبقي (₪${totalDebt}).`);
+      setErrorMessage(`قيمة الدفعة (${formatCurrency(numAmount, currency)}) أكبر من إجمالي الدين المتبقي (${formatCurrency(totalDebt, currency)}).`);
       return;
     }
 
@@ -101,6 +114,9 @@ export const RegisterPaymentModal: FC<RegisterPaymentModalProps> = ({
       const res = await registerPayment(customer.id, {
         amount: String(numAmount),
         method,
+        currencyId: currencyId || getCurrencyId(currency),
+        currencyCode: currency,
+        currency: currency,
         receiptNumber: receiptNumber.trim() || undefined,
         notes: notes.trim(),
         receiptFile,
@@ -177,8 +193,39 @@ export const RegisterPaymentModal: FC<RegisterPaymentModalProps> = ({
                     : 'text-emerald-600 dark:text-emerald-400'
                 }`}
               >
-                ₪{totalDebt.toFixed(2)}
+                {formatCurrency(totalDebt, currency)}
               </span>
+            </div>
+          </div>
+
+          {/* Currency Selector (ILS / USD / JOD) */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+              عملة الدفعة:
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {(['ILS', 'USD', 'JOD'] as const).map((c) => {
+                const cfg = SUPPORTED_CURRENCIES[c];
+                const isSelected = currency === c;
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => {
+                      setCurrency(c);
+                      setCurrencyId(getCurrencyId(c));
+                    }}
+                    className={`py-2 px-3 rounded-xl border-2 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      isSelected
+                        ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 shadow-xs ring-1 ring-emerald-600/30'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    <span className="font-mono text-sm">{cfg.symbol}</span>
+                    <span>{cfg.labelAr}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -246,11 +293,11 @@ export const RegisterPaymentModal: FC<RegisterPaymentModalProps> = ({
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                مبلغ الدفعة (₪):
+                مبلغ الدفعة ({SUPPORTED_CURRENCIES[currency].symbol}):
               </label>
               {totalDebt > 0 && (
                 <span className="text-[11px] text-slate-500 font-mono">
-                  المتبقي بعد الدفعة: ₪{remainingAfterPayment.toFixed(2)}
+                  المتبقي بعد الدفعة: {formatCurrency(remainingAfterPayment, currency)}
                 </span>
               )}
             </div>
@@ -268,7 +315,7 @@ export const RegisterPaymentModal: FC<RegisterPaymentModalProps> = ({
                 className="w-full pr-4 pl-12 py-3 rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-white font-mono font-black text-lg outline-hidden focus:border-emerald-500 transition-colors"
               />
               <span className="absolute left-4 top-3.5 text-slate-400 font-bold text-sm">
-                ₪
+                {SUPPORTED_CURRENCIES[currency].symbol}
               </span>
             </div>
 
@@ -280,7 +327,7 @@ export const RegisterPaymentModal: FC<RegisterPaymentModalProps> = ({
                   onClick={() => handleQuickAmount(totalDebt)}
                   className="px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold border border-emerald-300 dark:border-emerald-800 hover:bg-emerald-200 transition-colors"
                 >
-                  كامل الدين (₪{totalDebt.toFixed(2)})
+                  كامل الدين ({formatCurrency(totalDebt, currency)})
                 </button>
                 {totalDebt > 20 && (
                   <button
@@ -288,7 +335,7 @@ export const RegisterPaymentModal: FC<RegisterPaymentModalProps> = ({
                     onClick={() => handleQuickAmount(totalDebt / 2)}
                     className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-200 transition-colors"
                   >
-                    النصف (₪{(totalDebt / 2).toFixed(2)})
+                    النصف ({formatCurrency(totalDebt / 2, currency)})
                   </button>
                 )}
                 {[50, 100, 200]
@@ -300,7 +347,7 @@ export const RegisterPaymentModal: FC<RegisterPaymentModalProps> = ({
                       onClick={() => handleQuickAmount(val)}
                       className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-200 transition-colors"
                     >
-                      {val} ₪
+                      {val} {SUPPORTED_CURRENCIES[currency].symbol}
                     </button>
                   ))}
               </div>

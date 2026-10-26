@@ -10,6 +10,7 @@ export interface CollectionsReportParams {
   toDate?: string;
   pageNumber?: number;
   pageSize?: number;
+  currencyId?: number;
 }
 
 export interface CollectionItem {

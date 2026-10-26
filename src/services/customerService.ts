@@ -5,36 +5,74 @@ import type {
   Customer,
   CustomerDto,
   CustomerProfileDto,
+  CustomerCurrencyBalanceDto,
   CustomerProfileTransactionDto,
   CustomerStatus,
   UpdateCustomerPayload,
 } from '../types/customer';
+import { normalizeCurrencyCode, getCurrencyId } from '../utils/currency';
+import { getOutstandingDebtsReport } from './reportService';
 
 /**
  * GET https://whateq.runasp.net/api/customer/getCustomers
  *
- * Fetches every customer belonging to the current merchant. No UserId or
- * BusinessId is sent — the backend derives the current user from the JWT
- * (attached automatically by httpClient), per the confirmed API contract.
- *
- * The doc notes the array may come back wrapped in a HandleResult/CommandResult
- * envelope (e.g. `response.data`) instead of as a bare array, so the response
- * shape is sniffed defensively rather than assumed.
+ * Fetches every customer belonging to the current merchant.
+ * Concurrently fetches outstanding debts from the ledger report to ensure
+ * accurate debt balances are displayed even if the backend customer entity
+ * returns a default/stale 0 value.
  */
 export async function getCustomers(): Promise<CustomerDto[]> {
-  const response = await httpClient.get<unknown>('/customer/getCustomers');
-  const dtos = extractCustomerDtoList(response).map(normalizeCustomerDto);
-  // Diagnostic only — prints exactly what the backend returned for
-  // totalDebt/totalPaid per customer, so a stale value on the Customers
-  // list can be confirmed as a backend/DB issue (the raw response is
-  // already stale) rather than a frontend caching bug (the list not
-  // re-fetching). Doesn't change any behavior.
-  // eslint-disable-next-line no-console
-  console.log(
-    '[getCustomers] raw totals from backend:',
-    dtos.map((c) => ({ id: c.id, fullName: c.fullName, totalDebt: c.totalDebt, totalPaid: c.totalPaid }))
-  );
-  return dtos;
+  try {
+    const [response, debtsReport] = await Promise.all([
+      httpClient.get<unknown>('/customer/getCustomers'),
+      getOutstandingDebtsReport({ pageSize: 1000 }).catch(() => null),
+    ]);
+
+    const dtos = extractCustomerDtoList(response).map(normalizeCustomerDto);
+
+    // If debtsReport has items, map outstanding debts to customer IDs and names
+    if (debtsReport?.details?.items && debtsReport.details.items.length > 0) {
+      const debtMapById = new Map<string, number>();
+      const debtMapByName = new Map<string, number>();
+
+      for (const item of debtsReport.details.items) {
+        const remaining = Number(item.remainingAmount ?? item.amount) || 0;
+        if (remaining > 0) {
+          if (item.customerId) {
+            const cid = String(item.customerId);
+            debtMapById.set(cid, (debtMapById.get(cid) || 0) + remaining);
+          }
+          if (item.customerName) {
+            const cname = item.customerName.trim().toLowerCase();
+            debtMapByName.set(cname, (debtMapByName.get(cname) || 0) + remaining);
+          }
+        }
+      }
+
+      for (const c of dtos) {
+        const reportDebt =
+          debtMapById.get(String(c.id)) ??
+          (c.fullName ? debtMapByName.get(c.fullName.trim().toLowerCase()) : undefined);
+
+        if (reportDebt !== undefined && reportDebt > 0) {
+          if (c.totalDebt <= 0) {
+            c.totalDebt = reportDebt;
+          }
+          if (!c.currentBalance || c.currentBalance <= 0) {
+            c.currentBalance = reportDebt;
+          }
+          if (!c.status || c.status === 'paid' || c.status === '0') {
+            c.status = 'active_debt';
+          }
+        }
+      }
+    }
+
+    return dtos;
+  } catch {
+    const response = await httpClient.get<unknown>('/customer/getCustomers');
+    return extractCustomerDtoList(response).map(normalizeCustomerDto);
+  }
 }
 
 /**
@@ -139,7 +177,41 @@ export function setStoredTotalPaid(customerId: string, value: number): void {
 function normalizeCustomerDto(raw: unknown): CustomerDto {
   const r = (raw ?? {}) as Record<string, unknown>;
 
-  const totalDebt = Number(
+  // Check multi-currency balances array if returned
+  let balancesDebt = 0;
+  const rawBalances = Array.isArray(r.balances)
+    ? r.balances
+    : Array.isArray(r.Balances)
+      ? r.Balances
+      : null;
+
+  let normalizedBalances: CustomerCurrencyBalanceDto[] | undefined;
+  if (rawBalances && rawBalances.length > 0) {
+    normalizedBalances = rawBalances.map((b) => {
+      const item = (b ?? {}) as Record<string, unknown>;
+      const rawCurr =
+        item.currencyCode ??
+        item.CurrencyCode ??
+        item.currency ??
+        item.Currency ??
+        item.currencyId ??
+        item.CurrencyId;
+      const code = normalizeCurrencyCode(rawCurr);
+      const id = Number(item.currencyId ?? item.CurrencyId) || getCurrencyId(code);
+      const bDebt = Number(item.totalDebt ?? item.TotalDebt) || 0;
+      const bBalance = Number(item.currentBalance ?? item.CurrentBalance ?? bDebt) || 0;
+      balancesDebt += (bBalance > 0 ? bBalance : bDebt);
+      return {
+        currencyId: id,
+        currencyCode: code,
+        totalDebt: bDebt,
+        totalPaid: Number(item.totalPaid ?? item.TotalPaid) || 0,
+        currentBalance: bBalance,
+      };
+    });
+  }
+
+  const directDebt = Number(
     r.totalDebt ??
     r.TotalDebt ??
     r.currentBalance ??
@@ -148,8 +220,18 @@ function normalizeCustomerDto(raw: unknown): CustomerDto {
     r.Debt ??
     r.totalDebts ??
     r.TotalDebts ??
+    r.remainingAmount ??
+    r.RemainingAmount ??
+    r.totalRemaining ??
+    r.TotalRemaining ??
+    r.outstandingDebt ??
+    r.OutstandingDebt ??
+    r.balance ??
+    r.Balance ??
     0
   ) || 0;
+
+  const totalDebt = directDebt > 0 ? directDebt : balancesDebt;
 
   const totalPaid = Number(
     r.totalPaid ??
@@ -188,6 +270,7 @@ function normalizeCustomerDto(raw: unknown): CustomerDto {
     totalDebt,
     totalPaid,
     currentBalance,
+    balances: normalizedBalances,
     status: rawStatus,
     createdAt: normalizeApiDateString(
       typeof (r.createdAt ?? r.CreatedAt) === 'string' ? String(r.createdAt ?? r.CreatedAt) : ''
@@ -329,6 +412,33 @@ function normalizeCustomerProfileDto(raw: unknown): CustomerProfileDto {
     storedPaid
   );
 
+  // 5. Multi-Currency balances array from backend
+  const rawBalances = Array.isArray(r.balances)
+    ? r.balances
+    : Array.isArray(r.Balances)
+      ? r.Balances
+      : [];
+
+  const normalizedBalances: CustomerCurrencyBalanceDto[] = rawBalances.map((b) => {
+    const item = (b ?? {}) as Record<string, unknown>;
+    const rawCurr =
+      item.currencyCode ??
+      item.CurrencyCode ??
+      item.currency ??
+      item.Currency ??
+      item.currencyId ??
+      item.CurrencyId;
+    const code = normalizeCurrencyCode(rawCurr);
+    const id = Number(item.currencyId ?? item.CurrencyId) || getCurrencyId(code);
+    return {
+      currencyId: id,
+      currencyCode: code,
+      totalDebt: Number(item.totalDebt ?? item.TotalDebt) || 0,
+      totalPaid: Number(item.totalPaid ?? item.TotalPaid) || 0,
+      currentBalance: Number(item.currentBalance ?? item.CurrentBalance) || 0,
+    };
+  });
+
   return {
     id: customerId,
     fullName: typeof (r.fullName ?? r.FullName) === 'string' ? String(r.fullName ?? r.FullName) : '',
@@ -341,6 +451,7 @@ function normalizeCustomerProfileDto(raw: unknown): CustomerProfileDto {
       typeof (r.createdAt ?? r.CreatedAt) === 'string' ? String(r.createdAt ?? r.CreatedAt) : ''
     ),
     isTelegramLinked: Boolean(r.isTelegramLinked ?? r.IsTelegramLinked),
+    balances: normalizedBalances.length > 0 ? normalizedBalances : undefined,
     transactions: normalizedTransactions,
   };
 }
@@ -416,9 +527,18 @@ function normalizeCustomerProfileTransaction(raw: unknown): CustomerProfileTrans
         : '',
     reference: typeof (r.reference ?? r.Reference) === 'string' ? String(r.reference ?? r.Reference) : '',
     balance: Number(r.balance ?? r.Balance ?? r.runningBalance ?? r.RunningBalance) || 0,
-    currencyCode: (typeof (r.currencyCode ?? r.CurrencyCode ?? r.currency ?? r.Currency) === 'string' && (r.currencyCode || r.CurrencyCode || r.currency || r.Currency))
-      ? String(r.currencyCode ?? r.CurrencyCode ?? r.currency ?? r.Currency).toUpperCase()
-      : (r.currencyId ?? r.CurrencyId === 2 ? 'USD' : r.currencyId ?? r.CurrencyId === 3 ? 'JOD' : 'ILS'),
+    ...(() => {
+      const rawCurr =
+        r.currencyCode ??
+        r.CurrencyCode ??
+        r.currency ??
+        r.Currency ??
+        r.currencyId ??
+        r.CurrencyId;
+      const code = normalizeCurrencyCode(rawCurr);
+      const id = Number(r.currencyId ?? r.CurrencyId) || getCurrencyId(code);
+      return { currencyCode: code, currencyId: id };
+    })(),
     status: (r.status ?? r.Status) != null ? String(r.status ?? r.Status) : null,
     paymentMethod,
     invoiceId,

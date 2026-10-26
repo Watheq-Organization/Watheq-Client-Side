@@ -52,6 +52,7 @@ export interface CustomerDto {
   status?: string;
   createdAt: string;
   isTelegramLinked?: boolean;
+  balances?: CustomerCurrencyBalanceDto[];
 }
 
 /**
@@ -86,10 +87,22 @@ export interface CustomerProfileTransactionDto {
   reference: string;
   balance: number;
   currencyCode: string;
+  currencyId?: number;
   status: string | null;
   paymentMethod: string | null;
   dueDate?: string | null;
   invoiceId?: number | null;
+}
+
+/**
+ * Summary balance for a specific currency returned inside CustomerProfileDto.balances
+ */
+export interface CustomerCurrencyBalanceDto {
+  currencyId: number;
+  currencyCode: string;
+  totalDebt: number;
+  totalPaid: number;
+  currentBalance: number;
 }
 
 /**
@@ -109,6 +122,7 @@ export interface CustomerProfileDto {
   totalPaid: number;
   createdAt: string;
   isTelegramLinked?: boolean;
+  balances?: CustomerCurrencyBalanceDto[];
   transactions: CustomerProfileTransactionDto[];
 }
 

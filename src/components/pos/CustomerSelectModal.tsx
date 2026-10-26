@@ -233,6 +233,11 @@ export const CustomerSelectModal: FC<CustomerSelectModalProps> = ({
           ) : (
             filtered.map((c) => {
               const isSelected = c.id === currentCustomerId;
+              const debtAmount =
+                (c.currentBalance !== undefined && c.currentBalance > 0)
+                  ? c.currentBalance
+                  : (c.totalDebt || 0);
+
               return (
                 <button
                   key={c.id}
@@ -242,7 +247,7 @@ export const CustomerSelectModal: FC<CustomerSelectModalProps> = ({
                       id: c.id,
                       name: c.fullName,
                       phone: c.phoneNumber,
-                      totalDebt: c.totalDebt || 0,
+                      totalDebt: debtAmount,
                     });
                     onClose();
                   }}
@@ -271,12 +276,12 @@ export const CustomerSelectModal: FC<CustomerSelectModalProps> = ({
                     <span className="text-[10px] text-slate-400 block">رصيد الدين</span>
                     <span
                       className={`text-xs font-black font-mono ${
-                        (c.totalDebt || 0) > 0
+                        debtAmount > 0
                           ? 'text-rose-600 dark:text-rose-400'
                           : 'text-emerald-600 dark:text-emerald-400'
                       }`}
                     >
-                      ₪{(c.totalDebt || 0).toFixed(2)}
+                      ₪{debtAmount.toFixed(2)}
                     </span>
                   </div>
                 </button>

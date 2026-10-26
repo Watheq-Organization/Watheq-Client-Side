@@ -42,6 +42,7 @@ import { PATHS } from '../../routes/paths';
 import { toPosErrorMessage } from '../../services/posService';
 import { createProduct, getProductByBarcodeApi } from '../../services/productService';
 import { toCreateDebtErrorMessage } from '../../services/debtService';
+import { getCustomerProfile } from '../../services/customerService';
 
 const normalizeArabic = (text: string) => {
   return (text || '')
@@ -1415,6 +1416,20 @@ export const PosCashierScreen: FC = () => {
           setSelectedCustomer(cust);
           setToast({ message: `تم تحديد العميل: ${cust.name}`, type: 'info' });
           setTimeout(focusBarcodeInput, 100);
+
+          if (cust.id) {
+            getCustomerProfile(cust.id)
+              .then((profile) => {
+                const accurateDebt =
+                  profile.currentBalance > 0
+                    ? profile.currentBalance
+                    : (profile.totalDebt || 0);
+                setSelectedCustomer((prev) =>
+                  prev.id === cust.id ? { ...prev, totalDebt: accurateDebt } : prev
+                );
+              })
+              .catch(() => {});
+          }
         }}
       />
 
@@ -1427,13 +1442,13 @@ export const PosCashierScreen: FC = () => {
         customer={selectedCustomer}
         defaultMethod={paymentModalDefaultMethod}
         onSuccess={(res, paidAmount) => {
-          setSelectedCustomer((prev) => ({
-            ...prev,
+          setSelectedCustomer({
+            ...selectedCustomer,
             totalDebt:
               typeof res?.totalRemaining === 'number'
                 ? res.totalRemaining
-                : Math.max(0, (prev.totalDebt || 0) - paidAmount),
-          }));
+                : Math.max(0, (selectedCustomer.totalDebt || 0) - paidAmount),
+          });
 
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new Event('watheq:activity-updated'));

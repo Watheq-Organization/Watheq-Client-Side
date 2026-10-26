@@ -25,7 +25,7 @@ const RESTOCK_STORAGE_KEY = 'watheq_restock_history_v1';
 import { getProductsApi, adjustProductStockApi } from '../services/productService';
 import { ApiError } from '../api/httpClient';
 import { posCheckout, type PosSaleType, type PosPaymentMethod } from '../services/posService';
-import { createDebt, rememberEditableDebt, DEFAULT_CURRENCY_ID } from '../services/debtService';
+import { createDebt, rememberEditableDebt, DEFAULT_CURRENCY_ID, sendDebtReminder } from '../services/debtService';
 
 export const DEFAULT_CASH_CUSTOMER = {
   id: undefined,
@@ -579,6 +579,16 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
           notifyCustomer: shouldNotify,
         });
 
+        // 1.1 Trigger Telegram Bot Notification via POST /api/Debt/send-reminder
+        if (shouldNotify && custKey) {
+          try {
+            await sendDebtReminder(custKey);
+            console.log('[POS Debt] Telegram notification sent via sendDebtReminder to customer:', custKey);
+          } catch (botErr) {
+            console.error('[POS Debt] Failed to send Telegram reminder:', botErr);
+          }
+        }
+
         const rawTxId = debtDto?.id ?? debtDto?.debtNumber ?? Date.now();
         const txKey = String(rawTxId);
         const debtNumber = debtDto?.debtNumber || (debtDto?.id ? `D-${debtDto.id}` : `DEBT-${Date.now()}`);
@@ -650,7 +660,7 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
         const completedSale: CompletedSale = {
           id: `DEBT-${txKey}`,
           invoiceNumber: debtNumber,
-          date: debtDto?.createdAt || new Date().toISOString(),
+          date: typeof debtDto?.createdAt === 'string' ? debtDto.createdAt : new Date().toISOString(),
           customerName: payload.customerName || selectedCustomer.name,
           customerPhone: payload.customerPhone || selectedCustomer.phone,
           customerId: payload.customerId || selectedCustomer.id,

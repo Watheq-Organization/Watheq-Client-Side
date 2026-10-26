@@ -36,7 +36,7 @@ const DEFAULT_DEBT_REASON = 'تسجيل دين جديد';
  * that mismatch: it is never called from JSX, only from
  * buildCreateDebtPayload below.
  */
-function resolveDebtReason(notes: string | undefined): string {
+export function resolveDebtReason(notes: string | undefined): string {
   return notes?.trim() || DEFAULT_DEBT_REASON;
 }
 

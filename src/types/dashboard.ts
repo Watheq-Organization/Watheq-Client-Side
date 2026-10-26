@@ -7,12 +7,21 @@
  *   remainingAmount  - total amount still outstanding
  *   overdueAmount    - total amount that is overdue
  */
+export interface DashboardCurrencySummaryDto {
+  currencyId: number;
+  currencyCode: string;
+  totalDebt: number;
+  collectedAmount: number;
+  remainingAmount: number;
+}
+
 export interface DashboardSummary {
   customersCount: number;
   totalDebt: number;
   collectedAmount: number;
   remainingAmount: number;
   overdueAmount: number;
+  summaryByCurrency?: DashboardCurrencySummaryDto[];
 }
 
 export interface DashboardSummaryResult {

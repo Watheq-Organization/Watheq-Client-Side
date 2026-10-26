@@ -3,6 +3,7 @@ import type { FC } from 'react';
 import { CreditCard, Users, Banknote } from 'lucide-react';
 import { getDashboardSummary, toDashboardSummaryErrorMessage } from '../../services/dashboardService';
 import type { DashboardSummary } from '../../types/dashboard';
+import { getCurrencyConfig } from '../../utils/currency';
 
 export const StatCards: FC = () => {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -17,8 +18,6 @@ export const StatCards: FC = () => {
         setSummary(data);
       })
       .catch((err) => {
-        // Real error state per the API integration rules: never fall back
-        // to demo/fake numbers when the request fails.
         setSummary(null);
         setLoadError(toDashboardSummaryErrorMessage(err));
       })
@@ -31,23 +30,14 @@ export const StatCards: FC = () => {
     loadSummary();
   }, [loadSummary]);
 
-  // Real values from GET /api/Dashboard/summary (DashboardSummaryDto). No
-  // demo fallback numbers: while loading we show '...', and on failure we
-  // show '—' (summary stays null) instead of a fake 0.
-  //
-  // "إجمالي الديون المستحقة" (Total Outstanding Debts) must read
-  // `remainingAmount` — "total amount still outstanding" per the DTO
-  // comment in types/dashboard.ts — NOT `totalDebt`, which is "total
-  // value of all debts EVER created" (a running gross total). That's
-  // exactly why this card only ever went up on a new debt and never came
-  // down on a payment: `totalDebt` doesn't decrease when a debt gets paid
-  // off, only `remainingAmount` does. The backend was already sending the
-  // right number in `remainingAmount` the whole time — this card was just
-  // reading the wrong field of the response.
   const hasData = !isLoading && !loadError && summary !== null;
   const outstandingDebt = summary?.remainingAmount ?? 0;
   const activeCustomers = summary?.customersCount ?? 0;
   const totalCollections = summary?.collectedAmount ?? 0;
+
+  const currencySummaries = summary?.summaryByCurrency ?? [];
+  const hasMultiCurrency = currencySummaries.length > 1;
+  const hasCurrencyBreakdown = currencySummaries.length > 0;
 
   const formatValue = (value: number) => {
     if (isLoading) return '...';
@@ -77,16 +67,44 @@ export const StatCards: FC = () => {
             <div className="w-12 h-12 rounded-xl bg-[#edf5ff] flex items-center justify-center text-[#2563eb]">
               <CreditCard className="w-6 h-6" />
             </div>
+            {hasMultiCurrency && (
+              <span className="text-[11px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-700 dark:text-slate-300 px-2.5 py-1 rounded-lg">
+                متعدد العملات
+              </span>
+            )}
           </div>
 
           <div className="mt-5 text-right">
             <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">إجمالي الديون المستحقة</p>
-            <div className="mt-1 flex items-baseline gap-1.5 justify-start">
-              <span className="text-3xl font-bold font-cairo text-slate-900 dark:text-white tracking-tight">
-                {formatValue(outstandingDebt)}
-              </span>
-              <span className="text-xl font-bold text-slate-400 font-cairo mr-1">₪</span>
-            </div>
+            {isLoading ? (
+              <div className="mt-2 text-2xl font-bold font-cairo text-slate-400 animate-pulse">...</div>
+            ) : hasCurrencyBreakdown ? (
+              <div className="mt-2 flex flex-wrap gap-2 justify-start items-center">
+                {currencySummaries.map((item) => {
+                  const cfg = getCurrencyConfig(item.currencyCode);
+                  return (
+                    <div
+                      key={item.currencyCode}
+                      className="flex items-baseline gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-700/60 border border-slate-200/80 dark:border-slate-600 shadow-2xs"
+                    >
+                      <span className="text-lg sm:text-xl font-bold font-cairo text-slate-900 dark:text-white">
+                        {item.remainingAmount.toLocaleString('en-US')}
+                      </span>
+                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400 font-cairo">
+                        {cfg.symbol} ({cfg.labelAr})
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="mt-1 flex items-baseline gap-1.5 justify-start">
+                <span className="text-3xl font-bold font-cairo text-slate-900 dark:text-white tracking-tight">
+                  {formatValue(outstandingDebt)}
+                </span>
+                <span className="text-xl font-bold text-slate-400 font-cairo mr-1">₪</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -115,16 +133,44 @@ export const StatCards: FC = () => {
             <div className="w-12 h-12 rounded-xl bg-[#edf2f7] flex items-center justify-center text-slate-600 dark:text-slate-400">
               <Banknote className="w-6 h-6" />
             </div>
+            {hasMultiCurrency && (
+              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300 px-2.5 py-1 rounded-lg">
+                حسب العملة
+              </span>
+            )}
           </div>
 
           <div className="mt-5 text-right">
             <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">إجمالي التحصيلات</p>
-            <div className="mt-1 flex items-baseline gap-1.5 justify-start">
-              <span className="text-3xl font-bold font-cairo text-slate-900 dark:text-white tracking-tight">
-                {formatValue(totalCollections)}
-              </span>
-              <span className="text-xl font-bold text-slate-400 font-cairo mr-1">₪</span>
-            </div>
+            {isLoading ? (
+              <div className="mt-2 text-2xl font-bold font-cairo text-slate-400 animate-pulse">...</div>
+            ) : hasCurrencyBreakdown ? (
+              <div className="mt-2 flex flex-wrap gap-2 justify-start items-center">
+                {currencySummaries.map((item) => {
+                  const cfg = getCurrencyConfig(item.currencyCode);
+                  return (
+                    <div
+                      key={item.currencyCode}
+                      className="flex items-baseline gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800 shadow-2xs"
+                    >
+                      <span className="text-lg sm:text-xl font-bold font-cairo text-emerald-700 dark:text-emerald-300">
+                        {item.collectedAmount.toLocaleString('en-US')}
+                      </span>
+                      <span className="text-xs font-bold text-emerald-600/80 dark:text-emerald-400 font-cairo">
+                        {cfg.symbol} ({cfg.labelAr})
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="mt-1 flex items-baseline gap-1.5 justify-start">
+                <span className="text-3xl font-bold font-cairo text-slate-900 dark:text-white tracking-tight">
+                  {formatValue(totalCollections)}
+                </span>
+                <span className="text-xl font-bold text-slate-400 font-cairo mr-1">₪</span>
+              </div>
+            )}
           </div>
         </div>
       </div>

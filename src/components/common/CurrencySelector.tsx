@@ -3,6 +3,7 @@ import type { FC } from 'react';
 import {
   type CurrencyCode,
   getCurrencyConfig,
+  getCurrencyId,
   normalizeCurrencyCode,
 } from '../../utils/currency';
 import { getCurrencies, type CurrencyDto, DEFAULT_CURRENCIES } from '../../services/currencyService';
@@ -55,10 +56,21 @@ export const CurrencySelector: FC<CurrencySelectorProps> = ({
   const activeCode: CurrencyCode = activeId
     ? normalizeCurrencyCode(activeId)
     : normalizeCurrencyCode(value);
-  const currentConfig = getCurrencyConfig(activeCode);
-  const selectedCurrencyId = activeId ?? currentConfig.id;
 
-  const handleSelectChange = (newIdNum: number) => {
+  const handleSelectCode = (nextCode: CurrencyCode) => {
+    const matched = currenciesList.find(
+      (c) => normalizeCurrencyCode(c.code) === nextCode
+    );
+    const nextId = matched?.id ?? getCurrencyId(nextCode);
+    if (onChangeId) {
+      onChangeId(nextId);
+    }
+    if (onChange) {
+      onChange(nextCode);
+    }
+  };
+
+  const handleSelectId = (newIdNum: number) => {
     if (onChangeId) {
       onChangeId(newIdNum);
     }
@@ -78,16 +90,20 @@ export const CurrencySelector: FC<CurrencySelectorProps> = ({
           </label>
         )}
         <select
-          value={selectedCurrencyId}
-          onChange={(e) => handleSelectChange(Number(e.target.value))}
+          value={activeCode}
+          onChange={(e) => handleSelectCode(normalizeCurrencyCode(e.target.value))}
           disabled={disabled}
           className="w-full bg-[#F7F7FC] dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-800 dark:text-slate-200 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#00204F]/20 dark:focus:ring-blue-500/20 focus:border-[#00204F] dark:focus:border-blue-500 transition-all disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
         >
-          {currenciesList.map((curr) => (
-            <option key={curr.id} value={curr.id}>
-              {curr.name} ({curr.code})
-            </option>
-          ))}
+          {currenciesList.map((curr) => {
+            const code = normalizeCurrencyCode(curr.code);
+            const conf = getCurrencyConfig(code);
+            return (
+              <option key={curr.id || code} value={code}>
+                {curr.name} ({code}) - {conf.symbol}
+              </option>
+            );
+          })}
         </select>
       </div>
     );
@@ -107,14 +123,15 @@ export const CurrencySelector: FC<CurrencySelectorProps> = ({
         }`}
       >
         {currenciesList.map((curr) => {
-          const isSelected = selectedCurrencyId === curr.id;
-          const conf = getCurrencyConfig(curr.code);
+          const code = normalizeCurrencyCode(curr.code);
+          const isSelected = activeCode === code;
+          const conf = getCurrencyConfig(code);
           return (
             <button
-              key={curr.id}
+              key={curr.id || code}
               type="button"
               disabled={disabled}
-              onClick={() => handleSelectChange(curr.id)}
+              onClick={() => handleSelectId(curr.id)}
               className={`flex items-center justify-center gap-1.5 rounded-lg transition-all font-cairo font-bold cursor-pointer select-none ${
                 size === 'sm'
                   ? 'py-1.5 px-2 text-xs'
@@ -132,7 +149,7 @@ export const CurrencySelector: FC<CurrencySelectorProps> = ({
               </span>
               <span>{showFullLabel ? conf.labelArFull : conf.labelAr}</span>
               <span className="text-[10px] font-mono text-slate-400 font-normal">
-                ({curr.code})
+                ({code})
               </span>
             </button>
           );

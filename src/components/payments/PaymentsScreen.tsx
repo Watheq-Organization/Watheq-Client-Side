@@ -39,6 +39,7 @@ import {
   type CurrencyCode,
   formatCurrency,
   getCurrencyConfig,
+  getCurrencyId,
   groupTotalsByCurrency,
   normalizeCurrencyCode,
   CURRENCY_BADGE_STYLES,
@@ -103,10 +104,12 @@ export const PaymentsScreen: FC = () => {
     setIsLoadingPayments(true);
     setServerError(null);
     try {
-      // 1. Primary source: /api/Payment/history
+      // 1. Primary source: /api/Debt/getPaymentHistory (with fallback to /api/Payment/history)
       const historyRes = await getPaymentHistory({
         paymentMethod: selectedMethod !== 'all' ? selectedMethod : undefined,
         status: selectedStatus !== 'all' ? selectedStatus : undefined,
+        currencyId: selectedCurrency !== 'all' ? getCurrencyId(selectedCurrency) : undefined,
+        currencyCode: selectedCurrency !== 'all' ? selectedCurrency : undefined,
         fromDate: fromDate ? `${fromDate}T00:00:00Z` : undefined,
         toDate: toDate ? `${toDate}T23:59:59Z` : undefined,
       });
@@ -144,8 +147,9 @@ export const PaymentsScreen: FC = () => {
         return;
       }
 
-      // 2. Fallback to collections report if /Payment/history returns no items or had an error
+      // 2. Fallback to collections report if getPaymentHistory returns no items or had an error
       const res = await getCollectionsReport({
+        currencyId: selectedCurrency !== 'all' ? getCurrencyId(selectedCurrency) : undefined,
         fromDate: fromDate ? `${fromDate}T00:00:00Z` : undefined,
         toDate: toDate ? `${toDate}T23:59:59Z` : undefined,
       });
@@ -183,7 +187,7 @@ export const PaymentsScreen: FC = () => {
     } finally {
       setIsLoadingPayments(false);
     }
-  }, [fromDate, toDate, selectedMethod, selectedStatus]);
+  }, [fromDate, toDate, selectedMethod, selectedStatus, selectedCurrency]);
 
   useEffect(() => {
     loadPayments();
@@ -546,7 +550,9 @@ export const PaymentsScreen: FC = () => {
                   <span className="text-2xl sm:text-3xl font-bold font-cairo text-[#051838] dark:text-white tracking-tight">
                     {summaryStats.averagePayment.toLocaleString('en-US')}
                   </span>
-                  <span className="text-xs text-slate-400 font-medium font-cairo">شيكل</span>
+                  <span className="text-xs text-slate-400 font-medium font-cairo">
+                    {selectedCurrency !== 'all' ? getCurrencyConfig(selectedCurrency).labelAr : 'شيكل'}
+                  </span>
                 </div>
               </div>
             </div>

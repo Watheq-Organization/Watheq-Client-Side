@@ -142,6 +142,9 @@ export const NewPaymentScreen: FC = () => {
   }, [editingPayment, targetDebt]);
 
   const [currency, setCurrency] = useState<CurrencyCode>(initialCurrency);
+  const [currencyId, setCurrencyId] = useState<number>(() =>
+    targetDebt?.currencyId ? Number(targetDebt.currencyId) : getCurrencyId(initialCurrency)
+  );
 
   // Form state
   const [amount, setAmount] = useState(
@@ -301,7 +304,7 @@ export const NewPaymentScreen: FC = () => {
       const res = await registerPayment(id, {
         amount,
         method,
-        currencyId: getCurrencyId(currency),
+        currencyId: currencyId || getCurrencyId(currency),
         currencyCode: currency,
         currency: currency,
         debtId: targetDebt?.id,
@@ -449,7 +452,9 @@ export const NewPaymentScreen: FC = () => {
                 </label>
                 <CurrencySelector
                   value={currency}
+                  currencyId={currencyId}
                   onChange={setCurrency}
+                  onChangeId={setCurrencyId}
                   disabled={isEditMode}
                 />
                 {isEditMode && (

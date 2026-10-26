@@ -17,6 +17,7 @@ import {
   Pencil,
   RefreshCw,
   Package,
+  Coins,
 } from 'lucide-react';
 import { TelegramLinkModal } from './TelegramLinkModal';
 import { Sidebar } from '../dashboard/Sidebar';
@@ -45,7 +46,7 @@ import {
 } from '../../services/debtService';
 import { deletePayment, toDeletePaymentErrorMessage } from '../../services/paymentService';
 import { getPosTransactionDetails } from '../../services/posService';
-import type { Customer, CustomerProfileTransactionDto } from '../../types/customer';
+import type { Customer, CustomerProfileTransactionDto, CustomerCurrencyBalanceDto } from '../../types/customer';
 import { ApiError } from '../../api/httpClient';
 import { Toast, type ToastType } from '../ui/Toast';
 import { PhoneInputWithCountry, type CountryCode } from '../ui/PhoneInputWithCountry';
@@ -220,6 +221,7 @@ export const CustomerDetailsScreen: FC = () => {
   // Customer Data — fetched from GET /api/Customer/getCustomerProfile/{customerId}
   const [customer, setCustomer] = useState<Customer>(EMPTY_CUSTOMER);
   const [profileTransactions, setProfileTransactions] = useState<CustomerProfileTransactionDto[]>([]);
+  const [profileBalances, setProfileBalances] = useState<CustomerCurrencyBalanceDto[]>([]);
   const [posItemsMap, setPosItemsMap] = useState<Record<string, string>>({});
   const [currentBalance, setCurrentBalance] = useState(0);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
@@ -240,6 +242,7 @@ export const CustomerDetailsScreen: FC = () => {
           nationalOrCrId: getStoredNationalId(dto.id),
         });
         setProfileTransactions(dto.transactions);
+        setProfileBalances(dto.balances ?? []);
         setCurrentBalance(dto.currentBalance);
       })
       .catch((err) => {
@@ -846,6 +849,47 @@ export const CustomerDetailsScreen: FC = () => {
 
   // Strict Accounting Multi-Currency Breakdown (ILS, USD, JOD never merged)
   const currencyBreakdown = useMemo(() => {
+    const currencies: CurrencyCode[] = ['ILS', 'USD', 'JOD'];
+
+    // 1. If backend returned balances[], use them directly (primary source of truth)
+    if (profileBalances && profileBalances.length > 0) {
+      const items = currencies.map((c) => {
+        const found = profileBalances.find((b) => normalizeCurrencyCode(b.currencyCode) === c);
+        const totalDebt = found?.totalDebt ?? 0;
+        const totalPaid = found?.totalPaid ?? 0;
+        const remaining = found?.currentBalance ?? Math.max(0, totalDebt - totalPaid);
+        return {
+          currency: c,
+          config: getCurrencyConfig(c),
+          totalDebt,
+          totalPaid,
+          remaining,
+          hasActivity: totalDebt > 0 || totalPaid > 0 || remaining > 0,
+        };
+      });
+
+      const activeCurrencies = items.filter((i) => i.hasActivity);
+      return {
+        items,
+        activeCurrencies:
+          activeCurrencies.length > 0
+            ? activeCurrencies
+            : [
+                {
+                  currency: 'ILS' as const,
+                  config: getCurrencyConfig('ILS'),
+                  totalDebt: customer.totalDebt || 0,
+                  totalPaid: computedTotalPaid || 0,
+                  remaining: currentBalance || 0,
+                  hasActivity: true,
+                },
+              ],
+        debtsByCur: {},
+        paymentsByCur: {},
+      };
+    }
+
+    // 2. Fallback: calculate from profile transactions
     const debtItems: { amount: number; currency: string }[] = [];
     const paymentItems: { amount: number; currency: string }[] = [];
 
@@ -863,7 +907,6 @@ export const CustomerDetailsScreen: FC = () => {
     const debtsByCur = groupTotalsByCurrency(debtItems);
     const paymentsByCur = groupTotalsByCurrency(paymentItems);
 
-    const currencies: CurrencyCode[] = ['ILS', 'USD', 'JOD'];
     const items = currencies.map((c) => {
       const totalDebt = debtsByCur[c]?.totalDebts ?? 0;
       const totalPaid = paymentsByCur[c]?.totalPayments ?? 0;
@@ -897,7 +940,7 @@ export const CustomerDetailsScreen: FC = () => {
       debtsByCur,
       paymentsByCur,
     };
-  }, [profileTransactions, customer.totalDebt, computedTotalPaid, currentBalance]);
+  }, [profileBalances, profileTransactions, customer.totalDebt, computedTotalPaid, currentBalance]);
 
   // Filter activities based on tab, currency, and search query
   const filteredActivities = useMemo(() => {
@@ -1372,6 +1415,54 @@ export const CustomerDetailsScreen: FC = () => {
                     </tbody>
                   </table>
                 </div>
+
+                {/* On-Screen Multi-Currency Balances Cards */}
+                {currencyBreakdown.activeCurrencies.length > 0 && (
+                  <div className="bg-slate-50/80 dark:bg-slate-750/70 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl p-4 print:hidden">
+                    <div className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-3 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 font-cairo">
+                        <Coins className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                        <span>ملخص أرصدة وذمم العميل حسب العملة (Balances)</span>
+                      </span>
+                      <span className="text-[11px] font-medium text-slate-400">
+                        {currencyBreakdown.activeCurrencies.length > 1 ? 'تعدد عملات نشط' : 'عملة واحدة'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {currencyBreakdown.activeCurrencies.map((c) => (
+                        <div
+                          key={c.currency}
+                          className="bg-white dark:bg-slate-800 rounded-xl p-3 border border-slate-200/60 dark:border-slate-700 shadow-2xs flex flex-col justify-between"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 font-cairo">
+                              {c.config.labelArFull}
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md font-mono ${CURRENCY_BADGE_STYLES[c.currency]}`}>
+                              {c.currency} {c.config.symbol}
+                            </span>
+                          </div>
+                          <div className="mt-2.5 space-y-1 text-xs">
+                            <div className="flex justify-between items-center text-slate-600 dark:text-slate-300">
+                              <span>الرصيد المتبقي:</span>
+                              <span className={`font-bold font-mono ${c.remaining > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-400'}`}>
+                                {formatCurrency(c.remaining, c.currency)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center text-slate-400 text-[11px]">
+                              <span>إجمالي الدين:</span>
+                              <span className="font-mono">{formatCurrency(c.totalDebt, c.currency)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-slate-400 text-[11px]">
+                              <span>إجمالي المسدد:</span>
+                              <span className="font-mono text-emerald-600 dark:text-emerald-400">{formatCurrency(c.totalPaid, c.currency)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Header with Title and Filter Tabs */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-700 pb-5 print:hidden">

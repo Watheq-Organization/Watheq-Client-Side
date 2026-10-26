@@ -25,6 +25,7 @@ import {
 import type { CollectionsReportResponse, CollectionItem } from '../../types/report';
 import {
   formatCurrency,
+  getCurrencyId,
   groupTotalsByCurrency,
   normalizeCurrencyCode,
   CURRENCY_BADGE_STYLES,
@@ -108,6 +109,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
         toDate: toDate ? `${toDate}T23:59:59Z` : undefined,
         pageNumber,
         pageSize,
+        currencyId: selectedCurrency !== 'all' ? getCurrencyId(selectedCurrency) : undefined,
       };
 
       const result = await getCollectionsReport(params);
@@ -122,7 +124,7 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
 
   useEffect(() => {
     fetchReport();
-  }, [fromDate, toDate, pageNumber, pageSize]);
+  }, [fromDate, toDate, pageNumber, pageSize, selectedCurrency]);
 
   // Client-side search and method filter
   const displayedItems = useMemo(() => {
@@ -436,7 +438,10 @@ export const CollectionsReportView: FC<CollectionsReportViewProps> = ({
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setSelectedCurrency(tab.id)}
+                onClick={() => {
+                  setSelectedCurrency(tab.id);
+                  setPageNumber(1);
+                }}
                 className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
                   selectedCurrency === tab.id
                     ? 'bg-[#051838] dark:bg-blue-600 text-white font-bold shadow-xs'

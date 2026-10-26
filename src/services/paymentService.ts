@@ -114,15 +114,15 @@ function buildRegisterPaymentFormData(customerId: string, values: NewPaymentForm
   const methodNum = String(PAYMENT_METHOD_TO_NUMERIC[values.method] || 1);
   formData.append('PaymentMethod', methodNum);
 
-  // Multi-Currency support
+  // Multi-Currency support (Backend explicitly requires CurrencyId: int)
   const currencyCode = values.currencyCode || values.currency || 'ILS';
   const currencyId = values.currencyId ?? getCurrencyId(currencyCode);
   formData.append('CurrencyId', String(currencyId));
-  formData.append('CurrencyCode', currencyCode);
-  formData.append('Currency', currencyCode);
+  formData.append('currencyId', String(currencyId));
 
   if (values.debtId) {
     formData.append('DebtId', String(values.debtId));
+    formData.append('debtId', String(values.debtId));
   }
 
   const receiptNumber = values.receiptNumber?.trim();
@@ -459,11 +459,19 @@ export async function getPaymentHistory(
     }
 
     const queryString = searchParams.toString();
-    const url = `/Payment/history${queryString ? `?${queryString}` : ''}`;
-    console.log('[getPaymentHistory] Fetching:', url);
+    const primaryUrl = `/Debt/getPaymentHistory${queryString ? `?${queryString}` : ''}`;
+    const fallbackUrl = `/Payment/history${queryString ? `?${queryString}` : ''}`;
+    console.log('[getPaymentHistory] Fetching:', primaryUrl);
 
-    const response = await httpClient.get<unknown>(url);
-    console.log('[getPaymentHistory] Raw API response:', response);
+    let response: unknown;
+    try {
+      response = await httpClient.get<unknown>(primaryUrl);
+      console.log('[getPaymentHistory] Raw API response from /Debt/getPaymentHistory:', response);
+    } catch (primaryErr) {
+      console.warn('[getPaymentHistory] /Debt/getPaymentHistory failed, falling back to /Payment/history:', primaryErr);
+      response = await httpClient.get<unknown>(fallbackUrl);
+      console.log('[getPaymentHistory] Raw API response from /Payment/history fallback:', response);
+    }
 
     let rawItems: unknown[] = [];
     if (Array.isArray(response)) {

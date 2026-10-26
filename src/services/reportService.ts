@@ -51,6 +51,7 @@ export async function getCollectionsReport(
     toDate: params?.toDate || new Date(Date.now() + 86400000).toISOString(),
     pageNumber: params?.pageNumber || 1,
     pageSize: params?.pageSize || 20,
+    ...(params?.currencyId ? { currencyId: params.currencyId } : {}),
   };
 
   const qs = buildQueryString(effectiveParams as Record<string, unknown>);

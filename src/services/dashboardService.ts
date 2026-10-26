@@ -1,6 +1,7 @@
 import { httpClient, ApiError } from '../api/httpClient';
 import type { DashboardSummary, OverduePaymentItem, RecentActivityItem } from '../types/dashboard';
 import { parseApiDate, formatRelativeTime } from '../lib/dateUtils';
+import { normalizeCurrencyCode, getCurrencyId } from '../utils/currency';
 
 /**
  * GET https://whateq.runasp.net/api/Dashboard/summary
@@ -140,6 +141,8 @@ const SUMMARY_FIELDS = [
   'collectedAmount',
   'remainingAmount',
   'overdueAmount',
+  'summaryByCurrency',
+  'SummaryByCurrency',
 ] as const;
 
 function looksLikeSummary(obj: Record<string, unknown>): boolean {
@@ -171,12 +174,34 @@ function extractDashboardSummary(response: unknown): unknown {
 
 function normalizeDashboardSummary(raw: unknown): DashboardSummary {
   const r = (raw ?? {}) as Record<string, unknown>;
+
+  const rawSummaryByCurrency = Array.isArray(r.summaryByCurrency)
+    ? r.summaryByCurrency
+    : Array.isArray(r.SummaryByCurrency)
+      ? r.SummaryByCurrency
+      : [];
+
+  const summaryByCurrency = rawSummaryByCurrency.map((item) => {
+    const it = (item ?? {}) as Record<string, unknown>;
+    const rawCurr = it.currencyCode ?? it.CurrencyCode ?? it.currency ?? it.Currency ?? it.currencyId ?? it.CurrencyId;
+    const code = normalizeCurrencyCode(rawCurr);
+    const id = Number(it.currencyId ?? it.CurrencyId) || getCurrencyId(code);
+    return {
+      currencyId: id,
+      currencyCode: code,
+      totalDebt: Number(it.totalDebt ?? it.TotalDebt) || 0,
+      collectedAmount: Number(it.collectedAmount ?? it.CollectedAmount) || 0,
+      remainingAmount: Number(it.remainingAmount ?? it.RemainingAmount) || 0,
+    };
+  });
+
   return {
-    customersCount: Number(r.customersCount) || 0,
-    totalDebt: Number(r.totalDebt) || 0,
-    collectedAmount: Number(r.collectedAmount) || 0,
-    remainingAmount: Number(r.remainingAmount) || 0,
-    overdueAmount: Number(r.overdueAmount) || 0,
+    customersCount: Number(r.customersCount ?? r.CustomersCount) || 0,
+    totalDebt: Number(r.totalDebt ?? r.TotalDebt) || 0,
+    collectedAmount: Number(r.collectedAmount ?? r.CollectedAmount) || 0,
+    remainingAmount: Number(r.remainingAmount ?? r.RemainingAmount) || 0,
+    overdueAmount: Number(r.overdueAmount ?? r.OverdueAmount) || 0,
+    summaryByCurrency: summaryByCurrency.length > 0 ? summaryByCurrency : undefined,
   };
 }
 
