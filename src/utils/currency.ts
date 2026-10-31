@@ -1,12 +1,13 @@
 /**
  * Central Currency Utility for Platform "Watheq"
- * Standardizes Multi-Currency support:
- * - ILS (₪ شيكل إسرائيلي) - Default
- * - USD ($ دولار أمريكي)
- * - JOD (د.أ دينار أردني)
+ * Standardizes Multi-Currency support aligned directly with Backend (/api/Currency/getCurrencies):
+ * - ILS (id: 4, ₪ شيكل إسرائيلي) - Default
+ * - USD (id: 1, $ دولار أمريكي)
+ * - EUR (id: 2, € يورو أوروبي)
+ * - GBP (id: 3, £ جنيه إسترليني)
  */
 
-export type CurrencyCode = 'ILS' | 'USD' | 'JOD';
+export type CurrencyCode = 'ILS' | 'USD' | 'EUR' | 'GBP' | 'JOD';
 
 export interface CurrencyConfig {
   id: number;
@@ -19,7 +20,7 @@ export interface CurrencyConfig {
 
 export const SUPPORTED_CURRENCIES: Record<CurrencyCode, CurrencyConfig> = {
   ILS: {
-    id: 1,
+    id: 4,
     code: 'ILS',
     symbol: '₪',
     labelAr: 'شيكل',
@@ -27,15 +28,31 @@ export const SUPPORTED_CURRENCIES: Record<CurrencyCode, CurrencyConfig> = {
     labelEn: 'ILS',
   },
   USD: {
-    id: 2,
+    id: 1,
     code: 'USD',
     symbol: '$',
     labelAr: 'دولار',
     labelArFull: 'دولار أمريكي',
     labelEn: 'USD',
   },
-  JOD: {
+  EUR: {
+    id: 2,
+    code: 'EUR',
+    symbol: '€',
+    labelAr: 'يورو',
+    labelArFull: 'يورو أوروبي',
+    labelEn: 'EUR',
+  },
+  GBP: {
     id: 3,
+    code: 'GBP',
+    symbol: '£',
+    labelAr: 'جنيه',
+    labelArFull: 'جنيه إسترليني',
+    labelEn: 'GBP',
+  },
+  JOD: {
+    id: 5,
     code: 'JOD',
     symbol: 'د.أ',
     labelAr: 'دينار',
@@ -46,14 +63,18 @@ export const SUPPORTED_CURRENCIES: Record<CurrencyCode, CurrencyConfig> = {
 
 export const DEFAULT_CURRENCY: CurrencyConfig = SUPPORTED_CURRENCIES.ILS;
 
+export const ALL_CURRENCY_CODES: CurrencyCode[] = ['ILS', 'USD', 'EUR', 'GBP'];
+
 export const CURRENCY_LIST: CurrencyConfig[] = [
   SUPPORTED_CURRENCIES.ILS,
   SUPPORTED_CURRENCIES.USD,
-  SUPPORTED_CURRENCIES.JOD,
+  SUPPORTED_CURRENCIES.EUR,
+  SUPPORTED_CURRENCIES.GBP,
 ];
 
 /**
  * Normalizes any currency representation (string, numeric ID, or symbol) into a valid CurrencyCode.
+ * Uses exact backend IDs: 4 -> ILS, 1 -> USD, 2 -> EUR, 3 -> GBP.
  * Always falls back safely to 'ILS' if not recognized.
  */
 export function normalizeCurrencyCode(val: unknown): CurrencyCode {
@@ -61,36 +82,48 @@ export function normalizeCurrencyCode(val: unknown): CurrencyCode {
     return 'ILS';
   }
 
-  // If numeric ID
+  // Exact backend numeric IDs
   if (typeof val === 'number') {
-    if (val === 1) return 'ILS';
-    if (val === 2) return 'USD';
-    if (val === 3) return 'JOD';
+    if (val === 4) return 'ILS';
+    if (val === 1) return 'USD';
+    if (val === 2) return 'EUR';
+    if (val === 3) return 'GBP';
+    if (val === 5) return 'JOD';
   }
 
   const s = String(val).trim().toUpperCase();
 
   // Exact code match
-  if (s === 'ILS' || s === 'USD' || s === 'JOD') {
+  if (s === 'ILS' || s === 'USD' || s === 'EUR' || s === 'GBP' || s === 'JOD') {
     return s as CurrencyCode;
   }
 
   // By numeric string
-  if (s === '1') return 'ILS';
-  if (s === '2') return 'USD';
-  if (s === '3') return 'JOD';
+  if (s === '4') return 'ILS';
+  if (s === '1') return 'USD';
+  if (s === '2') return 'EUR';
+  if (s === '3') return 'GBP';
+  if (s === '5') return 'JOD';
 
   // Symbols
   if (s === '₪') return 'ILS';
   if (s === '$') return 'USD';
-  if (s === 'د.أ' || s === 'JD' || s === 'JOD') return 'JOD';
+  if (s === '€') return 'EUR';
+  if (s === '£') return 'GBP';
+  if (s === 'د.أ' || s === 'JD') return 'JOD';
 
-  // Arabic words
+  // Arabic words / common aliases
   if (s.includes('شيكل') || s.includes('SHEKEL') || s.includes('NIS')) {
     return 'ILS';
   }
   if (s.includes('دولار') || s.includes('DOLLAR')) {
     return 'USD';
+  }
+  if (s.includes('يورو') || s.includes('EURO') || s.includes('EUR')) {
+    return 'EUR';
+  }
+  if (s.includes('جنيه') || s.includes('POUND') || s.includes('GBP') || s.includes('استرليني') || s.includes('إسترليني')) {
+    return 'GBP';
   }
   if (s.includes('دينار') || s.includes('DINAR')) {
     return 'JOD';
@@ -208,6 +241,28 @@ export function groupTotalsByCurrency(
       total: 0,
       count: 0,
     },
+    EUR: {
+      currency: SUPPORTED_CURRENCIES.EUR,
+      totalDebts: 0,
+      totalPayments: 0,
+      balance: 0,
+      debtCount: 0,
+      paymentCount: 0,
+      totalCount: 0,
+      total: 0,
+      count: 0,
+    },
+    GBP: {
+      currency: SUPPORTED_CURRENCIES.GBP,
+      totalDebts: 0,
+      totalPayments: 0,
+      balance: 0,
+      debtCount: 0,
+      paymentCount: 0,
+      totalCount: 0,
+      total: 0,
+      count: 0,
+    },
     JOD: {
       currency: SUPPORTED_CURRENCIES.JOD,
       totalDebts: 0,
@@ -235,6 +290,7 @@ export function groupTotalsByCurrency(
       typeStr.includes('سداد');
 
     const bucket = summary[code];
+    if (!bucket) continue;
     bucket.totalCount += 1;
     bucket.count += 1;
     bucket.total += amount;
@@ -250,7 +306,7 @@ export function groupTotalsByCurrency(
   }
 
   // Calculate net balances per currency
-  for (const code of ['ILS', 'USD', 'JOD'] as CurrencyCode[]) {
+  for (const code of (['ILS', 'USD', 'EUR', 'GBP', 'JOD'] as CurrencyCode[])) {
     summary[code].balance = summary[code].totalDebts - summary[code].totalPayments;
   }
 
@@ -263,9 +319,9 @@ export function groupTotalsByCurrency(
 export function getActiveCurrencySummaries(
   summary: Record<CurrencyCode, CurrencyGroupSummary>
 ): CurrencyGroupSummary[] {
-  return (['ILS', 'USD', 'JOD'] as CurrencyCode[])
+  return (['ILS', 'USD', 'EUR', 'GBP', 'JOD'] as CurrencyCode[])
     .map((code) => summary[code])
-    .filter((s) => s.totalCount > 0 || Math.abs(s.balance) > 0.009);
+    .filter((s) => s && (s.totalCount > 0 || Math.abs(s.balance) > 0.009));
 }
 
 /**
@@ -281,6 +337,16 @@ export const CURRENCY_BADGE_STYLES: Record<CurrencyCode, { bg: string; text: str
     bg: 'bg-emerald-50 dark:bg-emerald-950/40',
     text: 'text-emerald-700 dark:text-emerald-300',
     border: 'border-emerald-200/60 dark:border-emerald-800/60',
+  },
+  EUR: {
+    bg: 'bg-amber-50 dark:bg-amber-950/40',
+    text: 'text-amber-700 dark:text-amber-300',
+    border: 'border-amber-200/60 dark:border-amber-800/60',
+  },
+  GBP: {
+    bg: 'bg-indigo-50 dark:bg-indigo-950/40',
+    text: 'text-indigo-700 dark:text-indigo-300',
+    border: 'border-indigo-200/60 dark:border-indigo-800/60',
   },
   JOD: {
     bg: 'bg-purple-50 dark:bg-purple-950/40',

@@ -161,7 +161,7 @@ export const AddDebtScreen: FC = () => {
   const [currencyId, setCurrencyId] = useState<number>(() => {
     if (editingDebt?.currencyId) return editingDebt.currencyId;
     if (editingDebt?.currencyCode) return getCurrencyId(editingDebt.currencyCode);
-    return 1; // default ILS (id: 1)
+    return getCurrencyId('ILS'); // default ILS (id: 4)
   });
 
   useEffect(() => {

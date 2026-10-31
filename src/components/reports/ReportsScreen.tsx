@@ -39,6 +39,7 @@ import {
   normalizeCurrencyCode,
   CURRENCY_BADGE_STYLES,
   SUPPORTED_CURRENCIES,
+  ALL_CURRENCY_CODES,
   type CurrencyCode,
 } from '../../utils/currency';
 
@@ -459,7 +460,7 @@ export const ReportsScreen: FC = () => {
                     </div>
                   ) : (
                     <div className="flex flex-wrap items-center gap-2">
-                      {(['ILS', 'USD', 'JOD'] as const).map((curr) => {
+                      {ALL_CURRENCY_CODES.map((curr) => {
                         const total = collectionsByCurrency[curr].total;
                         return (
                           <div

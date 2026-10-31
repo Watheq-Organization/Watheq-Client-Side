@@ -1,6 +1,6 @@
 import { httpClient, ApiError } from '../api/httpClient';
 import { getCustomerProfile } from './customerService';
-import { getCurrencyConfig, getCurrencyId } from '../utils/currency';
+import { getCurrencyConfig, getCurrencyId, normalizeCurrencyCode } from '../utils/currency';
 import type {
   DeletePaymentResponseDto,
   NewPaymentFormState,
@@ -110,15 +110,23 @@ const REGISTER_PAYMENT_PATH = '/Debt/registerPayment';
 function buildRegisterPaymentFormData(customerId: string, values: NewPaymentFormState): FormData {
   const formData = new FormData();
   formData.append('CustomerId', customerId);
+  formData.append('customerId', customerId);
   formData.append('Amount', values.amount.trim());
+  formData.append('amount', values.amount.trim());
   const methodNum = String(PAYMENT_METHOD_TO_NUMERIC[values.method] || 1);
   formData.append('PaymentMethod', methodNum);
+  formData.append('paymentMethod', methodNum);
 
-  // Multi-Currency support (Backend explicitly requires CurrencyId: int)
-  const currencyCode = values.currencyCode || values.currency || 'ILS';
+  // Multi-Currency support: send CurrencyId (numeric) and CurrencyCode / Currency (string)
+  // in both PascalCase and camelCase to satisfy any backend model binder variant.
+  const currencyCode = normalizeCurrencyCode(values.currencyCode || values.currency || 'ILS');
   const currencyId = values.currencyId ?? getCurrencyId(currencyCode);
   formData.append('CurrencyId', String(currencyId));
   formData.append('currencyId', String(currencyId));
+  formData.append('CurrencyCode', currencyCode);
+  formData.append('currencyCode', currencyCode);
+  formData.append('Currency', currencyCode);
+  formData.append('currency', currencyCode);
 
   if (values.debtId) {
     formData.append('DebtId', String(values.debtId));
@@ -128,15 +136,18 @@ function buildRegisterPaymentFormData(customerId: string, values: NewPaymentForm
   const receiptNumber = values.receiptNumber?.trim();
   if (receiptNumber) {
     formData.append('ReceiptNumber', receiptNumber);
+    formData.append('receiptNumber', receiptNumber);
   }
 
   const notes = values.notes?.trim();
   if (notes) {
     formData.append('Notes', notes);
+    formData.append('notes', notes);
   }
 
   if (values.receiptFile) {
     formData.append('ReceiptImage', values.receiptFile);
+    formData.append('receiptImage', values.receiptFile);
   }
 
   return formData;

@@ -49,35 +49,58 @@ export const CurrencySelector: FC<CurrencySelectorProps> = ({
     }
   }, [propCurrencies]);
 
-  const currenciesList = propCurrencies && propCurrencies.length > 0 ? propCurrencies : loadedCurrencies;
+  // Ensure all supported currencies (ILS, USD, JOD) are always selectable
+  const currenciesList = (propCurrencies && propCurrencies.length > 0
+    ? propCurrencies
+    : loadedCurrencies
+  ).reduce<CurrencyDto[]>((acc, curr) => {
+    const code = normalizeCurrencyCode(curr.code);
+    if (!acc.some((c) => normalizeCurrencyCode(c.code) === code)) {
+      acc.push(curr);
+    }
+    return acc;
+  }, [...DEFAULT_CURRENCIES].filter((def) => {
+    const list = propCurrencies && propCurrencies.length > 0 ? propCurrencies : loadedCurrencies;
+    return !list.some((c) => normalizeCurrencyCode(c.code) === def.code);
+  }).concat(propCurrencies && propCurrencies.length > 0 ? propCurrencies : loadedCurrencies));
 
-  // Resolve current active currency
-  const activeId = currencyId ?? (typeof value === 'number' ? value : undefined);
-  const activeCode: CurrencyCode = activeId
-    ? normalizeCurrencyCode(activeId)
-    : normalizeCurrencyCode(value);
+  // Resolve current active currency code: prioritize explicit value string, then mapped ID
+  const activeCode: CurrencyCode = (() => {
+    if (typeof value === 'string' && value.trim()) {
+      return normalizeCurrencyCode(value);
+    }
+    const idToLookup = currencyId ?? (typeof value === 'number' ? value : undefined);
+    if (idToLookup !== undefined) {
+      const found = currenciesList.find((c) => c.id === idToLookup);
+      if (found) {
+        return normalizeCurrencyCode(found.code);
+      }
+      return normalizeCurrencyCode(idToLookup);
+    }
+    return normalizeCurrencyCode(value);
+  })();
 
   const handleSelectCode = (nextCode: CurrencyCode) => {
     const matched = currenciesList.find(
       (c) => normalizeCurrencyCode(c.code) === nextCode
     );
     const nextId = matched?.id ?? getCurrencyId(nextCode);
-    if (onChangeId) {
-      onChangeId(nextId);
-    }
     if (onChange) {
       onChange(nextCode);
+    }
+    if (onChangeId) {
+      onChangeId(nextId);
     }
   };
 
   const handleSelectId = (newIdNum: number) => {
+    const matched = currenciesList.find((c) => c.id === newIdNum);
+    const code = matched ? normalizeCurrencyCode(matched.code) : normalizeCurrencyCode(newIdNum);
+    if (onChange) {
+      onChange(code);
+    }
     if (onChangeId) {
       onChangeId(newIdNum);
-    }
-    if (onChange) {
-      const matched = currenciesList.find((c) => c.id === newIdNum);
-      const code = matched ? normalizeCurrencyCode(matched.code) : normalizeCurrencyCode(newIdNum);
-      onChange(code);
     }
   };
 
@@ -100,7 +123,7 @@ export const CurrencySelector: FC<CurrencySelectorProps> = ({
             const conf = getCurrencyConfig(code);
             return (
               <option key={curr.id || code} value={code}>
-                {curr.name} ({code}) - {conf.symbol}
+                {conf.symbol} - {conf.labelArFull} ({code})
               </option>
             );
           })}

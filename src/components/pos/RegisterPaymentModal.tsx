@@ -18,6 +18,7 @@ import {
   getCurrencyId,
   normalizeCurrencyCode,
   SUPPORTED_CURRENCIES,
+  ALL_CURRENCY_CODES,
   type CurrencyCode,
 } from '../../utils/currency';
 
@@ -203,8 +204,8 @@ export const RegisterPaymentModal: FC<RegisterPaymentModalProps> = ({
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
               عملة الدفعة:
             </label>
-            <div className="grid grid-cols-3 gap-2">
-              {(['ILS', 'USD', 'JOD'] as const).map((c) => {
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {ALL_CURRENCY_CODES.map((c) => {
                 const cfg = SUPPORTED_CURRENCIES[c];
                 const isSelected = currency === c;
                 return (

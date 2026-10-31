@@ -59,8 +59,52 @@ import {
   groupTotalsByCurrency,
   CURRENCY_BADGE_STYLES,
   normalizeCurrencyCode,
+  ALL_CURRENCY_CODES,
   type CurrencyCode,
 } from '../../utils/currency';
+
+/**
+ * Returns complete badge style classes (bg + text + border) for any currency code
+ */
+const getCurrencyBadgeClasses = (code: string | CurrencyCode | undefined) => {
+  const normalized = normalizeCurrencyCode(code);
+  const style = CURRENCY_BADGE_STYLES[normalized] || CURRENCY_BADGE_STYLES['ILS'];
+  return `${style.bg} ${style.text} ${style.border} border`;
+};
+
+/**
+ * Visual styling theme for multi-currency breakdown cards
+ */
+const CURRENCY_CARD_THEMES: Record<
+  string,
+  {
+    gradient: string;
+    iconBox: string;
+    border: string;
+  }
+> = {
+  ILS: {
+    gradient: 'from-blue-600 via-sky-500 to-cyan-500',
+    iconBox: 'bg-blue-50 text-blue-700 border border-blue-200/80 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800',
+    border: 'border-blue-100 dark:border-blue-900/40',
+  },
+  USD: {
+    gradient: 'from-emerald-600 via-teal-500 to-green-500',
+    iconBox: 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800',
+    border: 'border-emerald-100 dark:border-emerald-900/40',
+  },
+  EUR: {
+    gradient: 'from-amber-600 via-amber-500 to-yellow-500',
+    iconBox: 'bg-amber-50 text-amber-700 border border-amber-200/80 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800',
+    border: 'border-amber-100 dark:border-amber-900/40',
+  },
+  GBP: {
+    gradient: 'from-indigo-600 via-violet-500 to-purple-500',
+    iconBox: 'bg-indigo-50 text-indigo-700 border border-indigo-200/80 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800',
+    border: 'border-indigo-100 dark:border-indigo-900/40',
+  },
+};
+
 
 interface ActivityItem {
   id: string;
@@ -847,9 +891,9 @@ export const CustomerDetailsScreen: FC = () => {
     );
   }, [customer.totalPaid, customer.totalDebt, customer.id, profileTransactions, currentBalance]);
 
-  // Strict Accounting Multi-Currency Breakdown (ILS, USD, JOD never merged)
+  // Strict Accounting Multi-Currency Breakdown (ILS, USD, EUR, GBP never merged)
   const currencyBreakdown = useMemo(() => {
-    const currencies: CurrencyCode[] = ['ILS', 'USD', 'JOD'];
+    const currencies: CurrencyCode[] = ALL_CURRENCY_CODES;
 
     // 1. If backend returned balances[], use them directly (primary source of truth)
     if (profileBalances && profileBalances.length > 0) {
@@ -1150,7 +1194,7 @@ export const CustomerDetailsScreen: FC = () => {
                         {currencyBreakdown.activeCurrencies.map((c) => (
                           <span
                             key={c.currency}
-                            className={`px-2 py-0.5 rounded-md text-[11px] font-bold font-mono ${CURRENCY_BADGE_STYLES[c.currency]}`}
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-bold font-mono ${getCurrencyBadgeClasses(c.currency)}`}
                           >
                             {formatCurrency(c.totalPaid, c.currency)}
                           </span>
@@ -1417,70 +1461,183 @@ export const CustomerDetailsScreen: FC = () => {
                 </div>
 
                 {/* On-Screen Multi-Currency Balances Cards */}
-                {currencyBreakdown.activeCurrencies.length > 0 && (
-                  <div className="bg-slate-50/80 dark:bg-slate-750/70 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl p-4 print:hidden">
-                    <div className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-3 flex items-center justify-between">
-                      <span className="flex items-center gap-1.5 font-cairo">
-                        <Coins className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                        <span>ملخص أرصدة وذمم العميل حسب العملة (Balances)</span>
-                      </span>
-                      <span className="text-[11px] font-medium text-slate-400">
-                        {currencyBreakdown.activeCurrencies.length > 1 ? 'تعدد عملات نشط' : 'عملة واحدة'}
+                {currencyBreakdown.activeCurrencies.length > 1 && (
+                  <div className="bg-gradient-to-b from-slate-50/90 to-white dark:from-slate-800/70 dark:to-slate-850/70 border border-slate-200/90 dark:border-slate-700/80 rounded-2xl p-4 sm:p-5 shadow-2xs print:hidden">
+                    <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-slate-200/70 dark:border-slate-700/60">
+                      <div className="flex items-center gap-2.5 font-cairo">
+                        <div className="w-8 h-8 rounded-xl bg-blue-100/90 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-2xs">
+                          <Coins className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-slate-100 leading-tight">
+                            الأرصدة والذمم المالية حسب العملة
+                          </h3>
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                            كشف تفصيلي بالأرصدة المستحقة والمسددة لكل عملة
+                          </span>
+                        </div>
+                      </div>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-cairo bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200/70 dark:border-blue-800/60 shadow-2xs">
+                        <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                        حساب متعدد العملات ({currencyBreakdown.activeCurrencies.length} عملات)
                       </span>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {currencyBreakdown.activeCurrencies.map((c) => (
-                        <div
-                          key={c.currency}
-                          className="bg-white dark:bg-slate-800 rounded-xl p-3 border border-slate-200/60 dark:border-slate-700 shadow-2xs flex flex-col justify-between"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 font-cairo">
-                              {c.config.labelArFull}
-                            </span>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md font-mono ${CURRENCY_BADGE_STYLES[c.currency]}`}>
-                              {c.currency} {c.config.symbol}
-                            </span>
+
+                    <div
+                      className={`grid ${
+                        currencyBreakdown.activeCurrencies.length === 2
+                          ? 'grid-cols-1 sm:grid-cols-2'
+                          : currencyBreakdown.activeCurrencies.length === 3
+                          ? 'grid-cols-1 sm:grid-cols-3'
+                          : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
+                      } gap-4`}
+                    >
+                      {currencyBreakdown.activeCurrencies.map((c) => {
+                        const theme = CURRENCY_CARD_THEMES[c.currency] || {
+                          gradient: 'from-slate-600 to-slate-400',
+                          iconBox:
+                            'bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600',
+                          border: 'border-slate-200 dark:border-slate-700',
+                        };
+                        const paidPercent =
+                          c.totalDebt > 0
+                            ? Math.min(100, Math.max(0, Math.round((c.totalPaid / c.totalDebt) * 100)))
+                            : c.remaining === 0 && c.totalPaid > 0
+                            ? 100
+                            : 0;
+
+                        return (
+                          <div
+                            key={c.currency}
+                            className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 shadow-2xs hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+                          >
+                            {/* Top Accent Gradient Bar */}
+                            <div className={`h-1.5 w-full bg-gradient-to-r ${theme.gradient}`} />
+
+                            <div className="p-4 flex flex-col justify-between flex-1">
+                              {/* Header Row: Currency Name & Status Pill */}
+                              <div className="flex items-center justify-between gap-2 mb-3">
+                                <div className="flex items-center gap-2.5">
+                                  <div
+                                    className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold font-mono text-base shadow-2xs ${theme.iconBox}`}
+                                  >
+                                    {c.config.symbol}
+                                  </div>
+                                  <div>
+                                    <h4 className="text-sm font-extrabold text-slate-800 dark:text-slate-100 font-cairo leading-tight">
+                                      {c.config.labelArFull}
+                                    </h4>
+                                    <span className="text-[11px] font-mono font-bold text-slate-400 dark:text-slate-400 block mt-0.5">
+                                      {c.currency} ({c.config.symbol})
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {c.remaining > 0 ? (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold font-cairo bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200/70 dark:border-rose-900/50 shadow-2xs">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                                    مستحق السداد
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold font-cairo bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-900/50 shadow-2xs">
+                                    <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                    تمت التسوية
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Hero Value: Remaining Balance */}
+                              <div className="bg-slate-50/90 dark:bg-slate-750/70 rounded-xl p-3.5 border border-slate-100 dark:border-slate-700/60 mb-3">
+                                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">
+                                  <span className="font-cairo">الرصيد المتبقي (المستحق):</span>
+                                  {c.totalDebt > 0 && (
+                                    <span className="text-[11px] font-bold font-cairo text-slate-500 dark:text-slate-400">
+                                      تم سداد {paidPercent}%
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-baseline justify-between" dir="ltr">
+                                  <span
+                                    className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
+                                      c.remaining > 0
+                                        ? 'text-rose-600 dark:text-rose-400'
+                                        : 'text-slate-700 dark:text-slate-200'
+                                    }`}
+                                  >
+                                    {formatCurrency(c.remaining, c.currency)}
+                                  </span>
+                                </div>
+
+                                {/* Settlement Progress Bar */}
+                                {c.totalDebt > 0 && (
+                                  <div className="w-full bg-slate-200/80 dark:bg-slate-700 h-2 rounded-full mt-2.5 overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full transition-all duration-500 ${
+                                        c.remaining === 0
+                                          ? 'bg-emerald-500'
+                                          : 'bg-gradient-to-r from-emerald-500 to-blue-500'
+                                      }`}
+                                      style={{ width: `${paidPercent}%` }}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Sub-Metrics: Total Debt & Total Paid */}
+                              <div className="grid grid-cols-2 gap-2 text-xs pt-2.5 border-t border-slate-100 dark:border-slate-700/60">
+                                <div className="bg-slate-50/60 dark:bg-slate-750/50 rounded-lg p-2.5 border border-slate-100 dark:border-slate-700/40">
+                                  <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-cairo font-medium">
+                                    إجمالي الدين
+                                  </span>
+                                  <span
+                                    className="font-bold font-mono text-slate-800 dark:text-slate-200 text-xs sm:text-sm mt-0.5 block"
+                                    dir="ltr"
+                                  >
+                                    {formatCurrency(c.totalDebt, c.currency)}
+                                  </span>
+                                </div>
+                                <div className="bg-slate-50/60 dark:bg-slate-750/50 rounded-lg p-2.5 border border-slate-100 dark:border-slate-700/40">
+                                  <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-cairo font-medium">
+                                    إجمالي المسدد
+                                  </span>
+                                  <span
+                                    className="font-bold font-mono text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm mt-0.5 block"
+                                    dir="ltr"
+                                  >
+                                    {formatCurrency(c.totalPaid, c.currency)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
                           </div>
-                          <div className="mt-2.5 space-y-1 text-xs">
-                            <div className="flex justify-between items-center text-slate-600 dark:text-slate-300">
-                              <span>الرصيد المتبقي:</span>
-                              <span className={`font-bold font-mono ${c.remaining > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-400'}`}>
-                                {formatCurrency(c.remaining, c.currency)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-center text-slate-400 text-[11px]">
-                              <span>إجمالي الدين:</span>
-                              <span className="font-mono">{formatCurrency(c.totalDebt, c.currency)}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-slate-400 text-[11px]">
-                              <span>إجمالي المسدد:</span>
-                              <span className="font-mono text-emerald-600 dark:text-emerald-400">{formatCurrency(c.totalPaid, c.currency)}</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
 
                 {/* Header with Title and Filter Tabs */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-700 pb-5 print:hidden">
-                  <h3 className="text-lg sm:text-xl font-extrabold font-cairo text-[#0c2444] dark:text-blue-400">
-                    سجل النشاط المالي
-                  </h3>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-700 pb-4 print:hidden">
+                  <div className="flex items-center gap-2.5">
+                    <h3 className="text-lg sm:text-xl font-extrabold font-cairo text-[#0c2444] dark:text-blue-400">
+                      سجل النشاط المالي
+                    </h3>
+                    <span className="text-xs text-slate-400 font-bold font-mono px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700">
+                      {filteredActivities.length}
+                    </span>
+                  </div>
 
-                  {/* Filter Tabs & Currency Filter */}
-                  <div className="flex flex-wrap items-center gap-2.5">
+                  {/* Filter Controls: single row, neatly aligned */}
+                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                     {/* Activity Type Tabs */}
-                    <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-700 p-1 rounded-xl">
+                    <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-700/80 p-1 rounded-xl">
                       <button
                         type="button"
                         onClick={() => setActiveActivityTab('all')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                           activeActivityTab === 'all'
                             ? 'bg-white dark:bg-slate-800 text-[#0c2444] dark:text-blue-400 shadow-xs'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                         }`}
                       >
                         الكل
@@ -1489,10 +1646,10 @@ export const CustomerDetailsScreen: FC = () => {
                       <button
                         type="button"
                         onClick={() => setActiveActivityTab('debt')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                           activeActivityTab === 'debt'
                             ? 'bg-white dark:bg-slate-800 text-[#0c2444] dark:text-blue-400 shadow-xs'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                         }`}
                       >
                         الديون
@@ -1501,48 +1658,47 @@ export const CustomerDetailsScreen: FC = () => {
                       <button
                         type="button"
                         onClick={() => setActiveActivityTab('payment')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                           activeActivityTab === 'payment'
                             ? 'bg-white dark:bg-slate-800 text-[#0c2444] dark:text-blue-400 shadow-xs'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                         }`}
                       >
                         المدفوعات
                       </button>
                     </div>
 
-                    {/* Currency Filter Tabs */}
-                    <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700/80 p-1 rounded-xl">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedCurrencyTab('all')}
-                        className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                          selectedCurrencyTab === 'all'
-                            ? 'bg-white dark:bg-slate-800 text-[#0c2444] dark:text-blue-400 shadow-xs'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'
-                        }`}
-                      >
-                        كافة العملات
-                      </button>
-                      {(['ILS', 'USD', 'JOD'] as const).map((code) => {
-                        const cfg = getCurrencyConfig(code);
-                        return (
+                    {/* Currency Filter Tabs — ONLY rendered if customer has transactions in multiple currencies */}
+                    {currencyBreakdown.activeCurrencies.length > 1 && (
+                      <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-700/80 p-1 rounded-xl">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCurrencyTab('all')}
+                          className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            selectedCurrencyTab === 'all'
+                              ? 'bg-white dark:bg-slate-800 text-[#0c2444] dark:text-blue-400 shadow-xs'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                          }`}
+                        >
+                          كل العملات
+                        </button>
+                        {currencyBreakdown.activeCurrencies.map((c) => (
                           <button
-                            key={code}
+                            key={c.currency}
                             type="button"
-                            onClick={() => setSelectedCurrencyTab(code)}
-                            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
-                              selectedCurrencyTab === code
+                            onClick={() => setSelectedCurrencyTab(c.currency)}
+                            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                              selectedCurrencyTab === c.currency
                                 ? 'bg-white dark:bg-slate-800 text-[#0c2444] dark:text-blue-400 shadow-xs'
-                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                             }`}
                           >
-                            <span>{cfg.symbol}</span>
-                            <span>{cfg.labelAr}</span>
+                            <span>{c.config.symbol}</span>
+                            <span>{c.config.labelAr}</span>
                           </button>
-                        );
-                      })}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1604,7 +1760,7 @@ export const CustomerDetailsScreen: FC = () => {
                                     <span className={`text-base sm:text-lg font-extrabold font-cairo ${act.amountColor}`}>
                                       {act.type === 'debt' ? '+' : '-'}{act.rawAmount.toFixed(2)}
                                     </span>
-                                    <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold font-mono ${CURRENCY_BADGE_STYLES[act.currencyCode]}`}>
+                                    <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold font-mono ${getCurrencyBadgeClasses(act.currencyCode)}`}>
                                       {getCurrencyConfig(act.currencyCode).symbol} {act.currencyCode}
                                     </span>
                                   </div>

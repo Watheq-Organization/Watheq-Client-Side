@@ -1,5 +1,5 @@
 import { httpClient, ApiError } from '../api/httpClient';
-import { normalizeCurrencyCode, groupTotalsByCurrency } from '../utils/currency';
+import { normalizeCurrencyCode, groupTotalsByCurrency, ALL_CURRENCY_CODES, getCurrencyConfig } from '../utils/currency';
 import type {
   CollectionsReportParams,
   CollectionsReportResponse,
@@ -146,8 +146,8 @@ export function printCollectionsReportHtml(
   const totalsByCurrency = groupTotalsByCurrency(
     data.items.map((it) => ({ amount: it.amount, currency: it.currency }))
   );
-  const activeCurrencies = (['ILS', 'USD', 'JOD'] as const).filter(
-    (c) => totalsByCurrency[c].count > 0 || totalsByCurrency[c].total > 0
+  const activeCurrencies = ALL_CURRENCY_CODES.filter(
+    (c) => (totalsByCurrency[c]?.count ?? 0) > 0 || (totalsByCurrency[c]?.total ?? 0) > 0
   );
 
   const kpiCollectionHtml =
@@ -155,7 +155,7 @@ export function printCollectionsReportHtml(
       ? '0 ₪'
       : activeCurrencies
           .map((c) => {
-            const sym = c === 'USD' ? '$' : c === 'JOD' ? 'د.أ' : '₪';
+            const sym = getCurrencyConfig(c).symbol;
             return `<div style="margin-bottom: 2px;">${totalsByCurrency[c].total.toLocaleString('en-US')} ${sym}</div>`;
           })
           .join('');

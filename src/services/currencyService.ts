@@ -7,9 +7,10 @@ export interface CurrencyDto {
 }
 
 export const DEFAULT_CURRENCIES: CurrencyDto[] = [
-  { id: 1, code: 'ILS', name: 'Israeli Shekel' },
-  { id: 2, code: 'USD', name: 'US Dollar' },
-  { id: 3, code: 'JOD', name: 'Jordanian Dinar' },
+  { id: 4, code: 'ILS', name: 'Israeli New Shekel' },
+  { id: 1, code: 'USD', name: 'US Dollar' },
+  { id: 2, code: 'EUR', name: 'Euro' },
+  { id: 3, code: 'GBP', name: 'British Pound' },
 ];
 
 /**

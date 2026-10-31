@@ -25,6 +25,7 @@ import {
   formatCurrency,
   getCurrencyConfig,
   CURRENCY_BADGE_STYLES,
+  ALL_CURRENCY_CODES,
   type CurrencyCode,
 } from '../../utils/currency';
 
@@ -299,7 +300,7 @@ export const OutstandingDebtsReportView: FC = () => {
               >
                 كافة العملات
               </button>
-              {(['ILS', 'USD', 'JOD'] as const).map((code) => {
+              {ALL_CURRENCY_CODES.map((code) => {
                 const cfg = getCurrencyConfig(code);
                 return (
                   <button

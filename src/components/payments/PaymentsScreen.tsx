@@ -42,6 +42,7 @@ import {
   getCurrencyId,
   groupTotalsByCurrency,
   normalizeCurrencyCode,
+  ALL_CURRENCY_CODES,
   CURRENCY_BADGE_STYLES,
 } from '../../utils/currency';
 
@@ -263,8 +264,8 @@ export const PaymentsScreen: FC = () => {
   }, [payments]);
 
   const activeCurrenciesInPayments = useMemo(() => {
-    return (['ILS', 'USD', 'JOD'] as CurrencyCode[]).filter(
-      (code) => currencyGroupTotals[code].paymentCount > 0
+    return ALL_CURRENCY_CODES.filter(
+      (code) => (currencyGroupTotals[code]?.paymentCount ?? 0) > 0
     );
   }, [currencyGroupTotals]);
 

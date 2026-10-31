@@ -145,6 +145,13 @@ export const NewPaymentScreen: FC = () => {
   const [currencyId, setCurrencyId] = useState<number>(() =>
     targetDebt?.currencyId ? Number(targetDebt.currencyId) : getCurrencyId(initialCurrency)
   );
+  const hasUserChangedCurrencyRef = useRef(false);
+
+  const handleCurrencyChange = useCallback((nextCode: CurrencyCode) => {
+    hasUserChangedCurrencyRef.current = true;
+    setCurrency(nextCode);
+    setCurrencyId(getCurrencyId(nextCode));
+  }, []);
 
   // Form state
   const [amount, setAmount] = useState(
@@ -229,6 +236,57 @@ export const NewPaymentScreen: FC = () => {
     return getActiveCurrencySummaries(currencyGroups);
   }, [currencyGroups]);
 
+  // Auto-detect currency if no targetDebt provided and customer has active debt in exactly one currency
+  useEffect(() => {
+    if (targetDebt || isEditMode || hasUserChangedCurrencyRef.current || !customerProfile?.transactions) {
+      return;
+    }
+    const withDebt = Object.entries(currencyGroups).filter(
+      ([_, grp]) => grp.balance > 0
+    );
+    if (withDebt.length === 1) {
+      const soleCurrency = withDebt[0][0] as CurrencyCode;
+      setCurrency(soleCurrency);
+      setCurrencyId(getCurrencyId(soleCurrency));
+    }
+  }, [customerProfile?.transactions, targetDebt, isEditMode, currencyGroups]);
+
+  // Open debts for this customer
+  const openDebts = useMemo(() => {
+    if (!customerProfile?.transactions) return [];
+    return customerProfile.transactions.filter(
+      (tx) =>
+        (tx.type === 'Debt' || tx.type === 'debt') &&
+        (tx.status === 'pending' || tx.status === 'overdue' || tx.balance > 0)
+    );
+  }, [customerProfile?.transactions]);
+
+  // Open debt matching the selected currency
+  const matchingDebt = useMemo(() => {
+    if (targetDebt) return targetDebt;
+    const matched = openDebts.find(
+      (d) => normalizeCurrencyCode(d.currencyCode || d.currencyId) === currency
+    );
+    if (matched) {
+      return {
+        id: matched.id,
+        reference: matched.reference,
+        amount: matched.amount,
+        remainingAmount: matched.balance,
+        currencyCode: matched.currencyCode,
+        currencyId: matched.currencyId,
+      };
+    }
+    return null;
+  }, [targetDebt, openDebts, currency]);
+
+  // Debts in other currencies (for warnings / switcher)
+  const otherCurrencyDebts = useMemo(() => {
+    return openDebts.filter(
+      (d) => normalizeCurrencyCode(d.currencyCode || d.currencyId) !== currency
+    );
+  }, [openDebts, currency]);
+
   // Balance in the currently selected currency
   const selectedCurrencyBalance = useMemo(() => {
     if (customerProfile?.transactions && customerProfile.transactions.length > 0) {
@@ -236,6 +294,7 @@ export const NewPaymentScreen: FC = () => {
       if (group && (group.debtCount > 0 || group.paymentCount > 0)) {
         return Math.max(group.balance, 0);
       }
+      return 0;
     }
     return currentBalance;
   }, [currencyGroups, currency, customerProfile?.transactions, currentBalance]);
@@ -287,8 +346,8 @@ export const NewPaymentScreen: FC = () => {
     const errors: typeof fieldErrors = {
       amount:
         validatePaymentAmount(amount) ??
-        (customerProfile
-          ? validatePaymentAmountAgainstBalance(amount, currentBalance) ?? undefined
+        (customerProfile && selectedCurrencyBalance > 0
+          ? validatePaymentAmountAgainstBalance(amount, selectedCurrencyBalance) ?? undefined
           : undefined),
       notes: validatePaymentNotes(notes) ?? undefined,
     };
@@ -301,13 +360,15 @@ export const NewPaymentScreen: FC = () => {
     setSubmitError(null);
     setIsSaving(true);
     try {
+      const debtToAttribute = targetDebt?.id ?? matchingDebt?.id;
+
       const res = await registerPayment(id, {
         amount,
         method,
         currencyId: currencyId || getCurrencyId(currency),
         currencyCode: currency,
         currency: currency,
-        debtId: targetDebt?.id,
+        debtId: debtToAttribute,
         paymentDate: paymentDate || undefined,
         notes: notes.trim(),
         receiptFile,
@@ -453,7 +514,7 @@ export const NewPaymentScreen: FC = () => {
                 <CurrencySelector
                   value={currency}
                   currencyId={currencyId}
-                  onChange={setCurrency}
+                  onChange={handleCurrencyChange}
                   onChangeId={setCurrencyId}
                   disabled={isEditMode}
                 />
@@ -468,6 +529,37 @@ export const NewPaymentScreen: FC = () => {
                       {getCurrencyConfig(currency).labelAr}) بينما الدين المحدد رقم {targetDebt.reference || targetDebt.id} مسجل بعملة (
                       {getCurrencyConfig(targetDebt.currencyCode).labelAr}). تأكد من رغبتك بالتحصيل بهذه العملة.
                     </div>
+                  </div>
+                )}
+                {!targetDebt && customerProfile && selectedCurrencyBalance === 0 && otherCurrencyDebts.length > 0 && (
+                  <div className="rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 mt-2">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+                      <div>
+                        <span className="font-bold">تنبيه:</span> لا توجد ديون مستحقة على العميل بعملة ({getCurrencyConfig(currency).labelArFull}).
+                        ديون العميل الحالية مسجلة بعملة أخرى:
+                        <span className="font-bold mr-1">
+                          {Array.from(new Set(otherCurrencyDebts.map((d) => normalizeCurrencyCode(d.currencyCode || d.currencyId))))
+                            .map((c) => `${getCurrencyConfig(c).labelArFull} (${formatCurrency(currencyGroups[c]?.balance || 0, c)})`)
+                            .join('، ')}
+                        </span>
+                      </div>
+                    </div>
+                    {otherCurrencyDebts[0] && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleCurrencyChange(
+                            normalizeCurrencyCode(
+                              otherCurrencyDebts[0].currencyCode || otherCurrencyDebts[0].currencyId
+                            )
+                          )
+                        }
+                        className="px-2.5 py-1 text-xs font-bold rounded-lg bg-amber-200 dark:bg-amber-800 hover:bg-amber-300 text-amber-900 dark:text-amber-100 whitespace-nowrap transition-colors cursor-pointer shrink-0 self-end sm:self-auto"
+                      >
+                        التحويل إلى {getCurrencyConfig(otherCurrencyDebts[0].currencyCode || otherCurrencyDebts[0].currencyId).labelArFull}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
