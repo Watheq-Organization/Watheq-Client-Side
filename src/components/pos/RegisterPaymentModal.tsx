@@ -118,6 +118,7 @@ export const RegisterPaymentModal: FC<RegisterPaymentModalProps> = ({
         currencyId: currencyId || getCurrencyId(currency),
         currencyCode: currency,
         currency: currency,
+        debtId: '',
         receiptNumber: receiptNumber.trim() || undefined,
         notes: notes.trim(),
         receiptFile,

@@ -103,9 +103,8 @@ const REGISTER_PAYMENT_PATH = '/Debt/registerPayment';
  * amount and paymentMethod are always sent; receiptNumber, notes and
  * receiptImage are only appended when actually provided (an empty/absent
  * optional field is simply left out of the FormData, never sent as an
- * empty string). No debtId (this endpoint distributes across all of the
- * customer's outstanding debts) and no userId/paymentDate — both are
- * backend-only per the contract.
+ * empty string). DebtId is sent empty per backend contract requirements.
+ * No userId/paymentDate — both are backend-only per the contract.
  */
 function buildRegisterPaymentFormData(customerId: string, values: NewPaymentFormState): FormData {
   const formData = new FormData();
@@ -128,10 +127,9 @@ function buildRegisterPaymentFormData(customerId: string, values: NewPaymentForm
   formData.append('Currency', currencyCode);
   formData.append('currency', currencyCode);
 
-  if (values.debtId) {
-    formData.append('DebtId', String(values.debtId));
-    formData.append('debtId', String(values.debtId));
-  }
+  // Do not send any value for debtId, keep it empty per API requirements
+  formData.append('DebtId', '');
+  formData.append('debtId', '');
 
   const receiptNumber = values.receiptNumber?.trim();
   if (receiptNumber) {
@@ -656,4 +654,3 @@ export async function getPaymentHistory(
     };
   }
 }
-

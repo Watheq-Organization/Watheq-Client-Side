@@ -261,8 +261,8 @@ export const NewPaymentScreen: FC = () => {
     );
   }, [customerProfile?.transactions]);
 
-  // Open debt matching the selected currency
-  const matchingDebt = useMemo(() => {
+
+  const _matchingDebt = useMemo(() => {
     if (targetDebt) return targetDebt;
     const matched = openDebts.find(
       (d) => normalizeCurrencyCode(d.currencyCode || d.currencyId) === currency
@@ -279,6 +279,7 @@ export const NewPaymentScreen: FC = () => {
     }
     return null;
   }, [targetDebt, openDebts, currency]);
+  void _matchingDebt;
 
   // Debts in other currencies (for warnings / switcher)
   const otherCurrencyDebts = useMemo(() => {
@@ -360,7 +361,7 @@ export const NewPaymentScreen: FC = () => {
     setSubmitError(null);
     setIsSaving(true);
     try {
-      const debtToAttribute = targetDebt?.id ?? matchingDebt?.id;
+
 
       const res = await registerPayment(id, {
         amount,
@@ -368,7 +369,7 @@ export const NewPaymentScreen: FC = () => {
         currencyId: currencyId || getCurrencyId(currency),
         currencyCode: currency,
         currency: currency,
-        debtId: debtToAttribute,
+        debtId: '',
         paymentDate: paymentDate || undefined,
         notes: notes.trim(),
         receiptFile,
