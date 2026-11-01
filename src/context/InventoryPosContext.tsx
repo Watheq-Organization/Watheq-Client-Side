@@ -25,7 +25,7 @@ const RESTOCK_STORAGE_KEY = 'watheq_restock_history_v1';
 import { getProductsApi, adjustProductStockApi } from '../services/productService';
 import { ApiError } from '../api/httpClient';
 import { posCheckout, type PosSaleType, type PosPaymentMethod } from '../services/posService';
-import { createDebt, rememberEditableDebt, DEFAULT_CURRENCY_ID, sendDebtReminder } from '../services/debtService';
+import { createDebt, rememberEditableDebt, DEFAULT_CURRENCY_ID } from '../services/debtService';
 
 export const DEFAULT_CASH_CUSTOMER = {
   id: undefined,
@@ -579,15 +579,12 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
           notifyCustomer: shouldNotify,
         });
 
-        // 1.1 Trigger Telegram Bot Notification via POST /api/Debt/send-reminder
-        if (shouldNotify && custKey) {
-          try {
-            await sendDebtReminder(custKey);
-            console.log('[POS Debt] Telegram notification sent via sendDebtReminder to customer:', custKey);
-          } catch (botErr) {
-            console.error('[POS Debt] Failed to send Telegram reminder:', botErr);
-          }
-        }
+        // Do NOT call sendDebtReminder() here.
+        // createDebt() already sends the debt-creation message via the backend
+        // (if sendTelegramNotification were true). Since we've set all
+        // notification flags to false in buildCreateDebtPayload, no automatic
+        // Telegram message is sent on creation at all. Reminders are sent only
+        // when the merchant explicitly triggers them from the Reminders UI.
 
         const rawTxId = debtDto?.id ?? debtDto?.debtNumber ?? Date.now();
         const txKey = String(rawTxId);

@@ -75,12 +75,14 @@ export function buildCreateDebtPayload(values: AddDebtFormValues): CreateDebtPay
     (values.currencyCode ? getCurrencyId(values.currencyCode) : DEFAULT_CURRENCY_ID)
   );
 
-  const shouldNotify =
-    values.sendNotification ??
-    values.sendTelegramNotification ??
-    values.sendWhatsAppNotification ??
-    values.notifyCustomer ??
-    true;
+  // Notification flags are intentionally set to false on debt creation.
+  // The backend sends a "new debt" message when these are true, and a
+  // separate call to sendDebtReminder() (POST /Debt/send-reminder) also
+  // sends a Telegram reminder — resulting in two messages for the same
+  // debt creation event. Reminders must only be sent explicitly via
+  // dedicated UI actions (e.g. the bell icon in OverduePaymentsTable or
+  // CustomersScreen), never automatically on creation.
+  const shouldNotify = false;
 
   const cleanReason = values.reason?.trim();
   const cleanNotes = values.notes?.trim();
@@ -116,15 +118,15 @@ export function buildCreateDebtPayload(values: AddDebtFormValues): CreateDebtPay
     reason: finalReason,
     dueDate: values.dueDate.includes('T') ? values.dueDate : toIsoDueDate(values.dueDate),
     notes: finalNotes,
-    sendNotification: shouldNotify,
-    sendTelegramNotification: shouldNotify,
-    sendWhatsAppNotification: shouldNotify,
-    sendInvoiceNotification: shouldNotify,
-    notifyCustomer: shouldNotify,
-    sendTelegram: shouldNotify,
-    sendWhatsApp: shouldNotify,
-    sendViaTelegram: shouldNotify,
-    sendViaWhatsApp: shouldNotify,
+    sendNotification: shouldNotify,         // false — see comment above
+    sendTelegramNotification: shouldNotify,  // false
+    sendWhatsAppNotification: shouldNotify,  // false
+    sendInvoiceNotification: shouldNotify,   // false
+    notifyCustomer: shouldNotify,            // false
+    sendTelegram: shouldNotify,              // false
+    sendWhatsApp: shouldNotify,              // false
+    sendViaTelegram: shouldNotify,           // false
+    sendViaWhatsApp: shouldNotify,           // false
   };
 }
 

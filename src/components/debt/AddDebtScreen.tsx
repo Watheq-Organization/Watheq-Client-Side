@@ -6,7 +6,6 @@ import {
   UserSearch,
   Save,
   Mic,
-  MessageCircle,
   Lock,
   Check,
   Loader2,
@@ -34,7 +33,6 @@ import {
   toUpdateDebtErrorMessage,
   validateUpdateNotesForStatus,
   rememberEditableDebt,
-  sendDebtReminder,
   type EditableDebtRecord,
 } from '../../services/debtService';
 
@@ -179,7 +177,6 @@ export const AddDebtScreen: FC = () => {
   const [amount, setAmount] = useState(editingDebt ? String(editingDebt.amount) : '');
   const [dueDate, setDueDate] = useState(editingDebt?.dueDate ?? '');
   const [notes, setNotes] = useState(editingDebt?.notes ?? '');
-  const [whatsappEnabled, setWhatsappEnabled] = useState(true);
 
   const [fieldErrors, setFieldErrors] = useState<{
     customer?: string;
@@ -316,15 +313,13 @@ export const AddDebtScreen: FC = () => {
           currencyId,
         }, dto);
 
-        let toastMsg = 'تم تسجيل الدين بنجاح.';
-        if (whatsappEnabled) {
-          try {
-            await sendDebtReminder(customerId);
-            toastMsg = 'تم تسجيل الدين وإرسال إشعار التوثيق بنجاح ✓';
-          } catch (botErr) {
-            console.error('[AddDebtScreen] Failed to send debt reminder:', botErr);
-          }
-        }
+        // Debt created successfully — do NOT call sendDebtReminder() here.
+        // The backend's createDebt endpoint no longer sends a Telegram
+        // notification on its own (all sendTelegramNotification flags are
+        // set to false in buildCreateDebtPayload). Reminders are only sent
+        // when the merchant explicitly presses the reminder/bell button
+        // in OverduePaymentsTable or CustomersScreen.
+        const toastMsg = 'تم تسجيل الدين بنجاح.';
 
         window.dispatchEvent(new Event('watheq:activity-updated'));
         navigate(`/customers/${customerId}`, {
@@ -630,32 +625,6 @@ export const AddDebtScreen: FC = () => {
               {fieldErrors.notes && <p className="text-xs text-rose-600 text-right mt-1">{fieldErrors.notes}</p>}
             </div>
 
-            {/* WhatsApp Confirmation */}
-            <div className="flex items-center justify-between gap-3 bg-[#F4F6FF] dark:bg-slate-800/50 rounded-xl px-4 py-3">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 shrink-0 rounded-lg bg-emerald-100 flex items-center justify-center">
-                  <MessageCircle className="w-4 h-4 text-emerald-600" />
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">إرسال تأكيد عبر واتساب</p>
-                  <p className="text-xs text-slate-400">سيتم إشعار العميل فور تسجيل الدين</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={whatsappEnabled}
-                onClick={() => setWhatsappEnabled((prev) => !prev)}
-                className="relative w-11 h-6 shrink-0 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-inner transition-colors cursor-pointer"
-              >
-                <span
-                  className={`absolute top-0 w-6 h-6 rounded-full shadow flex items-center justify-center transition-all ${whatsappEnabled ? 'left-0 bg-blue-600' : 'right-0 bg-slate-300'
-                    }`}
-                >
-                  {whatsappEnabled && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
-                </span>
-              </button>
-            </div>
 
             <div className="border-t border-slate-100 dark:border-slate-700" />
 
