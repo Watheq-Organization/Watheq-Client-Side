@@ -26,6 +26,7 @@ import { getProductsApi, adjustProductStockApi } from '../services/productServic
 import { ApiError } from '../api/httpClient';
 import { posCheckout, type PosSaleType, type PosPaymentMethod } from '../services/posService';
 import { createDebt, rememberEditableDebt, DEFAULT_CURRENCY_ID } from '../services/debtService';
+import { getCurrencyId, normalizeCurrencyCode } from '../utils/currency';
 
 export const DEFAULT_CASH_CUSTOMER = {
   id: undefined,
@@ -563,6 +564,8 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
         const custKey = String(parsedCustId);
         const totalDebtAmount = cartTotalDue;
         const shouldNotify = payload.notifyCustomerViaBot !== false;
+        const targetCurrencyCode = normalizeCurrencyCode(payload.currencyCode || 'ILS');
+        const targetCurrencyId = Number(payload.currencyId ?? getCurrencyId(targetCurrencyCode) ?? DEFAULT_CURRENCY_ID);
 
         // 1. Call the main Create Debt API (POST /api/Debt/createDebt)
         // Passes telegram/notification activation boolean flags set to true
@@ -572,7 +575,8 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
           dueDate: formattedDueDate,
           reason: itemsSummary || 'مشتريات بالدين (نقطة البيع - كاشير)',
           notes: customNotes,
-          currencyId: DEFAULT_CURRENCY_ID,
+          currencyId: targetCurrencyId,
+          currencyCode: targetCurrencyCode,
           sendNotification: shouldNotify,
           sendTelegramNotification: shouldNotify,
           sendWhatsAppNotification: shouldNotify,
@@ -599,7 +603,8 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
               amount: String(totalDebtAmount),
               dueDate: formattedDueDate.split('T')[0],
               notes: notesStr,
-              currencyId: DEFAULT_CURRENCY_ID,
+              currencyId: targetCurrencyId,
+              currencyCode: targetCurrencyCode,
             },
             debtDto
           );
@@ -673,6 +678,8 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
           debtNotes: notesStr,
           debtDueDate: payload.debtDueDate,
           botVerificationSent: shouldNotify,
+          currencyCode: targetCurrencyCode,
+          currencyId: targetCurrencyId,
         };
 
         setCompletedSales((prev) => [completedSale, ...prev]);

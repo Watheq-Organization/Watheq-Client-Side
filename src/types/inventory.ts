@@ -69,6 +69,8 @@ export interface CheckoutPayload {
   bankRefCode?: string;
   debtNotes?: string;
   debtDueDate?: string;
+  currencyId?: number;
+  currencyCode?: string;
   notifyCustomerViaBot?: boolean;
   discount?: number;
 }
@@ -94,4 +96,6 @@ export interface CompletedSale {
   debtDueDate?: string;
   botVerificationSent?: boolean;
   mizanReconciled?: boolean;
+  currencyCode?: string;
+  currencyId?: number;
 }

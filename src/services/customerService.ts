@@ -34,17 +34,30 @@ export async function getCustomers(): Promise<CustomerDto[]> {
     if (debtsReport?.details?.items && debtsReport.details.items.length > 0) {
       const debtMapById = new Map<string, number>();
       const debtMapByName = new Map<string, number>();
+      const currencyDebtsById = new Map<string, Map<string, number>>();
+      const currencyDebtsByName = new Map<string, Map<string, number>>();
 
       for (const item of debtsReport.details.items) {
         const remaining = Number(item.remainingAmount ?? item.amount) || 0;
+        const curCode = normalizeCurrencyCode(item.currencyCode || (item as any).currency || 'ILS');
         if (remaining > 0) {
           if (item.customerId) {
             const cid = String(item.customerId);
             debtMapById.set(cid, (debtMapById.get(cid) || 0) + remaining);
+            if (!currencyDebtsById.has(cid)) {
+              currencyDebtsById.set(cid, new Map());
+            }
+            const map = currencyDebtsById.get(cid)!;
+            map.set(curCode, (map.get(curCode) || 0) + remaining);
           }
           if (item.customerName) {
             const cname = item.customerName.trim().toLowerCase();
             debtMapByName.set(cname, (debtMapByName.get(cname) || 0) + remaining);
+            if (!currencyDebtsByName.has(cname)) {
+              currencyDebtsByName.set(cname, new Map());
+            }
+            const map = currencyDebtsByName.get(cname)!;
+            map.set(curCode, (map.get(curCode) || 0) + remaining);
           }
         }
       }
@@ -63,6 +76,24 @@ export async function getCustomers(): Promise<CustomerDto[]> {
           }
           if (!c.status || c.status === 'paid' || c.status === '0') {
             c.status = 'active_debt';
+          }
+        }
+
+        // If c.balances is missing or has no active entries, populate from report
+        const hasActiveBalances = Array.isArray(c.balances) && c.balances.some(b => (b.currentBalance ?? 0) > 0 || (b.totalDebt ?? 0) > 0);
+        if (!hasActiveBalances) {
+          const curMap =
+            currencyDebtsById.get(String(c.id)) ??
+            (c.fullName ? currencyDebtsByName.get(c.fullName.trim().toLowerCase()) : undefined);
+
+          if (curMap && curMap.size > 0) {
+            c.balances = Array.from(curMap.entries()).map(([code, amt]) => ({
+              currencyId: getCurrencyId(code),
+              currencyCode: code,
+              totalDebt: amt,
+              totalPaid: 0,
+              currentBalance: amt,
+            }));
           }
         }
       }
@@ -183,7 +214,13 @@ function normalizeCustomerDto(raw: unknown): CustomerDto {
     ? r.balances
     : Array.isArray(r.Balances)
       ? r.Balances
-      : null;
+      : Array.isArray(r.currencyBalances)
+        ? r.currencyBalances
+        : Array.isArray(r.CurrencyBalances)
+          ? r.CurrencyBalances
+          : Array.isArray(r.currencySummary)
+            ? r.currencySummary
+            : null;
 
   let normalizedBalances: CustomerCurrencyBalanceDto[] | undefined;
   if (rawBalances && rawBalances.length > 0) {
@@ -198,17 +235,93 @@ function normalizeCustomerDto(raw: unknown): CustomerDto {
         item.CurrencyId;
       const code = normalizeCurrencyCode(rawCurr);
       const id = Number(item.currencyId ?? item.CurrencyId) || getCurrencyId(code);
-      const bDebt = Number(item.totalDebt ?? item.TotalDebt) || 0;
-      const bBalance = Number(item.currentBalance ?? item.CurrentBalance ?? bDebt) || 0;
+      const bDebt = Number(item.totalDebt ?? item.TotalDebt ?? item.debt ?? item.Debt ?? item.amount ?? item.Amount) || 0;
+      const bBalance = Number(item.currentBalance ?? item.CurrentBalance ?? item.balance ?? item.Balance ?? bDebt) || 0;
+      const bPaid = Number(item.totalPaid ?? item.TotalPaid ?? item.paid ?? item.Paid) || 0;
       balancesDebt += (bBalance > 0 ? bBalance : bDebt);
       return {
         currencyId: id,
         currencyCode: code,
         totalDebt: bDebt,
-        totalPaid: Number(item.totalPaid ?? item.TotalPaid) || 0,
+        totalPaid: bPaid,
         currentBalance: bBalance,
       };
     });
+  } else {
+    // Check if returned as an object / dictionary of balances (e.g. { ILS: 120, USD: 50, EUR: 30 })
+    const candidateObj =
+      (r.balances && typeof r.balances === 'object' && !Array.isArray(r.balances) ? r.balances : null) ||
+      (r.Balances && typeof r.Balances === 'object' && !Array.isArray(r.Balances) ? r.Balances : null) ||
+      (r.currencyDebts && typeof r.currencyDebts === 'object' ? r.currencyDebts : null) ||
+      (r.debtsByCurrency && typeof r.debtsByCurrency === 'object' ? r.debtsByCurrency : null);
+
+    if (candidateObj) {
+      const parsedFromObj: CustomerCurrencyBalanceDto[] = [];
+      for (const [key, val] of Object.entries(candidateObj as Record<string, unknown>)) {
+        const code = normalizeCurrencyCode(key);
+        if (typeof val === 'number') {
+          if (val > 0) {
+            parsedFromObj.push({
+              currencyId: getCurrencyId(code),
+              currencyCode: code,
+              totalDebt: val,
+              totalPaid: 0,
+              currentBalance: val,
+            });
+            balancesDebt += val;
+          }
+        } else if (val && typeof val === 'object') {
+          const vObj = val as Record<string, unknown>;
+          const d = Number(vObj.totalDebt ?? vObj.debt ?? vObj.amount ?? 0) || 0;
+          const p = Number(vObj.totalPaid ?? vObj.paid ?? 0) || 0;
+          const b = Number(vObj.currentBalance ?? vObj.balance ?? d) || 0;
+          if (d > 0 || b > 0 || p > 0) {
+            parsedFromObj.push({
+              currencyId: Number(vObj.currencyId) || getCurrencyId(code),
+              currencyCode: code,
+              totalDebt: d,
+              totalPaid: p,
+              currentBalance: b,
+            });
+            balancesDebt += (b > 0 ? b : d);
+          }
+        }
+      }
+      if (parsedFromObj.length > 0) {
+        normalizedBalances = parsedFromObj;
+      }
+    }
+
+    // Check if returned as flat properties (e.g. debtILS, debtUSD, debtEUR or totalDebtILS, totalDebtUSD, etc.)
+    if (!normalizedBalances || normalizedBalances.length === 0) {
+      const flatCurrencies: Array<{ code: 'ILS' | 'USD' | 'EUR' | 'JOD'; keys: string[] }> = [
+        { code: 'ILS', keys: ['debtILS', 'totalDebtILS', 'balanceILS', 'currentBalanceILS', 'ilsDebt', 'ils'] },
+        { code: 'USD', keys: ['debtUSD', 'totalDebtUSD', 'balanceUSD', 'currentBalanceUSD', 'usdDebt', 'usd'] },
+        { code: 'EUR', keys: ['debtEUR', 'totalDebtEUR', 'balanceEUR', 'currentBalanceEUR', 'eurDebt', 'eur'] },
+        { code: 'JOD', keys: ['debtJOD', 'totalDebtJOD', 'balanceJOD', 'currentBalanceJOD', 'jodDebt', 'jod'] },
+      ];
+
+      const flatBalances: CustomerCurrencyBalanceDto[] = [];
+      for (const cur of flatCurrencies) {
+        for (const k of cur.keys) {
+          const val = Number(r[k] ?? r[k.toLowerCase()] ?? r[k.toUpperCase()]);
+          if (!isNaN(val) && val > 0) {
+            flatBalances.push({
+              currencyId: getCurrencyId(cur.code),
+              currencyCode: cur.code,
+              totalDebt: val,
+              totalPaid: 0,
+              currentBalance: val,
+            });
+            balancesDebt += val;
+            break;
+          }
+        }
+      }
+      if (flatBalances.length > 0) {
+        normalizedBalances = flatBalances;
+      }
+    }
   }
 
   const directDebt = Number(
@@ -601,6 +714,7 @@ export function mapCustomerProfileToCustomer(dto: CustomerProfileDto): Customer 
     address: dto.address,
     registrationDate: dto.createdAt,
     isTelegramLinked: dto.isTelegramLinked,
+    balances: dto.balances,
   };
 }
 
@@ -830,7 +944,10 @@ export function mapCustomerDtoToCustomer(dto: CustomerDto, index?: number): Cust
   const safeFullName = (dto?.fullName ?? '').trim();
   const totalDebt = Number(dto?.totalDebt) || 0;
   const totalPaid = Number(dto?.totalPaid) || 0;
-  const hasDebt = totalDebt > 0 || (Number(dto?.currentBalance) || 0) > 0;
+  const balancesHaveDebt =
+    Array.isArray(dto?.balances) &&
+    dto.balances.some((b) => (b.currentBalance ?? 0) > 0 || (b.totalDebt ?? 0) > 0);
+  const hasDebt = totalDebt > 0 || (Number(dto?.currentBalance) || 0) > 0 || balancesHaveDebt;
   const rawId = dto?.id != null ? String(dto.id) : '';
 
   // Format sequential ID as fallback
@@ -877,6 +994,7 @@ export function mapCustomerDtoToCustomer(dto: CustomerDto, index?: number): Cust
     address: dto.address,
     registrationDate: dto.createdAt,
     isTelegramLinked: dto.isTelegramLinked,
+    balances: dto.balances,
   };
 }
 
@@ -1157,7 +1275,14 @@ export function toAddCustomerErrorMessage(error: unknown): string {
 export interface GenerateTelegramLinkOptions {
   linkType?: 'Customer' | 'Merchant';
   sendViaWhatsApp?: boolean;
+  forceRefresh?: boolean;
 }
+
+/** In-flight promises map to deduplicate concurrent requests (e.g. React StrictMode / double renders) */
+const inFlightTelegramRequests = new Map<string, Promise<GenerateTelegramLinkResponse>>();
+/** Short-lived cache (15s) to prevent double sending if component remounts rapidly */
+const recentTelegramLinkCache = new Map<string, { data: GenerateTelegramLinkResponse; timestamp: number }>();
+const TELEGRAM_LINK_CACHE_TTL_MS = 15000;
 
 /**
  * Structured response from POST /api/Telegram/link/generate
@@ -1264,9 +1389,8 @@ async function sendGenerateTelegramLinkPayload(
  * POST https://whateq.runasp.net/api/Telegram/link/generate
  *
  * Generates a Telegram bot linking URL for a customer or merchant.
- *
- * Handles both string enum ('Merchant' / 'Customer') and numeric enum (1 / 0)
- * along with PascalCase and camelCase keys for seamless compatibility with the backend.
+ * Direct numeric enum (0 = Customer, 1 = Merchant) is used per the documented contract.
+ * Fully deduplicated to prevent duplicate WhatsApp messages on double renders or StrictMode.
  */
 export async function getTelegramLink(
   customerId?: string | number,
@@ -1274,43 +1398,53 @@ export async function getTelegramLink(
 ): Promise<GenerateTelegramLinkResponse> {
   const isMerchant = options?.linkType === 'Merchant';
   const sendViaWhatsApp = options?.sendViaWhatsApp ?? false;
+  const numericLinkType = isMerchant ? 1 : 0;
+  const targetId = isMerchant ? 'merchant' : String(customerId ?? '');
+  const requestKey = `${numericLinkType}:${targetId}:${Boolean(sendViaWhatsApp)}`;
 
-  const buildPayload = (useStringEnum: boolean): Record<string, unknown> => {
-    const typeValue = useStringEnum
-      ? (isMerchant ? 'Merchant' : 'Customer')
-      : (isMerchant ? 1 : 0);
-
-    const payload: Record<string, unknown> = {
-      linkType: typeValue,
-      LinkType: typeValue,
-      sendViaWhatsApp,
-      SendViaWhatsApp: sendViaWhatsApp,
-    };
-
-    if (!isMerchant) {
-      if (customerId !== undefined && customerId !== null && customerId !== '') {
-        payload.customerId = Number(customerId);
-        payload.CustomerId = Number(customerId);
-      }
+  // 1. Check recent cache to prevent re-sending WhatsApp on immediate repeated renders
+  if (!options?.forceRefresh) {
+    const cached = recentTelegramLinkCache.get(requestKey);
+    if (cached && (Date.now() - cached.timestamp < TELEGRAM_LINK_CACHE_TTL_MS)) {
+      console.log('[getTelegramLink] Returning cached result to prevent duplicate WhatsApp sends:', requestKey);
+      return cached.data;
     }
+  }
 
-    return payload;
+  // 2. Check in-flight requests: if identical request is already running, return existing promise
+  const existingInFlight = inFlightTelegramRequests.get(requestKey);
+  if (existingInFlight) {
+    console.log('[getTelegramLink] Reusing in-flight request for key:', requestKey);
+    return existingInFlight;
+  }
+
+  const payload: Record<string, unknown> = {
+    linkType: numericLinkType,
+    LinkType: numericLinkType,
+    sendViaWhatsApp,
+    SendViaWhatsApp: sendViaWhatsApp,
   };
 
-  try {
-    // Attempt 1: String enum ("Merchant" / "Customer") with dual casing
-    return await sendGenerateTelegramLinkPayload(buildPayload(true), customerId, isMerchant);
-  } catch (err: any) {
-    const errorDetails = err?.message || JSON.stringify(err?.body || '');
-    console.warn('[getTelegramLink] Attempt 1 failed:', errorDetails);
-
-    // If it failed due to CustomerId requirement or 400, retry with numeric enum (1 / 0) and dual casing
-    if (err?.status === 400 || errorDetails.includes('CustomerId is required')) {
-      console.log('[getTelegramLink] Attempt 2: Retrying with numeric enum (1 / 0) and dual casing...');
-      return await sendGenerateTelegramLinkPayload(buildPayload(false), customerId, isMerchant);
+  if (!isMerchant) {
+    if (customerId !== undefined && customerId !== null && customerId !== '') {
+      payload.customerId = Number(customerId);
+      payload.CustomerId = Number(customerId);
     }
-    throw err;
   }
+
+  const executeRequest = async (): Promise<GenerateTelegramLinkResponse> => {
+    try {
+      const result = await sendGenerateTelegramLinkPayload(payload, customerId, isMerchant);
+      recentTelegramLinkCache.set(requestKey, { data: result, timestamp: Date.now() });
+      return result;
+    } finally {
+      inFlightTelegramRequests.delete(requestKey);
+    }
+  };
+
+  const promise = executeRequest();
+  inFlightTelegramRequests.set(requestKey, promise);
+  return promise;
 }
 
 /**
@@ -1334,6 +1468,13 @@ export async function getMerchantTelegramLink(
  * Regenerates the Telegram bot linking URL for an already linked customer.
  */
 export async function regenerateTelegramLink(customerId: string): Promise<string> {
+  // Invalidate any cached link for this customer
+  const custPrefix = `0:${customerId}:`;
+  for (const k of recentTelegramLinkCache.keys()) {
+    if (k.startsWith(custPrefix)) {
+      recentTelegramLinkCache.delete(k);
+    }
+  }
   try {
     const response = await httpClient.post<unknown>(`/Telegram/link/regenerate`, { customerId: Number(customerId) });
     console.log('[regenerateTelegramLink] API Response:', response);

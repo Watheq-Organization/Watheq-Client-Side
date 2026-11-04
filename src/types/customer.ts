@@ -31,6 +31,7 @@ export interface Customer {
   registrationDate?: string;
   transactions?: CustomerTransaction[];
   isTelegramLinked?: boolean;
+  balances?: CustomerCurrencyBalanceDto[];
 }
 
 /**
@@ -98,7 +99,7 @@ export interface CustomerProfileTransactionDto {
  * Summary balance for a specific currency returned inside CustomerProfileDto.balances
  */
 export interface CustomerCurrencyBalanceDto {
-  currencyId: number;
+  currencyId?: number;
   currencyCode: string;
   totalDebt: number;
   totalPaid: number;

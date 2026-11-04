@@ -10,6 +10,8 @@ import {
   Phone,
 } from 'lucide-react';
 import type { CartItem } from '../../types/inventory';
+import { CurrencySelector } from '../common/CurrencySelector';
+import { type CurrencyCode, getCurrencyConfig, getCurrencyId } from '../../utils/currency';
 
 interface DebtPaymentModalProps {
   isOpen: boolean;
@@ -23,7 +25,13 @@ interface DebtPaymentModalProps {
   };
   cartItems: CartItem[];
   onSelectCustomer: () => void;
-  onConfirm: (dueDate: string, invoiceNotes: string, notifyCustomerViaBot: boolean) => void;
+  onConfirm: (
+    dueDate: string,
+    invoiceNotes: string,
+    notifyCustomerViaBot: boolean,
+    currencyCode?: CurrencyCode,
+    currencyId?: number
+  ) => void;
 }
 
 export const DebtPaymentModal: FC<DebtPaymentModalProps> = ({
@@ -37,9 +45,11 @@ export const DebtPaymentModal: FC<DebtPaymentModalProps> = ({
 }) => {
   const [dueDate, setDueDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [notifyCustomerViaBot, setNotifyCustomerViaBot] = useState(true);
+  const [selectedCurrency, setSelectedCurrency] = useState<CurrencyCode>('ILS');
 
   if (!isOpen) return null;
 
+  const currencyConfig = getCurrencyConfig(selectedCurrency);
   const isGeneralCustomer = !customer.id || customer.name === 'زبون نقدي عام';
   const previousDebt = customer.totalDebt || 0;
   const newDebtTotal = previousDebt + totalDue;
@@ -50,7 +60,13 @@ export const DebtPaymentModal: FC<DebtPaymentModalProps> = ({
       return;
     }
     const invoiceNotes = cartItems.map((item) => `${item.product.name} × ${item.quantity}`).join(' | ');
-    onConfirm(dueDate, invoiceNotes, notifyCustomerViaBot);
+    onConfirm(
+      dueDate,
+      invoiceNotes,
+      notifyCustomerViaBot,
+      selectedCurrency,
+      getCurrencyId(selectedCurrency)
+    );
     onClose();
   };
 
@@ -142,24 +158,42 @@ export const DebtPaymentModal: FC<DebtPaymentModalProps> = ({
                 <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
                   <span className="text-[10px] text-slate-400 block">الدين السابق</span>
                   <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                    ₪{previousDebt.toFixed(2)}
+                    {currencyConfig.symbol}{previousDebt.toFixed(2)}
                   </span>
                 </div>
                 <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900">
                   <span className="text-[10px] text-rose-600 block">+ الفاتورة الحالية</span>
                   <span className="text-sm font-black text-rose-600">
-                    ₪{totalDue.toFixed(2)}
+                    {currencyConfig.symbol}{totalDue.toFixed(2)}
                   </span>
                 </div>
                 <div className="p-2 rounded-xl bg-slate-900 text-white">
                   <span className="text-[10px] text-slate-400 block">= إجمالي الدين</span>
                   <span className="text-sm font-black font-mono text-emerald-400">
-                    ₪{newDebtTotal.toFixed(2)}
+                    {currencyConfig.symbol}{newDebtTotal.toFixed(2)}
                   </span>
                 </div>
               </div>
             </div>
           )}
+
+          {/* Currency Selection */}
+          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-850 border border-slate-200/80 dark:border-slate-800 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                عملة تسجيل الدين:
+              </label>
+              <span className="text-[11px] font-mono font-bold text-blue-600 dark:text-blue-400">
+                {currencyConfig.labelArFull} ({currencyConfig.symbol})
+              </span>
+            </div>
+            <CurrencySelector
+              value={selectedCurrency}
+              onChange={(cur) => setSelectedCurrency(cur)}
+              size="sm"
+              variant="pills"
+            />
+          </div>
 
           <div className="space-y-1.5">
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
@@ -173,7 +207,7 @@ export const DebtPaymentModal: FC<DebtPaymentModalProps> = ({
                     {item.product.name} × {item.quantity}
                   </span>
                   <span className="font-mono font-bold text-slate-900 dark:text-white">
-                    ₪{item.subtotal.toFixed(2)}
+                    {currencyConfig.symbol}{item.subtotal.toFixed(2)}
                   </span>
                 </div>
               ))}

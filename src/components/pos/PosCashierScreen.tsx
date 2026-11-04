@@ -1315,7 +1315,7 @@ export const PosCashierScreen: FC = () => {
           setIsDebtModalOpen(false);
           setIsCustomerSelectModalOpen(true);
         }}
-        onConfirm={async (dueDate, invoiceNotes, notifyBot) => {
+        onConfirm={async (dueDate, invoiceNotes, notifyBot, currencyCode, currencyId) => {
           try {
             await checkout({
               method: 'debt',
@@ -1325,6 +1325,8 @@ export const PosCashierScreen: FC = () => {
               debtNotes: invoiceNotes,
               debtDueDate: dueDate,
               notifyCustomerViaBot: notifyBot,
+              currencyCode: currencyCode || 'ILS',
+              currencyId: currencyId || 4,
             });
 
             if (notifyBot && selectedCustomer.id) {

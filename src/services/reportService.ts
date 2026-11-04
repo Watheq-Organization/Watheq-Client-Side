@@ -1,5 +1,5 @@
 import { httpClient, ApiError } from '../api/httpClient';
-import { normalizeCurrencyCode, groupTotalsByCurrency, ALL_CURRENCY_CODES, getCurrencyConfig } from '../utils/currency';
+import { normalizeCurrencyCode, groupTotalsByCurrency, ALL_CURRENCY_CODES, getCurrencyConfig, getCurrencyId } from '../utils/currency';
 import type {
   CollectionsReportParams,
   CollectionsReportResponse,
@@ -987,17 +987,20 @@ function normalizeOutstandingDebtsReport(
       ? record.Summary
       : [];
 
-  const summary: OutstandingDebtSummaryItem[] = rawSummary.map((s: any) => ({
-    currencyId: Number(s.currencyId ?? s.CurrencyId ?? 1),
-    currencyCode: String(s.currencyCode || s.CurrencyCode || 'ILS'),
-    totalOriginalDebtAmount: Number(s.totalOriginalDebtAmount ?? s.TotalOriginalDebtAmount ?? 0),
-    totalPaidAmount: Number(s.totalPaidAmount ?? s.TotalPaidAmount ?? 0),
-    totalOutstandingAmount: Number(s.totalOutstandingAmount ?? s.TotalOutstandingAmount ?? 0),
-    totalOutstandingDebtsCount: Number(s.totalOutstandingDebtsCount ?? s.TotalOutstandingDebtsCount ?? 0),
-    totalOverdueAmount: Number(s.totalOverdueAmount ?? s.TotalOverdueAmount ?? 0),
-    totalOverdueDebtsCount: Number(s.totalOverdueDebtsCount ?? s.TotalOverdueDebtsCount ?? 0),
-    totalCustomersWithOutstandingDebts: Number(s.totalCustomersWithOutstandingDebts ?? s.TotalCustomersWithOutstandingDebts ?? 0),
-  }));
+  const summary: OutstandingDebtSummaryItem[] = rawSummary.map((s: any) => {
+    const curCode = String(s.currencyCode || s.CurrencyCode || 'ILS');
+    return {
+      currencyId: Number(s.currencyId ?? s.CurrencyId ?? getCurrencyId(curCode)),
+      currencyCode: curCode,
+      totalOriginalDebtAmount: Number(s.totalOriginalDebtAmount ?? s.TotalOriginalDebtAmount ?? 0),
+      totalPaidAmount: Number(s.totalPaidAmount ?? s.TotalPaidAmount ?? 0),
+      totalOutstandingAmount: Number(s.totalOutstandingAmount ?? s.TotalOutstandingAmount ?? 0),
+      totalOutstandingDebtsCount: Number(s.totalOutstandingDebtsCount ?? s.TotalOutstandingDebtsCount ?? 0),
+      totalOverdueAmount: Number(s.totalOverdueAmount ?? s.TotalOverdueAmount ?? 0),
+      totalOverdueDebtsCount: Number(s.totalOverdueDebtsCount ?? s.TotalOverdueDebtsCount ?? 0),
+      totalCustomersWithOutstandingDebts: Number(s.totalCustomersWithOutstandingDebts ?? s.TotalCustomersWithOutstandingDebts ?? 0),
+    };
+  });
 
   // 2. Extract Details & Items (with Pagination)
   let detailsRaw = (record.details ?? record.Details) as Record<string, unknown> | null;

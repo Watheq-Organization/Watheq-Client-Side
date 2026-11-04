@@ -2390,6 +2390,7 @@ export const CustomerDetailsScreen: FC = () => {
       {/* Telegram Link Modal */}
       {telegramModalCustomer && (
         <TelegramLinkModal
+          key={`telegram-link-${telegramModalCustomer.id}-${telegramModalCustomer.mode}`}
           isOpen={true}
           onClose={() => setTelegramModalCustomer(null)}
           customerId={telegramModalCustomer.id}
@@ -2398,6 +2399,9 @@ export const CustomerDetailsScreen: FC = () => {
           mode={telegramModalCustomer.mode}
           linkType="Customer"
           sendViaWhatsApp={telegramModalCustomer.sendViaWhatsApp ?? false}
+          onLinked={() => {
+            setCustomer((prev) => ({ ...prev, isTelegramLinked: true }));
+          }}
         />
       )}
     </div>

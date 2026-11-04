@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { X, Copy, Send, ExternalLink, Loader2, RefreshCw } from 'lucide-react';
-import { getTelegramLink, regenerateTelegramLink } from '../../services/customerService';
+import { X, Copy, Send, ExternalLink, Loader2, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { getTelegramLink, regenerateTelegramLink, getCustomers } from '../../services/customerService';
 import type { GenerateTelegramLinkResponse } from '../../services/customerService';
 
 interface TelegramLinkModalProps {
@@ -33,26 +33,58 @@ export const TelegramLinkModal: React.FC<TelegramLinkModalProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   /** Tracks whether the backend actually delivered the link via WhatsApp */
   const [whatsAppSent, setWhatsAppSent] = useState<boolean>(false);
+  /** Tracks whether the user successfully clicked Start in Telegram and linked */
+  const [isSuccessLinked, setIsSuccessLinked] = useState<boolean>(false);
 
-  const hasFetchedRef = React.useRef(false);
+  const lastFetchedKeyRef = React.useRef<string | null>(null);
+  const isFetchingRef = React.useRef<boolean>(false);
 
   useEffect(() => {
-    const shouldFetch = isOpen && (customerId || linkType === 'Merchant') && !hasFetchedRef.current;
+    const currentKey = `${linkType}:${customerId || 'merchant'}:${mode}:${Boolean(sendViaWhatsApp)}`;
+    const shouldFetch = isOpen && (customerId || linkType === 'Merchant') && lastFetchedKeyRef.current !== currentKey;
     if (shouldFetch) {
-      hasFetchedRef.current = true;
+      lastFetchedKeyRef.current = currentKey;
       fetchLink();
     }
   }, [isOpen, customerId, mode, linkType, sendViaWhatsApp]);
 
   useEffect(() => {
     if (!isOpen) {
-      hasFetchedRef.current = false;
+      lastFetchedKeyRef.current = null;
       setTelegramLink(null);
       setWhatsAppSent(false);
+      setIsSuccessLinked(false);
     }
   }, [isOpen]);
 
+  // Polling to detect when customer clicks Start in Telegram bot
+  useEffect(() => {
+    if (!isOpen || !customerId || linkType !== 'Customer' || isSuccessLinked) return;
+
+    let isMounted = true;
+    const intervalId = setInterval(async () => {
+      try {
+        const customers = await getCustomers();
+        if (!isMounted) return;
+        const current = customers.find((c) => String(c.id) === String(customerId));
+        if (current?.isTelegramLinked) {
+          setIsSuccessLinked(true);
+          onLinked?.();
+        }
+      } catch {
+        // ignore polling errors
+      }
+    }, 3000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [isOpen, customerId, linkType, isSuccessLinked, onLinked]);
+
   const fetchLink = async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     setIsLoading(true);
     setError(null);
     setWhatsAppSent(false);
@@ -77,7 +109,6 @@ export const TelegramLinkModal: React.FC<TelegramLinkModalProps> = ({
         setWhatsAppSent(result.whatsAppSent);
       }
       setTelegramLink(link);
-      onLinked?.();
     } catch (err: any) {
       let errorMsg = err?.message || 'Unknown error';
       if (err?.body) {
@@ -86,6 +117,7 @@ export const TelegramLinkModal: React.FC<TelegramLinkModalProps> = ({
       setError(`تعذر جلب رابط تيليجرام. (${errorMsg})`);
     } finally {
       setIsLoading(false);
+      isFetchingRef.current = false;
     }
   };
 
@@ -103,21 +135,28 @@ export const TelegramLinkModal: React.FC<TelegramLinkModalProps> = ({
     if (!telegramLink) return;
     
     // Clean phone number: remove non-digits
-    let cleanPhone = customerPhone.replace(/\D/g, '');
+    let digits = (customerPhone || '').replace(/\D/g, '');
     
-    // Assume Palestinian format if no country code is present for whatsapp
-    if (cleanPhone && cleanPhone.length === 9) {
-      cleanPhone = `970${cleanPhone}`;
+    if (digits.startsWith('00')) {
+      digits = digits.slice(2);
+    }
+    if (digits.startsWith('0')) {
+      digits = digits.replace(/^0+/, '');
+      if (digits.length === 9) {
+        digits = `970${digits}`;
+      }
+    } else if (digits.length === 9) {
+      digits = `970${digits}`;
     }
 
     const greeting = customerName ? `مرحباً ${customerName}` : 'مرحباً';
     const message = linkType === 'Merchant'
-      ? `${greeting}،\n\nتفضل رابط ربط حساب متجرك ببوت تيليجرام:\n${telegramLink}\n\nيرجى الضغط على الرابط ثم اختيار Start لتفعيل التنبيهات وإدارة الحساب.`
-      : `${greeting}،\n\nتفضل رابط تفعيل الإشعارات وتأكيد المعاملات عبر تيليجرام الخاص بك:\n${telegramLink}\n\nيرجى الضغط على الرابط ثم اختيار Start.`;
+      ? `${greeting}،\n\nتفضل رابط تفعيل بوت تيليجرام الخاص بمتجرك في منصة وثّق:\n${telegramLink}\n\nيرجى الضغط على الرابط أعلاه ثم النقر على "بدء" (Start) في تطبيق تيليجرام لإتمام ربط المتجر وتفعيل التنبيهات وإدارة الحساب.`
+      : `${greeting}،\n\nتفضل رابط تفعيل الإشعارات وتأكيد المعاملات عبر تيليجرام الخاص بك:\n${telegramLink}\n\nيرجى الضغط على الرابط أعلاه ثم النقر على "بدء" (Start) في تطبيق تيليجرام لإتمام الربط.`;
 
     const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = cleanPhone
-      ? `https://wa.me/${cleanPhone}?text=${encodedMessage}`
+    const whatsappUrl = digits
+      ? `https://wa.me/${digits}?text=${encodedMessage}`
       : `https://wa.me/?text=${encodedMessage}`;
     window.open(whatsappUrl, '_blank');
   };
@@ -150,100 +189,128 @@ export const TelegramLinkModal: React.FC<TelegramLinkModalProps> = ({
 
         {/* Content */}
         <div className="p-6 flex-1 flex flex-col items-center">
-          {linkType === 'Merchant' ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400 text-center mb-4 max-w-sm">
-              امسح الكود لتفعيل استلام التنبيهات وإدارة المتجر عبر بوت تيليجرام.
-            </p>
+          {isSuccessLinked ? (
+            <div className="py-8 flex flex-col items-center justify-center text-center animate-scale-up">
+              <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-4">
+                <CheckCircle2 className="w-10 h-10" />
+              </div>
+              <h4 className="text-xl font-bold text-slate-800 dark:text-slate-100 font-cairo mb-2">
+                تم ربط حساب Telegram بنجاح!
+              </h4>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 font-cairo max-w-xs">
+                تم تفعيل استلام الإشعارات وكشف الحساب والعمليات عبر روبوت وثّق.
+              </p>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm transition-all shadow-md active:scale-95 cursor-pointer"
+              >
+                تم / إغلاق
+              </button>
+            </div>
           ) : (
-            <p className="text-sm text-slate-500 dark:text-slate-400 text-center mb-4 max-w-sm">
-              امسح الكود لتفعيل استلام الإشعارات وتأكيد المعاملات لـ <strong className="text-slate-700 dark:text-slate-200">{customerName}</strong>.
-            </p>
+            <>
+              {linkType === 'Merchant' ? (
+                <p className="text-sm text-slate-500 dark:text-slate-400 text-center mb-3 max-w-sm">
+                  امسح الكود لتفعيل استلام التنبيهات وإدارة المتجر عبر بوت تيليجرام.
+                </p>
+              ) : (
+                <p className="text-sm text-slate-500 dark:text-slate-400 text-center mb-3 max-w-sm">
+                  امسح الكود لتفعيل استلام الإشعارات وتأكيد المعاملات لـ <strong className="text-slate-700 dark:text-slate-200">{customerName}</strong>.
+                </p>
+              )}
+
+              {/* Helpful note clarifying how WhatsApp delivery relates to Telegram Bot linking */}
+              <div className="w-full bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/60 rounded-xl p-2.5 text-xs text-blue-800 dark:text-blue-300 text-center mb-3 leading-relaxed font-cairo">
+                <span className="font-bold">تنويه:</span> رابط التفعيل يفتح بوت <strong>Telegram</strong> (@WatheqBot). يتم تسليم الرابط عبر WhatsApp لسهولة الوصول، وتكتمل عملية الربط فور الضغط على <strong>Start</strong> في تطبيق تيليجرام.
+              </div>
+
+              {/* WhatsApp delivery status — based on actual backend response, not just the request flag */}
+              {!isLoading && !error && telegramLink && sendViaWhatsApp && (
+                whatsAppSent ? (
+                  <div className="mb-4 inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 rounded-full text-xs font-semibold border border-emerald-200 dark:border-emerald-800 animate-fade-in">
+                    <span>✓ تم إرسال رابط التفعيل عبر واتساب تلقائياً</span>
+                  </div>
+                ) : (
+                  <div className="mb-4 inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 rounded-full text-xs font-semibold border border-amber-200 dark:border-amber-800 animate-fade-in">
+                    <span>⚠ تم إنشاء الرابط لكن تعذر إرساله عبر واتساب</span>
+                  </div>
+                )
+              )}
+
+              <div className="min-h-[220px] flex items-center justify-center w-full mb-6 relative">
+                {isLoading ? (
+                  <div className="flex flex-col items-center gap-3 text-slate-400">
+                    <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
+                    <span className="text-sm font-medium">جاري إنشاء رمز الاستجابة...</span>
+                  </div>
+                ) : error ? (
+                  <div className="flex flex-col items-center gap-4 text-center">
+                    <div className="text-rose-500 bg-rose-50 p-4 rounded-full">
+                      <X className="w-8 h-8" />
+                    </div>
+                    <p className="text-sm text-rose-600 font-medium">{error}</p>
+                    <button
+                      onClick={fetchLink}
+                      className="flex items-center gap-2 px-4 py-2 mt-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-semibold transition-colors"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      إعادة المحاولة
+                    </button>
+                  </div>
+                ) : telegramLink ? (
+                  <div className="flex flex-col items-center animate-scale-up">
+                    <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-200">
+                      <QRCodeSVG
+                        value={telegramLink}
+                        size={200}
+                        level="H"
+                        includeMargin={false}
+                      />
+                    </div>
+                    <div className="mt-5 inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full text-sm font-bold animate-pulse">
+                      وجّه كاميرا الهاتف نحو الكود واضغط Start
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="w-full space-y-3 mt-auto">
+                {telegramLink && !isLoading && !error && (
+                  <>
+                    <button
+                      onClick={handleSendWhatsApp}
+                      className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-[#25D366] hover:bg-[#1DA851] text-white rounded-xl font-bold shadow-sm transition-colors active:scale-95"
+                    >
+                      <Send className="w-5 h-5" />
+                      <span>إرسال الرابط عبر واتساب</span>
+                    </button>
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleCopyLink}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl font-semibold transition-colors text-sm"
+                      >
+                        <Copy className="w-4 h-4" />
+                        <span>نسخ الرابط</span>
+                      </button>
+                      
+                      <a
+                        href={telegramLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-400 rounded-xl font-semibold transition-colors text-sm border border-blue-200 dark:border-blue-800/50"
+                      >
+                        <span>فتح في تيليجرام</span>
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
           )}
-
-          {/* WhatsApp delivery status — based on actual backend response, not just the request flag */}
-          {!isLoading && !error && telegramLink && sendViaWhatsApp && (
-            whatsAppSent ? (
-              <div className="mb-4 inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 rounded-full text-xs font-semibold border border-emerald-200 dark:border-emerald-800 animate-fade-in">
-                <span>✓ تم إرسال رابط التفعيل عبر واتساب تلقائياً</span>
-              </div>
-            ) : (
-              <div className="mb-4 inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 rounded-full text-xs font-semibold border border-amber-200 dark:border-amber-800 animate-fade-in">
-                <span>⚠ تم إنشاء الرابط لكن تعذر إرساله عبر واتساب</span>
-              </div>
-            )
-          )}
-
-          <div className="min-h-[220px] flex items-center justify-center w-full mb-6 relative">
-            {isLoading ? (
-              <div className="flex flex-col items-center gap-3 text-slate-400">
-                <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
-                <span className="text-sm font-medium">جاري إنشاء رمز الاستجابة...</span>
-              </div>
-            ) : error ? (
-              <div className="flex flex-col items-center gap-4 text-center">
-                <div className="text-rose-500 bg-rose-50 p-4 rounded-full">
-                  <X className="w-8 h-8" />
-                </div>
-                <p className="text-sm text-rose-600 font-medium">{error}</p>
-                <button
-                  onClick={fetchLink}
-                  className="flex items-center gap-2 px-4 py-2 mt-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-semibold transition-colors"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  إعادة المحاولة
-                </button>
-              </div>
-            ) : telegramLink ? (
-              <div className="flex flex-col items-center animate-scale-up">
-                <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-200">
-                  <QRCodeSVG
-                    value={telegramLink}
-                    size={200}
-                    level="H"
-                    includeMargin={false}
-                  />
-                </div>
-                <div className="mt-5 inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full text-sm font-bold animate-pulse">
-                  وجّه كاميرا الهاتف نحو الكود واضغط Start
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-          {/* Action Buttons */}
-          <div className="w-full space-y-3 mt-auto">
-            {telegramLink && !isLoading && !error && (
-              <>
-                <button
-                  onClick={handleSendWhatsApp}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-[#25D366] hover:bg-[#1DA851] text-white rounded-xl font-bold shadow-sm transition-colors active:scale-95"
-                >
-                  <Send className="w-5 h-5" />
-                  <span>إرسال الرابط عبر واتساب</span>
-                </button>
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleCopyLink}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl font-semibold transition-colors text-sm"
-                  >
-                    <Copy className="w-4 h-4" />
-                    <span>نسخ الرابط</span>
-                  </button>
-                  
-                  <a
-                    href={telegramLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-400 rounded-xl font-semibold transition-colors text-sm border border-blue-200 dark:border-blue-800/50"
-                  >
-                    <span>فتح في تيليجرام</span>
-                    <ExternalLink className="w-4 h-4" />
-                  </a>
-                </div>
-              </>
-            )}
-          </div>
         </div>
 
         {/* Footer */}
