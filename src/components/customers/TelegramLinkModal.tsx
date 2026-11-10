@@ -13,6 +13,7 @@ interface TelegramLinkModalProps {
   mode?: 'generate' | 'regenerate';
   linkType?: 'Customer' | 'Merchant';
   sendViaWhatsApp?: boolean;
+  initialLink?: string;
   onLinked?: () => void;
 }
 
@@ -25,10 +26,11 @@ export const TelegramLinkModal: React.FC<TelegramLinkModalProps> = ({
   mode = 'generate',
   linkType = 'Customer',
   sendViaWhatsApp = false,
+  initialLink,
   onLinked,
 }) => {
-  const [telegramLink, setTelegramLink] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [telegramLink, setTelegramLink] = useState<string | null>(initialLink || null);
+  const [isLoading, setIsLoading] = useState<boolean>(!initialLink);
   const [error, setError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   /** Tracks whether the backend actually delivered the link via WhatsApp */
@@ -41,12 +43,18 @@ export const TelegramLinkModal: React.FC<TelegramLinkModalProps> = ({
 
   useEffect(() => {
     const currentKey = `${linkType}:${customerId || 'merchant'}:${mode}:${Boolean(sendViaWhatsApp)}`;
-    const shouldFetch = isOpen && (customerId || linkType === 'Merchant') && lastFetchedKeyRef.current !== currentKey;
+    if (initialLink && !telegramLink) {
+      setTelegramLink(initialLink);
+      setIsLoading(false);
+      lastFetchedKeyRef.current = currentKey;
+      return;
+    }
+    const shouldFetch = isOpen && (customerId || linkType === 'Merchant') && lastFetchedKeyRef.current !== currentKey && !initialLink;
     if (shouldFetch) {
       lastFetchedKeyRef.current = currentKey;
       fetchLink();
     }
-  }, [isOpen, customerId, mode, linkType, sendViaWhatsApp]);
+  }, [isOpen, customerId, mode, linkType, sendViaWhatsApp, initialLink]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -225,9 +233,9 @@ export const TelegramLinkModal: React.FC<TelegramLinkModalProps> = ({
                 <span className="font-bold">تنويه:</span> رابط التفعيل يفتح بوت <strong>Telegram</strong> (@WatheqBot). يتم تسليم الرابط عبر WhatsApp لسهولة الوصول، وتكتمل عملية الربط فور الضغط على <strong>Start</strong> في تطبيق تيليجرام.
               </div>
 
-              {/* WhatsApp delivery status — based on actual backend response, not just the request flag */}
-              {!isLoading && !error && telegramLink && sendViaWhatsApp && (
-                whatsAppSent ? (
+              {/* WhatsApp delivery status — based on actual backend response or initial creation delivery */}
+              {!isLoading && !error && telegramLink && (sendViaWhatsApp || initialLink) && (
+                whatsAppSent || initialLink ? (
                   <div className="mb-4 inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 rounded-full text-xs font-semibold border border-emerald-200 dark:border-emerald-800 animate-fade-in">
                     <span>✓ تم إرسال رابط التفعيل عبر واتساب تلقائياً</span>
                   </div>

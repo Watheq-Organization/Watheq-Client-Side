@@ -152,11 +152,29 @@ function extractCustomerDtoList(response: unknown): unknown[] {
 function extractCustomerDtoObject(response: unknown): unknown {
   if (response && typeof response === 'object' && !Array.isArray(response)) {
     const obj = response as Record<string, unknown>;
+    const rootTelegramLink =
+      obj.telegramLink ??
+      obj.TelegramLink ??
+      obj.telegramBotLink ??
+      obj.TelegramBotLink ??
+      obj.link ??
+      obj.Link ??
+      obj.botLink ??
+      obj.BotLink;
+
     if (obj.data && typeof obj.data === 'object' && !Array.isArray(obj.data)) {
-      return obj.data;
+      const dataObj = { ...(obj.data as Record<string, unknown>) };
+      if (rootTelegramLink && !dataObj.telegramLink && !dataObj.TelegramLink) {
+        dataObj.telegramLink = rootTelegramLink;
+      }
+      return dataObj;
     }
     if (obj.result && typeof obj.result === 'object' && !Array.isArray(obj.result)) {
-      return obj.result;
+      const resultObj = { ...(obj.result as Record<string, unknown>) };
+      if (rootTelegramLink && !resultObj.telegramLink && !resultObj.TelegramLink) {
+        resultObj.telegramLink = rootTelegramLink;
+      }
+      return resultObj;
     }
   }
   return response;
@@ -389,6 +407,17 @@ function normalizeCustomerDto(raw: unknown): CustomerDto {
       typeof (r.createdAt ?? r.CreatedAt) === 'string' ? String(r.createdAt ?? r.CreatedAt) : ''
     ),
     isTelegramLinked: Boolean(r.isTelegramLinked ?? r.IsTelegramLinked),
+    telegramLink: String(
+      r.telegramLink ??
+      r.TelegramLink ??
+      r.telegramBotLink ??
+      r.TelegramBotLink ??
+      r.link ??
+      r.Link ??
+      r.botLink ??
+      r.BotLink ??
+      ''
+    ).trim() || undefined,
   };
 }
 

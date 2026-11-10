@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import type { FC } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -81,7 +81,9 @@ export const CustomersScreen: FC = () => {
     name: string;
     phone: string;
     sendViaWhatsApp?: boolean;
+    initialLink?: string;
   } | null>(null);
+  const isSubmittingAddRef = useRef(false);
 
   // Shows a one-off success toast passed via navigation state (e.g. after
   // deleting a customer from the details screen), then clears it from
@@ -265,6 +267,9 @@ export const CustomersScreen: FC = () => {
     setAddFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
+    if (isAddingCustomer || isSubmittingAddRef.current) return;
+    isSubmittingAddRef.current = true;
+
     setAddSubmitError(null);
     setIsAddingCustomer(true);
     try {
@@ -312,14 +317,19 @@ export const CustomersScreen: FC = () => {
       closeAddModal();
       showToast('تمت إضافة العميل بنجاح.');
       
-      // Case A: When adding a new customer, send Telegram link via WhatsApp and show QR code
+      // The backend /Customer/addCustomer handler automatically generates and sends
+      // the initial Telegram link to the customer's WhatsApp (Token 1, e.g. WTH-BAA8184F).
+      // We must NOT set sendViaWhatsApp: true here, because that triggers a second call
+      // to /api/Telegram/link/generate with sendViaWhatsApp: true (Token 2), which sends a
+      // duplicate message and invalidates the first token!
       const createdCustId = dto.id ? String(dto.id) : newCustomerItem.id;
       if (createdCustId) {
         setTelegramModalCustomer({
           id: createdCustId,
           name: newCustomerItem.name,
           phone: newCustomerItem.phone || formattedPhone || '',
-          sendViaWhatsApp: true,
+          sendViaWhatsApp: false,
+          initialLink: dto.telegramLink,
         });
       }
 
@@ -333,6 +343,7 @@ export const CustomersScreen: FC = () => {
       showToast(generalMessage);
     } finally {
       setIsAddingCustomer(false);
+      isSubmittingAddRef.current = false;
     }
   };
 
@@ -1045,6 +1056,7 @@ export const CustomersScreen: FC = () => {
           customerName={telegramModalCustomer.name}
           customerPhone={telegramModalCustomer.phone}
           linkType="Customer"
+          initialLink={telegramModalCustomer.initialLink}
           sendViaWhatsApp={telegramModalCustomer.sendViaWhatsApp ?? false}
           onLinked={() => {
             setCustomers((prev) =>

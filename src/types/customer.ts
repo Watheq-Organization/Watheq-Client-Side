@@ -53,6 +53,7 @@ export interface CustomerDto {
   status?: string;
   createdAt: string;
   isTelegramLinked?: boolean;
+  telegramLink?: string;
   balances?: CustomerCurrencyBalanceDto[];
 }
 
