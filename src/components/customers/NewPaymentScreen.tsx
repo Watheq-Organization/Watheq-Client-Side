@@ -14,6 +14,8 @@ import {
   Save,
   CheckCircle2,
   AlertTriangle,
+  AlertCircle,
+  X,
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
@@ -35,14 +37,16 @@ import {
 } from '../../services/customerService';
 import {
   registerPayment,
-  toRegisterPaymentErrorMessage,
+  parseRegisterPaymentApiError,
   updatePayment,
-  toUpdatePaymentErrorMessage,
+  parseUpdatePaymentApiError,
   validatePaymentAmount,
   validatePaymentAmountAgainstBalance,
+  validatePaymentDate,
   validatePaymentNotes,
   validateReceiptFile,
   PAYMENT_METHOD_TO_NUMERIC,
+  type PaymentFieldErrors,
 } from '../../services/paymentService';
 import { PAYMENT_METHOD_OPTIONS } from '../../types/payment';
 import type { PaymentMethod, EditingPaymentState } from '../../types/payment';
@@ -96,7 +100,7 @@ export const NewPaymentScreen: FC = () => {
   const loadCustomerProfile = useCallback(() => {
     if (!id) {
       setIsLoadingProfile(false);
-      setLoadError('معرّف العميل غير موجود.');
+      setLoadError('معرّف العميل غير موجود في الرابط.');
       return;
     }
     setIsLoadingProfile(true);
@@ -147,12 +151,6 @@ export const NewPaymentScreen: FC = () => {
   );
   const hasUserChangedCurrencyRef = useRef(false);
 
-  const handleCurrencyChange = useCallback((nextCode: CurrencyCode) => {
-    hasUserChangedCurrencyRef.current = true;
-    setCurrency(nextCode);
-    setCurrencyId(getCurrencyId(nextCode));
-  }, []);
-
   // Form state
   const [amount, setAmount] = useState(
     editingPayment ? String(editingPayment.amount) : targetDebt?.remainingAmount ? String(targetDebt.remainingAmount) : ''
@@ -169,15 +167,34 @@ export const NewPaymentScreen: FC = () => {
   const [notes, setNotes] = useState(editingPayment?.notes ?? '');
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const errorBannerRef = useRef<HTMLDivElement>(null);
 
-  const [fieldErrors, setFieldErrors] = useState<{
-    amount?: string;
-    paymentDate?: string;
-    notes?: string;
-    receipt?: string;
-  }>({});
+  const [fieldErrors, setFieldErrors] = useState<PaymentFieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitErrorDetails, setSubmitErrorDetails] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+
+  const clearSubmitError = useCallback(() => {
+    setSubmitError(null);
+    setSubmitErrorDetails([]);
+  }, []);
+
+  const scrollToErrorBanner = useCallback(() => {
+    requestAnimationFrame(() => {
+      errorBannerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, []);
+
+  const handleCurrencyChange = useCallback(
+    (nextCode: CurrencyCode) => {
+      hasUserChangedCurrencyRef.current = true;
+      setCurrency(nextCode);
+      setCurrencyId(getCurrencyId(nextCode));
+      setFieldErrors((prev) => ({ ...prev, currency: undefined, amount: undefined }));
+      clearSubmitError();
+    },
+    [clearSubmitError]
+  );
 
   // Mismatch warning when merchant selects a different currency than target debt
   const isCurrencyMismatched = useMemo(() => {
@@ -187,8 +204,6 @@ export const NewPaymentScreen: FC = () => {
   }, [targetDebt, currency]);
 
   // Re-sync form state whenever the navigation state (editingPayment) changes.
-  // useState initialises only once, but if the user navigates between payments
-  // without the component unmounting, the state stays stale.
   const editingPaymentId = editingPayment?.paymentId;
   useEffect(() => {
     if (editingPayment) {
@@ -203,6 +218,7 @@ export const NewPaymentScreen: FC = () => {
     }
     setFieldErrors({});
     setSubmitError(null);
+    setSubmitErrorDetails([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingPaymentId]);
 
@@ -216,10 +232,14 @@ export const NewPaymentScreen: FC = () => {
     const error = validateReceiptFile(file);
     if (error) {
       setFieldErrors((prev) => ({ ...prev, receipt: error }));
+      setSubmitError(error);
+      setSubmitErrorDetails([]);
       setReceiptFile(null);
+      scrollToErrorBanner();
       return;
     }
     setFieldErrors((prev) => ({ ...prev, receipt: undefined }));
+    clearSubmitError();
     setReceiptFile(file);
   };
 
@@ -261,26 +281,6 @@ export const NewPaymentScreen: FC = () => {
     );
   }, [customerProfile?.transactions]);
 
-
-  const _matchingDebt = useMemo(() => {
-    if (targetDebt) return targetDebt;
-    const matched = openDebts.find(
-      (d) => normalizeCurrencyCode(d.currencyCode || d.currencyId) === currency
-    );
-    if (matched) {
-      return {
-        id: matched.id,
-        reference: matched.reference,
-        amount: matched.amount,
-        remainingAmount: matched.balance,
-        currencyCode: matched.currencyCode,
-        currencyId: matched.currencyId,
-      };
-    }
-    return null;
-  }, [targetDebt, openDebts, currency]);
-  void _matchingDebt;
-
   // Debts in other currencies (for warnings / switcher)
   const otherCurrencyDebts = useMemo(() => {
     return openDebts.filter(
@@ -290,6 +290,15 @@ export const NewPaymentScreen: FC = () => {
 
   // Balance in the currently selected currency
   const selectedCurrencyBalance = useMemo(() => {
+    if (customerProfile?.balances && customerProfile.balances.length > 0) {
+      const matched = customerProfile.balances.find(
+        (b) => normalizeCurrencyCode(b.currencyCode || b.currencyId) === currency
+      );
+      if (matched) {
+        return Math.max(matched.currentBalance ?? 0, 0);
+      }
+      return 0;
+    }
     if (customerProfile?.transactions && customerProfile.transactions.length > 0) {
       const group = currencyGroups[currency];
       if (group && (group.debtCount > 0 || group.paymentCount > 0)) {
@@ -297,8 +306,8 @@ export const NewPaymentScreen: FC = () => {
       }
       return 0;
     }
-    return currentBalance;
-  }, [currencyGroups, currency, customerProfile?.transactions, currentBalance]);
+    return Math.max(currentBalance, 0);
+  }, [customerProfile, currencyGroups, currency, currentBalance]);
 
   // Balance after payment
   const parsedAmount = Number(amount);
@@ -321,11 +330,15 @@ export const NewPaymentScreen: FC = () => {
     if (isEditMode && editingPayment) {
       const amountError = validatePaymentAmount(amount);
       if (amountError) {
-        setFieldErrors((prev) => ({ ...prev, amount: amountError }));
+        setFieldErrors({ amount: amountError });
+        setSubmitError(amountError);
+        setSubmitErrorDetails([]);
+        scrollToErrorBanner();
         return;
       }
 
-      setSubmitError(null);
+      clearSubmitError();
+      setFieldErrors({});
       setIsSaving(true);
       try {
         await updatePayment(
@@ -337,32 +350,89 @@ export const NewPaymentScreen: FC = () => {
           state: { toast: 'تم تعديل الدفعة بنجاح.' },
         });
       } catch (error) {
-        setSubmitError(toUpdatePaymentErrorMessage(error));
+        const parsed = parseUpdatePaymentApiError(error);
+        setFieldErrors(parsed.fieldErrors);
+        setSubmitError(parsed.generalMessage);
+        setSubmitErrorDetails(parsed.details.length > 1 ? parsed.details : []);
+        scrollToErrorBanner();
       } finally {
         setIsSaving(false);
       }
       return;
     }
 
-    const errors: typeof fieldErrors = {
-      amount:
-        validatePaymentAmount(amount) ??
-        (customerProfile && selectedCurrencyBalance > 0
-          ? validatePaymentAmountAgainstBalance(amount, selectedCurrencyBalance) ?? undefined
-          : undefined),
-      notes: validatePaymentNotes(notes) ?? undefined,
-    };
-    setFieldErrors((prev) => ({ ...prev, ...errors }));
-    if (errors.amount || errors.notes || !id) {
-      if (!id) setSubmitError('معرّف العميل غير موجود.');
+    if (!id) {
+      setSubmitError('معرّف العميل غير موجود. يرجى الرجوع إلى صفحة العميل والمحاولة مجدداً.');
+      setSubmitErrorDetails([]);
+      scrollToErrorBanner();
       return;
     }
 
-    setSubmitError(null);
+    // Comprehensive client-side validation with explicit reasons
+    const nextFieldErrors: PaymentFieldErrors = {};
+    const validationMessages: string[] = [];
+
+    const amountFormatError = validatePaymentAmount(amount);
+    if (amountFormatError) {
+      nextFieldErrors.amount = amountFormatError;
+      validationMessages.push(amountFormatError);
+    } else if (customerProfile && !isLoadingProfile && !loadError) {
+      if (selectedCurrencyBalance <= 0) {
+        if (otherCurrencyDebts.length > 0) {
+          const msg = `لا توجد ديون مستحقة على العميل بعملة ${getCurrencyConfig(currency).labelArFull}؛ يرجى التحويل إلى العملة التي توجد بها ديون قائمة.`;
+          nextFieldErrors.currency = msg;
+          nextFieldErrors.amount = `الرصيد المستحق بعملة ${getCurrencyConfig(currency).labelAr} يساوي صفر.`;
+          validationMessages.push(msg);
+        } else {
+          const msg = 'لا توجد أي ديون قائمة مستحقة على هذا العميل لتسجيل دفعة عليها (الرصيد الحالي 0).';
+          nextFieldErrors.amount = msg;
+          validationMessages.push(msg);
+        }
+      } else {
+        const balanceError = validatePaymentAmountAgainstBalance(
+          amount,
+          selectedCurrencyBalance,
+          currency
+        );
+        if (balanceError) {
+          nextFieldErrors.amount = balanceError;
+          validationMessages.push(balanceError);
+        }
+      }
+    }
+
+    const dateError = validatePaymentDate(paymentDate);
+    if (dateError) {
+      nextFieldErrors.paymentDate = dateError;
+      validationMessages.push(dateError);
+    }
+
+    const notesError = validatePaymentNotes(notes);
+    if (notesError) {
+      nextFieldErrors.notes = notesError;
+      validationMessages.push(notesError);
+    }
+
+    if (receiptFile) {
+      const fileError = validateReceiptFile(receiptFile);
+      if (fileError) {
+        nextFieldErrors.receipt = fileError;
+        validationMessages.push(fileError);
+      }
+    }
+
+    setFieldErrors(nextFieldErrors);
+
+    if (validationMessages.length > 0) {
+      setSubmitError(validationMessages[0]);
+      setSubmitErrorDetails(validationMessages.length > 1 ? validationMessages : []);
+      scrollToErrorBanner();
+      return;
+    }
+
+    clearSubmitError();
     setIsSaving(true);
     try {
-
-
       const res = await registerPayment(id, {
         amount,
         method,
@@ -385,7 +455,11 @@ export const NewPaymentScreen: FC = () => {
 
       navigate(`/customers/${id}`, { state: { toast: 'تم حفظ الدفعة بنجاح.' } });
     } catch (error) {
-      setSubmitError(toRegisterPaymentErrorMessage(error));
+      const parsed = parseRegisterPaymentApiError(error);
+      setFieldErrors((prev) => ({ ...prev, ...parsed.fieldErrors }));
+      setSubmitError(parsed.generalMessage);
+      setSubmitErrorDetails(parsed.details.length > 1 ? parsed.details : []);
+      scrollToErrorBanner();
     } finally {
       setIsSaving(false);
     }
@@ -416,7 +490,7 @@ export const NewPaymentScreen: FC = () => {
             <button
               type="button"
               onClick={() => navigate(PATHS.DASHBOARD)}
-              className="hover:text-[#0c2444] dark:text-blue-400 transition-colors cursor-pointer"
+              className="hover:text-[#0c2444] dark:hover:text-blue-400 transition-colors cursor-pointer"
             >
               الرئيسية
             </button>
@@ -424,7 +498,7 @@ export const NewPaymentScreen: FC = () => {
             <button
               type="button"
               onClick={() => navigate(id ? `/customers/${id}` : '/customers')}
-              className="hover:text-[#0c2444] dark:text-blue-400 transition-colors cursor-pointer"
+              className="hover:text-[#0c2444] dark:hover:text-blue-400 transition-colors cursor-pointer"
             >
               سجل المدفوعات
             </button>
@@ -447,7 +521,7 @@ export const NewPaymentScreen: FC = () => {
               </p>
             </div>
 
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-lg text-xs font-bold self-start shrink-0">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold self-start shrink-0">
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>نظام دفع آمن ومشفر</span>
             </div>
@@ -455,8 +529,11 @@ export const NewPaymentScreen: FC = () => {
 
           {/* Profile Load Status */}
           {loadError && (
-            <div className="rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-sm px-4 py-3 flex items-center justify-between gap-3">
-              <span>{loadError}</span>
+            <div className="rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-300 text-sm px-4 py-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
+                <span>تعذر تحميل بيانات العميل: {loadError}</span>
+              </div>
               <button
                 type="button"
                 onClick={loadCustomerProfile}
@@ -471,20 +548,72 @@ export const NewPaymentScreen: FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
             {/* MAIN: Payment Form Card */}
             <div className="lg:col-span-8 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-xs p-6 sm:p-8 space-y-5">
+              {/* Structured Explicit Error Alert Banner */}
               {submitError && (
-                <div className="rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-sm px-3.5 py-2.5 text-right">
-                  {submitError}
+                <div
+                  ref={errorBannerRef}
+                  role="alert"
+                  className="rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/70 text-rose-800 dark:text-rose-200 p-4 text-right animate-fade-in"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                      <div className="space-y-1 text-sm">
+                        <p className="font-bold font-cairo text-rose-900 dark:text-rose-200">
+                          {isEditMode ? 'تعذر تعديل الدفعة:' : 'تعذر تسجيل الدفعة:'}
+                        </p>
+                        {submitErrorDetails.length > 1 ? (
+                          <ul className="list-disc list-inside space-y-1 text-xs sm:text-sm font-medium text-rose-700 dark:text-rose-300">
+                            {submitErrorDetails.map((detail, index) => (
+                              <li key={index}>{detail}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-xs sm:text-sm font-medium text-rose-700 dark:text-rose-300 leading-relaxed">
+                            {submitError}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={clearSubmitError}
+                      className="text-rose-400 hover:text-rose-700 dark:hover:text-rose-200 p-1 rounded-lg transition-colors cursor-pointer shrink-0"
+                      aria-label="إغلاق رسالة الخطأ"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               )}
 
               {isEditMode && (
-                <div className="rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs px-4 py-2.5 flex items-center gap-2">
-                  <Info className="w-4 h-4 shrink-0 text-blue-600" />
+                <div className="rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 text-blue-800 dark:text-blue-200 text-xs px-4 py-2.5 flex items-center gap-2">
+                  <Info className="w-4 h-4 shrink-0 text-blue-600 dark:text-blue-400" />
                   <span>
-                    يتم تعديل قيمة الدفعة الحالية، وسيقوم النظام تلقائياً بإعادة احتساب وتوزيع المبلغ على ديون العميل في قاعدة البيانات.
+                    يتم تعديل قيمة الدفعة الحالية، وسيقوم النظام تلقائياً بإعادة احتساب وتوزيع المبلغ على ديون العميل.
                   </span>
                 </div>
               )}
+
+              {/* Zero Balance Proactive Alert */}
+              {!isEditMode &&
+                !targetDebt &&
+                !isLoadingProfile &&
+                customerProfile &&
+                !loadError &&
+                selectedCurrencyBalance === 0 &&
+                otherCurrencyDebts.length === 0 && (
+                  <div className="rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/70 text-amber-800 dark:text-amber-300 text-xs p-3.5 flex items-start gap-2.5">
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                    <div>
+                      <span className="font-bold">تنبيه رصيد العميل:</span>{' '}
+                      الرصيد المستحق على العميل بعملة ({getCurrencyConfig(currency).labelArFull}) يساوي{' '}
+                      <span className="font-bold">0</span> حالياً. لا توجد ديون قائمة لتسجيل دفعة جديدة عليها.
+                    </div>
+                  </div>
+                )}
 
               {/* Customer Name (context only, not selectable) */}
               <div className="space-y-1.5 text-right">
@@ -519,6 +648,12 @@ export const NewPaymentScreen: FC = () => {
                   onChangeId={setCurrencyId}
                   disabled={isEditMode}
                 />
+                {fieldErrors.currency && (
+                  <p className="text-xs font-medium text-rose-600 dark:text-rose-400 flex items-center gap-1 mt-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{fieldErrors.currency}</span>
+                  </p>
+                )}
                 {isEditMode && (
                   <p className="text-xs text-slate-400">لا يمكن تغيير عملة الدفعة أثناء التعديل.</p>
                 )}
@@ -582,18 +717,25 @@ export const NewPaymentScreen: FC = () => {
                       onChange={(e) => {
                         setAmount(e.target.value);
                         setFieldErrors((prev) => ({ ...prev, amount: undefined }));
+                        clearSubmitError();
                       }}
                       placeholder="0.00"
                       dir="ltr"
-                      className={`w-full pr-3.5 pl-10 py-2.5 bg-slate-50/70 dark:bg-slate-800/70 border rounded-lg text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-left font-sans ${fieldErrors.amount ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'
-                        }`}
+                      className={`w-full pr-3.5 pl-10 py-2.5 bg-slate-50/70 dark:bg-slate-800/70 border rounded-lg text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-left font-sans ${
+                        fieldErrors.amount
+                          ? 'border-rose-400 dark:border-rose-500 focus:ring-rose-500/20 focus:border-rose-500'
+                          : 'border-slate-200 dark:border-slate-700'
+                      }`}
                     />
                     <span className="absolute left-3 text-sm font-bold text-slate-400 font-sans pointer-events-none">
                       {getCurrencyConfig(currency).symbol}
                     </span>
                   </div>
                   {fieldErrors.amount && (
-                    <p className="text-xs text-rose-600">{fieldErrors.amount}</p>
+                    <p className="text-xs font-medium text-rose-600 dark:text-rose-400 flex items-start gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      <span>{fieldErrors.amount}</span>
+                    </p>
                   )}
                 </div>
 
@@ -610,16 +752,25 @@ export const NewPaymentScreen: FC = () => {
                       onChange={(e) => {
                         setPaymentDate(e.target.value);
                         setFieldErrors((prev) => ({ ...prev, paymentDate: undefined }));
+                        clearSubmitError();
                       }}
                       onClick={(e) => !isEditMode && e.currentTarget.showPicker?.()}
                       dir="ltr"
                       placeholder="mm/dd/yyyy"
-                      className={`w-full px-3.5 py-2.5 bg-slate-50/70 dark:bg-slate-800/70 border rounded-lg text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-left font-sans ${isEditMode ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
-                        } ${fieldErrors.paymentDate ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'}`}
+                      className={`w-full px-3.5 py-2.5 bg-slate-50/70 dark:bg-slate-800/70 border rounded-lg text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all text-left font-sans ${
+                        isEditMode ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                      } ${
+                        fieldErrors.paymentDate
+                          ? 'border-rose-400 dark:border-rose-500 focus:ring-rose-500/20 focus:border-rose-500'
+                          : 'border-slate-200 dark:border-slate-700'
+                      }`}
                     />
                   </div>
                   {fieldErrors.paymentDate && (
-                    <p className="text-xs text-rose-600">{fieldErrors.paymentDate}</p>
+                    <p className="text-xs font-medium text-rose-600 dark:text-rose-400 flex items-start gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      <span>{fieldErrors.paymentDate}</span>
+                    </p>
                   )}
                 </div>
               </div>
@@ -636,11 +787,16 @@ export const NewPaymentScreen: FC = () => {
                         key={option.value}
                         type="button"
                         disabled={isSaving}
-                        onClick={() => setMethod(option.value)}
-                        className={`flex flex-col items-center justify-center gap-1.5 py-3 px-2 rounded-xl border-2 text-xs font-bold transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-70 ${isSelected
+                        onClick={() => {
+                          setMethod(option.value);
+                          setFieldErrors((prev) => ({ ...prev, method: undefined }));
+                          clearSubmitError();
+                        }}
+                        className={`flex flex-col items-center justify-center gap-1.5 py-3 px-2 rounded-xl border-2 text-xs font-bold transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-70 ${
+                          isSelected
                             ? 'border-[#0c2444] dark:border-blue-400 bg-slate-50 dark:bg-slate-800/50 text-[#0c2444] dark:text-blue-400 shadow-xs'
                             : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-300'
-                          }`}
+                        }`}
                       >
                         <Icon className={`w-5 h-5 ${isSelected ? 'text-[#0c2444] dark:text-blue-400' : 'text-slate-400'}`} />
                         <span>{option.label}</span>
@@ -648,6 +804,12 @@ export const NewPaymentScreen: FC = () => {
                     );
                   })}
                 </div>
+                {fieldErrors.method && (
+                  <p className="text-xs font-medium text-rose-600 dark:text-rose-400 flex items-start gap-1 mt-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span>{fieldErrors.method}</span>
+                  </p>
+                )}
               </div>
 
               {/* Additional Notes */}
@@ -661,13 +823,24 @@ export const NewPaymentScreen: FC = () => {
                   onChange={(e) => {
                     setNotes(e.target.value);
                     setFieldErrors((prev) => ({ ...prev, notes: undefined }));
+                    clearSubmitError();
                   }}
                   rows={3}
                   className={isEditMode ? 'opacity-60 cursor-not-allowed' : ''}
                 />
-                {fieldErrors.notes && (
-                  <p className="text-xs text-rose-600 text-right mt-1">{fieldErrors.notes}</p>
-                )}
+                <div className="flex items-center justify-between mt-1">
+                  {fieldErrors.notes ? (
+                    <p className="text-xs font-medium text-rose-600 dark:text-rose-400 flex items-start gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      <span>{fieldErrors.notes}</span>
+                    </p>
+                  ) : (
+                    <span />
+                  )}
+                  <span className="text-[11px] text-slate-400 tabular-nums" dir="ltr">
+                    {notes.length} / 500
+                  </span>
+                </div>
               </div>
 
               {/* Actions */}
@@ -709,7 +882,7 @@ export const NewPaymentScreen: FC = () => {
                   type="button"
                   onClick={handleCancel}
                   disabled={isSaving}
-                  className="py-3 px-6 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold transition-all cursor-pointer disabled:opacity-60"
+                  className="py-3 px-6 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold transition-all cursor-pointer disabled:opacity-60"
                 >
                   إلغاء
                 </button>
@@ -720,9 +893,25 @@ export const NewPaymentScreen: FC = () => {
             <div className="lg:col-span-4 space-y-4">
               {/* Payment Proof / Receipt Card */}
               <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-5 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Paperclip className="w-4 h-4 text-slate-400" />
-                  <h3 className="text-sm font-bold text-[#0c2444] dark:text-blue-400">إثبات الدفع / الإيصال</h3>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Paperclip className="w-4 h-4 text-slate-400" />
+                    <h3 className="text-sm font-bold text-[#0c2444] dark:text-blue-400">إثبات الدفع / الإيصال</h3>
+                  </div>
+
+                  {receiptFile && !isEditMode && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleReceiptChange(null);
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                      }}
+                      className="text-xs font-semibold text-rose-600 dark:text-rose-400 hover:underline inline-flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>إزالة</span>
+                    </button>
+                  )}
                 </div>
 
                 <input
@@ -736,13 +925,16 @@ export const NewPaymentScreen: FC = () => {
                   type="button"
                   disabled={isEditMode}
                   onClick={() => !isEditMode && fileInputRef.current?.click()}
-                  className={`w-full flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed py-6 px-3 text-center transition-colors ${isEditMode
+                  className={`w-full flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed py-6 px-3 text-center transition-colors ${
+                    isEditMode
                       ? 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 cursor-not-allowed opacity-60'
-                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 cursor-pointer'
-                    }`}
+                      : fieldErrors.receipt
+                        ? 'border-rose-400 dark:border-rose-500 bg-rose-50/40 dark:bg-rose-950/20 cursor-pointer'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 cursor-pointer'
+                  }`}
                 >
                   <ImagePlus className="w-6 h-6 text-slate-300" />
-                  <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">
+                  <span className="text-sm font-semibold text-slate-600 dark:text-slate-400 truncate max-w-full px-2">
                     {isEditMode ? 'إثبات الدفع (غير متاح في التعديل)' : receiptFile ? receiptFile.name : 'رفع صورة الإيصال'}
                   </span>
                   <span className="text-xs text-slate-400">
@@ -750,7 +942,10 @@ export const NewPaymentScreen: FC = () => {
                   </span>
                 </button>
                 {fieldErrors.receipt && (
-                  <p className="text-xs text-rose-600 text-right">{fieldErrors.receipt}</p>
+                  <p className="text-xs font-medium text-rose-600 dark:text-rose-400 flex items-start gap-1 text-right">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span>{fieldErrors.receipt}</span>
+                  </p>
                 )}
 
                 <div className="flex items-start gap-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 text-right">
@@ -821,7 +1016,7 @@ export const NewPaymentScreen: FC = () => {
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    سيتم إرسال إشعار SMS للعميل فور حفظ الدفعة.
+                    سيتم إرسال إشعار للعميل فور حفظ الدفعة.
                   </p>
                 </div>
 

@@ -1,4 +1,4 @@
-import { httpClient } from '../api/httpClient';
+import { httpClient, ApiError } from '../api/httpClient';
 import type { Product } from '../types/inventory';
 
 // ---------------------------------------------------------------------------
@@ -476,3 +476,147 @@ export async function getStockMovementsApi(
   return [];
 }
 
+
+function translateProductBackendMessage(rawMsg: string, fieldHint?: string): string {
+  const trimmed = rawMsg.trim();
+  if (!trimmed) return '';
+  const lower = trimmed.toLowerCase();
+  const field = (fieldHint || '').toLowerCase();
+
+  if (lower.includes('barcode') && (lower.includes('already exists') || lower.includes('duplicate') || lower.includes('unique'))) {
+    return 'الباركود المدخل مستخدم مسبقاً لصنف آخر في المخزون.';
+  }
+  if ((lower.includes('name') || field.includes('productname')) && (lower.includes('already exists') || lower.includes('duplicate'))) {
+    return 'يوجد صنف مسجل بنفس هذا الاسم مسبقاً.';
+  }
+  if (lower.includes('already exists') || lower.includes('duplicate')) {
+    return 'هذا الصنف أو الباركود مسجل مسبقاً في المخزون.';
+  }
+  if (field.includes('barcode') || lower.includes('barcode')) {
+    return 'رمز الباركود المدخل غير صالح أو مطلوب.';
+  }
+  if (field.includes('productname') || field === 'name') {
+    return 'اسم الصنف غير صالح أو يتجاوز الطول المسموح.';
+  }
+  if (field.includes('saleprice') || lower.includes('saleprice') || lower.includes('sale price')) {
+    return 'سعر البيع يجب أن يكون قيمة رقمية صالحة أكبر من أو تساوي صفر.';
+  }
+  if (field.includes('costprice') || lower.includes('costprice') || lower.includes('cost price')) {
+    return 'سعر التكلفة يجب أن يكون قيمة رقمية صالحة أكبر من أو تساوي صفر.';
+  }
+  if (field.includes('quantity') || field.includes('stock') || lower.includes('insufficient stock')) {
+    return 'قيمة الكمية أو المخزون المدخلة غير صالحة.';
+  }
+  if (lower.includes('product not found') || lower.includes('not found')) {
+    return 'تعذر العثور على الصنف المطلوب في المخزون.';
+  }
+  if (lower.includes('no business found')) {
+    return 'لا يوجد نشاط تجاري مرتبط بحسابك. يرجى التواصل مع الدعم الفني.';
+  }
+  if (lower === 'one or more validation errors occurred.') {
+    return 'يوجد خطأ في التحقق من صحة بيانات الصنف.';
+  }
+  if (/[\u0600-\u06FF]/.test(trimmed)) {
+    return trimmed;
+  }
+  return `رفض الخادم البيانات: ${trimmed}`;
+}
+
+/** Maps product API errors (create/update/stock) to explicit Arabic user messages. */
+export function toProductErrorMessage(error: unknown, defaultMessage = 'تعذر حفظ بيانات الصنف في المخزون.'): string {
+  if (error instanceof ApiError) {
+    if (error.status === 0) {
+      return 'تعذر الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.';
+    }
+    if (error.status === 408 || error.message === 'TIMEOUT') {
+      return 'انتهت مهلة انتظار الخادم. يرجى المحاولة مرة أخرى.';
+    }
+    if (error.status === 401) {
+      return 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.';
+    }
+    if (error.status === 403) {
+      return 'لا تملك صلاحية تعديل أو إضافة الأصناف (403).';
+    }
+
+    let body = error.body;
+    if (typeof body === 'string') {
+      const t = body.trim();
+      if ((t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'))) {
+        try {
+          body = JSON.parse(t);
+        } catch {
+          // plain string
+        }
+      }
+    }
+
+    const parts: string[] = [];
+    const pushMsg = (raw: string, hint?: string) => {
+      const m = translateProductBackendMessage(raw, hint);
+      if (m && !parts.includes(m)) parts.push(m);
+    };
+
+    if (typeof body === 'string' && body.trim()) {
+      pushMsg(body);
+    } else if (body && typeof body === 'object') {
+      const b = body as Record<string, unknown>;
+      const errs = b.errors ?? b.Errors;
+      if (errs && typeof errs === 'object') {
+        if (Array.isArray(errs)) {
+          for (const item of errs) {
+            if (typeof item === 'string') pushMsg(item);
+          }
+        } else {
+          for (const [k, v] of Object.entries(errs as Record<string, unknown>)) {
+            const arr = Array.isArray(v) ? v : [v];
+            for (const item of arr) {
+              if (typeof item === 'string') pushMsg(item, k);
+            }
+          }
+        }
+      }
+
+      const resultObj = b.result && typeof b.result === 'object' ? (b.result as Record<string, unknown>) : null;
+      const dataObj = b.data && typeof b.data === 'object' ? (b.data as Record<string, unknown>) : null;
+      const cands: unknown[] = [
+        b.message,
+        b.Message,
+        b.detail,
+        b.Detail,
+        b.error,
+        b.Error,
+        resultObj?.message,
+        dataObj?.message,
+      ];
+      for (const c of cands) {
+        if (typeof c === 'string' && c.trim()) pushMsg(c);
+      }
+      if (parts.length === 0 && typeof (b.title ?? b.Title) === 'string') {
+        pushMsg(String(b.title ?? b.Title));
+      }
+    }
+
+    if (parts.length > 0) {
+      return parts.join(' — ');
+    }
+
+    if (error.status === 409) {
+      return 'يوجد صنف مسجل مسبقاً بنفس الباركود أو البيانات (409).';
+    }
+    if (error.status === 404) {
+      return 'تعذر العثور على الصنف المطلوب (404).';
+    }
+    if (error.status === 400 || error.status === 422) {
+      return 'رفض الخادم بيانات الصنف؛ يرجى التأكد من الاسم والباركود وصحة الأسعار.';
+    }
+    if (error.status >= 500) {
+      return `حدث خطأ داخلي في الخادم أثناء معالجة الصنف (${error.status}).`;
+    }
+    return defaultMessage;
+  }
+
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return defaultMessage;
+}

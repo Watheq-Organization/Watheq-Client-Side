@@ -1,3 +1,5 @@
+import type { CurrencyCode } from '../utils/currency';
+
 /**
  * Confirmed contract for GET /api/Dashboard/summary (DashboardSummaryDto),
  * per the official API documentation:
@@ -37,6 +39,8 @@ export interface OverduePaymentItem {
   amount: string;
   dueDate: string;
   phone?: string;
+  currencyCode?: CurrencyCode;
+  daysOverdue?: number;
 }
 
 export interface RecentActivityItem {
@@ -46,5 +50,5 @@ export interface RecentActivityItem {
   description: string;
   dotColor: string;
   timestamp: number;
+  category?: 'payment' | 'debt' | 'other';
 }
-

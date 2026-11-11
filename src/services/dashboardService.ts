@@ -1,6 +1,6 @@
 import { httpClient, ApiError } from '../api/httpClient';
 import type { DashboardSummary, OverduePaymentItem, RecentActivityItem } from '../types/dashboard';
-import { parseApiDate, formatRelativeTime } from '../lib/dateUtils';
+import { parseApiDate, formatRelativeTime, formatApiDate } from '../lib/dateUtils';
 import { normalizeCurrencyCode, getCurrencyId } from '../utils/currency';
 
 /**
@@ -15,6 +15,19 @@ import { normalizeCurrencyCode, getCurrencyId } from '../utils/currency';
 export async function getDashboardSummary(): Promise<DashboardSummary> {
   const response = await httpClient.get<unknown>('/Dashboard/summary');
   return normalizeDashboardSummary(extractDashboardSummary(response));
+}
+
+/** Calculates whole calendar days elapsed since the due date (if strictly overdue). */
+function computeDaysOverdue(dateStr?: string): number | undefined {
+  if (!dateStr) return undefined;
+  const due = parseApiDate(dateStr);
+  if (Number.isNaN(due.getTime())) return undefined;
+
+  const now = new Date();
+  const dueStart = new Date(due.getFullYear(), due.getMonth(), due.getDate()).getTime();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const diffDays = Math.floor((todayStart - dueStart) / (1000 * 60 * 60 * 24));
+  return diffDays > 0 ? diffDays : undefined;
 }
 
 /**
@@ -48,13 +61,25 @@ export async function getOverduePayments(): Promise<OverduePaymentItem[]> {
 
     return rawItems.map((item) => {
       const it = (item || {}) as Record<string, unknown>;
+      const rawDueDate = String(it.dueDate ?? it.DueDate ?? it.date ?? it.createdAt ?? '');
+      const rawCurr =
+        it.currencyCode ??
+        it.CurrencyCode ??
+        it.currency ??
+        it.Currency ??
+        it.currencyId ??
+        it.CurrencyId;
+      const currencyCode = rawCurr != null && rawCurr !== '' ? normalizeCurrencyCode(rawCurr) : 'ILS';
+
       return {
         id: String(it.id ?? it.debtId ?? it.paymentId ?? it.customerId ?? ''),
         customerId: String(it.customerId ?? it.CustomerId ?? ''),
         customerName: String(it.customerName ?? it.CustomerName ?? 'عميل بدون اسم'),
         amount: Number(it.amount ?? it.Amount ?? it.remainingAmount ?? it.RemainingAmount ?? 0).toLocaleString('en-US'),
-        dueDate: formatArabicDate(String(it.dueDate ?? it.DueDate ?? it.date ?? it.createdAt ?? '')),
+        dueDate: formatArabicDate(rawDueDate),
         phone: String(it.phone ?? it.phoneNumber ?? it.PhoneNumber ?? ''),
+        currencyCode,
+        daysOverdue: computeDaysOverdue(rawDueDate),
       };
     });
   } catch (err) {
@@ -98,7 +123,9 @@ export async function getRecentActivities(): Promise<RecentActivityItem[]> {
       const typeStr = String(it.type ?? it.Type ?? '').toLowerCase();
       
       const isPayment = typeStr.includes('pay') || typeStr.includes('دفعة') || typeStr.includes('سداد');
-      const dotColor = String(it.dotColor ?? (isPayment ? 'bg-[#22c55e]' : 'bg-[#0f284e]'));
+      const isDebt = typeStr.includes('debt') || typeStr.includes('دين');
+      const category: RecentActivityItem['category'] = isPayment ? 'payment' : isDebt ? 'debt' : 'other';
+      const dotColor = String(it.dotColor ?? (isPayment ? 'bg-emerald-500' : 'bg-slate-400 dark:bg-slate-500'));
       
       return {
         id: String(it.id ?? it.activityId ?? `act-${idx}-${timeMs}`),
@@ -107,6 +134,7 @@ export async function getRecentActivities(): Promise<RecentActivityItem[]> {
         description: String(it.description ?? it.Description ?? ''),
         dotColor,
         timestamp: timeMs,
+        category,
       };
     }).sort((a, b) => b.timestamp - a.timestamp).slice(0, 30);
   } catch (err) {
@@ -117,17 +145,8 @@ export async function getRecentActivities(): Promise<RecentActivityItem[]> {
 
 function formatArabicDate(dateStr?: string): string {
   if (!dateStr) return '—';
-  try {
-    const d = parseApiDate(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString('ar-SA', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  } catch {
-    return dateStr;
-  }
+  const formatted = formatApiDate(dateStr, false);
+  return formatted || dateStr;
 }
 
 /**
@@ -221,4 +240,3 @@ export function toDashboardSummaryErrorMessage(error: unknown): string {
   }
   return 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.';
 }
-

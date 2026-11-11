@@ -12,37 +12,78 @@ import type {
   UpdatePaymentResponseDto,
 } from '../types/payment';
 
+export interface PaymentFieldErrors {
+  amount?: string;
+  paymentDate?: string;
+  notes?: string;
+  receipt?: string;
+  currency?: string;
+  method?: string;
+}
+
+export interface ParsedPaymentApiError {
+  generalMessage: string;
+  fieldErrors: PaymentFieldErrors;
+  details: string[];
+}
+
 /**
  * Client-side mirror of the amount rule for this form: required, numeric,
- * and strictly greater than zero, with at most 2 decimal places. Mirrors the style of
- * validateCustomerFullName / validateDebtAmount elsewhere in the codebase.
+ * and strictly greater than zero, with at most 2 decimal places.
  */
 export function validatePaymentAmount(value: string): string | null {
   const trimmed = value.trim();
-  if (!trimmed) return 'مبلغ الدفعة مطلوب.';
+  if (!trimmed) return 'مبلغ الدفعة مطلوب؛ يرجى إدخال القيمة المستلمة.';
   const numeric = Number(trimmed);
-  if (!Number.isFinite(numeric)) return 'يرجى إدخال مبلغ صحيح.';
+  if (!Number.isFinite(numeric)) return 'يرجى إدخال مبلغ صحيح بالأرقام فقط.';
   if (numeric <= 0) return 'يجب أن يكون مبلغ الدفعة أكبر من صفر.';
   if (!/^\d+(\.\d{1,2})?$/.test(trimmed)) {
-    return 'يجب ألا يتجاوز مبلغ الدفعة منزلتين عشريتين.';
+    return 'يجب ألا يتجاوز مبلغ الدفعة منزلتين عشريتين (مثال: 25.50).';
   }
   return null;
 }
 
 /**
  * Client-side pre-check mirroring the backend's own restriction ("Payment
- * amount cannot exceed the customer's remaining debt"). Optional —
- * `remainingDebt` is only passed once the customer's profile has loaded —
- * but catches the obvious case before a round trip to the server.
+ * amount cannot exceed the customer's remaining debt") and preventing zero-debt
+ * submissions for the selected currency.
  */
 export function validatePaymentAmountAgainstBalance(
   value: string,
-  remainingDebt: number
+  remainingDebt: number,
+  currencyCode?: string
 ): string | null {
   const numeric = Number(value.trim());
   if (!Number.isFinite(numeric) || numeric <= 0) return null; // validatePaymentAmount already covers this
+
+  const currencyLabel = currencyCode ? getCurrencyConfig(currencyCode).labelArFull : null;
+  const currencySymbol = currencyCode ? getCurrencyConfig(currencyCode).symbol : '';
+
+  if (remainingDebt <= 0) {
+    return currencyLabel
+      ? `لا توجد ديون قائمة مستحقة على العميل بعملة ${currencyLabel} لتسجيل دفعة عليها.`
+      : 'لا توجد ديون قائمة مستحقة على هذا العميل لتسجيل دفعة عليها.';
+  }
+
   if (numeric > remainingDebt) {
-    return `لا يمكن أن تتجاوز الدفعة المبلغ المتبقي على العميل (الحد الأقصى ${remainingDebt.toFixed(2)}).`;
+    const formattedMax = remainingDebt.toLocaleString('en-US', {
+      minimumFractionDigits: remainingDebt % 1 !== 0 ? 2 : 0,
+      maximumFractionDigits: 2,
+    });
+    return currencyLabel
+      ? `لا يمكن أن تتجاوز الدفعة المديونية المستحقة بعملة ${currencyLabel} (الحد الأقصى المتاح: ${formattedMax} ${currencySymbol}).`
+      : `لا يمكن أن تتجاوز الدفعة المبلغ المتبقي على العميل (الحد الأقصى: ${formattedMax}).`;
+  }
+  return null;
+}
+
+/** Validates payment date input (must be non-empty valid YYYY-MM-DD date). */
+export function validatePaymentDate(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return 'يرجى تحديد تاريخ الدفع.';
+  const parsed = new Date(`${trimmed}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return 'صيغة تاريخ الدفع غير صحيحة؛ يرجى اختيار تاريخ صالح.';
   }
   return null;
 }
@@ -59,11 +100,10 @@ export function validateReceiptNumber(value: string): string | null {
 
 const MAX_NOTES_LENGTH = 500;
 
-/** Optional field — max 500 characters per the API contract (payments use
- * a shorter limit than debts' notes field). */
+/** Optional field — max 500 characters per the API contract. */
 export function validatePaymentNotes(value: string): string | null {
   if (value.length > MAX_NOTES_LENGTH) {
-    return 'لا يمكن أن تتجاوز الملاحظات 500 حرف.';
+    return 'الملاحظات المدخلة تتجاوز الحد المسموح (500 حرف).';
   }
   return null;
 }
@@ -74,10 +114,10 @@ const ALLOWED_RECEIPT_TYPES = ['image/png', 'image/jpeg'];
 /** Mirrors the "حتى 5 ميجابايت، PNG, JPG" limit shown under the upload area. */
 export function validateReceiptFile(file: File): string | null {
   if (!ALLOWED_RECEIPT_TYPES.includes(file.type)) {
-    return 'صيغة الملف غير مدعومة. الرجاء رفع صورة PNG أو JPG.';
+    return 'صيغة ملف الإيصال غير مدعومة. المسموح صور PNG أو JPG فقط.';
   }
   if (file.size > MAX_RECEIPT_SIZE_BYTES) {
-    return 'حجم الملف كبير جداً. الحد الأقصى 5 ميجابايت.';
+    return 'حجم صورة الإيصال أكبر من الحد المسموح (الحد الأقصى 5 ميجابايت).';
   }
   return null;
 }
@@ -86,9 +126,7 @@ export function validateReceiptFile(file: File): string | null {
  * POST https://whateq.runasp.net/api/Debt/registerPayment
  *
  * Maps the friendly string PaymentMethod the UI works with to the wire
- * enum value (1 = Cash, 2 = BankTransfer, 3 = CreditCard). There is no
- * "wallet" method in the real API — see the note on PaymentMethod in
- * types/payment.ts.
+ * enum value (1 = Cash, 2 = BankTransfer, 3 = CreditCard).
  */
 export const PAYMENT_METHOD_TO_NUMERIC: Record<PaymentMethod, number> = {
   cash: 1,
@@ -101,10 +139,8 @@ const REGISTER_PAYMENT_PATH = '/Debt/registerPayment';
 /**
  * Builds the multipart/form-data body exactly as documented: customerId,
  * amount and paymentMethod are always sent; receiptNumber, notes and
- * receiptImage are only appended when actually provided (an empty/absent
- * optional field is simply left out of the FormData, never sent as an
- * empty string). DebtId is sent empty per backend contract requirements.
- * No userId/paymentDate — both are backend-only per the contract.
+ * receiptImage are only appended when actually provided. DebtId is sent
+ * empty per backend contract requirements.
  */
 function buildRegisterPaymentFormData(customerId: string, values: NewPaymentFormState): FormData {
   const formData = new FormData();
@@ -156,10 +192,6 @@ export async function registerPayment(
   values: NewPaymentFormState
 ): Promise<RegisterPaymentResponseDto> {
   const formData = buildRegisterPaymentFormData(customerId, values);
-  // Diagnostic only — mirrors the [createDebt]/[updateDebt] logging style
-  // elsewhere in the codebase. FormData entries are logged individually
-  // since FormData itself doesn't stringify usefully.
-  // eslint-disable-next-line no-console
   console.log(
     '[registerPayment] POST',
     REGISTER_PAYMENT_PATH,
@@ -168,80 +200,398 @@ export async function registerPayment(
   return httpClient.postForm<RegisterPaymentResponseDto>(REGISTER_PAYMENT_PATH, formData);
 }
 
+function detectCurrencyLabelInMessage(rawMsg: string): string | null {
+  const upper = rawMsg.toUpperCase();
+  if (upper.includes('ILS') || rawMsg.includes('شيكل')) return 'الشيكل (ILS)';
+  if (upper.includes('USD') || rawMsg.includes('دولار')) return 'الدولار الأمريكي (USD)';
+  if (upper.includes('EUR') || rawMsg.includes('يورو')) return 'اليورو (EUR)';
+  if (upper.includes('GBP') || rawMsg.includes('جنيه')) return 'الجنيه الإسترليني (GBP)';
+  if (upper.includes('JOD') || rawMsg.includes('دينار')) return 'الدينار الأردني (JOD)';
+  return null;
+}
+
+/**
+ * Translates raw backend payment error messages (or ASP.NET validation messages)
+ * into explicit Arabic explanations without discarding real server details.
+ */
+function translatePaymentBackendMessage(rawMsg: string, fieldHint?: string): string {
+  const trimmed = rawMsg.trim();
+  if (!trimmed) return '';
+
+  const lower = trimmed.toLowerCase();
+  const lowerField = (fieldHint || '').toLowerCase();
+
+  if (lower.includes('no business found for the current merchant')) {
+    return 'لا يوجد نشاط تجاري مرتبط بحسابك التاجر. يرجى التواصل مع الدعم الفني.';
+  }
+  if (lower.includes('user identification is required') || lower.includes('unauthorized')) {
+    return 'انتهت صلاحية الجلسة أو تعذر التحقق من هوية التاجر. يرجى تسجيل الدخول مرة أخرى.';
+  }
+  if (lower.includes('customer not found')) {
+    return 'تعذر العثور على هذا العميل في السجل.';
+  }
+  if (lower.includes('a valid customer is required') || lowerField.includes('customer')) {
+    return 'معرّف العميل غير صالح أو مفقود.';
+  }
+  if (lower.includes('payment not found')) {
+    return 'تعذر العثور على هذه الدفعة. قد تكون قد حُذفت بالفعل.';
+  }
+  if (lower.includes('a valid payment is required')) {
+    return 'معرّف الدفعة غير صالح أو غير متوفر.';
+  }
+  if (
+    lower.includes('has no outstanding debts') ||
+    lower.includes('no outstanding debt') ||
+    lower.includes('no pending debt') ||
+    lower.includes('no open debt') ||
+    lower.includes('no active debt')
+  ) {
+    const detectedCurrency = detectCurrencyLabelInMessage(trimmed);
+    return detectedCurrency
+      ? `لا توجد ديون قائمة مستحقة على هذا العميل بعملة ${detectedCurrency} لسدادها.`
+      : 'لا توجد ديون قائمة مستحقة السداد على هذا العميل بالعملة المختارة.';
+  }
+  if (
+    lower.includes('cannot exceed') ||
+    lower.includes('exceeds') ||
+    lower.includes('greater than remaining') ||
+    lower.includes('more than') ||
+    lower.includes('maximum allowed')
+  ) {
+    const numMatch = trimmed.match(/(\d+(?:[.,]\d+)?)/);
+    return `قيمة الدفعة أكبر من المبلغ المتبقي على العميل${
+      numMatch ? ` (الحد الأقصى المسموح: ${numMatch[1]})` : ''
+    }.`;
+  }
+  if (lower.includes('payment could not be updated') || lower.includes('no changes were saved')) {
+    return 'تعذر تعديل الدفعة. لم يتم حفظ أي تغييرات.';
+  }
+  if (lower.includes('greater than zero') || lower.includes('must be > 0') || lower.includes('positive')) {
+    return 'يجب أن يكون مبلغ الدفعة أكبر من صفر.';
+  }
+  if (lower.includes('at most 18 digits') || lower.includes('2 decimal') || lower.includes('decimal places')) {
+    return 'يجب ألا يتجاوز مبلغ الدفعة منزلتين عشريتين.';
+  }
+  if (
+    lower.includes('a valid payment method is required') ||
+    lowerField.includes('paymentmethod') ||
+    lowerField === 'method'
+  ) {
+    return 'طريقة الدفع المختارة غير صالحة. يرجى اختيار (نقدي، تحويل بنكي، أو محفظة/بطاقة).';
+  }
+  if (lowerField.includes('currency') || lower.includes('currency')) {
+    if (lower.includes('mismatch') || lower.includes('different') || lower.includes('match')) {
+      return 'عملة الدفعة المختارة لا تطابق عملة الدين المسجلة على العميل.';
+    }
+    return 'العملة المختارة غير صالحة أو غير مفعّلة في النظام.';
+  }
+  if (lowerField.includes('debt') || lower.includes('debt not found')) {
+    return 'الدين المرتبط غير موجود أو تم سداده بالكامل بالفعل.';
+  }
+  if (lowerField.includes('receiptnumber') || lower.includes('receipt number')) {
+    if (lower.includes('duplicate') || lower.includes('exists') || lower.includes('already')) {
+      return 'رقم الإيصال مستخدم مسبقاً في عملية أخرى.';
+    }
+    return 'رقم الإيصال غير صالح أو يتجاوز الطول المسموح (50 حرفاً).';
+  }
+  if (
+    lowerField.includes('receiptimage') ||
+    lowerField.includes('image') ||
+    lower.includes('file') ||
+    lower.includes('extension')
+  ) {
+    return 'ملف الإيصال المرفق غير صالح (يدعم صور PNG أو JPG بحد أقصى 5 ميجابايت).';
+  }
+  if (lowerField.includes('notes') || lower.includes('notes')) {
+    return 'الملاحظات المدخلة تتجاوز الحد المسموح (500 حرف).';
+  }
+  if (lowerField.includes('date') || lower.includes('paymentdate')) {
+    return 'تاريخ الدفع غير صالح؛ يرجى التحقق من التاريخ المدخل.';
+  }
+  if (lowerField.includes('amount') || lower.includes('amount')) {
+    if (lower.includes('required')) {
+      return 'حقل مبلغ الدفعة مطلوب.';
+    }
+    return 'قيمة مبلغ الدفعة المدخلة غير صالحة؛ يرجى التحقق من الرقم.';
+  }
+  if (lower === 'one or more validation errors occurred.') {
+    return 'يوجد خطأ في التحقق من صحة البيانات المدخلة.';
+  }
+
+  // If the server already sent an Arabic error string, return it verbatim.
+  if (/[\u0600-\u06FF]/.test(trimmed)) {
+    return trimmed;
+  }
+
+  // Never hide an unrecognized backend message behind a vague generic string.
+  return `رفض الخادم الطلب: ${trimmed}`;
+}
+
+function assignPaymentFieldError(
+  fieldErrors: PaymentFieldErrors,
+  translatedMsg: string,
+  fieldHint?: string
+): void {
+  const key = (fieldHint || '').toLowerCase();
+  const msgLower = translatedMsg.toLowerCase();
+
+  if (key.includes('amount') || msgLower.includes('مبلغ') || msgLower.includes('الدفعة أكبر')) {
+    if (!fieldErrors.amount) fieldErrors.amount = translatedMsg;
+    return;
+  }
+  if (key.includes('currency') || msgLower.includes('عملة')) {
+    if (!fieldErrors.currency) fieldErrors.currency = translatedMsg;
+    return;
+  }
+  if (key.includes('paymentmethod') || key === 'method' || msgLower.includes('طريقة الدفع')) {
+    if (!fieldErrors.method) fieldErrors.method = translatedMsg;
+    return;
+  }
+  if (key.includes('date') || msgLower.includes('تاريخ الدفع')) {
+    if (!fieldErrors.paymentDate) fieldErrors.paymentDate = translatedMsg;
+    return;
+  }
+  if (key.includes('notes') || msgLower.includes('ملاحظات')) {
+    if (!fieldErrors.notes) fieldErrors.notes = translatedMsg;
+    return;
+  }
+  if (key.includes('receiptimage') || key.includes('image') || msgLower.includes('إيصال')) {
+    if (!fieldErrors.receipt) fieldErrors.receipt = translatedMsg;
+  }
+}
+
+function normalizeErrorBody(rawBody: unknown): unknown {
+  if (typeof rawBody === 'string') {
+    const trimmed = rawBody.trim();
+    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+      try {
+        return JSON.parse(trimmed);
+      } catch {
+        return rawBody;
+      }
+    }
+  }
+  return rawBody;
+}
+
+/**
+ * Unified error parser for Payment API endpoints (`registerPayment`, `updatePayment`, `deletePayment`).
+ * Extracts ASP.NET ValidationProblemDetails, JSON strings, nested `data`/`result` messages,
+ * maps each error to its form field, and guarantees a clear Arabic explanation.
+ */
+function parsePaymentApiError(
+  error: unknown,
+  context: 'register' | 'update' | 'delete'
+): ParsedPaymentApiError {
+  const fieldErrors: PaymentFieldErrors = {};
+  const details: string[] = [];
+
+  const pushUniqueDetail = (msg: string, fieldHint?: string) => {
+    const clean = msg.trim();
+    if (!clean) return;
+    if (!details.includes(clean)) {
+      details.push(clean);
+    }
+    assignPaymentFieldError(fieldErrors, clean, fieldHint);
+  };
+
+  if (!(error instanceof ApiError)) {
+    return {
+      generalMessage: 'حدث خطأ غير متوقع في التطبيق. يرجى المحاولة مرة أخرى.',
+      fieldErrors,
+      details,
+    };
+  }
+
+  console.error(`[${context}Payment] backend responded with an error:`, {
+    status: error.status,
+    body: error.body,
+  });
+
+  if (error.status === 0) {
+    return {
+      generalMessage: 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.',
+      fieldErrors,
+      details,
+    };
+  }
+  if (error.status === 408 || error.message === 'TIMEOUT') {
+    return {
+      generalMessage: 'انتهت مهلة انتظار استجابة الخادم. يرجى المحاولة مرة أخرى.',
+      fieldErrors,
+      details,
+    };
+  }
+  if (error.status === 401) {
+    return {
+      generalMessage: 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.',
+      fieldErrors,
+      details,
+    };
+  }
+
+  const normalizedBody = normalizeErrorBody(error.body);
+
+  if (typeof normalizedBody === 'string' && normalizedBody.trim()) {
+    pushUniqueDetail(translatePaymentBackendMessage(normalizedBody));
+  } else if (Array.isArray(normalizedBody)) {
+    for (const item of normalizedBody) {
+      if (typeof item === 'string' && item.trim()) {
+        pushUniqueDetail(translatePaymentBackendMessage(item));
+      }
+    }
+  } else if (normalizedBody && typeof normalizedBody === 'object') {
+    const b = normalizedBody as Record<string, unknown>;
+
+    // 1. ASP.NET ValidationProblemDetails `errors` dictionary or array
+    const errorsObj = b.errors ?? b.Errors;
+    if (errorsObj && typeof errorsObj === 'object') {
+      if (Array.isArray(errorsObj)) {
+        for (const item of errorsObj) {
+          if (typeof item === 'string' && item.trim()) {
+            pushUniqueDetail(translatePaymentBackendMessage(item));
+          }
+        }
+      } else {
+        for (const [key, val] of Object.entries(errorsObj as Record<string, unknown>)) {
+          const msgs = Array.isArray(val) ? val : [val];
+          for (const rawItem of msgs) {
+            if (typeof rawItem === 'string' && rawItem.trim()) {
+              pushUniqueDetail(translatePaymentBackendMessage(rawItem, key), key);
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Direct message / detail / error / nested data.message or result.message / title
+    const nestedResult = (b.result && typeof b.result === 'object' ? b.result : null) as Record<string, unknown> | null;
+    const nestedData = (b.data && typeof b.data === 'object' ? b.data : null) as Record<string, unknown> | null;
+
+    const candidateStrings: unknown[] = [
+      b.message,
+      b.Message,
+      b.detail,
+      b.Detail,
+      b.error,
+      b.Error,
+      nestedResult?.message,
+      nestedResult?.Message,
+      nestedData?.message,
+      nestedData?.Message,
+    ];
+
+    for (const candidate of candidateStrings) {
+      if (typeof candidate === 'string' && candidate.trim()) {
+        pushUniqueDetail(translatePaymentBackendMessage(candidate));
+      }
+    }
+
+    // Title fallback only if no more specific message was found yet
+    if (details.length === 0) {
+      const rawTitle = b.title ?? b.Title;
+      if (typeof rawTitle === 'string' && rawTitle.trim()) {
+        pushUniqueDetail(translatePaymentBackendMessage(rawTitle));
+      }
+    }
+  }
+
+  if (details.length > 0) {
+    return {
+      generalMessage: details.join(' — '),
+      fieldErrors,
+      details,
+    };
+  }
+
+  // Clear status-based fallbacks when backend returned an empty body
+  if (error.status === 403) {
+    return {
+      generalMessage: 'لا تملك الصلاحية لتنفيذ هذا الإجراء (403).',
+      fieldErrors,
+      details,
+    };
+  }
+  if (error.status === 404) {
+    return {
+      generalMessage:
+        context === 'register'
+          ? 'تعذر العثور على العميل أو الدين المطلوب في الخادم (404).'
+          : 'تعذر العثور على الدفعة المطلوبة في السجل (404).',
+      fieldErrors,
+      details,
+    };
+  }
+  if (error.status === 409) {
+    return {
+      generalMessage: 'يوجد تعارض في البيانات المدخلة (409). يرجى تحديث الصفحة والتحقق من رصيد العميل.',
+      fieldErrors,
+      details,
+    };
+  }
+  if (error.status === 413) {
+    return {
+      generalMessage: 'حجم صورة الإيصال المرفقة أكبر من الحد المسموح على الخادم (413).',
+      fieldErrors: { ...fieldErrors, receipt: 'حجم الملف أكبر من المسموح.' },
+      details,
+    };
+  }
+  if (error.status === 415) {
+    return {
+      generalMessage: 'صيغة الطلب أو نوع الملف المرفق غير مدعوم من الخادم (415).',
+      fieldErrors,
+      details,
+    };
+  }
+  if (error.status === 400 || error.status === 422) {
+    return {
+      generalMessage:
+        context === 'register'
+          ? 'رفض الخادم تسجيل الدفعة؛ تأكد من وجود دين قائم على العميل بالعملة المختارة ومن صحة المبلغ المدخل.'
+          : context === 'update'
+            ? 'رفض الخادم تعديل الدفعة؛ يرجى التأكد من صحة القيمة الجديدة ومطابقتها للرصيد.'
+            : 'تعذر حذف الدفعة بسبب عدم صحة المعرّف أو ارتباطها بعمليات أخرى.',
+      fieldErrors,
+      details,
+    };
+  }
+  if (error.status >= 500) {
+    return {
+      generalMessage: `حدث خطأ داخلي في الخادم (${error.status}). يرجى المحاولة مرة أخرى لاحقاً.`,
+      fieldErrors,
+      details,
+    };
+  }
+
+  return {
+    generalMessage:
+      context === 'register'
+        ? `تعذر حفظ الدفعة (رمز الخطأ: ${error.status}). يرجى المحاولة مرة أخرى.`
+        : context === 'update'
+          ? `تعذر تعديل الدفعة (رمز الخطأ: ${error.status}). يرجى المحاولة مرة أخرى.`
+          : `تعذر حذف الدفعة (رمز الخطأ: ${error.status}). يرجى المحاولة مرة أخرى.`,
+    fieldErrors,
+    details,
+  };
+}
+
+/** Parses registerPayment errors into structured field + general Arabic messages. */
+export function parseRegisterPaymentApiError(error: unknown): ParsedPaymentApiError {
+  return parsePaymentApiError(error, 'register');
+}
+
+/** Parses updatePayment errors into structured field + general Arabic messages. */
+export function parseUpdatePaymentApiError(error: unknown): ParsedPaymentApiError {
+  return parsePaymentApiError(error, 'update');
+}
+
 /** Maps registerPayment errors to user-friendly Arabic messages, incl. known backend business errors. */
 export function toRegisterPaymentErrorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    // eslint-disable-next-line no-console
-    console.error('[registerPayment] backend responded with an error:', {
-      status: error.status,
-      body: error.body,
-    });
-
-    const body = error.body as { message?: unknown } | string | null;
-    const message =
-      typeof body === 'object' && body !== null && typeof body.message === 'string'
-        ? body.message
-        : typeof body === 'string'
-          ? body
-          : '';
-
-    if (message.includes('No business found for the current merchant')) {
-      return 'لا يوجد نشاط تجاري مرتبط بحسابك. يرجى التواصل مع الدعم.';
-    }
-    if (message.includes('Customer not found')) {
-      return 'تعذر العثور على هذا العميل.';
-    }
-    if (message.includes('has no outstanding debts to pay')) {
-      return 'لا توجد ديون مستحقة على هذا العميل حالياً.';
-    }
-    if (message.includes('cannot exceed')) {
-      // The backend embeds the max allowed amount in its own message
-      // ("...Maximum allowed payment is {amount}."); surface that verbatim
-      // since it's a real, useful number rather than re-deriving it.
-      return `قيمة الدفعة أكبر من المبلغ المتبقي على العميل. ${message}`;
-    }
-    if (message.includes('Payment amount must be greater than zero')) {
-      return 'يجب أن يكون مبلغ الدفعة أكبر من صفر.';
-    }
-    if (message.includes('A valid customer is required')) {
-      return 'يجب اختيار عميل صحيح.';
-    }
-    if (message.includes('A valid payment method is required')) {
-      return 'يرجى اختيار طريقة دفع صحيحة.';
-    }
-
-    if (error.status === 0) {
-      return 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.';
-    }
-    if (error.status === 400) {
-      return 'يرجى التحقق من البيانات المدخلة والمحاولة مرة أخرى.';
-    }
-    if (error.status === 401) {
-      return 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.';
-    }
-    if (error.status === 403) {
-      return 'لا تملك صلاحية تنفيذ هذا الإجراء.';
-    }
-    if (error.status === 404) {
-      return 'تعذر العثور على البيانات المطلوبة.';
-    }
-    if (error.status >= 500) {
-      return 'حدث خطأ في الخادم. يرجى المحاولة لاحقاً.';
-    }
-    return 'تعذر حفظ الدفعة. يرجى المحاولة مرة أخرى.';
-  }
-  return 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.';
+  return parsePaymentApiError(error, 'register').generalMessage;
 }
 
 /* ---------------------------------------------------------------------- */
 /* Delete Payment — DELETE /api/Payment/{id}                               */
-/*                                                                          */
-/* Per the documented contract, deleting a payment is a single call with   */
-/* no request body and no confirmation step (unlike Delete Debt): the      */
-/* backend recalculates the debt's PaidAmount/Status and the customer's    */
-/* TotalDebt, and removes the receipt image only if no other payment still */
-/* references it. No UserId is ever sent — the backend extracts it from    */
-/* the JWT.                                                                */
 /* ---------------------------------------------------------------------- */
 
 const deletePaymentPath = (id: string | number) => `/Payment/${id}`;
@@ -258,59 +608,11 @@ export async function deletePayment(paymentId: string | number): Promise<DeleteP
 
 /** Maps deletePayment errors to user-friendly Arabic messages, incl. known backend business errors. */
 export function toDeletePaymentErrorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    console.error('[deletePayment] backend responded with an error:', {
-      status: error.status,
-      body: error.body,
-    });
-
-    const body = error.body as { message?: unknown } | string | null;
-    const message =
-      typeof body === 'object' && body !== null && typeof body.message === 'string'
-        ? body.message
-        : typeof body === 'string'
-          ? body
-          : '';
-
-    if (message.includes('No business found for the current merchant')) {
-      return 'لا يوجد نشاط تجاري مرتبط بحسابك. يرجى التواصل مع الدعم.';
-    }
-    if (message.includes('Payment not found')) {
-      return 'تعذر العثور على هذه الدفعة. قد تكون قد حُذفت بالفعل.';
-    }
-    if (message.includes('A valid payment is required')) {
-      return 'معرّف الدفعة غير صالح أو غير متوفر.';
-    }
-
-    if (error.status === 0) {
-      return 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.';
-    }
-    if (error.status === 400) {
-      return message || 'يرجى التحقق من صحة الدفعة والمحاولة مرة أخرى.';
-    }
-    if (error.status === 401) {
-      return 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.';
-    }
-    if (error.status === 403) {
-      return 'لا تملك صلاحية حذف هذه الدفعة.';
-    }
-    if (error.status === 404) {
-      return 'تعذر العثور على هذه الدفعة.';
-    }
-    if (error.status >= 500) {
-      return 'حدث خطأ في الخادم أثناء حذف الدفعة. يرجى المحاولة لاحقاً.';
-    }
-    return message || 'تعذر حذف الدفعة. يرجى المحاولة مرة أخرى.';
-  }
-  return 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.';
+  return parsePaymentApiError(error, 'delete').generalMessage;
 }
 
 /* ---------------------------------------------------------------------- */
 /* Update Payment — PUT /api/Payment/{id}                                 */
-/*                                                                        */
-/* Allows the merchant to update a previously registered payment amount.  */
-/* Backend distributes overflow across the customer's other debts and     */
-/* recalculates status and totalDebt.                                     */
 /* ---------------------------------------------------------------------- */
 
 const updatePaymentPath = (id: string | number) => `/Payment/${id}`;
@@ -345,67 +647,7 @@ export async function updatePayment(
 
 /** Maps updatePayment errors to user-friendly Arabic messages, incl. known backend business errors. */
 export function toUpdatePaymentErrorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    // eslint-disable-next-line no-console
-    console.error('[updatePayment] backend responded with an error:', {
-      status: error.status,
-      body: error.body,
-    });
-
-    const body = error.body as { message?: unknown } | string | null;
-    const message =
-      typeof body === 'object' && body !== null && typeof body.message === 'string'
-        ? body.message
-        : typeof body === 'string'
-          ? body
-          : '';
-
-    if (message.includes('No business found for the current merchant')) {
-      return 'لا يوجد نشاط تجاري مرتبط بحسابك. يرجى التواصل مع الدعم.';
-    }
-    if (message.includes('Payment not found')) {
-      return 'تعذر العثور على هذه الدفعة. قد تكون قد حُذفت بالفعل.';
-    }
-    if (message.includes('User identification is required')) {
-      return 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مجدداً.';
-    }
-    if (message.includes('A valid payment is required')) {
-      return 'معرّف الدفعة غير صالح.';
-    }
-    if (message.includes('Payment amount must be greater than zero')) {
-      return 'يجب أن يكون مبلغ الدفعة أكبر من صفر.';
-    }
-    if (message.includes('at most 18 digits and 2 decimal places')) {
-      return 'يجب ألا يتجاوز مبلغ الدفعة منزلتين عشريتين.';
-    }
-    if (message.includes('cannot exceed the maximum allowed amount')) {
-      return `مبلغ الدفعة يتجاوز الحد الأقصى المسموح به. ${message}`;
-    }
-    if (message.includes('Payment could not be updated. No changes were saved')) {
-      return 'تعذر تعديل الدفعة. لم يتم حفظ أي تغييرات.';
-    }
-
-    if (error.status === 0) {
-      return 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.';
-    }
-    if (error.status === 400) {
-      return message || 'يرجى التحقق من القيمة المدخلة والمحاولة مرة أخرى.';
-    }
-    if (error.status === 401) {
-      return 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.';
-    }
-    if (error.status === 403) {
-      return 'لا تملك صلاحية تعديل هذه الدفعة.';
-    }
-    if (error.status === 404) {
-      return 'تعذر العثور على الدفعة المطلوبة.';
-    }
-    if (error.status >= 500) {
-      return 'حدث خطأ في الخادم أثناء تعديل الدفعة. يرجى المحاولة لاحقاً.';
-    }
-    return message || 'تعذر تعديل الدفعة. يرجى المحاولة مرة أخرى.';
-  }
-  return 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.';
+  return parsePaymentApiError(error, 'update').generalMessage;
 }
 
 /* ---------------------------------------------------------------------- */

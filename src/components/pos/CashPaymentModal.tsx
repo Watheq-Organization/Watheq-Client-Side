@@ -1,38 +1,35 @@
-import { useState, useEffect, type FC, type FormEvent } from 'react';
-import { X, Banknote, CheckCircle, ArrowDownCircle, Percent } from 'lucide-react';
+import { useState, type FC, type FormEvent } from 'react';
+import { X, Banknote, CheckCircle2, ArrowDownCircle, Percent, AlertCircle, Loader2 } from 'lucide-react';
+import { toPosErrorMessage } from '../../services/posService';
 
 interface CashPaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   totalDue: number;
   customerName: string;
-  onConfirm: (receivedAmount: number, changeAmount: number, discount: number) => void;
+  onConfirm: (receivedAmount: number, changeAmount: number, discount: number) => Promise<void> | void;
 }
 
-export const CashPaymentModal: FC<CashPaymentModalProps> = ({
-  isOpen,
+const CashPaymentModalContent: FC<Omit<CashPaymentModalProps, 'isOpen'>> = ({
   onClose,
   totalDue,
   customerName,
   onConfirm,
 }) => {
-  const [receivedStr, setReceivedStr] = useState<string>('');
+  const [receivedStr, setReceivedStr] = useState<string>(() => String(totalDue));
   const [discountStr, setDiscountStr] = useState<string>('0');
+  const [error, setError] = useState<string | null>(null);
+  const [confirmPartial, setConfirmPartial] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      setReceivedStr(String(totalDue));
-      setDiscountStr('0');
-    }
-  }, [isOpen, totalDue]);
-
-  if (!isOpen) return null;
-
-  const discount = Math.max(0, parseFloat(discountStr) || 0);
+  const rawDiscount = parseFloat(discountStr);
+  const discount = Number.isFinite(rawDiscount) && rawDiscount > 0 ? rawDiscount : 0;
   const netDue = Math.max(0, totalDue - discount);
-  const received = parseFloat(receivedStr) || 0;
-  const change = Math.max(0, received - netDue);
-  const remaining = Math.max(0, netDue - received);
+  const rawReceived = parseFloat(receivedStr);
+  const received = Number.isFinite(rawReceived) ? rawReceived : NaN;
+  const validReceived = Number.isFinite(received) && received >= 0 ? received : 0;
+  const change = Math.max(0, validReceived - netDue);
+  const remaining = Math.max(0, netDue - validReceived);
 
   const presets = [
     { label: 'المبلغ بالضبط', val: netDue },
@@ -42,67 +39,110 @@ export const CashPaymentModal: FC<CashPaymentModalProps> = ({
     { label: '200 ₪', val: 200 },
   ];
 
-  const handleFinalize = (e?: FormEvent) => {
+  const handleFinalize = async (e?: FormEvent) => {
     if (e) e.preventDefault();
-    if (received < netDue) {
-      if (!confirm(`المبلغ المستلم (₪${received}) أقل من المطلوب (₪${netDue}). هل تريد المتابعة؟`)) {
-        return;
-      }
+    if (isSubmitting) return;
+
+    if (discountStr.trim() !== '' && (!Number.isFinite(rawDiscount) || rawDiscount < 0)) {
+      setError('قيمة الخصم يجب أن تكون رقماً موجباً أو صفراً.');
+      return;
     }
-    onConfirm(received, change, discount);
-    onClose();
+    if (discount > totalDue) {
+      setError(`لا يمكن أن يتجاوز الخصم إجمالي الفاتورة (₪${totalDue.toFixed(2)}).`);
+      return;
+    }
+    if (receivedStr.trim() === '' || !Number.isFinite(received) || received < 0) {
+      setError('يرجى إدخال المبلغ المستلم من الزبون بشكل صحيح.');
+      return;
+    }
+
+    if (received < netDue && !confirmPartial) {
+      setConfirmPartial(true);
+      setError(null);
+      return;
+    }
+
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      await onConfirm(received, change, discount);
+      onClose();
+    } catch (err) {
+      setError(toPosErrorMessage(err, 'تعذر إتمام السداد النقدي؛ يرجى المحاولة مرة أخرى.'));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs"
       dir="rtl"
+      role="dialog"
+      aria-modal="true"
     >
-      <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-emerald-500/30">
-        <div className="p-5 border-b border-slate-100 dark:border-slate-800 bg-emerald-50 dark:bg-emerald-950/40 flex items-center justify-between">
+      <div className="bg-white dark:bg-[#111827] rounded-2xl max-w-lg w-full overflow-hidden shadow-xl border border-slate-200 dark:border-slate-800">
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-600/30">
-              <Banknote className="w-6 h-6" />
+            <div className="w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200/80 dark:border-emerald-800/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+              <Banknote className="w-4.5 h-4.5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-black text-slate-900 dark:text-white text-lg">سداد نقدي مباشر</h3>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-600 text-white font-bold">
+                <h3 className="font-bold text-slate-900 dark:text-white text-base">
+                  سداد نقدي مباشر
+                </h3>
+                <kbd className="text-[10px] font-jakarta font-semibold px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300/60 dark:border-slate-700">
                   F9
-                </span>
+                </kbd>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">العميل: {customerName}</p>
             </div>
           </div>
           <button
             type="button"
+            disabled={isSubmitting}
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            aria-label="إغلاق"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleFinalize} className="p-5 sm:p-6 space-y-5">
-          <div className="p-4 rounded-2xl bg-slate-900 text-white flex items-center justify-between shadow-inner">
+        <form onSubmit={handleFinalize} className="p-5 sm:p-6 space-y-4">
+          {error && (
+            <div
+              role="alert"
+              className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/70 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-start gap-2"
+            >
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600 dark:text-rose-400" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Total Due Bar */}
+          <div className="p-4 rounded-xl bg-[#09152B] dark:bg-slate-950 text-white flex items-center justify-between border border-slate-800">
             <div>
-              <span className="text-xs text-slate-400 font-medium block">
+              <span className="text-xs text-slate-300 font-medium block">
                 المجموع المطلوب للتحصيل
               </span>
-              <span className="text-3xl font-black font-mono text-emerald-400">
+              <span className="text-2xl sm:text-3xl font-bold font-jakarta tabular-nums text-emerald-400 mt-0.5 block" dir="ltr">
                 ₪{netDue.toFixed(2)}
               </span>
             </div>
             {discount > 0 && (
-              <span className="text-xs text-amber-400 bg-amber-400/10 px-2 py-1 rounded-lg border border-amber-400/20">
+              <span className="text-xs text-amber-300 bg-amber-500/15 px-2.5 py-1 rounded-lg border border-amber-400/25 tabular-nums">
                 خصم: ₪{discount.toFixed(2)}
               </span>
             )}
           </div>
 
+          {/* Received Input */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-              <ArrowDownCircle className="w-4 h-4 text-emerald-600" />
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+              <ArrowDownCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span>المبلغ المستلم نقدياً من الزبون (₪) *</span>
             </label>
             <div className="relative">
@@ -111,31 +151,41 @@ export const CashPaymentModal: FC<CashPaymentModalProps> = ({
                 step="0.5"
                 min="0"
                 value={receivedStr}
-                onChange={(e) => setReceivedStr(e.target.value)}
+                onChange={(e) => {
+                  setReceivedStr(e.target.value);
+                  setConfirmPartial(false);
+                  setError(null);
+                }}
                 placeholder="0.00"
-                className="w-full pl-10 pr-4 py-3 rounded-2xl border-2 border-emerald-500/60 bg-emerald-50/20 dark:bg-emerald-950/20 text-slate-900 dark:text-white text-2xl font-black font-mono focus:border-emerald-600 focus:ring-4 focus:ring-emerald-500/20 outline-hidden"
+                dir="ltr"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-2xl font-bold font-jakarta tabular-nums focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-emerald-500/20 outline-hidden"
                 autoFocus
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
-                    handleFinalize();
+                    void handleFinalize();
                   }
                 }}
               />
-              <span className="absolute left-4 top-3.5 text-base text-emerald-600 font-bold">₪</span>
+              <span className="absolute left-3.5 top-3 text-base text-slate-400 font-bold">₪</span>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          {/* Quick Presets */}
+          <div className="flex flex-wrap items-center gap-1.5">
             {presets.map((preset) => (
               <button
                 key={preset.label}
                 type="button"
-                onClick={() => setReceivedStr(String(preset.val))}
-                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all border ${
-                  received === preset.val
-                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-400'
+                onClick={() => {
+                  setReceivedStr(String(preset.val));
+                  setConfirmPartial(false);
+                  setError(null);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border cursor-pointer tabular-nums ${
+                  validReceived === preset.val
+                    ? 'bg-[#09152B] dark:bg-slate-100 text-white dark:text-slate-900 border-[#09152B] dark:border-slate-100'
+                    : 'bg-slate-50 dark:bg-slate-800/70 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-400'
                 }`}
               >
                 {preset.label}
@@ -143,9 +193,10 @@ export const CashPaymentModal: FC<CashPaymentModalProps> = ({
             ))}
           </div>
 
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+          {/* Discount Row */}
+          <div className="px-3.5 py-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-              <Percent className="w-3.5 h-3.5 text-amber-500" />
+              <Percent className="w-3.5 h-3.5 text-slate-400" />
               <span>خصم إضافي (شيكل):</span>
             </span>
             <div className="w-28 relative">
@@ -154,60 +205,101 @@ export const CashPaymentModal: FC<CashPaymentModalProps> = ({
                 step="0.5"
                 min="0"
                 value={discountStr}
-                onChange={(e) => setDiscountStr(e.target.value)}
+                onChange={(e) => {
+                  setDiscountStr(e.target.value);
+                  setConfirmPartial(false);
+                  setError(null);
+                }}
                 placeholder="0"
-                className="w-full pl-6 pr-2 py-1 text-xs text-left font-bold rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
+                dir="ltr"
+                className="w-full pl-6 pr-2.5 py-1.5 text-xs text-left font-bold font-jakarta tabular-nums rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:border-slate-400 outline-hidden"
               />
-              <span className="absolute left-2 top-1 text-[11px] text-slate-400">₪</span>
+              <span className="absolute left-2 top-1.5 text-[11px] text-slate-400">₪</span>
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border-2 border-emerald-500/30 flex items-center justify-between">
+          {/* Change Display */}
+          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
             <div>
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-                الباقي للزبون (الفكة / الصرافة)
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
+                الباقي للزبون (الفكة)
               </span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                يُرجع للزبون فور استلام النقدية
-              </span>
-            </div>
-            <div className="text-left">
-              <span
-                className={`text-2xl sm:text-3xl font-black font-mono ${
-                  change > 0
-                    ? 'text-emerald-600 dark:text-emerald-400'
-                    : 'text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                ₪{change.toFixed(2)}
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                يُرد للزبون عند الاستلام
               </span>
             </div>
+            <span
+              className={`text-xl sm:text-2xl font-bold font-jakarta tabular-nums ${
+                change > 0
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-slate-700 dark:text-slate-300'
+              }`}
+              dir="ltr"
+            >
+              ₪{change.toFixed(2)}
+            </span>
           </div>
 
-          {remaining > 0 && received > 0 && (
-            <p className="text-xs text-amber-600 dark:text-amber-400 font-bold text-center">
-              تنبيه: المبلغ المدفوع غير مكتمل، المتبقي: ₪{remaining.toFixed(2)}
-            </p>
+          {/* Partial Payment Confirmation Prompt (replaces native confirm()) */}
+          {remaining > 0 && validReceived >= 0 && Number.isFinite(received) && (
+            <div
+              className={`p-3 rounded-xl border text-xs flex items-start gap-2 ${
+                confirmPartial
+                  ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200'
+                  : 'bg-amber-50/60 dark:bg-amber-950/20 border-amber-200/80 dark:border-amber-800/50 text-amber-800 dark:text-amber-300'
+              }`}
+            >
+              <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+              <div className="space-y-0.5">
+                <p className="font-bold">
+                  تنبيه: المبلغ المدخل أقل من المطلوب بـ ₪{remaining.toFixed(2)}
+                </p>
+                {confirmPartial && (
+                  <p className="text-[11px]">
+                    اضغط &quot;تأكيد السداد رغم النقص&quot; أدناه لإتمام العملية، أو قم بتعديل المبلغ المستلم.
+                  </p>
+                )}
+              </div>
+            </div>
           )}
 
-          <div className="flex items-center justify-end gap-3 pt-2">
+          {/* Footer Buttons */}
+          <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-200/80 dark:border-slate-800">
             <button
               type="button"
+              disabled={isSubmitting}
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="h-10 px-4 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-50"
             >
               إلغاء (Esc)
             </button>
             <button
               type="submit"
-              className="px-7 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-black shadow-lg shadow-emerald-600/30 flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all"
+              disabled={isSubmitting}
+              className="h-10 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-70"
             >
-              <CheckCircle className="w-5 h-5" />
-              <span>تأكيد السداد وطباعة الفاتورة (Enter)</span>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>جاري تسجيل البيع...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>
+                    {confirmPartial ? 'تأكيد السداد رغم النقص' : 'تأكيد السداد وطباعة الفاتورة'}
+                  </span>
+                </>
+              )}
             </button>
           </div>
         </form>
       </div>
     </div>
   );
+};
+
+export const CashPaymentModal: FC<CashPaymentModalProps> = ({ isOpen, ...props }) => {
+  if (!isOpen) return null;
+  return <CashPaymentModalContent {...props} />;
 };
