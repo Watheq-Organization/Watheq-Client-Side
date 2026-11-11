@@ -124,23 +124,23 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({
 
   return (
     <div
-      className="rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#111827] shadow-[0_1px_2px_rgba(15,23,42,0.03)] overflow-hidden flex flex-col"
+      className="rounded-xl border border-slate-300/90 dark:border-slate-700 bg-white dark:bg-[#111827] shadow-xs overflow-hidden flex flex-col"
       dir="rtl"
     >
       {/* Card Header */}
-      <div className="px-5 py-4 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3">
+      <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-[15px] font-bold font-cairo text-slate-900 dark:text-white">
+            <h2 className="text-base font-extrabold font-cairo text-[#09152B] dark:text-white">
               الذمم المتأخرة
             </h2>
             {!isLoading && filteredPayments.length > 0 && (
-              <span className="px-2 py-0.5 rounded-md bg-rose-50 dark:bg-rose-950/40 border border-rose-200/70 dark:border-rose-800/60 text-rose-700 dark:text-rose-400 text-[11px] font-bold tabular-nums font-jakarta">
+              <span className="px-2 py-0.5 rounded-md bg-rose-50 dark:bg-rose-950/50 border border-rose-300/80 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-xs font-extrabold tabular-nums font-jakarta">
                 {filteredPayments.length}
               </span>
             )}
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mt-0.5">
             حسابات تجاوزت موعد الاستحقاق المحدد للسداد
           </p>
         </div>
@@ -148,7 +148,7 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({
         <button
           type="button"
           onClick={() => navigate(PATHS.CUSTOMERS)}
-          className="text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
+          className="text-xs font-bold text-[#09152B] dark:text-slate-100 bg-slate-50 dark:bg-slate-800/70 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors cursor-pointer shrink-0 shadow-2xs"
         >
           <span>دليل العملاء</span>
           <ChevronLeft className="w-3.5 h-3.5" />
@@ -215,14 +215,14 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({
         ) : (
           <table className="w-full text-right border-collapse">
             <thead>
-              <tr className="bg-slate-50/70 dark:bg-slate-900/40 border-b border-slate-200/80 dark:border-slate-800 text-[11.5px] font-semibold text-slate-500 dark:text-slate-400">
-                <th className="py-2.5 pr-5 pl-3 font-semibold">العميل</th>
-                <th className="py-2.5 px-3 font-semibold">تاريخ الاستحقاق</th>
-                <th className="py-2.5 px-3 font-semibold">المبلغ المستحق</th>
-                <th className="py-2.5 pl-5 pr-3 text-left font-semibold">الإجراء</th>
+              <tr className="bg-slate-100/80 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200">
+                <th className="py-3 pr-5 pl-3 font-bold">العميل</th>
+                <th className="py-3 px-3 font-bold">تاريخ الاستحقاق</th>
+                <th className="py-3 px-3 font-bold">المبلغ المستحق</th>
+                <th className="py-3 pl-5 pr-3 text-left font-bold">الإجراء</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+            <tbody className="divide-y divide-slate-200/80 dark:divide-slate-800">
               {visiblePayments.map((payment) => {
                 const isSent = !!remindedIds[payment.id];
                 const isSending = !!sendingIds[payment.id];
@@ -234,22 +234,22 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({
                 return (
                   <tr
                     key={payment.id}
-                    className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors duration-150 cursor-pointer"
+                    className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors duration-150 cursor-pointer"
                     onClick={() => navigate(`/customers/${payment.customerId}`)}
                   >
                     {/* Customer Name + Phone */}
                     <td className="py-3.5 pr-5 pl-3">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center justify-center shrink-0">
+                        <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-[#09152B] dark:text-slate-100 text-sm font-extrabold flex items-center justify-center shrink-0">
                           {initial}
                         </div>
                         <div className="min-w-0">
-                          <div className="font-semibold font-cairo text-[13.5px] text-slate-900 dark:text-slate-100 group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors truncate">
+                          <div className="font-bold font-cairo text-sm text-[#09152B] dark:text-white group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors truncate">
                             {payment.customerName}
                           </div>
                           {payment.phone && (
                             <div
-                              className="text-[11px] text-slate-400 dark:text-slate-500 font-jakarta tabular-nums inline-block"
+                              className="text-xs font-medium text-slate-600 dark:text-slate-400 font-jakarta tabular-nums inline-block mt-0.5"
                               dir="ltr"
                             >
                               {payment.phone}
@@ -262,13 +262,13 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({
                     {/* Due Date + Overdue Elapsed */}
                     <td className="py-3.5 px-3 whitespace-nowrap">
                       <div
-                        className="text-xs font-medium text-slate-700 dark:text-slate-300 font-jakarta tabular-nums inline-block"
+                        className="text-[13px] font-bold text-[#09152B] dark:text-slate-100 font-jakarta tabular-nums inline-block"
                         dir="ltr"
                       >
                         {payment.dueDate}
                       </div>
                       {overdueLabel && (
-                        <div className="text-[11px] font-medium text-rose-600/90 dark:text-rose-400/90 mt-0.5 tabular-nums">
+                        <div className="text-xs font-semibold text-rose-700 dark:text-rose-400 mt-0.5 tabular-nums">
                           {overdueLabel}
                         </div>
                       )}
@@ -277,11 +277,11 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({
                     {/* Amount */}
                     <td className="py-3.5 px-3 whitespace-nowrap">
                       <span
-                        className="inline-flex items-baseline gap-1 font-jakarta tabular-nums font-bold text-sm text-rose-600 dark:text-rose-400"
+                        className="inline-flex items-baseline gap-1 font-jakarta tabular-nums font-extrabold text-[15px] text-rose-700 dark:text-rose-400"
                         dir="ltr"
                       >
                         <span>{payment.amount}</span>
-                        <span className="text-xs font-semibold opacity-80">{currencyCfg.symbol}</span>
+                        <span className="text-xs font-bold opacity-90">{currencyCfg.symbol}</span>
                       </span>
                     </td>
 
@@ -294,27 +294,27 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({
                           e.stopPropagation();
                           void handleSendReminder(payment);
                         }}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold font-cairo border transition-colors ${
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold font-cairo border transition-colors ${
                           isSent
-                            ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-400 cursor-default'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 cursor-default'
                             : isSending
-                              ? 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 cursor-wait'
-                              : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-600 cursor-pointer'
+                              ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 cursor-wait'
+                              : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-[#09152B] dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-400 dark:hover:border-slate-500 shadow-2xs cursor-pointer'
                         }`}
                       >
                         {isSent ? (
                           <>
-                            <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                            <Check className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
                             <span>تم الإرسال</span>
                           </>
                         ) : isSending ? (
                           <>
-                            <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-600" />
                             <span>جاري الإرسال...</span>
                           </>
                         ) : (
                           <>
-                            <Bell className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                            <Bell className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" />
                             <span>تذكير</span>
                           </>
                         )}
@@ -330,11 +330,11 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({
 
       {/* Expand / Collapse Footer */}
       {!isLoading && hasMoreRows && (
-        <div className="px-5 py-2.5 border-t border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
+        <div className="px-5 py-2.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/40">
           <button
             type="button"
             onClick={() => setIsExpanded((prev) => !prev)}
-            className="w-full py-1 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors tabular-nums"
+            className="w-full py-1 text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-[#09152B] dark:hover:text-white inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors tabular-nums"
           >
             <span>
               {isExpanded

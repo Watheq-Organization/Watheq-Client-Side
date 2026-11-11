@@ -60,14 +60,14 @@ export const DashboardScreen: FC = () => {
           {/* Workspace Header & Quick Actions */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div className="text-right">
-              <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+              <div className="flex items-center gap-2 text-[13px] font-semibold text-slate-700 dark:text-slate-300">
                 <span>{merchantProfile.businessName || 'متجر وثّق'}</span>
-                <span aria-hidden="true" className="text-slate-300 dark:text-slate-700">
+                <span aria-hidden="true" className="text-slate-400 dark:text-slate-600">
                   ·
                 </span>
-                <span className="tabular-nums font-jakarta" dir="ltr">{currentDateDisplay}</span>
+                <span className="tabular-nums font-jakarta font-semibold" dir="ltr">{currentDateDisplay}</span>
               </div>
-              <h1 className="mt-1 text-xl sm:text-2xl font-bold font-cairo text-slate-900 dark:text-white tracking-tight">
+              <h1 className="mt-1 text-2xl sm:text-[26px] font-extrabold font-cairo text-[#09152B] dark:text-white tracking-tight">
                 لوحة التحكم
               </h1>
             </div>
@@ -77,39 +77,39 @@ export const DashboardScreen: FC = () => {
               <button
                 type="button"
                 onClick={handleRefreshAll}
-                className="w-9 h-9 rounded-lg bg-white dark:bg-[#111827] border border-slate-200/90 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-700 flex items-center justify-center transition-colors cursor-pointer"
+                className="w-9 h-9 rounded-lg bg-white dark:bg-[#111827] border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-[#09152B] dark:hover:text-white hover:border-slate-400 dark:hover:border-slate-500 flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
                 title="تحديث بيانات لوحة التحكم"
                 aria-label="تحديث البيانات"
               >
                 <RotateCw
-                  className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-slate-800 dark:text-slate-200' : ''}`}
+                  className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-[#09152B] dark:text-white' : ''}`}
                 />
               </button>
 
               <button
                 type="button"
                 onClick={() => navigate(PATHS.POS)}
-                className="h-9 px-3.5 rounded-lg bg-white dark:bg-[#111827] border border-slate-200/90 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="h-9 px-3.5 rounded-lg bg-white dark:bg-[#111827] border border-slate-300 dark:border-slate-700 text-[#09152B] dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-500 text-[13px] font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
               >
-                <ShoppingCart className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                <ShoppingCart className="w-4 h-4 text-slate-700 dark:text-slate-300" />
                 <span>الكاشير</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => navigate(PATHS.CASH_SALE)}
-                className="h-9 px-3.5 rounded-lg bg-white dark:bg-[#111827] border border-slate-200/90 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="h-9 px-3.5 rounded-lg bg-white dark:bg-[#111827] border border-slate-300 dark:border-slate-700 text-[#09152B] dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-500 text-[13px] font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
               >
-                <Banknote className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                <Banknote className="w-4 h-4 text-slate-700 dark:text-slate-300" />
                 <span>بيع نقدي</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => navigate(PATHS.DEBT_NEW)}
-                className="h-9 px-4 rounded-lg bg-[#09152B] hover:bg-[#12264B] dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                className="h-9 px-4 rounded-lg bg-[#09152B] hover:bg-[#12264B] dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-[13px] font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-4 h-4" />
                 <span>إضافة دين</span>
               </button>
             </div>

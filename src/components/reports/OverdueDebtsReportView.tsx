@@ -203,7 +203,7 @@ export const OverdueDebtsReportView: FC = () => {
     try {
       const d = new Date(dStr);
       if (isNaN(d.getTime())) return dStr.split('T')[0];
-      return d.toLocaleDateString('en-GB', {
+      return d.toLocaleDateString('en-US', {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',

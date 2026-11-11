@@ -243,13 +243,13 @@ export const Header: FC<HeaderProps> = ({
             </h1>
           ) : !hideSearch ? (
             <div className="relative w-full">
-              <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-4 h-4 text-slate-600 dark:text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => onSearchChange?.(e.target.value)}
                 placeholder={searchPlaceholder}
-                className="w-full h-9 bg-slate-50/90 dark:bg-slate-800/70 border border-slate-200/90 dark:border-slate-700/80 text-slate-800 dark:text-slate-100 text-[13px] rounded-lg pr-9 pl-8 outline-hidden focus:border-slate-400 dark:focus:border-slate-500 focus:bg-white dark:focus:bg-slate-800 transition-colors placeholder:text-slate-400 dark:placeholder:text-slate-500 font-cairo"
+                className="w-full h-9 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-[#09152B] dark:text-slate-100 text-[13px] font-medium rounded-lg pr-9 pl-8 outline-hidden focus:border-[#09152B] dark:focus:border-slate-400 focus:bg-white dark:focus:bg-slate-800 transition-colors placeholder:text-slate-500 dark:placeholder:text-slate-400 font-cairo"
               />
               {searchQuery && onSearchChange && (
                 <button

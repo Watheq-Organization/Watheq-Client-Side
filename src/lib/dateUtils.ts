@@ -69,7 +69,7 @@ export function formatApiDate(dateStr: string | null | undefined, withTime: bool
   const date = parseApiDate(dateStr);
   if (Number.isNaN(date.getTime())) return dateStr;
 
-  return new Intl.DateTimeFormat('en-GB', {
+  return new Intl.DateTimeFormat('en-US', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -114,7 +114,7 @@ export function formatRelativeTime(dateStr?: string | null): string {
     if (diffDays === 1) return 'أمس';
     if (diffDays < 7) return `منذ ${diffDays.toLocaleString('en-US')} أيام`;
 
-    return d.toLocaleDateString('en-GB', {
+    return d.toLocaleDateString('en-US', {
       day: '2-digit',
       month: 'short',
       year: 'numeric',

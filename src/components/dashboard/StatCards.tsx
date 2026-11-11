@@ -148,22 +148,22 @@ export const StatCards: FC<StatCardsProps> = ({ refreshTrigger = 0 }) => {
       )}
 
       {/* Unified Architectural Ledger Card */}
-      <div className="rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#111827] shadow-[0_1px_2px_rgba(15,23,42,0.03)] overflow-hidden">
+      <div className="rounded-xl border border-slate-300/90 dark:border-slate-700 bg-white dark:bg-[#111827] shadow-xs overflow-hidden">
         {/* Optional Multi-Currency Scope Bar */}
         {!isLoading && isMultiCurrency && (
-          <div className="px-5 py-2.5 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 flex flex-wrap items-center justify-between gap-2">
-            <span className="text-[11.5px] font-semibold text-slate-500 dark:text-slate-400">
+          <div className="px-5 py-2.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/50 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
               ملخص الحسابات متعددة العملات
             </span>
 
-            <div className="inline-flex items-center p-0.5 rounded-lg bg-slate-200/60 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/70">
+            <div className="inline-flex items-center p-0.5 rounded-lg bg-slate-200/80 dark:bg-slate-800 border border-slate-300/80 dark:border-slate-700">
               <button
                 type="button"
                 onClick={() => setSelectedCurrency('ALL')}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
+                className={`px-3 py-1 rounded-md text-xs font-bold transition-colors cursor-pointer ${
                   effectiveCurrency === 'ALL'
-                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-2xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                    ? 'bg-white dark:bg-slate-700 text-[#09152B] dark:text-white shadow-2xs'
+                    : 'text-slate-700 dark:text-slate-300 hover:text-[#09152B] dark:hover:text-white'
                 }`}
               >
                 الكل
@@ -176,14 +176,14 @@ export const StatCards: FC<StatCardsProps> = ({ refreshTrigger = 0 }) => {
                     key={item.currencyCode}
                     type="button"
                     onClick={() => setSelectedCurrency(item.currencyCode)}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer flex items-center gap-1 ${
+                    className={`px-3 py-1 rounded-md text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 ${
                       isSelected
-                        ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-2xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                        ? 'bg-white dark:bg-slate-700 text-[#09152B] dark:text-white shadow-2xs'
+                        : 'text-slate-700 dark:text-slate-300 hover:text-[#09152B] dark:hover:text-white'
                     }`}
                   >
                     <span>{cfg.labelAr}</span>
-                    <span className="font-jakarta opacity-75">{cfg.symbol}</span>
+                    <span className="font-jakarta opacity-85">{cfg.symbol}</span>
                   </button>
                 );
               })}
@@ -193,7 +193,7 @@ export const StatCards: FC<StatCardsProps> = ({ refreshTrigger = 0 }) => {
 
         {/* 1px Hairline Divided 4-Column Grid */}
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-px bg-slate-200/80 dark:bg-slate-800">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-px bg-slate-200 dark:bg-slate-800">
             {[0, 1, 2, 3].map((idx) => (
               <div key={idx} className="bg-white dark:bg-[#111827] p-5 space-y-3">
                 <div className="h-3.5 w-28 bg-slate-100 dark:bg-slate-800 rounded animate-pulse" />
@@ -203,51 +203,51 @@ export const StatCards: FC<StatCardsProps> = ({ refreshTrigger = 0 }) => {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-px bg-slate-200/80 dark:bg-slate-800">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-px bg-slate-200 dark:bg-slate-800">
             {/* 1. الذمم القائمة (المستحقة) */}
             <div className="bg-white dark:bg-[#111827] p-5 flex flex-col justify-between gap-4">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <span className="text-[13px] font-bold text-slate-700 dark:text-slate-200">
                   الديون القائمة (المستحق)
                 </span>
-                <CreditCard className="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0" />
+                <CreditCard className="w-4 h-4 text-slate-600 dark:text-slate-400 shrink-0" />
               </div>
 
               {showSingleCurrencyMetrics ? (
                 <div className="text-right">
                   <div className="inline-flex items-baseline gap-1.5" dir="ltr">
-                    <span className="text-2xl sm:text-[26px] font-bold text-slate-900 dark:text-white tracking-tight tabular-nums font-jakarta">
+                    <span className="text-[28px] sm:text-[30px] font-extrabold text-[#09152B] dark:text-white tracking-tight tabular-nums font-jakarta">
                       {summary ? formatAmount(scopedRemaining) : '—'}
                     </span>
-                    <span className="text-sm font-bold text-slate-500 dark:text-slate-400">
+                    <span className="text-base font-bold text-slate-600 dark:text-slate-300 font-jakarta">
                       {scopedCurrencyCfg.symbol}
                     </span>
                   </div>
-                  <p className="mt-1.5 text-[11.5px] text-slate-500 dark:text-slate-400 tabular-nums">
+                  <p className="mt-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 tabular-nums">
                     من أصل{' '}
-                    <span className="font-semibold text-slate-700 dark:text-slate-300" dir="ltr">
+                    <span className="font-bold text-[#09152B] dark:text-slate-100 font-jakarta" dir="ltr">
                       {formatAmount(scopedTotalDebt)} {scopedCurrencyCfg.symbol}
                     </span>{' '}
                     إجمالي المسجل
                   </p>
                 </div>
               ) : (
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   {currencySummaries.map((item) => {
                     const cfg = getCurrencyConfig(item.currencyCode);
                     return (
                       <div
                         key={item.currencyCode}
-                        className="flex items-baseline justify-between gap-2 text-sm"
+                        className="flex items-baseline justify-between gap-2"
                       >
-                        <span className="text-[11.5px] font-medium text-slate-500 dark:text-slate-400">
+                        <span className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">
                           {cfg.labelAr}
                         </span>
                         <div className="inline-flex items-baseline gap-1 font-jakarta tabular-nums" dir="ltr">
-                          <span className="text-base font-bold text-slate-900 dark:text-white">
+                          <span className="text-[17px] font-extrabold text-[#09152B] dark:text-white">
                             {formatAmount(item.remainingAmount)}
                           </span>
-                          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                          <span className="text-sm font-bold text-slate-600 dark:text-slate-400">
                             {cfg.symbol}
                           </span>
                         </div>
@@ -261,33 +261,33 @@ export const StatCards: FC<StatCardsProps> = ({ refreshTrigger = 0 }) => {
             {/* 2. إجمالي التحصيلات ونسبة السداد */}
             <div className="bg-white dark:bg-[#111827] p-5 flex flex-col justify-between gap-4">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <span className="text-[13px] font-bold text-slate-700 dark:text-slate-200">
                   إجمالي التحصيلات
                 </span>
-                <Banknote className="w-4 h-4 text-emerald-600/80 dark:text-emerald-400/80 shrink-0" />
+                <Banknote className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
               </div>
 
               {showSingleCurrencyMetrics ? (
                 <div className="text-right">
                   <div className="flex items-baseline justify-between gap-2">
                     <div className="inline-flex items-baseline gap-1.5" dir="ltr">
-                      <span className="text-2xl sm:text-[26px] font-bold text-slate-900 dark:text-white tracking-tight tabular-nums font-jakarta">
+                      <span className="text-[28px] sm:text-[30px] font-extrabold text-emerald-700 dark:text-emerald-400 tracking-tight tabular-nums font-jakarta">
                         {summary ? formatAmount(scopedCollected) : '—'}
                       </span>
-                      <span className="text-sm font-bold text-slate-500 dark:text-slate-400">
+                      <span className="text-base font-bold text-emerald-700/85 dark:text-emerald-300 font-jakarta">
                         {scopedCurrencyCfg.symbol}
                       </span>
                     </div>
 
                     {scopedTotalDebt > 0 && (
-                      <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-1.5 py-0.5 rounded tabular-nums">
+                      <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-md tabular-nums">
                         {collectionRate}% محصّل
                       </span>
                     )}
                   </div>
 
                   {/* Thin progress track */}
-                  <div className="mt-2.5 h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                  <div className="mt-2.5 h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
                     <div
                       className="h-full rounded-full bg-emerald-600 dark:bg-emerald-500 transition-all duration-500"
                       style={{ width: `${collectionRate}%` }}
@@ -295,22 +295,22 @@ export const StatCards: FC<StatCardsProps> = ({ refreshTrigger = 0 }) => {
                   </div>
                 </div>
               ) : (
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   {currencySummaries.map((item) => {
                     const cfg = getCurrencyConfig(item.currencyCode);
                     return (
                       <div
                         key={item.currencyCode}
-                        className="flex items-baseline justify-between gap-2 text-sm"
+                        className="flex items-baseline justify-between gap-2"
                       >
-                        <span className="text-[11.5px] font-medium text-slate-500 dark:text-slate-400">
+                        <span className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">
                           {cfg.labelAr}
                         </span>
                         <div className="inline-flex items-baseline gap-1 font-jakarta tabular-nums" dir="ltr">
-                          <span className="text-base font-bold text-emerald-700 dark:text-emerald-400">
+                          <span className="text-[17px] font-extrabold text-emerald-700 dark:text-emerald-400">
                             {formatAmount(item.collectedAmount)}
                           </span>
-                          <span className="text-xs font-semibold text-emerald-600/80 dark:text-emerald-400/80">
+                          <span className="text-sm font-bold text-emerald-700/80 dark:text-emerald-400/90">
                             {cfg.symbol}
                           </span>
                         </div>
@@ -324,7 +324,7 @@ export const StatCards: FC<StatCardsProps> = ({ refreshTrigger = 0 }) => {
             {/* 3. المتأخرات عن السداد */}
             <div className="bg-white dark:bg-[#111827] p-5 flex flex-col justify-between gap-4">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <span className="text-[13px] font-bold text-slate-700 dark:text-slate-200">
                   المبالغ المتأخرة
                 </span>
                 <div className="flex items-center gap-2 shrink-0">
@@ -332,17 +332,17 @@ export const StatCards: FC<StatCardsProps> = ({ refreshTrigger = 0 }) => {
                     <button
                       type="button"
                       onClick={() => navigate(PATHS.OVERDUE_DEBTS_REPORT)}
-                      className="text-[11px] text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-semibold inline-flex items-center gap-0.5 cursor-pointer transition-colors"
+                      className="text-xs text-[#09152B] hover:underline dark:text-slate-200 font-bold inline-flex items-center gap-0.5 cursor-pointer transition-colors"
                     >
                       <span>التقرير</span>
-                      <ArrowUpLeft className="w-3 h-3" />
+                      <ArrowUpLeft className="w-3.5 h-3.5" />
                     </button>
                   )}
                   <AlertTriangle
                     className={`w-4 h-4 shrink-0 ${
                       hasOverdueAlert
-                        ? 'text-rose-500 dark:text-rose-400'
-                        : 'text-slate-400 dark:text-slate-500'
+                        ? 'text-rose-600 dark:text-rose-400'
+                        : 'text-slate-600 dark:text-slate-400'
                     }`}
                   />
                 </div>
@@ -352,32 +352,32 @@ export const StatCards: FC<StatCardsProps> = ({ refreshTrigger = 0 }) => {
                 <div className="text-right">
                   <div className="inline-flex items-baseline gap-1.5" dir="ltr">
                     <span
-                      className={`text-2xl sm:text-[26px] font-bold tracking-tight tabular-nums font-jakarta ${
+                      className={`text-[28px] sm:text-[30px] font-extrabold tracking-tight tabular-nums font-jakarta ${
                         (scopedOverdue ?? 0) > 0
-                          ? 'text-rose-600 dark:text-rose-400'
-                          : 'text-slate-900 dark:text-white'
+                          ? 'text-rose-700 dark:text-rose-400'
+                          : 'text-[#09152B] dark:text-white'
                       }`}
                     >
                       {summary && scopedOverdue !== null ? formatAmount(scopedOverdue) : '—'}
                     </span>
-                    <span className="text-sm font-bold text-slate-500 dark:text-slate-400">
+                    <span className="text-base font-bold text-slate-600 dark:text-slate-300 font-jakarta">
                       {scopedCurrencyCfg.symbol}
                     </span>
                   </div>
 
-                  <div className="mt-1.5 flex items-center justify-between gap-2 text-[11.5px]">
+                  <div className="mt-1.5 flex items-center justify-between gap-2 text-xs">
                     {scopedOverdue === null ? (
-                      <span className="text-slate-500 dark:text-slate-400 font-medium">
+                      <span className="text-slate-600 dark:text-slate-400 font-semibold">
                         تعذر تفصيل المتأخرات لهذه العملة
                       </span>
                     ) : scopedOverdue > 0 ? (
-                      <span className="text-rose-600/90 dark:text-rose-400/90 font-medium tabular-nums">
+                      <span className="text-rose-700 dark:text-rose-400 font-semibold tabular-nums">
                         {overdueShareOfRemaining !== null
                           ? `${overdueShareOfRemaining}% من الديون القائمة`
                           : 'ذمم تجاوزت موعد الاستحقاق'}
                       </span>
                     ) : (
-                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                      <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
                         لا توجد مبالغ متأخرة
                       </span>
                     )}
@@ -386,42 +386,42 @@ export const StatCards: FC<StatCardsProps> = ({ refreshTrigger = 0 }) => {
                       <button
                         type="button"
                         onClick={() => navigate(PATHS.OVERDUE_DEBTS_REPORT)}
-                        className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-semibold inline-flex items-center gap-0.5 cursor-pointer shrink-0 transition-colors"
+                        className="text-[#09152B] hover:underline dark:text-slate-200 font-bold inline-flex items-center gap-0.5 cursor-pointer shrink-0 transition-colors"
                       >
                         <span>التقرير</span>
-                        <ArrowUpLeft className="w-3 h-3" />
+                        <ArrowUpLeft className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
                 </div>
               ) : hasCurrencyOverdueBreakdown ? (
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   {currencySummaries.map((item) => {
                     const cfg = getCurrencyConfig(item.currencyCode);
                     const amt = item.overdueAmount ?? 0;
                     return (
                       <div
                         key={item.currencyCode}
-                        className="flex items-baseline justify-between gap-2 text-sm"
+                        className="flex items-baseline justify-between gap-2"
                       >
-                        <span className="text-[11.5px] font-medium text-slate-500 dark:text-slate-400">
+                        <span className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">
                           {cfg.labelAr}
                         </span>
                         <div className="inline-flex items-baseline gap-1 font-jakarta tabular-nums" dir="ltr">
                           <span
-                            className={`text-base font-bold ${
+                            className={`text-[17px] font-extrabold ${
                               amt > 0
-                                ? 'text-rose-600 dark:text-rose-400'
-                                : 'text-slate-700 dark:text-slate-300'
+                                ? 'text-rose-700 dark:text-rose-400'
+                                : 'text-[#09152B] dark:text-slate-200'
                             }`}
                           >
                             {formatAmount(amt)}
                           </span>
                           <span
-                            className={`text-xs font-semibold ${
+                            className={`text-sm font-bold ${
                               amt > 0
-                                ? 'text-rose-600/80 dark:text-rose-400/80'
-                                : 'text-slate-500 dark:text-slate-400'
+                                ? 'text-rose-700/80 dark:text-rose-400/90'
+                                : 'text-slate-600 dark:text-slate-400'
                             }`}
                           >
                             {cfg.symbol}
@@ -435,29 +435,29 @@ export const StatCards: FC<StatCardsProps> = ({ refreshTrigger = 0 }) => {
                 <div className="text-right">
                   <div className="flex items-baseline gap-2">
                     <span
-                      className={`text-2xl sm:text-[26px] font-bold tracking-tight tabular-nums font-jakarta ${
+                      className={`text-[28px] sm:text-[30px] font-extrabold tracking-tight tabular-nums font-jakarta ${
                         hasOverdueAlert
-                          ? 'text-rose-600 dark:text-rose-400'
-                          : 'text-slate-900 dark:text-white'
+                          ? 'text-rose-700 dark:text-rose-400'
+                          : 'text-[#09152B] dark:text-white'
                       }`}
                     >
                       {summary ? formatAmount(summary.overdueAmount) : '—'}
                     </span>
-                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
                       مجمع بكل العملات
                     </span>
                   </div>
-                  <div className="mt-1.5 flex items-center justify-between gap-2 text-[11.5px]">
-                    <span className="text-slate-500 dark:text-slate-400">
+                  <div className="mt-1.5 flex items-center justify-between gap-2 text-xs">
+                    <span className="text-slate-600 dark:text-slate-300 font-medium">
                       راجع تفصيل العملات بالتقرير
                     </span>
                     <button
                       type="button"
                       onClick={() => navigate(PATHS.OVERDUE_DEBTS_REPORT)}
-                      className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-semibold inline-flex items-center gap-0.5 cursor-pointer shrink-0 transition-colors"
+                      className="text-[#09152B] hover:underline dark:text-slate-200 font-bold inline-flex items-center gap-0.5 cursor-pointer shrink-0 transition-colors"
                     >
                       <span>التقرير</span>
-                      <ArrowUpLeft className="w-3 h-3" />
+                      <ArrowUpLeft className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -467,33 +467,33 @@ export const StatCards: FC<StatCardsProps> = ({ refreshTrigger = 0 }) => {
             {/* 4. العملاء المسجلين */}
             <div className="bg-white dark:bg-[#111827] p-5 flex flex-col justify-between gap-4">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <span className="text-[13px] font-bold text-slate-700 dark:text-slate-200">
                   العملاء المسجّلون
                 </span>
-                <Users className="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0" />
+                <Users className="w-4 h-4 text-slate-600 dark:text-slate-400 shrink-0" />
               </div>
 
               <div className="text-right">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl sm:text-[26px] font-bold text-slate-900 dark:text-white tracking-tight tabular-nums font-jakarta">
+                  <span className="text-[28px] sm:text-[30px] font-extrabold text-[#09152B] dark:text-white tracking-tight tabular-nums font-jakarta">
                     {summary ? activeCustomers.toLocaleString('en-US') : '—'}
                   </span>
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
                     حساب عميل
                   </span>
                 </div>
 
-                <div className="mt-1.5 flex items-center justify-between gap-2 text-[11.5px]">
-                  <span className="text-slate-500 dark:text-slate-400">
+                <div className="mt-1.5 flex items-center justify-between gap-2 text-xs">
+                  <span className="text-slate-600 dark:text-slate-300 font-medium">
                     إجمالي السجل النشط
                   </span>
                   <button
                     type="button"
                     onClick={() => navigate(PATHS.CUSTOMERS)}
-                    className="text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white font-semibold inline-flex items-center gap-0.5 cursor-pointer shrink-0 transition-colors"
+                    className="text-[#09152B] hover:underline dark:text-slate-200 font-bold inline-flex items-center gap-0.5 cursor-pointer shrink-0 transition-colors"
                   >
                     <span>إدارة العملاء</span>
-                    <ArrowUpLeft className="w-3 h-3" />
+                    <ArrowUpLeft className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
