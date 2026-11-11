@@ -241,7 +241,7 @@ export const MizanReconciliation: FC = () => {
   const handleOpenCreateSaleDialog = (t: MizanTransactionDto) => {
     const rawSender = t.senderNameRaw || t.senderNameNormalized || t.bankSenderName || 'Unknown Deposit';
     const ref = t.referenceNumber || t.bankReferenceNumber || '—';
-    const dateFormatted = t.transactionDate ? new Date(t.transactionDate).toLocaleString('ar-EG') : 'اليوم';
+    const dateFormatted = t.transactionDate ? new Date(t.transactionDate).toLocaleString('en-GB') : 'اليوم';
 
     setCandidateDeposit({
       id: String(t.id),
@@ -807,7 +807,7 @@ export const MizanReconciliation: FC = () => {
                           const isSelected = selectedTransactionIds.includes(String(t.id));
                           const senderName = t.senderNameRaw || t.senderNameNormalized || t.bankSenderName || t.customerName || 'غير متوفر';
                           const refNumber = t.referenceNumber || t.bankReferenceNumber || '—';
-                          const timeStr = t.transactionDate ? new Date(t.transactionDate).toLocaleString('ar-EG') : '—';
+                          const timeStr = t.transactionDate ? new Date(t.transactionDate).toLocaleString('en-GB') : '—';
                           const amountVal = Number(t.bankAmount ?? t.amount ?? 0);
 
                           return (

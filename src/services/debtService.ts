@@ -17,14 +17,14 @@ import { getCustomers, getStoredNationalId } from './customerService';
 const CREATE_DEBT_PATH = '/Debt/createDebt';
 
 /**
- * No currency selector exists anywhere in the app (no CurrencyContext, no
- * currency service/dropdown) and the Add New Debt screenshot doesn't show
- * one either — the UI displays "شيكل إسرائيلي" as fixed text. Per
- * the task's instruction to map currencyId under the hood without adding a
- * UI control, this is the single default used until a real currency
- * context is introduced.
+ * Aligned directly with Backend (/api/Currency/getCurrencies) & utils/currency.ts:
+ * - ILS (id: 4, ₪ شيكل إسرائيلي) - Default
+ * - USD (id: 1, $ دولار أمريكي)
+ * - EUR (id: 2, € يورو أوروبي)
+ * - GBP (id: 3, £ جنيه إسترليني)
+ * - JOD (id: 5, د.أ دينار أردني)
  */
-export const DEFAULT_CURRENCY_ID = 1;
+export const DEFAULT_CURRENCY_ID = 4;
 
 /** The Arabic fallback business string used when no notes were entered. */
 const DEFAULT_DEBT_REASON = 'تسجيل دين جديد';

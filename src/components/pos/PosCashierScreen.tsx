@@ -17,8 +17,16 @@ import {
   Clock,
   Package,
   ReceiptText,
+  AlertCircle,
+  AlertTriangle,
+  Barcode,
+  RotateCw,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import { useInventoryPos, playScannerBeep } from '../../context/InventoryPosContext';
+import { useTheme } from '../../context/ThemeContext';
+import { ApiError } from '../../api/httpClient';
 import type { CartItem, Product } from '../../types/inventory';
 import {
   cashierScannerManager,
@@ -39,9 +47,7 @@ import { NegativeStockModal } from './NegativeStockModal';
 import { RegisterPaymentModal } from './RegisterPaymentModal';
 import { Toast, type ToastType } from '../ui/Toast';
 import { PATHS } from '../../routes/paths';
-import { toPosErrorMessage } from '../../services/posService';
 import { createProduct, getProductByBarcodeApi } from '../../services/productService';
-import { toCreateDebtErrorMessage } from '../../services/debtService';
 import { getCustomerProfile } from '../../services/customerService';
 
 const normalizeArabic = (text: string) => {
@@ -56,6 +62,7 @@ const normalizeArabic = (text: string) => {
 
 export const PosCashierScreen: FC = () => {
   const navigate = useNavigate();
+  const { isDarkMode, setTheme } = useTheme();
   const {
     products,
     addProduct,
@@ -78,6 +85,8 @@ export const PosCashierScreen: FC = () => {
     resumeHeldBill,
     deleteHeldBill,
     refreshProducts,
+    isLoadingProducts,
+    productsLoadError,
     activeReceipt,
     setActiveReceipt,
     checkout,
@@ -90,6 +99,7 @@ export const PosCashierScreen: FC = () => {
   const barcodeInputRef = useRef<HTMLInputElement | null>(null);
 
   const [activeCategoryTab, setActiveCategoryTab] = useState<string>('all');
+  const [confirmingClearCart, setConfirmingClearCart] = useState(false);
 
   const [isQuickAddModalOpen, setIsQuickAddModalOpen] = useState(false);
   const [unresolvedBarcode, setUnresolvedBarcode] = useState('');
@@ -139,7 +149,7 @@ export const PosCashierScreen: FC = () => {
   ]);
 
   useEffect(() => {
-    refreshProducts();
+    void refreshProducts();
     focusBarcodeInput();
   }, [focusBarcodeInput, refreshProducts]);
 
@@ -171,15 +181,13 @@ export const PosCashierScreen: FC = () => {
         lastCashierScannedCodeRef.current === trimmed &&
         now - lastCashierScannedTimeRef.current < 1500
       ) {
-        return; // Ignore duplicate burst from network/listeners
+        return;
       }
       lastCashierScannedCodeRef.current = trimmed;
       lastCashierScannedTimeRef.current = now;
 
-      // 1. Check in local products list by barcode
       let found = getProductByBarcode(trimmed);
 
-      // 2. If not found in local memory, check the Backend API directly (it might exist in DB but wasn't synced yet)
       if (!found) {
         try {
           const match = await getProductByBarcodeApi(trimmed);
@@ -188,11 +196,10 @@ export const PosCashierScreen: FC = () => {
             found = match;
           }
         } catch {
-          // ignore lookup error
+          // ignore lookup error and continue name search fallback
         }
       }
 
-      // 3. If not found by barcode, search by product name in local inventory
       if (!found) {
         const norm = normalizeArabic(trimmed);
         const exactNameMatch = products.find(
@@ -225,7 +232,6 @@ export const PosCashierScreen: FC = () => {
     [getProductByBarcode, addProduct, addToCart, focusBarcodeInput, products]
   );
 
-  // Directly handle pre-resolved product broadcast from SignalR ScannerHub
   const handleRemoteProductScanned = useCallback(
     (scannedProduct: ScannedProductDto) => {
       if (!scannedProduct?.barcode) return;
@@ -241,10 +247,8 @@ export const PosCashierScreen: FC = () => {
       lastCashierScannedCodeRef.current = trimmed;
       lastCashierScannedTimeRef.current = now;
 
-      // 1. Check if already exists in local memory
       let found = getProductByBarcode(trimmed);
 
-      // 2. If not found locally, build product object from the backend pre-resolved data!
       if (!found) {
         const resolvedProduct: Product = {
           id: String(scannedProduct.productId),
@@ -267,13 +271,12 @@ export const PosCashierScreen: FC = () => {
       addToCart(found, 1);
       playScannerBeep('scan');
       setBarcodeQuery('');
-      setToast({ message: `تمت إضافة (${found.name}) إلى الفاتورة عبر الماسح 📱`, type: 'info' });
+      setToast({ message: `تمت إضافة (${found.name}) عبر ماسح الجوال`, type: 'info' });
       setTimeout(focusBarcodeInput, 50);
     },
     [getProductByBarcode, addProduct, addToCart, focusBarcodeInput]
   );
 
-  // Handle remote quantity changes from connected Mobile Scanner
   const handleRemoteUpdateQty = useCallback(
     (target: string, delta: number) => {
       const cleanTarget = target.trim().toLowerCase();
@@ -286,11 +289,11 @@ export const PosCashierScreen: FC = () => {
         const newQty = existing.quantity + delta;
         if (newQty <= 0) {
           removeFromCart(existing.product.id);
-          setToast({ message: `تم حذف (${existing.product.name}) من السلة عبر الجوال 📱`, type: 'info' });
+          setToast({ message: `تم حذف (${existing.product.name}) من السلة عبر الجوال`, type: 'info' });
         } else {
           updateCartQty(existing.product.id, newQty);
           setToast({
-            message: `تعديل كمية (${existing.product.name}) إلى ${newQty} عبر الجوال 📱`,
+            message: `تم تعديل كمية (${existing.product.name}) إلى ${newQty} عبر الجوال`,
             type: 'info',
           });
         }
@@ -301,44 +304,45 @@ export const PosCashierScreen: FC = () => {
 
   // Subscribe to SignalR ScannerHub events, WebRTC P2P events, and local fallbacks
   useEffect(() => {
-    // 1. Central Scanner manager subscriptions (Hub + P2P DataChannel)
     const unsubScanner = cashierScannerManager.subscribeStatus(setScannerStatus);
     const unsubBarcode = cashierScannerManager.subscribeBarcode((data) => {
       if (data.product) {
         handleRemoteProductScanned(data.product);
       } else if (data.barcode) {
-        handleResolveBarcode(data.barcode);
+        void handleResolveBarcode(data.barcode);
       }
     });
     const unsubProduct = cashierScannerManager.subscribeProduct((prod) => {
       handleRemoteProductScanned(prod);
     });
 
-    // 2. BroadcastChannel fallback (for same-machine browser testing)
     let channel: BroadcastChannel | null = null;
     try {
       channel = new BroadcastChannel('watheq_pos_scanner');
       channel.onmessage = (event) => {
         if (event.data?.type === 'BARCODE_SCANNED' && event.data?.barcode) {
-          handleResolveBarcode(event.data.barcode);
-        } else if (event.data?.type === 'UPDATE_QTY' && event.data?.productId && typeof event.data?.delta === 'number') {
+          void handleResolveBarcode(event.data.barcode);
+        } else if (
+          event.data?.type === 'UPDATE_QTY' &&
+          event.data?.productId &&
+          typeof event.data?.delta === 'number'
+        ) {
           handleRemoteUpdateQty(event.data.productId, event.data.delta);
         }
       };
     } catch {
-      // Fallback
+      // ignore BroadcastChannel unavailable
     }
 
-    // 3. StorageEvent fallback (for same-machine tabs)
     const handleStorageEvent = (e: StorageEvent) => {
       if (e.key === 'watheq_last_scanned_barcode' && e.newValue) {
         try {
           const parsed = JSON.parse(e.newValue);
           if (parsed.barcode) {
-            handleResolveBarcode(parsed.barcode);
+            void handleResolveBarcode(parsed.barcode);
           }
         } catch {
-          // JSON parse error ignore
+          // ignore invalid JSON
         }
       }
     };
@@ -375,7 +379,6 @@ export const PosCashierScreen: FC = () => {
       scannerP2PService.sendCartSync(p2pCart, cartTotalDue, totalItemsCount);
     }
 
-    // Broadcast channel fallback for same-machine tabs
     try {
       const bc = new BroadcastChannel('watheq_pos_scanner');
       bc.postMessage({
@@ -417,6 +420,7 @@ export const PosCashierScreen: FC = () => {
         isMobileScannerModalOpen ||
         isCustomerSelectModalOpen ||
         isModifyQtyModalOpen ||
+        isRegisterPaymentModalOpen ||
         Boolean(activeReceipt) ||
         Boolean(pendingNegativeItem);
 
@@ -431,7 +435,7 @@ export const PosCashierScreen: FC = () => {
         if (cart.length > 0) {
           setIsModifyQtyModalOpen(true);
         } else {
-          setToast({ message: 'السلة فارغة حالياً لتعديل الكمية', type: 'error' });
+          setToast({ message: 'السلة فارغة؛ أضف صنفاً لتعديل كميته.', type: 'error' });
         }
         return;
       }
@@ -440,9 +444,9 @@ export const PosCashierScreen: FC = () => {
         e.preventDefault();
         if (cart.length > 0) {
           holdCurrentBill();
-          setToast({ message: 'تم تعليق الفاتورة بنجاح في قائمة الانتظار', type: 'info' });
+          setToast({ message: 'تم تعليق الفاتورة بنجاح في قائمة الانتظار.', type: 'info' });
         } else {
-          setToast({ message: 'لا توجد أصناف بالسلة لتعليقها', type: 'error' });
+          setToast({ message: 'لا توجد أصناف بالسلة لتعليق الفاتورة.', type: 'error' });
         }
         return;
       }
@@ -457,11 +461,15 @@ export const PosCashierScreen: FC = () => {
         e.preventDefault();
         if (cart.length > 0) {
           setIsCashModalOpen(true);
-        } else if (selectedCustomer.id && selectedCustomer.name !== 'زبون نقدي عام' && (selectedCustomer.totalDebt || 0) > 0) {
+        } else if (
+          selectedCustomer.id &&
+          selectedCustomer.name !== 'زبون نقدي عام' &&
+          (selectedCustomer.totalDebt || 0) > 0
+        ) {
           setPaymentModalDefaultMethod('cash');
           setIsRegisterPaymentModalOpen(true);
         } else {
-          setToast({ message: 'أضف أصنافاً أولاً للبدء بالسداد النقدي', type: 'error' });
+          setToast({ message: 'أضف أصنافاً للسلة أولاً للبدء بالسداد النقدي.', type: 'error' });
         }
         return;
       }
@@ -471,7 +479,7 @@ export const PosCashierScreen: FC = () => {
         if (cart.length > 0) {
           setIsDebtModalOpen(true);
         } else {
-          setToast({ message: 'أضف أصنافاً أولاً لتسجيل الدين', type: 'error' });
+          setToast({ message: 'أضف أصنافاً للسلة أولاً لتسجيل البيع بالآجل.', type: 'error' });
         }
         return;
       }
@@ -480,11 +488,15 @@ export const PosCashierScreen: FC = () => {
         e.preventDefault();
         if (cart.length > 0) {
           setIsBankModalOpen(true);
-        } else if (selectedCustomer.id && selectedCustomer.name !== 'زبون نقدي عام' && (selectedCustomer.totalDebt || 0) > 0) {
+        } else if (
+          selectedCustomer.id &&
+          selectedCustomer.name !== 'زبون نقدي عام' &&
+          (selectedCustomer.totalDebt || 0) > 0
+        ) {
           setPaymentModalDefaultMethod('wallet');
           setIsRegisterPaymentModalOpen(true);
         } else {
-          setToast({ message: 'أضف أصنافاً أولاً للتحويل البنكي', type: 'error' });
+          setToast({ message: 'أضف أصنافاً للسلة أولاً للتحويل البنكي.', type: 'error' });
         }
         return;
       }
@@ -550,7 +562,6 @@ export const PosCashierScreen: FC = () => {
     const normQ = normalizeArabic(rawQ);
     const queryTokens = normQ.split(/\s+/).filter(Boolean);
 
-    // Filter by name, barcode, or category (all tokens must match at least one field)
     const matchesQuery = (p: Product) => {
       const prodName = normalizeArabic(p.name || '');
       const prodBarcode = (p.barcode || '').toLowerCase();
@@ -565,7 +576,6 @@ export const PosCashierScreen: FC = () => {
       });
     };
 
-    // 1. If inside a specific category tab, check if there are matches in this category
     if (activeCategoryTab !== 'all') {
       const inTabMatches = products
         .filter((p) => p.category === activeCategoryTab)
@@ -576,9 +586,16 @@ export const PosCashierScreen: FC = () => {
       }
     }
 
-    // 2. Otherwise search across all products
     return products.filter(matchesQuery);
   }, [products, activeCategoryTab, barcodeQuery]);
+
+  const cartQtyByProductId = useMemo(() => {
+    const map = new Map<string, number>();
+    cart.forEach((item) => {
+      map.set(item.product.id, (map.get(item.product.id) ?? 0) + item.quantity);
+    });
+    return map;
+  }, [cart]);
 
   const activeCartItemForEdit: CartItem | null = useMemo(() => {
     if (cart.length === 0) return null;
@@ -588,9 +605,11 @@ export const PosCashierScreen: FC = () => {
     return cart[cart.length - 1];
   }, [cart, selectedCartItemIndex]);
 
+  const customerInitial = selectedCustomer.name?.trim()?.charAt(0) || 'ع';
+
   return (
     <div
-      className="flex flex-col h-screen bg-slate-950 text-slate-100 font-cairo select-none overflow-hidden"
+      className="flex flex-col h-screen bg-[#F5F6F8] dark:bg-[#0B0F19] text-slate-800 dark:text-slate-100 font-cairo select-none overflow-hidden"
       dir="rtl"
       onClick={focusBarcodeInput}
     >
@@ -603,111 +622,100 @@ export const PosCashierScreen: FC = () => {
       )}
 
       {/* POS Top Terminal Header Bar */}
-      <header className="h-14 bg-slate-900 border-b border-slate-800 px-4 sm:px-6 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 flex items-center justify-center shrink-0">
+      <header className="h-14 bg-white dark:bg-[#111827] border-b border-slate-200/90 dark:border-slate-800 px-4 sm:px-6 flex items-center justify-between gap-3 shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-2.5 shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-[#09152B] dark:bg-slate-800 border border-slate-200/20 p-1 flex items-center justify-center shrink-0">
               <img
                 src="/logo-hd.png"
                 alt="وثّق"
-                className="w-full h-full object-contain drop-shadow-md"
+                className="w-full h-full object-contain"
               />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-black text-white text-base tracking-wide">نقطة بيع وثّق</span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  متصل ومباشر 🟢
-                </span>
-              </div>
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-slate-900 dark:text-white text-sm sm:text-base tracking-tight">
+                نقطة البيع
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/70 dark:border-emerald-800/60">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span>جاهز</span>
+              </span>
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => navigate(PATHS.INVENTORY)}
-            className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-semibold border border-slate-700 transition-colors"
-          >
-            <Package className="w-3.5 h-3.5 text-blue-400" />
-            <span>كتالوج المخزون</span>
-          </button>
+          <div className="hidden md:flex items-center gap-1.5 border-r border-slate-200 dark:border-slate-800 pr-3">
+            <button
+              type="button"
+              onClick={() => navigate(PATHS.INVENTORY)}
+              className="h-8 px-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs text-slate-700 dark:text-slate-300 font-semibold border border-slate-200/80 dark:border-slate-700/80 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Package className="w-3.5 h-3.5 text-slate-400" />
+              <span>المخزون</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => navigate(PATHS.POS_TRANSACTIONS)}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-semibold border border-slate-700 transition-colors"
-            title="عرض ومتابعة معاملات نقطة البيع"
-          >
-            <ReceiptText className="w-3.5 h-3.5 text-emerald-400" />
-            <span>معاملات الكاشير</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => navigate(PATHS.POS_TRANSACTIONS)}
+              className="h-8 px-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs text-slate-700 dark:text-slate-300 font-semibold border border-slate-200/80 dark:border-slate-700/80 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="عرض ومتابعة معاملات نقطة البيع"
+            >
+              <ReceiptText className="w-3.5 h-3.5 text-slate-400" />
+              <span>معاملات الكاشير</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => navigate(PATHS.DASHBOARD)}
-            className="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-semibold border border-slate-700 transition-colors"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-            <span>لوحة القيادة</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => navigate(PATHS.DASHBOARD)}
+              className="h-8 px-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs text-slate-700 dark:text-slate-300 font-semibold border border-slate-200/80 dark:border-slate-700/80 inline-flex items-center gap-1 transition-colors cursor-pointer"
+            >
+              <ChevronLeft className="w-3.5 h-3.5 text-slate-400" />
+              <span>لوحة التحكم</span>
+            </button>
+          </div>
         </div>
 
-        <div className="hidden xl:flex items-center gap-3 text-[11px] font-mono text-slate-400">
-          <span className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-emerald-400">
-              F1
-            </kbd>{' '}
-            عميل
-          </span>
-          <span className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-purple-400">
-              F2
-            </kbd>{' '}
-            كمية
-          </span>
-          <span className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-amber-400">
-              F4
-            </kbd>{' '}
-            تعليق
-          </span>
-          <span className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-amber-400">
-              F5
-            </kbd>{' '}
-            استرجاع
-          </span>
-          <span className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-emerald-400">
-              F9
-            </kbd>{' '}
-            كاش
-          </span>
-          <span className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-rose-400">
-              F10
-            </kbd>{' '}
-            دين
-          </span>
-          <span className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-indigo-400">
-              F11
-            </kbd>{' '}
-            بنك
-          </span>
+        {/* Keyboard Shortcuts Legend */}
+        <div className="hidden xl:flex items-center gap-2.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+          {[
+            { key: 'F1', label: 'عميل' },
+            { key: 'F2', label: 'كمية' },
+            { key: 'F4', label: 'تعليق' },
+            { key: 'F5', label: 'معلق' },
+            { key: 'F9', label: 'نقدي' },
+            { key: 'F10', label: 'دين' },
+            { key: 'F11', label: 'بنك' },
+          ].map((s) => (
+            <span key={s.key} className="inline-flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 text-[10px] font-jakarta font-semibold text-slate-700 dark:text-slate-300">
+                {s.key}
+              </kbd>
+              <span>{s.label}</span>
+            </span>
+          ))}
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Right Controls: Theme, Held Bills, Scanner */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setTheme(isDarkMode ? 'light' : 'dark')}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/70 dark:border-slate-700/70 transition-colors cursor-pointer"
+            title={isDarkMode ? 'الوضع النهاري' : 'الوضع الليلي'}
+            aria-label="تبديل المظهر"
+          >
+            {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+
           <button
             type="button"
             onClick={() => setIsHeldBillsModalOpen(true)}
-            className="relative px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold flex items-center gap-1.5 transition-all"
+            className="h-8 px-3 rounded-lg bg-slate-50 dark:bg-slate-800/70 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200/90 dark:border-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
             title="الفواتير المعلقة (F5)"
           >
-            <Clock className="w-3.5 h-3.5" />
+            <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
             <span>المعلق</span>
             {heldBills.length > 0 && (
-              <span className="w-5 h-5 rounded-full bg-amber-500 text-black font-black text-[11px] flex items-center justify-center animate-pulse">
+              <span className="min-w-4 h-4 px-1 rounded-md bg-amber-500 text-white font-jakarta font-bold text-[10px] flex items-center justify-center tabular-nums">
                 {heldBills.length}
               </span>
             )}
@@ -716,37 +724,38 @@ export const PosCashierScreen: FC = () => {
           <button
             type="button"
             onClick={() => setIsMobileScannerModalOpen(true)}
-            className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${scannerStatus === 'connected'
-                ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/50 shadow-sm shadow-emerald-500/20'
+            className={`h-8 px-3 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
+              scannerStatus === 'connected'
+                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/60'
                 : scannerStatus === 'connecting' || scannerStatus === 'paired'
-                  ? 'bg-amber-500/20 text-amber-400 border-amber-500/50 animate-pulse'
+                  ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/60'
                   : scannerStatus === 'disconnected'
-                    ? 'bg-rose-500/20 text-rose-400 border-rose-500/50'
-                    : 'bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border-emerald-500/40'
-              }`}
-            title="ربط ماسح الجوال (SignalR WebSocket)"
+                    ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800/60'
+                    : 'bg-slate-50 dark:bg-slate-800/70 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200/90 dark:border-slate-700'
+            }`}
+            title="ربط ماسح الجوال"
           >
-            <Smartphone className="w-3.5 h-3.5" />
+            <Smartphone className="w-3.5 h-3.5 shrink-0" />
             {scannerStatus === 'connected' && (
               <>
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block" />
-                <span className="hidden sm:inline">الماسح متصل 🟢</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span className="hidden sm:inline">الماسح متصل</span>
               </>
             )}
             {(scannerStatus === 'connecting' || scannerStatus === 'paired') && (
               <>
-                <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
-                <span className="hidden sm:inline">جاري الاتصال... 🟡</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                <span className="hidden sm:inline">جاري الربط...</span>
               </>
             )}
             {scannerStatus === 'disconnected' && (
               <>
-                <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
-                <span className="hidden sm:inline">الماسح مفصول 🔴</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                <span className="hidden sm:inline">الماسح مفصول</span>
               </>
             )}
             {scannerStatus === 'idle' && (
-              <span className="hidden sm:inline">ربط ماسح الجوال 📲</span>
+              <span className="hidden sm:inline">ربط الجوال</span>
             )}
           </button>
         </div>
@@ -754,22 +763,31 @@ export const PosCashierScreen: FC = () => {
 
       {/* Main Terminal Workspace: Screen Split */}
       <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
-        {/* Left Side: 40% Cart */}
-        <section className="w-full lg:w-[40%] flex flex-col border-b lg:border-b-0 lg:border-l border-slate-800 bg-slate-900/90 h-[50vh] lg:h-full shrink-0">
-          <div className="p-3 sm:p-4 border-b border-slate-800 bg-slate-900 flex items-center justify-between">
-            <div className="flex items-center gap-2.5 flex-1 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0">
-                <Users className="w-4 h-4" />
+        {/* Cart / Invoice Pane (Right in RTL) */}
+        <section className="w-full lg:w-[40%] flex flex-col border-b lg:border-b-0 lg:border-l border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#111827] h-[52vh] lg:h-full shrink-0">
+          {/* Customer Context Strip */}
+          <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/60 flex items-center justify-between gap-2.5 shrink-0">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div
+                className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm font-extrabold shrink-0 border ${
+                  selectedCustomer.id
+                    ? 'bg-[#09152B] dark:bg-emerald-600 text-white border-transparent'
+                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700 shadow-2xs'
+                }`}
+              >
+                {selectedCustomer.id ? customerInitial : <Users className="w-4 h-4" />}
               </div>
-              <div className="truncate">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400">العميل:</span>
-                  <span className="text-xs sm:text-sm font-black text-white truncate">
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                    العميل:
+                  </span>
+                  <span className="text-sm font-extrabold text-[#09152B] dark:text-white break-words">
                     {selectedCustomer.name}
                   </span>
                 </div>
                 {(selectedCustomer.totalDebt || 0) > 0 && (
-                  <span className="text-[11px] text-rose-400 font-mono font-bold block">
+                  <span className="inline-flex items-center gap-1 mt-0.5 text-xs font-jakarta tabular-nums font-bold px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-200 border border-rose-300 dark:border-rose-800">
                     دين سابق: ₪{(selectedCustomer.totalDebt || 0).toFixed(2)}
                   </span>
                 )}
@@ -777,38 +795,56 @@ export const PosCashierScreen: FC = () => {
             </div>
 
             <div className="flex items-center gap-1.5 shrink-0">
-              {selectedCustomer.id && selectedCustomer.name !== 'زبون نقدي عام' && (selectedCustomer.totalDebt || 0) > 0 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPaymentModalDefaultMethod('cash');
-                    setIsRegisterPaymentModalOpen(true);
-                  }}
-                  className="px-2.5 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                  title="تسجيل دفعة للعميل لسداد الديون المستحقة"
-                >
-                  <Banknote className="w-3.5 h-3.5" />
-                  <span>تسجيل دفعة</span>
-                </button>
-              )}
+              {selectedCustomer.id &&
+                selectedCustomer.name !== 'زبون نقدي عام' &&
+                (selectedCustomer.totalDebt || 0) > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentModalDefaultMethod('cash');
+                      setIsRegisterPaymentModalOpen(true);
+                    }}
+                    className="min-h-8 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                    title="تسجيل دفعة للعميل لسداد الديون المستحقة"
+                  >
+                    <Banknote className="w-3.5 h-3.5" />
+                    <span>تسجيل دفعة</span>
+                  </button>
+                )}
 
               <button
                 type="button"
                 onClick={() => setIsCustomerSelectModalOpen(true)}
-                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-blue-400 border border-slate-700 text-xs font-bold flex items-center gap-1 shrink-0 transition-colors"
+                className="min-h-8 px-3 py-1 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-[#09152B] dark:text-white border border-slate-300 dark:border-slate-600 text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
               >
-                <span>تغيير (F1)</span>
+                <span>تغيير العميل</span>
+                <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-jakarta font-semibold text-slate-700 dark:text-slate-300 leading-none">
+                  F1
+                </kbd>
               </button>
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto divide-y divide-slate-800/80 p-2 sm:p-3">
+          {/* Cart Column Header (when cart has items) */}
+          {cart.length > 0 && (
+            <div className="px-4 py-2 border-b border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/80 flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 shrink-0">
+              <span>أصناف الفاتورة ({cart.length})</span>
+              <span className="text-slate-600 dark:text-slate-400">الكمية · الإجمالي</span>
+            </div>
+          )}
+
+          {/* Cart Items List */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-slate-50/50 dark:bg-[#0B0F19]/40">
             {cart.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500">
-                <ShoppingCart className="w-16 h-16 mb-3 stroke-1 opacity-20" />
-                <p className="font-bold text-slate-400 text-sm">الفاتورة الحالية فارغة</p>
-                <p className="text-xs text-slate-500 mt-1 max-w-xs leading-relaxed">
-                  ابدأ بمسح باركود السلعة أو اضغط على أي صنف من الشبكة السريعة لإضافته فوراً
+              <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500 dark:text-slate-400">
+                <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center justify-center mb-3 shadow-2xs">
+                  <ShoppingCart className="w-5 h-5 text-slate-600 dark:text-slate-300" />
+                </div>
+                <p className="font-bold text-[#09152B] dark:text-slate-200 text-sm">
+                  الفاتورة الحالية فارغة
+                </p>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-xs leading-relaxed">
+                  امسح باركود الصنف أو اختر من قائمة الأصناف لإضافته مباشرة.
                 </p>
               </div>
             ) : (
@@ -816,49 +852,62 @@ export const PosCashierScreen: FC = () => {
                 const isSelected = selectedCartItemIndex === index;
                 const remainingInStore = item.product.stock - item.quantity;
                 const isDepleted = remainingInStore < 0;
+                const isLowRemaining = !isDepleted && remainingInStore <= item.product.minAlertThreshold;
 
                 return (
                   <div
                     key={item.product.id}
                     onClick={() => setSelectedCartItemIndex(index)}
-                    className={`p-2.5 sm:p-3 rounded-2xl transition-all flex items-center justify-between gap-3 ${isSelected
-                        ? 'bg-slate-800/90 ring-1 ring-emerald-500/50'
-                        : 'hover:bg-slate-800/40'
-                      }`}
+                    className={`relative px-3.5 py-3 rounded-xl transition-all flex items-center justify-between gap-3 cursor-pointer ${
+                      isSelected
+                        ? 'bg-white dark:bg-[#111827] border-2 border-emerald-600 dark:border-emerald-500 shadow-sm'
+                        : 'bg-white dark:bg-[#111827] border border-slate-300 dark:border-slate-700 shadow-2xs hover:border-[#09152B]/60 dark:hover:border-slate-500'
+                    }`}
                   >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs sm:text-sm font-bold text-white truncate">
-                          {item.product.name}
-                        </span>
-                      </div>
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      <span className="text-sm font-extrabold text-[#09152B] dark:text-white leading-snug break-words block">
+                        {item.product.name}
+                      </span>
 
-                      <div className="flex items-center gap-3 mt-1 text-xs">
-                        <span className="font-mono text-emerald-400 font-bold">
-                          ₪{item.unitPrice.toFixed(2)}
+                      <div className="flex items-center gap-2 flex-wrap text-xs">
+                        <span className="inline-flex items-center gap-1 font-semibold text-slate-700 dark:text-slate-200">
+                          <span className="text-slate-600 dark:text-slate-400 font-medium">سعر الوحدة:</span>
+                          <span className="font-jakarta tabular-nums font-bold" dir="ltr">
+                            ₪{item.unitPrice.toFixed(2)}
+                          </span>
                         </span>
 
                         <span
-                          className={`text-[10px] font-mono px-1.5 py-0.2 rounded-md ${isDepleted
-                              ? 'bg-rose-950/60 text-rose-400 border border-rose-800 font-bold'
-                              : remainingInStore <= item.product.minAlertThreshold
-                                ? 'bg-amber-950/60 text-amber-400 border border-amber-800'
-                                : 'bg-slate-800 text-slate-400'
-                            }`}
+                          className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md border tabular-nums ${
+                            isDepleted
+                              ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-200 border-rose-300 dark:border-rose-800'
+                              : isLowRemaining
+                                ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-800'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+                          }`}
                         >
-                          [المتبقي بالمحل: {remainingInStore}{item.product.unit ? ` ${item.product.unit}` : ''}]
+                          {isDepleted && <AlertCircle className="w-3 h-3 text-rose-600 dark:text-rose-400 shrink-0" />}
+                          {!isDepleted && isLowRemaining && (
+                            <AlertTriangle className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />
+                          )}
+                          <span>
+                            متبقي: {remainingInStore}
+                            {item.product.unit ? ` ${item.product.unit}` : ''}
+                          </span>
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    {/* Unified Segmented Qty Stepper */}
+                    <div className="inline-flex items-center rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 overflow-hidden shrink-0">
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           updateCartQty(item.product.id, item.quantity - 1);
                         }}
-                        className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-colors"
+                        className="w-8 h-8 hover:bg-slate-200 dark:hover:bg-slate-700 text-[#09152B] dark:text-white flex items-center justify-center transition-colors cursor-pointer"
+                        aria-label="إنقاص الكمية"
                       >
                         <Minus className="w-3.5 h-3.5" />
                       </button>
@@ -870,8 +919,8 @@ export const PosCashierScreen: FC = () => {
                           setSelectedCartItemIndex(index);
                           setIsModifyQtyModalOpen(true);
                         }}
-                        className="min-w-[28px] px-1.5 py-0.5 rounded-lg bg-slate-950 border border-slate-700 text-center font-mono font-black text-xs sm:text-sm text-white hover:border-purple-400"
-                        title="انقر لتعديل الكمية (F2)"
+                        className="min-w-9 h-8 px-2 bg-white dark:bg-slate-900 border-x border-slate-300 dark:border-slate-600 text-center font-jakarta tabular-nums font-extrabold text-sm text-[#09152B] dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                        title="تعديل الكمية (F2)"
                       >
                         {item.quantity}
                       </button>
@@ -882,26 +931,30 @@ export const PosCashierScreen: FC = () => {
                           e.stopPropagation();
                           addToCart(item.product, 1);
                         }}
-                        className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-colors"
+                        className="w-8 h-8 hover:bg-slate-200 dark:hover:bg-slate-700 text-[#09152B] dark:text-white flex items-center justify-center transition-colors cursor-pointer"
+                        aria-label="زيادة الكمية"
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
-                    <div className="text-left font-mono shrink-0 min-w-[65px]">
-                      <span className="text-sm font-black text-white block">
+                    {/* Line Subtotal */}
+                    <div className="text-left font-jakarta tabular-nums shrink-0 min-w-[70px]" dir="ltr">
+                      <span className="text-sm sm:text-base font-extrabold text-[#09152B] dark:text-white block">
                         ₪{item.subtotal.toFixed(2)}
                       </span>
                     </div>
 
+                    {/* Framed Delete Action */}
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         removeFromCart(item.product.id);
                       }}
-                      className="p-1 text-slate-500 hover:text-rose-400 rounded-lg transition-colors"
+                      className="w-8 h-8 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-rose-700 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/50 hover:border-rose-300 dark:hover:border-rose-700 flex items-center justify-center transition-colors cursor-pointer shrink-0"
                       title="حذف من السلة"
+                      aria-label={`حذف ${item.product.name} من السلة`}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -911,176 +964,239 @@ export const PosCashierScreen: FC = () => {
             )}
           </div>
 
-          {/* Financial Summary */}
-          <div className="p-3 sm:p-4 border-t border-slate-800 bg-slate-900/95 space-y-3 shrink-0">
-            <div className="space-y-1.5 text-xs text-slate-400">
+          {/* Financial Summary & Payment Keypad */}
+          <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/60 space-y-3 shrink-0">
+            <div className="space-y-1.5 text-xs text-slate-700 dark:text-slate-300">
               <div className="flex justify-between">
-                <span>عدد الأصناف الإجمالي:</span>
-                <span className="font-bold text-white font-mono">{totalItemsCount} قطعة</span>
+                <span className="font-medium">عدد القطع</span>
+                <span className="font-bold text-[#09152B] dark:text-white font-jakarta tabular-nums">
+                  {totalItemsCount}
+                </span>
               </div>
               <div className="flex justify-between">
-                <span>المجموع الفرعي:</span>
-                <span className="font-mono text-white">₪{cartSubtotal.toFixed(2)}</span>
+                <span className="font-medium">المجموع الفرعي</span>
+                <span className="font-jakarta tabular-nums font-bold text-[#09152B] dark:text-white" dir="ltr">
+                  ₪{cartSubtotal.toFixed(2)}
+                </span>
               </div>
               {cartDiscount > 0 && (
-                <div className="flex justify-between text-amber-400 font-bold">
-                  <span>الخصم:</span>
-                  <span className="font-mono">-₪{cartDiscount.toFixed(2)}</span>
+                <div className="flex justify-between text-amber-700 dark:text-amber-400 font-bold">
+                  <span>الخصم</span>
+                  <span className="font-jakarta tabular-nums" dir="ltr">
+                    -₪{cartDiscount.toFixed(2)}
+                  </span>
                 </div>
               )}
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950/60 to-slate-900 border-2 border-emerald-500/40 flex items-center justify-between shadow-lg shadow-emerald-950/20">
+            {/* Clean Architectural Total Panel */}
+            <div className="px-4 py-3 rounded-xl bg-[#09152B] dark:bg-[#070B14] border border-slate-800 flex items-center justify-between">
               <div>
-                <span className="text-xs font-bold text-emerald-400 block">المجموع النهائي للتحصيل</span>
-                <span className="text-[10px] text-slate-400">شامل الضريبة والخصم</span>
-              </div>
-              <div className="text-left font-mono">
-                <span className="text-3xl sm:text-4xl font-black text-emerald-400 tracking-tight">
-                  ₪{cartTotalDue.toFixed(2)}
+                <span className="text-xs font-semibold text-slate-300 block">
+                  المجموع النهائي للتحصيل
                 </span>
+                <span className="text-[10.5px] text-slate-400">شامل الخصم</span>
               </div>
+              <span
+                className="text-2xl sm:text-3xl font-bold font-jakarta tabular-nums text-emerald-400 tracking-tight"
+                dir="ltr"
+              >
+                ₪{cartTotalDue.toFixed(2)}
+              </span>
             </div>
 
+            {/* 3 Payment Method Keys */}
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => {
                   if (cart.length > 0) setIsCashModalOpen(true);
-                  else setToast({ message: 'السلة فارغة!', type: 'error' });
+                  else setToast({ message: 'أضف أصنافاً للسلة أولاً لإتمام السداد النقدي.', type: 'error' });
                 }}
                 disabled={cart.length === 0}
-                className="py-3 px-2 rounded-2xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:opacity-40 text-white font-black text-xs sm:text-sm flex flex-col items-center justify-center gap-1 shadow-lg shadow-emerald-600/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className="py-2.5 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 text-white font-bold text-xs flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer disabled:cursor-not-allowed"
               >
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   <Banknote className="w-4 h-4" />
                   <span>نقدي</span>
                 </div>
-                <span className="text-[10px] opacity-80 font-mono">F9</span>
+                <span className="text-[10px] opacity-80 font-jakarta">F9</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => {
                   if (cart.length > 0) setIsDebtModalOpen(true);
-                  else setToast({ message: 'السلة فارغة!', type: 'error' });
+                  else setToast({ message: 'أضف أصنافاً للسلة أولاً لتسجيل البيع بالآجل.', type: 'error' });
                 }}
                 disabled={cart.length === 0}
-                className="py-3 px-2 rounded-2xl bg-rose-600 hover:bg-rose-500 disabled:bg-slate-800 disabled:opacity-40 text-white font-black text-xs sm:text-sm flex flex-col items-center justify-center gap-1 shadow-lg shadow-rose-600/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className="py-2.5 px-2 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 text-white font-bold text-xs flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer disabled:cursor-not-allowed"
               >
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   <CreditCard className="w-4 h-4" />
                   <span>دين / آجل</span>
                 </div>
-                <span className="text-[10px] opacity-80 font-mono">F10</span>
+                <span className="text-[10px] opacity-80 font-jakarta">F10</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => {
                   if (cart.length > 0) setIsBankModalOpen(true);
-                  else setToast({ message: 'السلة فارغة!', type: 'error' });
+                  else setToast({ message: 'أضف أصنافاً للسلة أولاً للتحويل البنكي.', type: 'error' });
                 }}
                 disabled={cart.length === 0}
-                className="py-3 px-2 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:opacity-40 text-white font-black text-xs sm:text-sm flex flex-col items-center justify-center gap-1 shadow-lg shadow-indigo-600/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className="py-2.5 px-2 rounded-xl bg-[#09152B] hover:bg-[#12264B] dark:bg-slate-100 dark:hover:bg-white disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 text-white dark:text-slate-900 font-bold text-xs flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer disabled:cursor-not-allowed"
               >
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   <Building2 className="w-4 h-4" />
                   <span>بنك / بال باي</span>
                 </div>
-                <span className="text-[10px] opacity-80 font-mono">F11</span>
+                <span className="text-[10px] opacity-80 font-jakarta">F11</span>
               </button>
             </div>
 
-            <div className="flex items-center justify-between gap-2 pt-1 text-xs">
+            {/* Hold Bill / Clear Cart Footer */}
+            <div className="flex items-center justify-between gap-2 pt-0.5 text-xs">
               <button
                 type="button"
                 onClick={() => {
                   if (cart.length > 0) {
                     holdCurrentBill();
-                    setToast({ message: 'تم تعليق الفاتورة (F4)', type: 'info' });
+                    setConfirmingClearCart(false);
+                    setToast({ message: 'تم تعليق الفاتورة بنجاح (F4).', type: 'info' });
                   }
                 }}
                 disabled={cart.length === 0}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 disabled:opacity-40 transition-colors"
+                className="h-8 px-3 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-amber-700 dark:text-amber-400 font-semibold inline-flex items-center gap-1.5 disabled:opacity-40 transition-colors cursor-pointer disabled:cursor-not-allowed"
               >
                 <PauseCircle className="w-3.5 h-3.5" />
                 <span>تعليق الفاتورة (F4)</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  if (cart.length > 0 && confirm('هل تريد تفريغ السلة الحالية بالكامل؟')) {
-                    clearCart();
-                  }
-                }}
-                disabled={cart.length === 0}
-                className="text-slate-500 hover:text-rose-400 disabled:opacity-30 transition-colors"
-              >
-                إلغاء السلة ✕
-              </button>
+              {confirmingClearCart && cart.length > 0 ? (
+                <div className="inline-flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearCart();
+                      setConfirmingClearCart(false);
+                    }}
+                    className="h-7 px-2.5 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold cursor-pointer"
+                  >
+                    تأكيد التفريغ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingClearCart(false)}
+                    className="h-7 px-2 rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 text-[11px] font-semibold cursor-pointer"
+                  >
+                    تراجع
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (cart.length > 0) setConfirmingClearCart(true);
+                  }}
+                  disabled={cart.length === 0}
+                  className="min-h-8 px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-rose-700 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:border-rose-300 dark:hover:border-rose-700 disabled:opacity-40 font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>تفريغ السلة</span>
+                </button>
+              )}
             </div>
           </div>
         </section>
 
-        {/* Right Side: 60% Input & Grid */}
-        <section className="flex-1 flex flex-col min-h-0 bg-slate-950 p-3 sm:p-5 space-y-4 overflow-hidden">
-          <div className="relative">
-            <div className="relative flex items-center">
-              <Search className="w-5 h-5 text-emerald-400 absolute right-4 top-3.5 pointer-events-none" />
-              <input
-                ref={barcodeInputRef}
-                type="text"
-                value={barcodeQuery}
-                onChange={(e) => setBarcodeQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleResolveBarcode(barcodeQuery);
-                  }
-                }}
-                placeholder="ابحث باسم المنتج، أو الباركود، أو التصنيف (أو امسح بالليزر)..."
-                className="w-full pr-12 pl-11 py-3.5 rounded-2xl border-2 border-emerald-500/50 bg-slate-900 text-white font-mono text-sm sm:text-base placeholder:text-slate-500 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/20 outline-hidden transition-all shadow-inner"
-                autoFocus
-              />
-              {barcodeQuery && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBarcodeQuery('');
-                    setTimeout(focusBarcodeInput, 50);
+        {/* Catalog & Barcode Scanner Pane (Left in RTL) */}
+        <section className="flex-1 flex flex-col min-h-0 p-4 sm:p-5 space-y-4 overflow-hidden">
+          {/* Barcode & Search Bar */}
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 flex items-center">
+                <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  ref={barcodeInputRef}
+                  type="text"
+                  value={barcodeQuery}
+                  onChange={(e) => setBarcodeQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      void handleResolveBarcode(barcodeQuery);
+                    }
                   }}
-                  className="absolute left-3.5 top-3 text-slate-400 hover:text-white p-1 rounded-xl hover:bg-slate-800 transition-colors cursor-pointer"
-                  title="مسح البحث"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
+                  placeholder="امسح الباركود أو ابحث باسم الصنف / التصنيف..."
+                  className="w-full h-11 pr-10 pl-10 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#111827] text-slate-900 dark:text-white text-sm placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-[#09152B] dark:focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15 outline-hidden transition-colors"
+                  autoFocus
+                />
+                {barcodeQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBarcodeQuery('');
+                      setTimeout(focusBarcodeInput, 50);
+                    }}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    title="مسح البحث"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => void refreshProducts()}
+                disabled={isLoadingProducts}
+                className="h-11 w-11 rounded-xl bg-white dark:bg-[#111827] border border-slate-200/90 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                title="تحديث قائمة الأصناف"
+                aria-label="تحديث الأصناف"
+              >
+                <RotateCw className={`w-4 h-4 ${isLoadingProducts ? 'animate-spin' : ''}`} />
+              </button>
             </div>
 
-            <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1.5 px-2">
-              <span>قارئ الباركود والبحث الفوري نشط تلقائياً • اضغط Enter للإضافة</span>
-              {barcodeQuery.trim() ? (
-                <span className="font-bold text-emerald-400">
-                  تم العثور على {displayedQuickItems.length} صنف مطابقة
-                </span>
-              ) : (
-                <span className="font-mono text-emerald-400/80">
-                  إذا كان الباركود غير مسجل، ستظهر نافذة الإضافة السريعة فوراً!
+            <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 px-1">
+              <span>قارئ الباركود جاهز تلقائياً · اضغط Enter لإضافة الصنف مباشرة</span>
+              {barcodeQuery.trim() && (
+                <span className="font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                  {displayedQuickItems.length} نتائج مطابقة
                 </span>
               )}
             </div>
           </div>
 
+          {/* Products Fetch Error Banner (if any) */}
+          {productsLoadError && (
+            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                <span>{productsLoadError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => void refreshProducts()}
+                className="underline font-bold cursor-pointer hover:no-underline shrink-0"
+              >
+                إعادة المحاولة
+              </button>
+            </div>
+          )}
+
+          {/* Category Filter Tabs */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none shrink-0">
             <button
               type="button"
               onClick={() => setActiveCategoryTab('all')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all ${activeCategoryTab === 'all'
-                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
-                  : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800'
-                }`}
+              className={`h-8 px-3 rounded-lg text-xs font-semibold shrink-0 transition-colors cursor-pointer tabular-nums ${
+                activeCategoryTab === 'all'
+                  ? 'bg-[#09152B] dark:bg-slate-100 text-white dark:text-slate-900'
+                  : 'bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
             >
               جميع الأصناف ({barcodeQuery.trim() ? displayedQuickItems.length : products.length})
             </button>
@@ -1090,27 +1206,49 @@ export const PosCashierScreen: FC = () => {
                 key={cat}
                 type="button"
                 onClick={() => setActiveCategoryTab(cat)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all ${activeCategoryTab === cat
-                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
-                    : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800'
-                  }`}
+                className={`h-8 px-3 rounded-lg text-xs font-semibold shrink-0 transition-colors cursor-pointer ${
+                  activeCategoryTab === cat
+                    ? 'bg-[#09152B] dark:bg-slate-100 text-white dark:text-slate-900'
+                    : 'bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
               >
                 {cat}
               </button>
             ))}
           </div>
 
+          {/* Product Grid */}
           <div className="flex-1 overflow-y-auto">
-            {displayedQuickItems.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 text-center p-6 bg-slate-900/40 rounded-2xl border border-dashed border-slate-800">
-                <Package className="w-12 h-12 text-slate-600 mb-3" />
-                <h4 className="text-sm font-bold text-slate-300 mb-1">
+            {isLoadingProducts && products.length === 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(215px,1fr))] gap-3">
+                {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+                  <div
+                    key={i}
+                    className="p-3.5 rounded-xl bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800 space-y-3"
+                  >
+                    <div className="flex justify-between">
+                      <div className="h-3 w-16 bg-slate-100 dark:bg-slate-800 rounded animate-pulse" />
+                      <div className="h-3 w-10 bg-slate-100 dark:bg-slate-800 rounded animate-pulse" />
+                    </div>
+                    <div className="h-4 w-3/4 bg-slate-200/70 dark:bg-slate-800 rounded animate-pulse" />
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                      <div className="h-4 w-16 bg-slate-200/70 dark:bg-slate-800 rounded animate-pulse" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : displayedQuickItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 text-center p-6 bg-white dark:bg-[#111827] rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                <Package className="w-10 h-10 text-slate-300 dark:text-slate-700 mb-3" />
+                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-1">
                   {barcodeQuery.trim()
                     ? `لا توجد نتائج مطابقة لـ "${barcodeQuery.trim()}"`
-                    : 'لا توجد أصناف في هذا التصنيف'}
+                    : 'لا توجد أصناف مسجّلة في هذا التصنيف'}
                 </h4>
-                <p className="text-xs text-slate-500 mb-4 max-w-xs">
-                  تأكد من كتابة الاسم أو الباركود بشكل صحيح، أو اضغط أدناه لإضافة هذا الصنف مباشرة.
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 max-w-xs">
+                  {barcodeQuery.trim()
+                    ? 'تحقق من الاسم أو الباركود، أو قم بتسجيله كصنف جديد مباشرة.'
+                    : 'أضف أصنافاً من المخزون أو عبر مسح الباركود في الأعلى.'}
                 </p>
                 {barcodeQuery.trim() && (
                   <div className="flex items-center gap-2">
@@ -1120,9 +1258,9 @@ export const PosCashierScreen: FC = () => {
                         setBarcodeQuery('');
                         setTimeout(focusBarcodeInput, 50);
                       }}
-                      className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 transition-colors cursor-pointer"
+                      className="h-8 px-3 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                     >
-                      إلغاء البحث
+                      مسح البحث
                     </button>
                     <button
                       type="button"
@@ -1131,58 +1269,110 @@ export const PosCashierScreen: FC = () => {
                         setIsQuickAddModalOpen(true);
                         setBarcodeQuery('');
                       }}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white transition-colors cursor-pointer"
+                      className="h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold text-white transition-colors cursor-pointer inline-flex items-center gap-1"
                     >
-                      + إضافة كصنف جديد
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>إضافة كصنف جديد</span>
                     </button>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(215px,1fr))] gap-3 pb-2">
                 {displayedQuickItems.map((prod) => {
                   const isOutOfStock = prod.stock <= 0;
                   const isLowStock = !isOutOfStock && prod.stock <= prod.minAlertThreshold;
+                  const inCartQty = cartQtyByProductId.get(prod.id) ?? 0;
+                  const stockUnit = prod.unit ? ` ${prod.unit}` : '';
 
                   return (
                     <button
                       key={prod.id}
                       type="button"
-                      onClick={() => {
-                        addToCart(prod, 1);
-                      }}
-                      className="p-3 sm:p-4 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/60 text-right transition-all flex flex-col justify-between group active:scale-[0.97] hover:shadow-lg relative overflow-hidden"
+                      onClick={() => addToCart(prod, 1)}
+                      className={`p-4 rounded-xl bg-white dark:bg-[#111827] text-right transition-all flex flex-col justify-between gap-3 group cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#09152B] dark:focus-visible:outline-emerald-400 ${
+                        inCartQty > 0
+                          ? 'border-2 border-emerald-600 dark:border-emerald-500 shadow-sm'
+                          : 'border border-slate-300 dark:border-slate-700 shadow-2xs hover:border-[#09152B] dark:hover:border-slate-400 hover:shadow-md'
+                      }`}
                     >
-                      <div className="flex items-start justify-between w-full mb-2">
-                        <span className="text-[10px] font-semibold text-slate-400 truncate max-w-[100px]">
-                          {prod.category || 'غير محدد'}
+                      {/* Top Metadata Row: Category + Stock State */}
+                      <div className="flex items-start justify-between w-full gap-2">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200">
+                          {prod.category || 'عام'}
                         </span>
 
                         {isOutOfStock ? (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-rose-950/80 text-rose-400 border border-rose-800">
-                            نفد 🔴
+                          <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-md bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-200 border border-rose-300 dark:border-rose-800 shrink-0">
+                            <AlertCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0" />
+                            <span>نفد المخزون</span>
                           </span>
                         ) : isLowStock ? (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-950/80 text-amber-400 border border-amber-800">
-                            {prod.stock} {prod.unit || ''} 🟡
+                          <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800 tabular-nums shrink-0">
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                            <span>
+                              متبقي: {prod.stock}
+                              {stockUnit}
+                            </span>
                           </span>
                         ) : (
-                          <span className="text-[9px] font-mono text-slate-500">
-                            {prod.stock} {prod.unit || ''}
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800 tabular-nums shrink-0">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400 shrink-0" />
+                            <span>
+                              متوفر: {prod.stock}
+                              {stockUnit}
+                            </span>
                           </span>
                         )}
                       </div>
 
-                      <h4 className="font-bold text-xs sm:text-sm text-white group-hover:text-emerald-300 transition-colors line-clamp-2 leading-tight mb-2">
-                        {prod.name}
-                      </h4>
+                      {/* Middle Identity: Name + Barcode + Cart Quantity */}
+                      <div className="space-y-1.5 w-full">
+                        <h4 className="font-extrabold text-sm sm:text-[0.9375rem] text-[#09152B] dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors leading-snug break-words">
+                          {prod.name}
+                        </h4>
 
-                      <div className="flex items-center justify-between w-full pt-2 border-t border-slate-800/80 font-mono">
-                        <span className="text-sm sm:text-base font-black text-emerald-400">
-                          ₪{prod.salePrice.toFixed(2)}
-                        </span>
-                        <span className="text-[10px] px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-all font-bold">
-                          + إضافة
+                        <div className="flex items-center justify-between gap-2 min-h-5">
+                          {prod.barcode ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-jakarta tabular-nums text-slate-600 dark:text-slate-300">
+                              <Barcode className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
+                              <span>{prod.barcode}</span>
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-500 dark:text-slate-400">بدون باركود</span>
+                          )}
+
+                          {inCartQty > 0 && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-600 text-white text-xs font-bold tabular-nums shrink-0">
+                              بالسلة: {inCartQty}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Bottom Footer: Price + Explicit Add Pill */}
+                      <div className="flex items-center justify-between w-full pt-2.5 border-t border-slate-200/90 dark:border-slate-800">
+                        <div className="text-right">
+                          <span className="block text-xs font-medium text-slate-600 dark:text-slate-400 leading-tight">
+                            سعر البيع
+                          </span>
+                          <span
+                            className="text-base sm:text-lg font-extrabold font-jakarta tabular-nums text-[#09152B] dark:text-white"
+                            dir="ltr"
+                          >
+                            ₪{prod.salePrice.toFixed(2)}
+                          </span>
+                        </div>
+
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors shrink-0 ${
+                            isOutOfStock
+                              ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 group-hover:bg-rose-600 group-hover:text-white group-hover:border-rose-600'
+                              : 'bg-[#09152B] dark:bg-slate-800 text-white border border-transparent dark:border-slate-700 group-hover:bg-emerald-700 dark:group-hover:bg-emerald-600'
+                          }`}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>إضافة</span>
                         </span>
                       </div>
                     </button>
@@ -1194,6 +1384,7 @@ export const PosCashierScreen: FC = () => {
         </section>
       </div>
 
+      {/* Modals */}
       <QuickAddProductModal
         isOpen={isQuickAddModalOpen}
         onClose={() => {
@@ -1202,15 +1393,12 @@ export const PosCashierScreen: FC = () => {
         }}
         barcode={unresolvedBarcode}
         onConfirm={async (newProductData) => {
-          // ── Step 0: Check if the barcode already exists on the server ──
-          // The Search API only searches by name, NOT barcode.
-          // Use getProductByBarcodeApi which fetches all and filters client-side.
           const existingProduct = await getProductByBarcodeApi(newProductData.barcode);
           if (existingProduct) {
             const added = addProduct(existingProduct);
             addToCart(added, 1);
             setToast({
-              message: `الصنف (${added.name}) مسجّل مسبقاً — تم إضافته للسلة!`,
+              message: `الصنف (${added.name}) مسجّل مسبقاً — تمت إضافته للسلة.`,
               type: 'info',
             });
             setIsQuickAddModalOpen(false);
@@ -1218,7 +1406,6 @@ export const PosCashierScreen: FC = () => {
             return;
           }
 
-          // ── Step 1: Create the product via API ──
           let savedProduct;
           try {
             savedProduct = await createProduct({
@@ -1232,14 +1419,14 @@ export const PosCashierScreen: FC = () => {
               minStockAlert: newProductData.minAlertThreshold,
             });
           } catch (err: unknown) {
-            // If server reports product already exists (race condition),
-            // fetch it from the DB and add it to cart instead of failing
-            const bodyStr = JSON.stringify((err as any)?.body ?? '');
+            const isConflictStatus = err instanceof ApiError && err.status === 409;
+            const bodyStr =
+              err instanceof ApiError && err.body ? JSON.stringify(err.body) : '';
             const isConflict =
+              isConflictStatus ||
               bodyStr.includes('already exists') ||
               bodyStr.includes('Conflict') ||
-              bodyStr.includes('مكرر') ||
-              ((err as any)?.status === 409);
+              bodyStr.includes('مكرر');
 
             if (isConflict) {
               const fallback = await getProductByBarcodeApi(newProductData.barcode);
@@ -1247,7 +1434,7 @@ export const PosCashierScreen: FC = () => {
                 const added = addProduct(fallback);
                 addToCart(added, 1);
                 setToast({
-                  message: `تم جلب الصنف المسجل (${added.name}) وإضافته للسلة فوراً!`,
+                  message: `تم جلب الصنف المسجّل (${added.name}) وإضافته للسلة.`,
                   type: 'info',
                 });
                 setIsQuickAddModalOpen(false);
@@ -1258,7 +1445,6 @@ export const PosCashierScreen: FC = () => {
             throw err;
           }
 
-          // ── Step 2: Add to Local State ──
           const enrichedProduct: Product = {
             ...savedProduct,
             category: savedProduct.category || newProductData.category,
@@ -1268,7 +1454,7 @@ export const PosCashierScreen: FC = () => {
           const created = addProduct(enrichedProduct);
           addToCart(created, 1);
           setToast({
-            message: `تم حفظ الصنف (${created.name}) في قاعدة بيانات المخزون وإضافته للسلة فوراً!`,
+            message: `تم حفظ الصنف (${created.name}) وإضافته للسلة.`,
             type: 'success',
           });
           setIsQuickAddModalOpen(false);
@@ -1285,20 +1471,16 @@ export const PosCashierScreen: FC = () => {
         totalDue={cartTotalDue}
         customerName={selectedCustomer.name}
         onConfirm={async (received, change, discount) => {
-          try {
-            await checkout({
-              method: 'cash',
-              customerName: selectedCustomer.name,
-              customerPhone: selectedCustomer.phone,
-              customerId: selectedCustomer.id,
-              receivedAmount: received,
-              changeAmount: change,
-              discount,
-            });
-            setToast({ message: 'تم إتمام البيع وتسجيل الدفعة النقدية بنجاح', type: 'success' });
-          } catch (error) {
-            setToast({ message: toPosErrorMessage(error, 'حدث خطأ أثناء تسجيل الدفعة النقدية'), type: 'error' });
-          }
+          await checkout({
+            method: 'cash',
+            customerName: selectedCustomer.name,
+            customerPhone: selectedCustomer.phone,
+            customerId: selectedCustomer.id,
+            receivedAmount: received,
+            changeAmount: change,
+            discount,
+          });
+          setToast({ message: 'تم إتمام البيع وتسجيل الدفعة النقدية بنجاح.', type: 'success' });
         }}
       />
 
@@ -1315,32 +1497,26 @@ export const PosCashierScreen: FC = () => {
           setIsDebtModalOpen(false);
           setIsCustomerSelectModalOpen(true);
         }}
-        onConfirm={async (dueDate, invoiceNotes, notifyBot) => {
-          try {
-            await checkout({
-              method: 'debt',
-              customerName: selectedCustomer.name,
-              customerPhone: selectedCustomer.phone,
-              customerId: selectedCustomer.id,
-              debtNotes: invoiceNotes,
-              debtDueDate: dueDate,
-              notifyCustomerViaBot: notifyBot,
-            });
+        onConfirm={async (dueDate, invoiceNotes, notifyBot, currencyCode, currencyId) => {
+          await checkout({
+            method: 'debt',
+            customerName: selectedCustomer.name,
+            customerPhone: selectedCustomer.phone,
+            customerId: selectedCustomer.id,
+            debtNotes: invoiceNotes,
+            debtDueDate: dueDate,
+            notifyCustomerViaBot: notifyBot,
+            currencyCode: currencyCode || 'ILS',
+            currencyId: currencyId || 4,
+          });
 
-            if (notifyBot && selectedCustomer.id) {
-              setToast({
-                message: 'تم تسجيل البيع بالآجل وإرسال إشعار التوثيق عبر البوت بنجاح ✓',
-                type: 'success',
-              });
-            } else {
-              setToast({ message: 'تم تسجيل البيع بالآجل وإصدار السند بنجاح', type: 'success' });
-            }
-          } catch (error) {
-            setToast({
-              message: toCreateDebtErrorMessage(error) || toPosErrorMessage(error, 'حدث خطأ أثناء تسجيل الدين في الخادم'),
-              type: 'error',
-            });
-          }
+          setToast({
+            message:
+              notifyBot && selectedCustomer.id
+                ? 'تم تسجيل البيع بالآجل وإرسال إشعار التوثيق للعميل.'
+                : 'تم تسجيل البيع بالآجل وإصدار السند بنجاح.',
+            type: 'success',
+          });
         }}
       />
 
@@ -1353,18 +1529,14 @@ export const PosCashierScreen: FC = () => {
         totalDue={cartTotalDue}
         customerName={selectedCustomer.name}
         onConfirm={async (bankRefCode, provider) => {
-          try {
-            await checkout({
-              method: 'bank',
-              customerName: selectedCustomer.name,
-              customerPhone: selectedCustomer.phone,
-              customerId: selectedCustomer.id,
-              bankRefCode: `${provider}: ${bankRefCode}`,
-            });
-            setToast({ message: 'تم تسجيل الدفعة البنكية وإتمام البيع بنجاح', type: 'success' });
-          } catch (error) {
-            setToast({ message: toPosErrorMessage(error, 'حدث خطأ أثناء تسجيل الدفعة البنكية'), type: 'error' });
-          }
+          await checkout({
+            method: 'bank',
+            customerName: selectedCustomer.name,
+            customerPhone: selectedCustomer.phone,
+            customerId: selectedCustomer.id,
+            bankRefCode: `${provider}: ${bankRefCode}`,
+          });
+          setToast({ message: 'تم تسجيل الدفعة البنكية وإتمام البيع بنجاح.', type: 'success' });
         }}
       />
 
@@ -1377,12 +1549,12 @@ export const PosCashierScreen: FC = () => {
         heldBills={heldBills}
         onResume={(billId) => {
           resumeHeldBill(billId);
-          setToast({ message: 'تم استرجاع الفاتورة للشاشة بنجاح', type: 'info' });
+          setToast({ message: 'تم استرجاع الفاتورة بنجاح.', type: 'info' });
           setTimeout(focusBarcodeInput, 100);
         }}
         onDelete={(billId) => {
           deleteHeldBill(billId);
-          setToast({ message: 'تم حذف الفاتورة المعلقة', type: 'info' });
+          setToast({ message: 'تم حذف الفاتورة المعلقة.', type: 'info' });
         }}
       />
 
@@ -1409,13 +1581,15 @@ export const PosCashierScreen: FC = () => {
                 const accurateDebt =
                   profile.currentBalance > 0
                     ? profile.currentBalance
-                    : (profile.totalDebt || 0);
+                    : profile.totalDebt || 0;
                 setSelectedCustomer({
                   ...cust,
                   totalDebt: accurateDebt,
                 });
               })
-              .catch(() => {});
+              .catch(() => {
+                // Keep quick-selected totalDebt fallback
+              });
           }
         }}
       />
@@ -1442,7 +1616,7 @@ export const PosCashierScreen: FC = () => {
           }
 
           setToast({
-            message: `تم تسجيل الدفعة بقيمة ₪${paidAmount.toFixed(2)} بنجاح وتوزيعها على الديون المستحقة ✓`,
+            message: `تم تسجيل الدفعة بقيمة ₪${paidAmount.toFixed(2)} بنجاح وتوزيعها على الديون المستحقة.`,
             type: 'success',
           });
           playScannerBeep('success');
@@ -1481,3 +1655,5 @@ export const PosCashierScreen: FC = () => {
     </div>
   );
 };
+
+export default PosCashierScreen;

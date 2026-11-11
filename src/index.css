@@ -9,17 +9,21 @@
   --font-sans: "Cairo", system-ui, sans-serif;
 }
 
-html,
+@layer base {
+  html,
 body {
   font-family: var(--font-cairo), "Cairo", system-ui, -apple-system, sans-serif;
+  font-feature-settings: "locl" 0;
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-* {
-  font-family: "Cairo", var(--font-cairo), sans-serif;
+  :where(button, input, select, textarea) {
+  font-family: inherit;
   font-feature-settings: "locl" 0;
+}
+
 }
 
 /* Disable number input arrows globally */

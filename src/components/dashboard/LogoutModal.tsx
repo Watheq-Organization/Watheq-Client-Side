@@ -18,7 +18,7 @@ export const LogoutModal: FC<LogoutModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs transition-opacity duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-xs transition-opacity duration-200"
       dir="rtl"
       onClick={onClose}
       aria-modal="true"
@@ -27,39 +27,39 @@ export const LogoutModal: FC<LogoutModalProps> = ({
       {/* Modal Container */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 dark:border-slate-700 text-center transform transition-all duration-200 scale-100 animate-in fade-in zoom-in-95"
+        className="w-full max-w-sm bg-white dark:bg-[#111827] rounded-2xl p-6 shadow-xl border border-slate-200 dark:border-slate-800 text-center"
       >
-        {/* Top Icon Box */}
-        <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 shadow-xs">
-          <LogOut className="w-7 h-7" />
+        {/* Icon */}
+        <div className="w-11 h-11 mx-auto mb-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200/70 dark:border-rose-800/60 flex items-center justify-center text-rose-600 dark:text-rose-400">
+          <LogOut className="w-5 h-5" />
         </div>
 
         {/* Modal Heading */}
-        <h3 className="text-xl font-bold font-cairo text-slate-900 dark:text-white mb-2">
+        <h3 className="text-lg font-bold font-cairo text-slate-900 dark:text-white mb-1.5">
           تسجيل الخروج
         </h3>
 
-        {/* Modal Subtitle / Description */}
-        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6 font-cairo">
-          هل أنت متأكد من تسجيل الخروج؟ ستحتاج إلى تسجيل الدخول مرة أخرى للوصول إلى لوحة التحكم
+        {/* Modal Description */}
+        <p className="text-xs sm:text-[13px] text-slate-500 dark:text-slate-400 leading-relaxed mb-6 font-cairo">
+          هل أنت متأكد من رغبتك في تسجيل الخروج من حسابك؟
         </p>
 
-        {/* Action Buttons (RTL: Logout button on the right, Cancel button on the left) */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* Action Buttons */}
+        <div className="grid grid-cols-2 gap-2.5">
           <button
             type="button"
             disabled={isLoading}
             onClick={onConfirm}
-            className="w-full py-2.5 px-4 rounded-xl text-sm font-bold bg-[#fecaca] hover:bg-[#fca5a5] text-[#b91c1c] transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-50"
+            className="w-full h-10 px-4 rounded-lg text-xs sm:text-sm font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors cursor-pointer disabled:opacity-50"
           >
-            {isLoading ? 'جاري الخروج...' : 'تسجيل الخروج'}
+            {isLoading ? 'جاري الخروج...' : 'تأكيد الخروج'}
           </button>
 
           <button
             type="button"
             disabled={isLoading}
             onClick={onClose}
-            className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-50"
+            className="w-full h-10 px-4 rounded-lg text-xs sm:text-sm font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer disabled:opacity-50"
           >
             إلغاء
           </button>

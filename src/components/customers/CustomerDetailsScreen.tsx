@@ -1427,7 +1427,7 @@ export const CustomerDetailsScreen: FC = () => {
                   </div>
                   <div className="text-left text-xs text-slate-500 dark:text-slate-400 font-mono">
                     <span className="font-bold text-[#0c2444] dark:text-blue-400 block font-cairo text-sm">منصة وثّق</span>
-                    <span>{new Date().toLocaleDateString('ar-SA')}</span>
+                    <span>{new Date().toLocaleDateString('en-GB')}</span>
                   </div>
                 </div>
 
@@ -2390,6 +2390,7 @@ export const CustomerDetailsScreen: FC = () => {
       {/* Telegram Link Modal */}
       {telegramModalCustomer && (
         <TelegramLinkModal
+          key={`telegram-link-${telegramModalCustomer.id}-${telegramModalCustomer.mode}`}
           isOpen={true}
           onClose={() => setTelegramModalCustomer(null)}
           customerId={telegramModalCustomer.id}
@@ -2398,6 +2399,9 @@ export const CustomerDetailsScreen: FC = () => {
           mode={telegramModalCustomer.mode}
           linkType="Customer"
           sendViaWhatsApp={telegramModalCustomer.sendViaWhatsApp ?? false}
+          onLinked={() => {
+            setCustomer((prev) => ({ ...prev, isTelegramLinked: true }));
+          }}
         />
       )}
     </div>

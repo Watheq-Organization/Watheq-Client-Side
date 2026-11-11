@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import type { FC } from 'react';
-import { Calendar } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, ShoppingCart, RotateCw, Banknote } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { StatCards } from './StatCards';
@@ -8,20 +9,32 @@ import { OverduePaymentsTable } from './OverduePaymentsTable';
 import { RecentActivities } from './RecentActivities';
 import { useMerchantProfile } from '../../services/merchantProfileService';
 import { formatApiDate, getDeviceLocalDateString } from '../../lib/dateUtils';
+import { PATHS } from '../../routes/paths';
 
 export const DashboardScreen: FC = () => {
+  const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const merchantProfile = useMerchantProfile();
 
   const currentDateDisplay = useMemo(() => {
     return formatApiDate(getDeviceLocalDateString());
   }, []);
 
+  const handleRefreshAll = () => {
+    setIsRefreshing(true);
+    setRefreshTrigger((prev) => prev + 1);
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 550);
+  };
+
   return (
     <div
-      className="min-h-screen bg-[#f4f7fb] dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-cairo antialiased flex"
+      className="min-h-screen bg-[#F5F6F8] dark:bg-[#0B0F19] text-slate-800 dark:text-slate-200 font-cairo antialiased flex"
       dir="rtl"
     >
       {/* Sidebar Navigation */}
@@ -39,41 +52,83 @@ export const DashboardScreen: FC = () => {
           onMenuClick={() => setIsSidebarOpen(true)}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
+          searchPlaceholder="ابحث في الذمم المتأخرة بالاسم أو الهاتف..."
         />
 
         {/* Dashboard Body Content */}
-        <main className="p-4 sm:p-6 lg:p-8 space-y-6 flex-1">
-          {/* Welcome & Date Section */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <main className="px-4 sm:px-6 lg:px-8 py-6 max-w-[1440px] mx-auto w-full space-y-5 flex-1">
+          {/* Workspace Header & Quick Actions */}
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div className="text-right">
-              <h1 className="text-2xl sm:text-3xl font-bold font-cairo text-slate-900 dark:text-white tracking-tight">
-                لوحة القيادة
+              <div className="flex items-center gap-2 text-[13px] font-semibold text-slate-700 dark:text-slate-300">
+                <span>{merchantProfile.businessName || 'متجر وثّق'}</span>
+                <span aria-hidden="true" className="text-slate-400 dark:text-slate-600">
+                  ·
+                </span>
+                <span className="tabular-nums font-jakarta font-semibold" dir="ltr">{currentDateDisplay}</span>
+              </div>
+              <h1 className="mt-1 text-2xl sm:text-[26px] font-extrabold font-cairo text-[#09152B] dark:text-white tracking-tight">
+                لوحة التحكم
               </h1>
-              <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400 font-cairo">
-                مرحباً بك {merchantProfile.fullName || 'محمد'}، إليك ملخص العمليات اليوم.
-              </p>
             </div>
 
-            {/* Date Badge */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-semibold font-cairo text-slate-600 dark:text-slate-400 shadow-2xs self-start sm:self-auto">
-              <Calendar className="w-4 h-4 text-slate-400" />
-              <span>{currentDateDisplay}</span>
+            {/* Restrained Merchant Action Bar */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleRefreshAll}
+                className="w-9 h-9 rounded-lg bg-white dark:bg-[#111827] border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-[#09152B] dark:hover:text-white hover:border-slate-400 dark:hover:border-slate-500 flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
+                title="تحديث بيانات لوحة التحكم"
+                aria-label="تحديث البيانات"
+              >
+                <RotateCw
+                  className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-[#09152B] dark:text-white' : ''}`}
+                />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate(PATHS.POS)}
+                className="h-9 px-3.5 rounded-lg bg-white dark:bg-[#111827] border border-slate-300 dark:border-slate-700 text-[#09152B] dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-500 text-[13px] font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+              >
+                <ShoppingCart className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                <span>الكاشير</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate(PATHS.CASH_SALE)}
+                className="h-9 px-3.5 rounded-lg bg-white dark:bg-[#111827] border border-slate-300 dark:border-slate-700 text-[#09152B] dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-500 text-[13px] font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+              >
+                <Banknote className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                <span>بيع نقدي</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate(PATHS.DEBT_NEW)}
+                className="h-9 px-4 rounded-lg bg-[#09152B] hover:bg-[#12264B] dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-[13px] font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+              >
+                <Plus className="w-4 h-4" />
+                <span>إضافة دين</span>
+              </button>
             </div>
           </div>
 
-          {/* Metric / Stat Cards (3 Top Cards) */}
-          <StatCards />
+          {/* Unified Financial Ledger Strip */}
+          <StatCards refreshTrigger={refreshTrigger} />
 
-          {/* Bottom Grid: Overdue Payments (wider) + Recent Activities */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-            {/* Overdue Payments Table (takes 7 or 8 cols on desktop) */}
-            <div className="lg:col-span-8 flex flex-col">
-              <OverduePaymentsTable searchQuery={searchQuery} />
+          {/* Bottom Asymmetric Ledger & Activity Workspace */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            <div className="lg:col-span-8">
+              <OverduePaymentsTable
+                searchQuery={searchQuery}
+                refreshTrigger={refreshTrigger}
+              />
             </div>
 
-            {/* Recent Activities Feed (takes 4 or 5 cols on desktop) */}
-            <div className="lg:col-span-4 flex flex-col">
-              <RecentActivities />
+            <div className="lg:col-span-4">
+              <RecentActivities refreshTrigger={refreshTrigger} />
             </div>
           </div>
         </main>

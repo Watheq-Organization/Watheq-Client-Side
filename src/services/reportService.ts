@@ -1,5 +1,5 @@
 import { httpClient, ApiError } from '../api/httpClient';
-import { normalizeCurrencyCode, groupTotalsByCurrency, ALL_CURRENCY_CODES, getCurrencyConfig } from '../utils/currency';
+import { normalizeCurrencyCode, groupTotalsByCurrency, ALL_CURRENCY_CODES, getCurrencyConfig, getCurrencyId } from '../utils/currency';
 import type {
   CollectionsReportParams,
   CollectionsReportResponse,
@@ -217,7 +217,7 @@ export function printCollectionsReportHtml(
         </div>
         <div style="text-align: left;">
           <div style="font-weight: 800; font-size: 18px; color: #051838;">وثّق WATHEQ</div>
-          <div style="font-size: 10px; color: #64748b;">تاريخ التقرير: ${new Date().toLocaleDateString('ar-SA')}</div>
+          <div style="font-size: 10px; color: #64748b;">تاريخ التقرير: <span dir="ltr">${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span></div>
         </div>
       </div>
 
@@ -425,7 +425,7 @@ export function printOverdueDebtsReportHtml(
         </div>
         <div style="text-align: left;">
           <div style="font-weight: 800; font-size: 18px; color: #051838;">وثّق WATHEQ</div>
-          <div style="font-size: 10px; color: #64748b;">تاريخ التقرير: ${new Date().toLocaleDateString('ar-SA')}</div>
+          <div style="font-size: 10px; color: #64748b;">تاريخ التقرير: <span dir="ltr">${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span></div>
         </div>
       </div>
 
@@ -814,8 +814,10 @@ function normalizeOverdueDebtsReport(
       : [];
 
   const summary: OverdueDebtSummaryItem[] = rawSummary.map((s: any) => ({
-    currencyCode: String(s.currencyCode || s.CurrencyCode || 'ILS'),
-    totalOverdueAmount: Number(s.totalOverdueAmount ?? s.TotalOverdueAmount ?? 0),
+    currencyCode: normalizeCurrencyCode(
+      s.currencyCode ?? s.CurrencyCode ?? s.currency ?? s.Currency ?? s.currencyName ?? s.currencyId ?? s.CurrencyId
+    ),
+    totalOverdueAmount: Number(s.totalOverdueAmount ?? s.TotalOverdueAmount ?? s.overdueAmount ?? s.OverdueAmount ?? 0),
     numberOfOverdueDebts: Number(s.numberOfOverdueDebts ?? s.NumberOfOverdueDebts ?? 0),
     numberOfCustomersWithOverdueDebts: Number(
       s.numberOfCustomersWithOverdueDebts ?? s.NumberOfCustomersWithOverdueDebts ?? 0
@@ -987,17 +989,22 @@ function normalizeOutstandingDebtsReport(
       ? record.Summary
       : [];
 
-  const summary: OutstandingDebtSummaryItem[] = rawSummary.map((s: any) => ({
-    currencyId: Number(s.currencyId ?? s.CurrencyId ?? 1),
-    currencyCode: String(s.currencyCode || s.CurrencyCode || 'ILS'),
-    totalOriginalDebtAmount: Number(s.totalOriginalDebtAmount ?? s.TotalOriginalDebtAmount ?? 0),
-    totalPaidAmount: Number(s.totalPaidAmount ?? s.TotalPaidAmount ?? 0),
-    totalOutstandingAmount: Number(s.totalOutstandingAmount ?? s.TotalOutstandingAmount ?? 0),
-    totalOutstandingDebtsCount: Number(s.totalOutstandingDebtsCount ?? s.TotalOutstandingDebtsCount ?? 0),
-    totalOverdueAmount: Number(s.totalOverdueAmount ?? s.TotalOverdueAmount ?? 0),
-    totalOverdueDebtsCount: Number(s.totalOverdueDebtsCount ?? s.TotalOverdueDebtsCount ?? 0),
-    totalCustomersWithOutstandingDebts: Number(s.totalCustomersWithOutstandingDebts ?? s.TotalCustomersWithOutstandingDebts ?? 0),
-  }));
+  const summary: OutstandingDebtSummaryItem[] = rawSummary.map((s: any) => {
+    const curCode = normalizeCurrencyCode(
+      s.currencyCode ?? s.CurrencyCode ?? s.currency ?? s.Currency ?? s.currencyName ?? s.currencyId ?? s.CurrencyId
+    );
+    return {
+      currencyId: Number(s.currencyId ?? s.CurrencyId ?? getCurrencyId(curCode)),
+      currencyCode: curCode,
+      totalOriginalDebtAmount: Number(s.totalOriginalDebtAmount ?? s.TotalOriginalDebtAmount ?? 0),
+      totalPaidAmount: Number(s.totalPaidAmount ?? s.TotalPaidAmount ?? 0),
+      totalOutstandingAmount: Number(s.totalOutstandingAmount ?? s.TotalOutstandingAmount ?? 0),
+      totalOutstandingDebtsCount: Number(s.totalOutstandingDebtsCount ?? s.TotalOutstandingDebtsCount ?? 0),
+      totalOverdueAmount: Number(s.totalOverdueAmount ?? s.TotalOverdueAmount ?? s.overdueAmount ?? s.OverdueAmount ?? 0),
+      totalOverdueDebtsCount: Number(s.totalOverdueDebtsCount ?? s.TotalOverdueDebtsCount ?? 0),
+      totalCustomersWithOutstandingDebts: Number(s.totalCustomersWithOutstandingDebts ?? s.TotalCustomersWithOutstandingDebts ?? 0),
+    };
+  });
 
   // 2. Extract Details & Items (with Pagination)
   let detailsRaw = (record.details ?? record.Details) as Record<string, unknown> | null;
@@ -1196,7 +1203,7 @@ export function printOutstandingDebtsReportHtml(
         </div>
         <div style="text-align: left;">
           <div style="font-weight: 800; font-size: 18px; color: #051838;">وثّق WATHEQ</div>
-          <div style="font-size: 10px; color: #64748b;">تاريخ التقرير: ${new Date().toLocaleDateString('ar-SA')}</div>
+          <div style="font-size: 10px; color: #64748b;">تاريخ التقرير: <span dir="ltr">${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span></div>
         </div>
       </div>
 

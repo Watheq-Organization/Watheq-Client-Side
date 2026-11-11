@@ -427,7 +427,7 @@ export const SettingsScreen: FC = () => {
                         إرسال الرابط عبر WhatsApp
                       </h3>
                       <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5 font-cairo">
-                        إرسال رابط التفعيل تلقائياً إلى رقم التاجر المسجل ({profile.phoneNumber || 'رقم هاتفك'})
+                        إرسال رابط تفعيل بوت Telegram تلقائياً إلى رقم هاتفك المسجل ({profile.phoneNumber || 'رقم هاتفك'})
                       </p>
                     </div>
                   </div>
@@ -939,6 +939,7 @@ export const SettingsScreen: FC = () => {
       {/* Telegram Link Modal */}
       {isTelegramModalOpen && (
         <TelegramLinkModal
+          key={`telegram-merchant-modal-${isTelegramLinked ? 'linked' : 'unlinked'}`}
           isOpen={true}
           onClose={() => setIsTelegramModalOpen(false)}
           customerName={profile.fullName || profile.businessName}

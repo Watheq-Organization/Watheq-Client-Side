@@ -2,46 +2,46 @@ import { useState, type FC, type FormEvent } from 'react';
 import {
   X,
   QrCode,
-  CheckCircle,
+  CheckCircle2,
   Copy,
   RefreshCw,
-  Sparkles,
   Check,
   Building2,
+  AlertCircle,
+  Loader2,
 } from 'lucide-react';
+import { toPosErrorMessage } from '../../services/posService';
 
 interface BankPaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   totalDue: number;
   customerName: string;
-  onConfirm: (bankRefCode: string, provider: string) => void;
+  onConfirm: (bankRefCode: string, provider: string) => Promise<void> | void;
 }
 
-export const BankPaymentModal: FC<BankPaymentModalProps> = ({
-  isOpen,
+type ProviderId = 'palpay' | 'bop' | 'jawwal_pay' | 'islamic';
+
+const PAYMENT_OPTIONS: Array<{ id: ProviderId; name: string; account: string; tag: string }> = [
+  { id: 'palpay', name: 'PalPay (بال باي)', account: '970599123456', tag: 'محفظة فورية' },
+  { id: 'jawwal_pay', name: 'Jawwal Pay (جوال باي)', account: '0599123456', tag: 'دفع بالباركود' },
+  { id: 'bop', name: 'بنك فلسطين (BOP)', account: 'PS040001000000000123456789', tag: 'حوالة آيبان' },
+  { id: 'islamic', name: 'البنك الإسلامي العربي', account: 'PS880002000000000987654321', tag: 'تحويل بنكي' },
+];
+
+const BankPaymentModalContent: FC<Omit<BankPaymentModalProps, 'isOpen'>> = ({
   onClose,
   totalDue,
   customerName,
   onConfirm,
 }) => {
-  const [provider, setProvider] = useState<'palpay' | 'bop' | 'jawwal_pay' | 'islamic' | 'other'>(
-    'palpay'
-  );
+  const [provider, setProvider] = useState<ProviderId>('palpay');
   const [refCode, setRefCode] = useState('');
   const [copiedIban, setCopiedIban] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  if (!isOpen) return null;
-
-  const paymentOptions = [
-    { id: 'palpay', name: 'PalPay (بال باي)', account: '970599123456', tag: 'محفظة فورية' },
-    { id: 'jawwal_pay', name: 'Jawwal Pay (جوال باي)', account: '0599123456', tag: 'دفع بالباركود' },
-    { id: 'bop', name: 'بنك فلسطين (BOP)', account: 'PS040001000000000123456789', tag: 'حوالة آيبان' },
-    { id: 'islamic', name: 'البنك الإسلامي العربي', account: 'PS880002000000000987654321', tag: 'تطبيق إسلامي' },
-  ];
-
-  const currentOption = paymentOptions.find((p) => p.id === provider) || paymentOptions[0];
+  const currentOption = PAYMENT_OPTIONS.find((p) => p.id === provider) || PAYMENT_OPTIONS[0];
 
   const handleCopy = () => {
     navigator.clipboard.writeText(currentOption.account);
@@ -49,88 +49,119 @@ export const BankPaymentModal: FC<BankPaymentModalProps> = ({
     setTimeout(() => setCopiedIban(false), 2000);
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!refCode.trim()) {
-      setError('يرجى إدخال رقم الحوالة أو الكود المرجعي للتحقق');
+    if (isSubmitting) return;
+
+    const trimmed = refCode.trim();
+    if (!trimmed) {
+      setError('يرجى إدخال رقم الحوالة أو الكود المرجعي للتحقق.');
       return;
     }
-    onConfirm(refCode.trim(), currentOption.name);
-    onClose();
+    if (trimmed.length < 3) {
+      setError('الرقم المرجعي للعملية قصير جداً؛ يرجى إدخال الكود كاملاً.');
+      return;
+    }
+
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      await onConfirm(trimmed, currentOption.name);
+      onClose();
+    } catch (err) {
+      setError(toPosErrorMessage(err, 'تعذر تسجيل الدفعة البنكية؛ يرجى المحاولة مرة أخرى.'));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs"
       dir="rtl"
+      role="dialog"
+      aria-modal="true"
     >
-      <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-indigo-500/30">
-        <div className="p-5 border-b border-slate-100 dark:border-slate-800 bg-indigo-50 dark:bg-indigo-950/40 flex items-center justify-between">
+      <div className="bg-white dark:bg-[#111827] rounded-2xl max-w-lg w-full overflow-hidden shadow-xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[92vh]">
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-600/30">
-              <Building2 className="w-6 h-6" />
+            <div className="w-9 h-9 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200/80 dark:border-indigo-800/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+              <Building2 className="w-4.5 h-4.5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-black text-slate-900 dark:text-white text-lg">
+                <h3 className="font-bold text-slate-900 dark:text-white text-base">
                   تحويل بنكي / PalPay فوري
                 </h3>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-indigo-600 text-white font-bold">
+                <kbd className="text-[10px] font-jakarta font-semibold px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300/60 dark:border-slate-700">
                   F11
-                </span>
+                </kbd>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                العميل: {customerName} • مطابقة تلقائية في نظام &quot;ميزان&quot;
+                العميل: {customerName} · متاح للمطابقة في سجل &quot;ميزان&quot;
               </p>
             </div>
           </div>
           <button
             type="button"
+            disabled={isSubmitting}
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            aria-label="إغلاق"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-5">
-          <div className="p-4 rounded-2xl bg-slate-900 text-white flex items-center justify-between shadow-inner">
+        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
+          {error && (
+            <div
+              role="alert"
+              className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/70 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-start gap-2"
+            >
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600 dark:text-rose-400" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Amount Bar */}
+          <div className="p-4 rounded-xl bg-[#09152B] dark:bg-slate-950 text-white flex items-center justify-between border border-slate-800">
             <div>
-              <span className="text-xs text-slate-400 font-medium block">
+              <span className="text-xs text-slate-300 font-medium block">
                 مبلغ التحويل المطلوب
               </span>
-              <span className="text-3xl font-black font-mono text-indigo-400">
+              <span className="text-2xl sm:text-3xl font-bold font-jakarta tabular-nums text-indigo-300 mt-0.5 block" dir="ltr">
                 ₪{totalDue.toFixed(2)}
               </span>
             </div>
-            <div className="text-left">
-              <span className="text-[10px] text-indigo-300 font-bold px-2 py-1 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center gap-1">
-                <RefreshCw className="w-3 h-3 animate-spin" />
-                <span>ربط مع ميزان (Mizan)</span>
-              </span>
-            </div>
+            <span className="text-[11px] text-slate-200 font-medium px-2.5 py-1 rounded-lg bg-white/10 border border-white/10 inline-flex items-center gap-1.5 shrink-0">
+              <RefreshCw className="w-3 h-3 text-emerald-400" />
+              <span>مطابقة ميزان</span>
+            </span>
           </div>
 
+          {/* Provider Selector */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-              اختر بوابة الدفع أو المحفظة البنكية:
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+              بوابة الدفع أو المحفظة البنكية
             </label>
             <div className="grid grid-cols-2 gap-2">
-              {paymentOptions.map((opt) => (
+              {PAYMENT_OPTIONS.map((opt) => (
                 <button
                   key={opt.id}
                   type="button"
-                  onClick={() => setProvider(opt.id as any)}
-                  className={`p-3 rounded-2xl border text-right transition-all ${
+                  onClick={() => setProvider(opt.id)}
+                  className={`p-3 rounded-xl border text-right transition-colors cursor-pointer ${
                     provider === opt.id
-                      ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-500 ring-2 ring-indigo-500/20'
-                      : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-indigo-300'
+                      ? 'bg-slate-50 dark:bg-slate-800 border-[#09152B] dark:border-slate-300 ring-1 ring-[#09152B]/20 dark:ring-slate-300/20'
+                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
                   }`}
                 >
-                  <span className="text-xs font-black text-slate-900 dark:text-white block">
+                  <span className="text-xs font-bold text-slate-900 dark:text-white block">
                     {opt.name}
                   </span>
-                  <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5 block">
                     {opt.tag}
                   </span>
                 </button>
@@ -138,34 +169,40 @@ export const BankPaymentModal: FC<BankPaymentModalProps> = ({
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-500/5 to-purple-500/5 border border-indigo-100 dark:border-indigo-900/60 flex items-center justify-between">
-            <div className="space-y-1">
+          {/* Account Details */}
+          <div className="p-3.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3">
+            <div className="space-y-1 min-w-0">
               <span className="text-[11px] text-slate-500 dark:text-slate-400 block">
-                رقم الحساب / المحفظة لاستقبال الدفع:
+                رقم الحساب / المحفظة لاستقبال الدفع
               </span>
               <div className="flex items-center gap-2">
-                <span className="font-mono font-black text-sm text-slate-900 dark:text-white bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                <span className="font-jakarta tabular-nums font-bold text-xs sm:text-sm text-slate-900 dark:text-white bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 truncate" dir="ltr">
                   {currentOption.account}
                 </span>
                 <button
                   type="button"
                   onClick={handleCopy}
-                  className="p-1.5 text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-950/40 rounded-lg transition-colors"
+                  className="p-1.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer shrink-0"
                   title="نسخ الحساب"
                 >
-                  {copiedIban ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                  {copiedIban ? (
+                    <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
 
-            <div className="w-14 h-14 bg-white dark:bg-slate-800 rounded-xl border border-indigo-200 dark:border-indigo-800 p-1 flex items-center justify-center shrink-0">
-              <QrCode className="w-10 h-10 text-indigo-700 dark:text-indigo-400" />
+            <div className="w-12 h-12 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-1.5 flex items-center justify-center shrink-0">
+              <QrCode className="w-8 h-8 text-slate-700 dark:text-slate-300" />
             </div>
           </div>
 
+          {/* Reference Code */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-              رقم العملية المرجعي من إشعار الزبون (Ref / Transaction ID) *
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              الرقم المرجعي للعملية من إشعار الزبون *
             </label>
             <input
               type="text"
@@ -175,37 +212,50 @@ export const BankPaymentModal: FC<BankPaymentModalProps> = ({
                 setError(null);
               }}
               placeholder="مثال: PLP-9842105 أو رقم الحوالة"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-mono font-bold focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-hidden"
+              dir="ltr"
+              className={`w-full px-3.5 py-2.5 rounded-xl border bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm font-jakarta font-bold focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-slate-500/20 outline-hidden text-left ${
+                error
+                  ? 'border-rose-400 dark:border-rose-500'
+                  : 'border-slate-200 dark:border-slate-700 focus:border-slate-400 dark:focus:border-slate-500'
+              }`}
               autoFocus
             />
-            {error && <p className="mt-1 text-xs text-rose-500 font-semibold">{error}</p>}
           </div>
 
-          <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-[11px] text-slate-600 dark:text-slate-300 flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
-            <span>
-              سيتم إدراج هذه الفاتورة تلقائياً في شاشة &quot;ميزان&quot; لمطابقتها مع كشف حساب البنك بنهاية اليوم.
-            </span>
-          </div>
-
-          <div className="flex items-center justify-end gap-3 pt-2">
+          <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-200/80 dark:border-slate-800">
             <button
               type="button"
+              disabled={isSubmitting}
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="h-10 px-4 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-50"
             >
               إلغاء
             </button>
             <button
               type="submit"
-              className="px-7 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black shadow-lg shadow-indigo-600/30 flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all"
+              disabled={isSubmitting}
+              className="h-10 px-5 rounded-lg bg-[#09152B] hover:bg-[#12264B] dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs sm:text-sm font-bold flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-70"
             >
-              <CheckCircle className="w-5 h-5" />
-              <span>تأكيد الاستلام البنكي (Enter)</span>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>جاري تأكيد التحويل...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>تأكيد الاستلام البنكي (Enter)</span>
+                </>
+              )}
             </button>
           </div>
         </form>
       </div>
     </div>
   );
+};
+
+export const BankPaymentModal: FC<BankPaymentModalProps> = ({ isOpen, ...props }) => {
+  if (!isOpen) return null;
+  return <BankPaymentModalContent {...props} />;
 };

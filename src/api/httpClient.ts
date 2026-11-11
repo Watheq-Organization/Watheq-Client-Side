@@ -135,7 +135,7 @@ async function request<TResponse>(
   }
 
   const contentType = response.headers.get('content-type') ?? '';
-  const isJson = contentType.includes('application/json');
+  const isJson = contentType.includes('application/json') || contentType.includes('+json');
   const body = isJson ? await response.json().catch(() => null) : await response.text().catch(() => null);
 
   if (!response.ok) {
@@ -236,7 +236,7 @@ export const httpClient = {
     });
     if (!response.ok) {
       const contentType = response.headers.get('content-type') ?? '';
-      const isJson = contentType.includes('application/json');
+      const isJson = contentType.includes('application/json') || contentType.includes('+json');
       const body = isJson ? await response.json().catch(() => null) : await response.text().catch(() => null);
       throw new ApiError(`HTTP_${response.status}`, response.status, body);
     }

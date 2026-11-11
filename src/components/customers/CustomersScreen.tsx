@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import type { FC } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -35,7 +35,7 @@ import { getOverdueDebtsReport } from '../../services/reportService';
 import { sendDebtReminder, toSendReminderErrorMessage } from '../../services/debtService';
 import { Toast, type ToastType } from '../ui/Toast';
 import { PhoneInputWithCountry, type CountryCode } from '../ui/PhoneInputWithCountry';
-import { formatCurrency } from '../../utils/currency';
+import { formatCurrency, normalizeCurrencyCode, getCurrencyConfig } from '../../utils/currency';
 
 export const CustomersScreen: FC = () => {
   const navigate = useNavigate();
@@ -81,7 +81,9 @@ export const CustomersScreen: FC = () => {
     name: string;
     phone: string;
     sendViaWhatsApp?: boolean;
+    initialLink?: string;
   } | null>(null);
+  const isSubmittingAddRef = useRef(false);
 
   // Shows a one-off success toast passed via navigation state (e.g. after
   // deleting a customer from the details screen), then clears it from
@@ -203,7 +205,15 @@ export const CustomersScreen: FC = () => {
           const q = searchQuery.toLowerCase().trim();
           const matchName = c.name.toLowerCase().includes(q);
           const matchId = c.nationalOrCrId.includes(q);
-          const matchDebt = c.totalDebt.toString().includes(q);
+          const matchDebt =
+            c.totalDebt.toString().includes(q) ||
+            (Array.isArray(c.balances) &&
+              c.balances.some(
+                (b) =>
+                  (b.totalDebt && b.totalDebt.toString().includes(q)) ||
+                  (b.currentBalance && b.currentBalance.toString().includes(q)) ||
+                  b.currencyCode.toLowerCase().includes(q)
+              ));
           return matchName || matchId || matchDebt;
         }
         return true;
@@ -257,6 +267,9 @@ export const CustomersScreen: FC = () => {
     setAddFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
+    if (isAddingCustomer || isSubmittingAddRef.current) return;
+    isSubmittingAddRef.current = true;
+
     setAddSubmitError(null);
     setIsAddingCustomer(true);
     try {
@@ -304,14 +317,19 @@ export const CustomersScreen: FC = () => {
       closeAddModal();
       showToast('تمت إضافة العميل بنجاح.');
       
-      // Case A: When adding a new customer, send Telegram link via WhatsApp and show QR code
+      // The backend /Customer/addCustomer handler automatically generates and sends
+      // the initial Telegram link to the customer's WhatsApp (Token 1, e.g. WTH-BAA8184F).
+      // We must NOT set sendViaWhatsApp: true here, because that triggers a second call
+      // to /api/Telegram/link/generate with sendViaWhatsApp: true (Token 2), which sends a
+      // duplicate message and invalidates the first token!
       const createdCustId = dto.id ? String(dto.id) : newCustomerItem.id;
       if (createdCustId) {
         setTelegramModalCustomer({
           id: createdCustId,
           name: newCustomerItem.name,
           phone: newCustomerItem.phone || formattedPhone || '',
-          sendViaWhatsApp: true,
+          sendViaWhatsApp: false,
+          initialLink: dto.telegramLink,
         });
       }
 
@@ -325,6 +343,7 @@ export const CustomersScreen: FC = () => {
       showToast(generalMessage);
     } finally {
       setIsAddingCustomer(false);
+      isSubmittingAddRef.current = false;
     }
   };
 
@@ -333,10 +352,16 @@ export const CustomersScreen: FC = () => {
       'data:text/csv;charset=utf-8,' +
       ['الاسم,النوع,رقم الهوية / السجل,إجمالي الدين,الحالة,رقم الهاتف']
         .concat(
-          filteredCustomers.map(
-            (c) =>
-              `"${c.name}","${c.typeLabel}","${c.nationalOrCrId}","${c.totalDebt}","${c.statusLabel}","${c.phone || ''}"`
-          )
+          filteredCustomers.map((c) => {
+            const debtDisplay =
+              c.balances && c.balances.length > 0
+                ? c.balances
+                    .filter((b) => (b.currentBalance ?? 0) > 0 || (b.totalDebt ?? 0) > 0)
+                    .map((b) => `${b.currentBalance || b.totalDebt} ${b.currencyCode}`)
+                    .join(' | ') || String(c.totalDebt)
+                : String(c.totalDebt);
+            return `"${c.name}","${c.typeLabel}","${c.nationalOrCrId}","${debtDisplay}","${c.statusLabel}","${c.phone || ''}"`;
+          })
         )
         .join('\n');
 
@@ -368,6 +393,93 @@ export const CustomersScreen: FC = () => {
     } finally {
       setSendingCustomerIds((prev) => ({ ...prev, [custId]: false }));
     }
+  };
+
+  const renderCustomerDebt = (customer: Customer) => {
+    const activeBalances = (customer.balances || []).filter(
+      (b) => (b.currentBalance ?? 0) > 0 || (b.totalDebt ?? 0) > 0
+    );
+
+    // Case 1: Multiple currencies active (e.g. Shekels + Dollars + Euros)
+    if (activeBalances.length > 1) {
+      const tooltipText = activeBalances
+        .map((b) => {
+          const cfg = getCurrencyConfig(b.currencyCode);
+          const amt = (b.currentBalance ?? 0) > 0 ? b.currentBalance : b.totalDebt;
+          return `${cfg.labelAr}: ${formatCurrency(amt, b.currencyCode)}`;
+        })
+        .join(' • ');
+
+      return (
+        <div
+          className="inline-flex items-center gap-1.5 flex-wrap"
+          title={tooltipText}
+        >
+          <div className="inline-flex items-center divide-x divide-x-reverse divide-slate-200 dark:divide-slate-700 bg-slate-50/90 dark:bg-slate-800/90 border border-slate-200/90 dark:border-slate-700/80 rounded-lg px-2 py-1 text-xs font-mono shadow-2xs">
+            {activeBalances.map((b) => {
+              const code = normalizeCurrencyCode(b.currencyCode);
+              const cfg = getCurrencyConfig(code);
+              const amount = (b.currentBalance ?? 0) > 0 ? b.currentBalance : b.totalDebt;
+              const formattedAmt = amount.toLocaleString('en-US', {
+                minimumFractionDigits: amount % 1 !== 0 ? 2 : 0,
+                maximumFractionDigits: 2,
+              });
+
+              return (
+                <div
+                  key={code}
+                  className="px-2 py-0.5 flex items-center gap-1 font-bold text-slate-800 dark:text-slate-100 whitespace-nowrap"
+                  dir="ltr"
+                >
+                  <span>{formattedAmt}</span>
+                  <span
+                    className={
+                      code === 'USD'
+                        ? 'text-emerald-600 dark:text-emerald-400 font-extrabold'
+                        : code === 'EUR'
+                        ? 'text-amber-600 dark:text-amber-400 font-extrabold'
+                        : code === 'JOD'
+                        ? 'text-purple-600 dark:text-purple-400 font-extrabold'
+                        : 'text-blue-600 dark:text-blue-400 font-extrabold'
+                    }
+                  >
+                    {cfg.symbol}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    // Case 2: Exactly 1 currency balance active
+    if (activeBalances.length === 1) {
+      const b = activeBalances[0];
+      const code = normalizeCurrencyCode(b.currencyCode);
+      const amount = (b.currentBalance ?? 0) > 0 ? b.currentBalance : b.totalDebt;
+      return (
+        <span className="font-bold text-slate-900 dark:text-white font-mono text-sm sm:text-base" dir="ltr">
+          {formatCurrency(amount, code)}
+        </span>
+      );
+    }
+
+    // Case 3: Fallback to customer.totalDebt if > 0
+    if (customer.totalDebt > 0) {
+      return (
+        <span className="font-bold text-slate-900 dark:text-white font-mono text-sm sm:text-base" dir="ltr">
+          {formatCurrency(customer.totalDebt, 'ILS')}
+        </span>
+      );
+    }
+
+    // Case 4: No debt (0)
+    return (
+      <span className="text-slate-400 dark:text-slate-500 font-mono text-sm font-semibold" dir="ltr">
+        0 ₪
+      </span>
+    );
   };
 
   return (
@@ -619,8 +731,8 @@ export const CustomersScreen: FC = () => {
                         </td>
 
                         {/* 3. Total Debt */}
-                        <td className="py-4 px-4 sm:px-6 font-bold text-slate-900 dark:text-white font-cairo text-sm sm:text-base">
-                          <span dir="ltr">{formatCurrency(customer.totalDebt, 'ILS')}</span>
+                        <td className="py-4 px-4 sm:px-6">
+                          {renderCustomerDebt(customer)}
                         </td>
 
                         {/* 4. Status Badge */}
@@ -937,13 +1049,24 @@ export const CustomersScreen: FC = () => {
       {/* Telegram Link Modal */}
       {telegramModalCustomer && (
         <TelegramLinkModal
+          key={`telegram-link-${telegramModalCustomer.id}`}
           isOpen={true}
           onClose={() => setTelegramModalCustomer(null)}
           customerId={telegramModalCustomer.id}
           customerName={telegramModalCustomer.name}
           customerPhone={telegramModalCustomer.phone}
           linkType="Customer"
+          initialLink={telegramModalCustomer.initialLink}
           sendViaWhatsApp={telegramModalCustomer.sendViaWhatsApp ?? false}
+          onLinked={() => {
+            setCustomers((prev) =>
+              prev.map((c) =>
+                String(c.id) === String(telegramModalCustomer.id)
+                  ? { ...c, isTelegramLinked: true }
+                  : c
+              )
+            );
+          }}
         />
       )}
     </div>

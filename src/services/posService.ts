@@ -144,68 +144,182 @@ export interface PosTransactionsPagedResult {
 // Error Message Formatter
 // ============================================================================
 
-export function toPosErrorMessage(err: unknown, defaultMessage = 'حدث خطأ غير متوقع.'): string {
+function translatePosBackendMessage(rawMsg: string): string {
+  const trimmed = rawMsg.trim();
+  if (!trimmed) return '';
+  const lower = trimmed.toLowerCase();
+
+  if (lower.includes('insufficient stock') || lower.includes('not enough stock')) {
+    return 'الكمية المطلوبة من أحد الأصناف غير متوفرة في المخزون المسجل.';
+  }
+  if (lower.includes('product not found') || lower.includes('does not exist')) {
+    return 'أحد الأصناف المحددة غير موجود في المخزون أو تم حذفه.';
+  }
+  if (lower.includes('inactive') || lower.includes('not active')) {
+    return 'أحد الأصناف المختارة غير مفعّل للبيع حالياً.';
+  }
+  if (lower.includes('saletype is required') || lower.includes('saletype must be')) {
+    return 'نوع البيع غير صالح (يجب أن يكون نقدياً أو بالآجل).';
+  }
+  if (lower.includes('paymentmethod') && (lower.includes('invalid') || lower.includes('required'))) {
+    return 'طريقة الدفع المحددة غير صالحة.';
+  }
+  if (lower.includes('customerid is required for debt')) {
+    return 'يجب اختيار عميل مسجل لإتمام البيع بالآجل (الدين).';
+  }
+  if (lower.includes('guestcustomername is not allowed for debt')) {
+    return 'لا يمكن تسجيل اسم زبون عابر لمعاملات الدين؛ يرجى اختيار عميل مسجل.';
+  }
+  if (lower.includes('cart must contain at least one item') || lower.includes('items list cannot be empty')) {
+    return 'يجب أن تحتوي السلة على منتج واحد على الأقل لإتمام العملية.';
+  }
+  if (lower.includes('quantity must be greater than zero') || lower.includes('greater than 0')) {
+    return 'يجب أن تكون كمية كل صنف أكبر من صفر.';
+  }
+  if (lower.includes('exceeded returnable quantity') || lower.includes('maximum returnable quantity')) {
+    return 'الكمية المطلوب إرجاعها تتجاوز الكمية المتبقية القابلة للإرجاع.';
+  }
+  if (lower.includes('not part of the original transaction')) {
+    return 'المنتج المحدد لم يكن جزءاً من الفاتورة الأصلية.';
+  }
+  if (lower.includes('invalid transaction id')) {
+    return 'معرّف المعاملة غير صالح.';
+  }
+  if (lower.includes('customer not found')) {
+    return 'تعذر العثور على العميل المحدد في النظام أو تم حذفه.';
+  }
+  if (lower.includes('transaction not found')) {
+    return 'المعاملة المطلوبة غير موجودة في سجل هذا المتجر.';
+  }
+  if (lower.includes('no business found')) {
+    return 'لم يتم العثور على نشاط تجاري مرتبط بحسابك.';
+  }
+  if (lower === 'one or more validation errors occurred.') {
+    return 'يوجد خطأ في التحقق من صحة البيانات المدخلة.';
+  }
+
+  if (/[\u0600-\u06FF]/.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `رفض الخادم الطلب: ${trimmed}`;
+}
+
+function extractPosApiMessages(body: unknown): string[] {
+  let normalized = body;
+  if (typeof normalized === 'string') {
+    const trimmed = normalized.trim();
+    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+      try {
+        normalized = JSON.parse(trimmed);
+      } catch {
+        // treat as plain string
+      }
+    }
+  }
+
+  const parts: string[] = [];
+  const pushUnique = (msg: string) => {
+    const translated = translatePosBackendMessage(msg);
+    if (translated && !parts.includes(translated)) {
+      parts.push(translated);
+    }
+  };
+
+  if (typeof normalized === 'string' && normalized.trim()) {
+    pushUnique(normalized);
+  } else if (Array.isArray(normalized)) {
+    for (const item of normalized) {
+      if (typeof item === 'string') pushUnique(item);
+    }
+  } else if (normalized && typeof normalized === 'object') {
+    const b = normalized as Record<string, unknown>;
+    const errs = b.errors ?? b.Errors;
+    if (errs && typeof errs === 'object') {
+      if (Array.isArray(errs)) {
+        for (const item of errs) {
+          if (typeof item === 'string') pushUnique(item);
+        }
+      } else {
+        for (const val of Object.values(errs as Record<string, unknown>)) {
+          const list = Array.isArray(val) ? val : [val];
+          for (const item of list) {
+            if (typeof item === 'string') pushUnique(item);
+          }
+        }
+      }
+    }
+
+    const nestedResult = (b.result && typeof b.result === 'object' ? b.result : null) as Record<string, unknown> | null;
+    const nestedData = (b.data && typeof b.data === 'object' ? b.data : null) as Record<string, unknown> | null;
+
+    const directCandidates: unknown[] = [
+      b.message,
+      b.Message,
+      b.detail,
+      b.Detail,
+      b.error,
+      b.Error,
+      nestedResult?.message,
+      nestedResult?.Message,
+      nestedData?.message,
+      nestedData?.Message,
+    ];
+    for (const cand of directCandidates) {
+      if (typeof cand === 'string' && cand.trim()) {
+        pushUnique(cand);
+      }
+    }
+
+    if (parts.length === 0) {
+      const title = b.title ?? b.Title;
+      if (typeof title === 'string' && title.trim()) {
+        pushUnique(title);
+      }
+    }
+  }
+
+  return parts;
+}
+
+export function toPosErrorMessage(err: unknown, defaultMessage = 'تعذر إتمام العملية؛ يرجى المحاولة مرة أخرى.'): string {
   if (err instanceof ApiError) {
-    const serverMsg =
-      typeof err.body === 'object' && err.body !== null
-        ? String((err.body as Record<string, unknown>).message ?? (err.body as Record<string, unknown>).title ?? '')
-        : String(err.body ?? '');
-
-    if (serverMsg.includes('Insufficient stock')) {
-      return 'الكمية المطلوبة غير متوفرة في المخزون.';
-    }
-    if (serverMsg.includes('SaleType is required') || serverMsg.includes('SaleType must be')) {
-      return 'نوع البيع غير صالح (يجب أن يكون Cash أو Debt).';
-    }
-    if (serverMsg.includes('CustomerId is required for Debt')) {
-      return 'يجب اختيار عميل مسجل لإتمام البيع بالآجل (الدين).';
-    }
-    if (serverMsg.includes('GuestCustomerName is not allowed for Debt')) {
-      return 'لا يمكن تسجيل اسم زبون عابر لمعاملات الدين.';
-    }
-    if (serverMsg.includes('Cart must contain at least one item') || serverMsg.includes('Items list cannot be empty')) {
-      return 'يجب أن تحتوي السلة على منتج واحد على الأقل.';
-    }
-    if (serverMsg.includes('Exceeded Returnable Quantity') || serverMsg.includes('Maximum returnable quantity')) {
-      return 'الكمية المطلوب إرجاعها تتجاوز الكمية المسموح بإرجاعها.';
-    }
-    if (serverMsg.includes('not part of the original transaction')) {
-      return 'المنتج لم يكن جزءاً من المعاملة الأصلية.';
-    }
-    if (serverMsg.includes('Invalid transaction ID')) {
-      return 'معرّف المعاملة غير صالح. يجب أن يبدأ بـ CASH- أو DEBT-.';
-    }
-    if (serverMsg.includes('Customer not found')) {
-      return 'العميل غير موجود أو تم حذفه.';
-    }
-    if (serverMsg.includes('Transaction not found')) {
-      return 'المعاملة غير موجودة أو تخص متجراً آخر.';
-    }
-    if (serverMsg.includes('No business found')) {
-      return 'لم يتم العثور على متجر مرتبط بحسابك.';
-    }
-
-    if (err.status === 408) {
-      return 'انتهت مهلة انتظار الخادم. تحقق من الاتصال وأعد المحاولة.';
-    }
     if (err.status === 0) {
-      return 'تعذّر الاتصال بالخادم. يرجى التحقق من اتصالك أو إعدادات CORS.';
+      return 'تعذّر الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.';
+    }
+    if (err.status === 408 || err.message === 'TIMEOUT') {
+      return 'انتهت مهلة انتظار الخادم. تحقق من الاتصال وأعد المحاولة.';
     }
     if (err.status === 401) {
       return 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مجدداً.';
     }
+
+    const extracted = extractPosApiMessages(err.body);
+    if (extracted.length > 0) {
+      return extracted.join(' — ');
+    }
+
     if (err.status === 403) {
-      return 'ليس لديك صلاحية لتنفيذ هذا الإجراء.';
+      return 'ليس لديك صلاحية لتنفيذ هذا الإجراء (403).';
+    }
+    if (err.status === 404) {
+      return 'تعذر العثور على الصنف أو العميل المطلوب في الخادم (404).';
+    }
+    if (err.status === 409) {
+      return 'يوجد تعارض في حالة المخزون أو البيانات المدخلة (409). يرجى التحديث والمحاولة مجدداً.';
+    }
+    if (err.status === 400 || err.status === 422) {
+      return 'رفض الخادم البيانات المدخلة؛ تأكد من صحة الأصناف والكميات والعميل المحدد.';
     }
     if (err.status >= 500) {
-      return 'حدث خطأ في الخادم أثناء معالجة الطلب.';
+      return `حدث خطأ داخلي في الخادم أثناء معالجة الطلب (${err.status}). يرجى المحاولة لاحقاً.`;
     }
 
-    return serverMsg || defaultMessage;
+    return defaultMessage;
   }
 
-  if (err instanceof Error) {
-    return err.message;
+  if (err instanceof Error && err.message.trim()) {
+    return translatePosBackendMessage(err.message);
   }
 
   return defaultMessage;

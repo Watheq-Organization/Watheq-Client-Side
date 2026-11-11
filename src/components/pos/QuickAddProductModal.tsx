@@ -1,7 +1,7 @@
-import { useState, useEffect, type FC, type FormEvent } from 'react';
-import { X, AlertCircle, Sparkles, Check, Loader2 } from 'lucide-react';
+import { useState, type FC, type FormEvent } from 'react';
+import { X, AlertCircle, PackagePlus, Check, Loader2 } from 'lucide-react';
 import type { Product } from '../../types/inventory';
-import { ApiError } from '../../api/httpClient';
+import { toProductErrorMessage } from '../../services/productService';
 import { CategorySelect } from '../inventory/CategorySelect';
 import { UnitSelect } from '../inventory/UnitSelect';
 
@@ -12,8 +12,9 @@ interface QuickAddProductModalProps {
   onConfirm: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void> | void;
 }
 
-export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
-  isOpen,
+type FieldKey = 'name' | 'category' | 'unit' | 'salePrice' | 'costPrice' | 'initialStock' | 'minAlertThreshold';
+
+const QuickAddProductModalContent: FC<Omit<QuickAddProductModalProps, 'isOpen'>> = ({
   onClose,
   barcode,
   onConfirm,
@@ -26,66 +27,65 @@ export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
   const [category, setCategory] = useState('');
   const [unit, setUnit] = useState('حبة');
   const [error, setError] = useState<string | null>(null);
+  const [errorField, setErrorField] = useState<FieldKey | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      setName('');
-      setSalePrice('');
-      setCostPrice('');
-      setInitialStock('20');
-      setMinAlertThreshold('5');
-      setCategory('');
-      setUnit('حبة');
-      setError(null);
-    }
-  }, [isOpen, barcode]);
-
-  if (!isOpen) return null;
+  const clearError = () => {
+    if (error) setError(null);
+    if (errorField) setErrorField(null);
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
     if (!name.trim()) {
-      setError('يرجى كتابة اسم الصنف');
+      setError('يرجى إدخال اسم الصنف.');
+      setErrorField('name');
+      return;
+    }
+    if (!category.trim()) {
+      setError('يرجى اختيار تصنيف الصنف.');
+      setErrorField('category');
+      return;
+    }
+    if (!unit.trim()) {
+      setError('يرجى اختيار وحدة قياس الصنف.');
+      setErrorField('unit');
       return;
     }
 
     const price = parseFloat(salePrice);
-    if (isNaN(price) || price < 0) {
-      setError('يرجى إدخال سعر بيع صحيح (رقم موجب)');
+    if (salePrice.trim() === '' || isNaN(price) || price < 0) {
+      setError('يرجى إدخال سعر بيع صحيح (رقم موجب أو صفر).');
+      setErrorField('salePrice');
       return;
     }
 
     const cost = parseFloat(costPrice);
-    if (isNaN(cost) || cost < 0) {
-      setError('يرجى إدخال سعر تكلفة صحيح (رقم موجب)');
+    if (costPrice.trim() === '' || isNaN(cost) || cost < 0) {
+      setError('يرجى إدخال سعر تكلفة صحيح (رقم موجب أو صفر).');
+      setErrorField('costPrice');
       return;
     }
 
     const stock = parseInt(initialStock, 10);
-    if (isNaN(stock) || stock < 0) {
-      setError('يرجى إدخال رصيد صحيح (0 أو أكثر)');
+    if (initialStock.trim() === '' || isNaN(stock) || stock < 0) {
+      setError('يرجى إدخال رصيد افتتاحي صحيح (0 أو أكثر).');
+      setErrorField('initialStock');
       return;
     }
 
     const minAlert = parseInt(minAlertThreshold, 10);
-    if (isNaN(minAlert) || minAlert < 0) {
-      setError('حد التنبيه يجب أن يكون 0 أو أكثر');
-      return;
-    }
-
-    if (!category.trim()) {
-      setError('يرجى اختيار تصنيف الصنف');
-      return;
-    }
-
-    if (!unit.trim()) {
-      setError('يرجى اختيار وحدة قياس الصنف');
+    if (minAlertThreshold.trim() === '' || isNaN(minAlert) || minAlert < 0) {
+      setError('حد التنبيه بالنفاد يجب أن يكون 0 أو أكثر.');
+      setErrorField('minAlertThreshold');
       return;
     }
 
     setIsSubmitting(true);
     setError(null);
+    setErrorField(null);
     try {
       await onConfirm({
         barcode: barcode.trim(),
@@ -99,38 +99,8 @@ export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
       });
       onClose();
     } catch (err: unknown) {
-      console.error('Create product error:', err);
-      let msg = 'فشل حفظ الصنف في الخادم';
-
-      if (err instanceof ApiError) {
-        if (err.body) {
-          if (typeof err.body === 'object') {
-            const bodyObj = err.body as Record<string, any>;
-            // Server wraps errors as: { result: { code, message }, data, testSchema }
-            if (bodyObj.result?.message) {
-              msg = String(bodyObj.result.message);
-            } else if (bodyObj.errors) {
-              msg = Object.entries(bodyObj.errors)
-                .map(([field, errs]) => `${field}: ${Array.isArray(errs) ? errs.join(', ') : errs}`)
-                .join(' | ');
-            } else if (bodyObj.message) {
-              msg = String(bodyObj.message);
-            } else if (bodyObj.title) {
-              msg = String(bodyObj.title);
-            } else {
-              msg = JSON.stringify(err.body);
-            }
-          } else {
-            msg = String(err.body);
-          }
-        } else {
-          msg = `خطأ من السيرفر (HTTP ${err.status})`;
-        }
-      } else if (err instanceof Error) {
-        msg = err.message;
-      }
-
-      setError(msg);
+      console.error('[QuickAddProductModal] Create product error:', err);
+      setError(toProductErrorMessage(err, 'تعذر حفظ الصنف في قاعدة بيانات المخزون.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -138,27 +108,30 @@ export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs"
       dir="rtl"
+      role="dialog"
+      aria-modal="true"
     >
-      <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full overflow-hidden shadow-2xl border-2 border-emerald-500/40">
-        <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 bg-emerald-50/70 dark:bg-emerald-950/30 flex items-center justify-between">
+      <div className="bg-white dark:bg-[#111827] rounded-2xl max-w-md w-full overflow-hidden shadow-xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[92vh]">
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/30">
-              <Sparkles className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200/80 dark:border-emerald-800/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+              <PackagePlus className="w-4.5 h-4.5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                  صنف جديد غير مسجل!
+                  إضافة صنف جديد
                 </h3>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-600 text-white animate-pulse">
-                  إضافة سريعة ⚡
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                  إدخال سريع
                 </span>
               </div>
-              <p className="text-xs text-slate-600 dark:text-slate-300">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 الباركود:{' '}
-                <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">
+                <span className="font-jakarta tabular-nums font-bold text-slate-800 dark:text-slate-200">
                   {barcode}
                 </span>
               </p>
@@ -166,20 +139,32 @@ export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
           </div>
           <button
             type="button"
+            disabled={isSubmitting}
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-white/60 dark:hover:bg-slate-800"
+            className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            aria-label="إغلاق"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            أدخل بيانات الصنف ليتم حفظه في قاعدة بيانات المخزون وإضافته لسلة البيع فوراً:
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto flex-1">
+          {error && (
+            <div
+              role="alert"
+              className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/70 text-rose-700 dark:text-rose-300 text-xs flex items-start gap-2 font-semibold"
+            >
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600 dark:text-rose-400" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            هذا الباركود غير مسجل في المخزون. أدخل بيانات الصنف ليتم حفظه وإضافته مباشرة إلى الفاتورة.
           </p>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
               اسم الصنف *
             </label>
             <input
@@ -187,23 +172,27 @@ export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
               value={name}
               onChange={(e) => {
                 setName(e.target.value);
-                setError(null);
+                clearError();
               }}
-              placeholder="مثال: شيبس بطاطا مستورد"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-medium focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-hidden"
+              placeholder="مثال: عصير طبيعي 1 لتر"
+              className={`w-full px-3.5 py-2 rounded-xl border bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm font-medium focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-emerald-500/20 outline-hidden ${
+                errorField === 'name'
+                  ? 'border-rose-400 dark:border-rose-500'
+                  : 'border-slate-200 dark:border-slate-700 focus:border-emerald-600'
+              }`}
               autoFocus
             />
           </div>
 
           {/* Category & Unit */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <CategorySelect
               value={category}
               onChange={(val) => {
                 setCategory(val);
-                setError(null);
+                clearError();
               }}
-              error={error && !category.trim() ? error : undefined}
+              error={errorField === 'category' ? error ?? undefined : undefined}
               label="تصنيف الصنف *"
               placeholder="اختر تصنيف..."
             />
@@ -212,53 +201,63 @@ export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
               value={unit}
               onChange={(val) => {
                 setUnit(val);
-                setError(null);
+                clearError();
               }}
-              error={error && !unit.trim() ? error : undefined}
+              error={errorField === 'unit' ? error ?? undefined : undefined}
               label="وحدة الصنف *"
               placeholder="اختر وحدة..."
             />
           </div>
 
           {/* Pricing Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                سعر البيع للزبون (₪) *
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                سعر البيع (₪) *
               </label>
               <div className="relative">
                 <input
                   type="number"
-                  step="0.1"
+                  step="0.01"
                   min="0"
                   value={salePrice}
                   onChange={(e) => {
                     setSalePrice(e.target.value);
-                    setError(null);
+                    clearError();
                   }}
                   placeholder="0.00"
-                  className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-black focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-hidden"
+                  dir="ltr"
+                  className={`w-full pl-8 pr-3.5 py-2 rounded-xl border bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm font-bold font-jakarta tabular-nums focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-emerald-500/20 outline-hidden text-left ${
+                    errorField === 'salePrice'
+                      ? 'border-rose-400 dark:border-rose-500'
+                      : 'border-slate-200 dark:border-slate-700 focus:border-emerald-600'
+                  }`}
                 />
-                <span className="absolute left-3 top-2.5 text-xs text-emerald-600 font-bold">₪</span>
+                <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-bold">₪</span>
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 سعر التكلفة (₪) *
               </label>
               <div className="relative">
                 <input
                   type="number"
-                  step="0.1"
+                  step="0.01"
                   min="0"
                   value={costPrice}
                   onChange={(e) => {
                     setCostPrice(e.target.value);
-                    setError(null);
+                    clearError();
                   }}
                   placeholder="0.00"
-                  className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-black focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-hidden"
+                  dir="ltr"
+                  className={`w-full pl-8 pr-3.5 py-2 rounded-xl border bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm font-bold font-jakarta tabular-nums focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-emerald-500/20 outline-hidden text-left ${
+                    errorField === 'costPrice'
+                      ? 'border-rose-400 dark:border-rose-500'
+                      : 'border-slate-200 dark:border-slate-700 focus:border-emerald-600'
+                  }`}
                 />
                 <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-bold">₪</span>
               </div>
@@ -266,10 +265,10 @@ export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
           </div>
 
           {/* Quantities Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                الرصيد الافتتاحي بالمحل {unit ? `(${unit})` : ''} *
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                الرصيد الافتتاحي {unit ? `(${unit})` : ''} *
               </label>
               <input
                 type="number"
@@ -277,15 +276,20 @@ export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
                 value={initialStock}
                 onChange={(e) => {
                   setInitialStock(e.target.value);
-                  setError(null);
+                  clearError();
                 }}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-bold focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-hidden"
+                dir="ltr"
+                className={`w-full px-3.5 py-2 rounded-xl border bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm font-bold font-jakarta tabular-nums focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-emerald-500/20 outline-hidden text-left ${
+                  errorField === 'initialStock'
+                    ? 'border-rose-400 dark:border-rose-500'
+                    : 'border-slate-200 dark:border-slate-700 focus:border-emerald-600'
+                }`}
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                حد التنبيه بالنفاد 🟡 (الافتراضي 5) *
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                حد التنبيه بالنفاد *
               </label>
               <input
                 type="number"
@@ -293,43 +297,41 @@ export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
                 value={minAlertThreshold}
                 onChange={(e) => {
                   setMinAlertThreshold(e.target.value);
-                  setError(null);
+                  clearError();
                 }}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-bold focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-hidden"
+                dir="ltr"
+                className={`w-full px-3.5 py-2 rounded-xl border bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm font-bold font-jakarta tabular-nums focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-emerald-500/20 outline-hidden text-left ${
+                  errorField === 'minAlertThreshold'
+                    ? 'border-rose-400 dark:border-rose-500'
+                    : 'border-slate-200 dark:border-slate-700 focus:border-emerald-600'
+                }`}
               />
             </div>
           </div>
 
-          {error && (
-            <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-xs flex items-center gap-1.5 font-medium">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          <div className="flex items-center justify-end gap-2.5 pt-3">
+          <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-200/80 dark:border-slate-800">
             <button
               type="button"
               disabled={isSubmitting}
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-medium text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
+              className="h-9 px-4 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
             >
-              تخطي
+              إلغاء
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-lg shadow-emerald-600/30 flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-75 disabled:pointer-events-none cursor-pointer"
+              className="h-9 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold flex items-center gap-2 transition-colors disabled:opacity-75 cursor-pointer"
             >
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>جاري الحفظ في المخزون...</span>
+                  <span>جاري الحفظ...</span>
                 </>
               ) : (
                 <>
                   <Check className="w-4 h-4" />
-                  <span>حفظ وإضافة للسلة فوراً (Enter)</span>
+                  <span>حفظ وإضافة للسلة</span>
                 </>
               )}
             </button>
@@ -338,4 +340,9 @@ export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({
       </div>
     </div>
   );
+};
+
+export const QuickAddProductModal: FC<QuickAddProductModalProps> = ({ isOpen, ...props }) => {
+  if (!isOpen) return null;
+  return <QuickAddProductModalContent key={props.barcode} {...props} />;
 };

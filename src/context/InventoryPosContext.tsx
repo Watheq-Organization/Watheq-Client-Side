@@ -22,10 +22,11 @@ const HELD_BILLS_STORAGE_KEY = 'watheq_held_bills_v1';
 const SALES_STORAGE_KEY = 'watheq_sales_history_v1';
 const RESTOCK_STORAGE_KEY = 'watheq_restock_history_v1';
 
-import { getProductsApi, adjustProductStockApi } from '../services/productService';
+import { getProductsApi, adjustProductStockApi, toProductErrorMessage } from '../services/productService';
 import { ApiError } from '../api/httpClient';
 import { posCheckout, type PosSaleType, type PosPaymentMethod } from '../services/posService';
 import { createDebt, rememberEditableDebt, DEFAULT_CURRENCY_ID } from '../services/debtService';
+import { getCurrencyId, normalizeCurrencyCode } from '../utils/currency';
 
 export const DEFAULT_CASH_CUSTOMER = {
   id: undefined,
@@ -135,6 +136,8 @@ interface InventoryPosContextType {
   setPendingNegativeItem: (item: { product: Product; quantity: number } | null) => void;
   confirmAddNegativeItem: () => void;
   refreshProducts: () => Promise<void>;
+  isLoadingProducts: boolean;
+  productsLoadError: string | null;
 }
 
 const InventoryPosContext = createContext<InventoryPosContextType | undefined>(undefined);
@@ -197,40 +200,76 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
     quantity: number;
   } | null>(null);
 
-  const refreshProducts = useCallback(async () => {
-    try {
-      const res = await getProductsApi({ PageNumber: 1, PageSize: 1000 });
-      if (res?.items && Array.isArray(res.items)) {
-        setProducts((prev) => {
-          return res.items.map((apiItem) => {
-            const existing = prev.find(
-              (p) =>
-                p.id === apiItem.id ||
-                (p.barcode &&
-                  apiItem.barcode &&
-                  p.barcode.trim().toLowerCase() === apiItem.barcode.trim().toLowerCase())
-            );
-            return {
-              ...apiItem,
-              category: apiItem.category || existing?.category,
-              unit: apiItem.unit || existing?.unit,
-            };
-          });
-        });
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [productsLoadError, setProductsLoadError] = useState<string | null>(null);
+
+  const mergeApiProducts = useCallback((prev: Product[], apiItems: Product[]): Product[] => {
+    return apiItems.map((apiItem) => {
+      const existing = prev.find(
+        (p) =>
+          p.id === apiItem.id ||
+          (p.barcode &&
+            apiItem.barcode &&
+            p.barcode.trim().toLowerCase() === apiItem.barcode.trim().toLowerCase())
+      );
+      return {
+        ...apiItem,
+        category: apiItem.category || existing?.category,
+        unit: apiItem.unit || existing?.unit,
+      };
+    });
+  }, []);
+
+  const handleProductsLoadError = useCallback((err: unknown) => {
+    if (err instanceof ApiError && (err.status === 404 || err.status === 0)) {
+      console.warn('GET /api/Products failed (404/0). Using local storage products fallback.');
+      if (err.status === 0) {
+        setProductsLoadError('تعذر الاتصال بالخادم لتحديث قائمة الأصناف.');
       }
-    } catch (err) {
-      if (err instanceof ApiError && (err.status === 404 || err.status === 0)) {
-        console.warn('GET /api/Products failed (404/0). Using local storage products fallback.');
-      } else {
-        console.error('Failed to load products from API:', err);
-      }
+    } else {
+      console.error('Failed to load products from API:', err);
+      setProductsLoadError(toProductErrorMessage(err, 'تعذر تحميل قائمة الأصناف من الخادم.'));
     }
   }, []);
 
+  const refreshProducts = useCallback(async () => {
+    setIsLoadingProducts(true);
+    setProductsLoadError(null);
+    try {
+      const res = await getProductsApi({ PageNumber: 1, PageSize: 1000 });
+      setProductsLoadError(null);
+      if (res?.items && Array.isArray(res.items)) {
+        setProducts((prev) => mergeApiProducts(prev, res.items));
+      }
+    } catch (err) {
+      handleProductsLoadError(err);
+    } finally {
+      setIsLoadingProducts(false);
+    }
+  }, [handleProductsLoadError, mergeApiProducts]);
+
   // Load products from API on mount
   useEffect(() => {
-    refreshProducts();
-  }, [refreshProducts]);
+    let isMounted = true;
+    getProductsApi({ PageNumber: 1, PageSize: 1000 })
+      .then((res) => {
+        if (!isMounted) return;
+        setProductsLoadError(null);
+        if (res?.items && Array.isArray(res.items)) {
+          setProducts((prev) => mergeApiProducts(prev, res.items));
+        }
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+        handleProductsLoadError(err);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingProducts(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [handleProductsLoadError, mergeApiProducts]);
 
   // Sync to localStorage
   useEffect(() => {
@@ -470,7 +509,7 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
 
       const newHeld: HeldBill = {
         id: `held-${Date.now()}`,
-        heldAt: new Date().toLocaleTimeString('ar-EG', {
+        heldAt: new Date().toLocaleTimeString('en-GB', {
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit',
@@ -563,6 +602,8 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
         const custKey = String(parsedCustId);
         const totalDebtAmount = cartTotalDue;
         const shouldNotify = payload.notifyCustomerViaBot !== false;
+        const targetCurrencyCode = normalizeCurrencyCode(payload.currencyCode || 'ILS');
+        const targetCurrencyId = Number(payload.currencyId ?? getCurrencyId(targetCurrencyCode) ?? DEFAULT_CURRENCY_ID);
 
         // 1. Call the main Create Debt API (POST /api/Debt/createDebt)
         // Passes telegram/notification activation boolean flags set to true
@@ -572,7 +613,8 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
           dueDate: formattedDueDate,
           reason: itemsSummary || 'مشتريات بالدين (نقطة البيع - كاشير)',
           notes: customNotes,
-          currencyId: DEFAULT_CURRENCY_ID,
+          currencyId: targetCurrencyId,
+          currencyCode: targetCurrencyCode,
           sendNotification: shouldNotify,
           sendTelegramNotification: shouldNotify,
           sendWhatsAppNotification: shouldNotify,
@@ -599,7 +641,8 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
               amount: String(totalDebtAmount),
               dueDate: formattedDueDate.split('T')[0],
               notes: notesStr,
-              currencyId: DEFAULT_CURRENCY_ID,
+              currencyId: targetCurrencyId,
+              currencyCode: targetCurrencyCode,
             },
             debtDto
           );
@@ -673,6 +716,8 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
           debtNotes: notesStr,
           debtDueDate: payload.debtDueDate,
           botVerificationSent: shouldNotify,
+          currencyCode: targetCurrencyCode,
+          currencyId: targetCurrencyId,
         };
 
         setCompletedSales((prev) => [completedSale, ...prev]);
@@ -810,6 +855,8 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
       setPendingNegativeItem,
       confirmAddNegativeItem,
       refreshProducts,
+      isLoadingProducts,
+      productsLoadError,
     }),
     [
       products,
@@ -840,6 +887,8 @@ export const InventoryPosProvider = ({ children }: { children: ReactNode }) => {
       pendingNegativeItem,
       confirmAddNegativeItem,
       refreshProducts,
+      isLoadingProducts,
+      productsLoadError,
     ]
   );
 
