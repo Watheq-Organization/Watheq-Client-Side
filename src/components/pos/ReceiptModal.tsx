@@ -38,7 +38,7 @@ export const ReceiptModal: FC<ReceiptModalProps> = ({ sale, isOpen, onClose }) =
     const text = `*فاتورة مبيعات وثّق*
 رقم الفاتورة: ${sale.invoiceNumber}
 الزبون: ${sale.customerName}
-التاريخ: ${new Date(sale.date).toLocaleString('ar-EG')}
+التاريخ: ${new Date(sale.date).toLocaleString('en-GB')}
 طريقة الدفع: ${getPaymentMethodLabel()}
 -----------------------
 ${sale.items.map((i) => `• ${i.product.name} (x${i.quantity}): ${currencySymbol}${i.subtotal.toFixed(2)}`).join('\n')}
@@ -138,8 +138,8 @@ ${sale.paymentMethod === 'debt' ? `الرصيد الإجمالي للدين: ${c
               <div className="flex justify-between">
                 <span className="text-slate-600">التاريخ:</span>
                 <span className="tabular-nums">
-                  {new Date(sale.date).toLocaleDateString('ar-EG')}{' '}
-                  {new Date(sale.date).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                  {new Date(sale.date).toLocaleDateString('en-GB')}{' '}
+                  {new Date(sale.date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
               <div className="flex justify-between">

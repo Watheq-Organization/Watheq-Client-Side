@@ -1427,7 +1427,7 @@ export const CustomerDetailsScreen: FC = () => {
                   </div>
                   <div className="text-left text-xs text-slate-500 dark:text-slate-400 font-mono">
                     <span className="font-bold text-[#0c2444] dark:text-blue-400 block font-cairo text-sm">منصة وثّق</span>
-                    <span>{new Date().toLocaleDateString('ar-SA')}</span>
+                    <span>{new Date().toLocaleDateString('en-GB')}</span>
                   </div>
                 </div>
 

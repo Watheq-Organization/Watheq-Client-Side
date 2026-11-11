@@ -261,7 +261,10 @@ export const OverduePaymentsTable: FC<OverduePaymentsTableProps> = ({
 
                     {/* Due Date + Overdue Elapsed */}
                     <td className="py-3.5 px-3 whitespace-nowrap">
-                      <div className="text-xs font-medium text-slate-700 dark:text-slate-300 tabular-nums">
+                      <div
+                        className="text-xs font-medium text-slate-700 dark:text-slate-300 font-jakarta tabular-nums inline-block"
+                        dir="ltr"
+                      >
                         {payment.dueDate}
                       </div>
                       {overdueLabel && (

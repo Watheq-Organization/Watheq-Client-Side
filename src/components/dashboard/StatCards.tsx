@@ -102,18 +102,33 @@ export const StatCards: FC<StatCardsProps> = ({ refreshTrigger = 0 }) => {
     : getCurrencyConfig('ILS');
 
   const showSingleCurrencyMetrics = !isMultiCurrency || activeCurrencyItem !== null;
+  const hasCurrencyOverdueBreakdown =
+    currencySummaries.length > 0 &&
+    currencySummaries.every((c) => c.overdueAmount !== undefined);
 
   const collectionRate =
     scopedTotalDebt > 0
       ? Math.min(100, Math.max(0, Math.round((scopedCollected / scopedTotalDebt) * 100)))
       : 0;
 
-  const overdueAmount = summary?.overdueAmount ?? 0;
+  const scopedOverdue: number | null = activeCurrencyItem
+    ? (activeCurrencyItem.overdueAmount ?? (!isMultiCurrency ? summary?.overdueAmount ?? 0 : null))
+    : summary?.overdueAmount ?? 0;
+
+  const hasOverdueAlert = showSingleCurrencyMetrics
+    ? (scopedOverdue ?? 0) > 0
+    : hasCurrencyOverdueBreakdown
+      ? currencySummaries.some((c) => (c.overdueAmount ?? 0) > 0)
+      : (summary?.overdueAmount ?? 0) > 0;
+
   const activeCustomers = summary?.customersCount ?? 0;
 
   const overdueShareOfRemaining =
-    !isMultiCurrency && scopedRemaining > 0 && overdueAmount > 0
-      ? Math.min(100, Math.round((overdueAmount / scopedRemaining) * 100))
+    showSingleCurrencyMetrics &&
+    scopedRemaining > 0 &&
+    scopedOverdue !== null &&
+    scopedOverdue > 0
+      ? Math.min(100, Math.round((scopedOverdue / scopedRemaining) * 100))
       : null;
 
   return (
@@ -312,45 +327,130 @@ export const StatCards: FC<StatCardsProps> = ({ refreshTrigger = 0 }) => {
                 <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                   المبالغ المتأخرة
                 </span>
-                <AlertTriangle
-                  className={`w-4 h-4 shrink-0 ${
-                    overdueAmount > 0
-                      ? 'text-rose-500 dark:text-rose-400'
-                      : 'text-slate-400 dark:text-slate-500'
-                  }`}
-                />
+                <div className="flex items-center gap-2 shrink-0">
+                  {!showSingleCurrencyMetrics && hasCurrencyOverdueBreakdown && hasOverdueAlert && (
+                    <button
+                      type="button"
+                      onClick={() => navigate(PATHS.OVERDUE_DEBTS_REPORT)}
+                      className="text-[11px] text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-semibold inline-flex items-center gap-0.5 cursor-pointer transition-colors"
+                    >
+                      <span>التقرير</span>
+                      <ArrowUpLeft className="w-3 h-3" />
+                    </button>
+                  )}
+                  <AlertTriangle
+                    className={`w-4 h-4 shrink-0 ${
+                      hasOverdueAlert
+                        ? 'text-rose-500 dark:text-rose-400'
+                        : 'text-slate-400 dark:text-slate-500'
+                    }`}
+                  />
+                </div>
               </div>
 
-              <div className="text-right">
-                <div className="inline-flex items-baseline gap-1.5" dir="ltr">
-                  <span
-                    className={`text-2xl sm:text-[26px] font-bold tracking-tight tabular-nums font-jakarta ${
-                      overdueAmount > 0
-                        ? 'text-rose-600 dark:text-rose-400'
-                        : 'text-slate-900 dark:text-white'
-                    }`}
-                  >
-                    {summary ? formatAmount(overdueAmount) : '—'}
-                  </span>
-                  <span className="text-sm font-bold text-slate-500 dark:text-slate-400">
-                    ₪
-                  </span>
+              {showSingleCurrencyMetrics ? (
+                <div className="text-right">
+                  <div className="inline-flex items-baseline gap-1.5" dir="ltr">
+                    <span
+                      className={`text-2xl sm:text-[26px] font-bold tracking-tight tabular-nums font-jakarta ${
+                        (scopedOverdue ?? 0) > 0
+                          ? 'text-rose-600 dark:text-rose-400'
+                          : 'text-slate-900 dark:text-white'
+                      }`}
+                    >
+                      {summary && scopedOverdue !== null ? formatAmount(scopedOverdue) : '—'}
+                    </span>
+                    <span className="text-sm font-bold text-slate-500 dark:text-slate-400">
+                      {scopedCurrencyCfg.symbol}
+                    </span>
+                  </div>
+
+                  <div className="mt-1.5 flex items-center justify-between gap-2 text-[11.5px]">
+                    {scopedOverdue === null ? (
+                      <span className="text-slate-500 dark:text-slate-400 font-medium">
+                        تعذر تفصيل المتأخرات لهذه العملة
+                      </span>
+                    ) : scopedOverdue > 0 ? (
+                      <span className="text-rose-600/90 dark:text-rose-400/90 font-medium tabular-nums">
+                        {overdueShareOfRemaining !== null
+                          ? `${overdueShareOfRemaining}% من الديون القائمة`
+                          : 'ذمم تجاوزت موعد الاستحقاق'}
+                      </span>
+                    ) : (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                        لا توجد مبالغ متأخرة
+                      </span>
+                    )}
+
+                    {(scopedOverdue ?? 0) > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => navigate(PATHS.OVERDUE_DEBTS_REPORT)}
+                        className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-semibold inline-flex items-center gap-0.5 cursor-pointer shrink-0 transition-colors"
+                      >
+                        <span>التقرير</span>
+                        <ArrowUpLeft className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
                 </div>
-
-                <div className="mt-1.5 flex items-center justify-between gap-2 text-[11.5px]">
-                  {overdueAmount > 0 ? (
-                    <span className="text-rose-600/90 dark:text-rose-400/90 font-medium tabular-nums">
-                      {overdueShareOfRemaining !== null
-                        ? `${overdueShareOfRemaining}% من الديون القائمة`
-                        : 'ذمم تجاوزت موعد الاستحقاق'}
+              ) : hasCurrencyOverdueBreakdown ? (
+                <div className="space-y-1.5">
+                  {currencySummaries.map((item) => {
+                    const cfg = getCurrencyConfig(item.currencyCode);
+                    const amt = item.overdueAmount ?? 0;
+                    return (
+                      <div
+                        key={item.currencyCode}
+                        className="flex items-baseline justify-between gap-2 text-sm"
+                      >
+                        <span className="text-[11.5px] font-medium text-slate-500 dark:text-slate-400">
+                          {cfg.labelAr}
+                        </span>
+                        <div className="inline-flex items-baseline gap-1 font-jakarta tabular-nums" dir="ltr">
+                          <span
+                            className={`text-base font-bold ${
+                              amt > 0
+                                ? 'text-rose-600 dark:text-rose-400'
+                                : 'text-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            {formatAmount(amt)}
+                          </span>
+                          <span
+                            className={`text-xs font-semibold ${
+                              amt > 0
+                                ? 'text-rose-600/80 dark:text-rose-400/80'
+                                : 'text-slate-500 dark:text-slate-400'
+                            }`}
+                          >
+                            {cfg.symbol}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-right">
+                  <div className="flex items-baseline gap-2">
+                    <span
+                      className={`text-2xl sm:text-[26px] font-bold tracking-tight tabular-nums font-jakarta ${
+                        hasOverdueAlert
+                          ? 'text-rose-600 dark:text-rose-400'
+                          : 'text-slate-900 dark:text-white'
+                      }`}
+                    >
+                      {summary ? formatAmount(summary.overdueAmount) : '—'}
                     </span>
-                  ) : (
-                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                      لا توجد مبالغ متأخرة
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                      مجمع بكل العملات
                     </span>
-                  )}
-
-                  {overdueAmount > 0 && (
+                  </div>
+                  <div className="mt-1.5 flex items-center justify-between gap-2 text-[11.5px]">
+                    <span className="text-slate-500 dark:text-slate-400">
+                      راجع تفصيل العملات بالتقرير
+                    </span>
                     <button
                       type="button"
                       onClick={() => navigate(PATHS.OVERDUE_DEBTS_REPORT)}
@@ -359,9 +459,9 @@ export const StatCards: FC<StatCardsProps> = ({ refreshTrigger = 0 }) => {
                       <span>التقرير</span>
                       <ArrowUpLeft className="w-3 h-3" />
                     </button>
-                  )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* 4. العملاء المسجلين */}

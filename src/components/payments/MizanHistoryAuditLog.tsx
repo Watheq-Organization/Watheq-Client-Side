@@ -292,7 +292,7 @@ export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
   const handleModalOpenCreateSale = (t: MizanTransactionDto) => {
     const rawSender = t.senderNameRaw || t.senderNameNormalized || t.bankSenderName || 'Unknown Deposit';
     const ref = t.referenceNumber || t.bankReferenceNumber || '—';
-    const dateFormatted = t.transactionDate ? new Date(t.transactionDate).toLocaleString('ar-EG') : 'اليوم';
+    const dateFormatted = t.transactionDate ? new Date(t.transactionDate).toLocaleString('en-GB') : 'اليوم';
 
     setCandidateDeposit({
       id: String(t.id),
@@ -730,7 +730,7 @@ export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
                           </div>
                           {session.createdAt && (
                             <div className="text-[10px] text-slate-400 mt-0.5">
-                              رُفع بتاريخ: {new Date(session.createdAt).toLocaleDateString('ar-EG')}
+                              رُفع بتاريخ: {new Date(session.createdAt).toLocaleDateString('en-GB')}
                             </div>
                           )}
                         </td>
@@ -1048,7 +1048,7 @@ export const MizanHistoryAuditLog: FC<MizanHistoryAuditLogProps> = ({
                             const ref = item.referenceNumber || item.bankReferenceNumber || '—';
                             const sender = item.senderNameRaw || item.senderNameNormalized || item.bankSenderName || 'غير متوفر';
                             const amount = Number(item.bankAmount ?? item.amount ?? 0);
-                            const timeStr = item.transactionDate ? new Date(item.transactionDate).toLocaleString('ar-EG') : '—';
+                            const timeStr = item.transactionDate ? new Date(item.transactionDate).toLocaleString('en-GB') : '—';
 
                             return (
                               <tr key={item.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-700/40">

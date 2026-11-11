@@ -2,6 +2,103 @@ import { httpClient, ApiError } from '../api/httpClient';
 import type { DashboardSummary, OverduePaymentItem, RecentActivityItem } from '../types/dashboard';
 import { parseApiDate, formatRelativeTime, formatApiDate } from '../lib/dateUtils';
 import { normalizeCurrencyCode, getCurrencyId } from '../utils/currency';
+import { getOutstandingDebtsReport, getOverdueDebtsReport } from './reportService';
+
+/**
+ * Fetches accurate overdue debt totals grouped by currency from both
+ * `/reports/outstanding-debts?isOverdue=true` (summing all overdue rows cleanly
+ * across currencies) and `/reports/overdue-debts` summary.
+ */
+async function fetchOverdueAmountsByCurrency(): Promise<Map<string, number> | null> {
+  const tomorrowIso = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+
+  const [outstandingFirstRes, overdueReportRes] = await Promise.allSettled([
+    getOutstandingDebtsReport({ isOverdue: true, pageNumber: 1, pageSize: 200 }),
+    getOverdueDebtsReport({ fromDate: '2020-01-01', toDate: tomorrowIso, pageNumber: 1, pageSize: 1 }),
+  ]);
+
+  const itemsOverdueMap = new Map<string, number>();
+  const outstandingSummaryMap = new Map<string, number>();
+  const overdueReportSummaryMap = new Map<string, number>();
+  let hasCompleteOverdueItems = false;
+  let totalItemsCount = 0;
+
+  if (overdueReportRes.status === 'fulfilled') {
+    for (const s of overdueReportRes.value.summary) {
+      const code = normalizeCurrencyCode(s.currencyCode);
+      const prev = overdueReportSummaryMap.get(code) ?? 0;
+      overdueReportSummaryMap.set(code, prev + (Number(s.totalOverdueAmount) || 0));
+    }
+  }
+
+  if (outstandingFirstRes.status === 'fulfilled') {
+    const first = outstandingFirstRes.value;
+    for (const s of first.summary) {
+      const code = normalizeCurrencyCode(s.currencyCode);
+      const prev = outstandingSummaryMap.get(code) ?? 0;
+      outstandingSummaryMap.set(code, prev + (Number(s.totalOverdueAmount) || 0));
+    }
+
+    const allItems = [...(first.details?.items ?? [])];
+    const reportedTotal = first.details?.totalCount ?? allItems.length;
+
+    if (reportedTotal > allItems.length && allItems.length > 0) {
+      const totalPages = Math.min(10, Math.ceil(reportedTotal / 200));
+      const extraPages = await Promise.allSettled(
+        Array.from({ length: totalPages - 1 }, (_, i) =>
+          getOutstandingDebtsReport({ isOverdue: true, pageNumber: i + 2, pageSize: 200 })
+        )
+      );
+      for (const pageRes of extraPages) {
+        if (pageRes.status === 'fulfilled' && pageRes.value.details?.items) {
+          allItems.push(...pageRes.value.details.items);
+        }
+      }
+    }
+
+    for (const item of allItems) {
+      const code = normalizeCurrencyCode(item.currencyCode);
+      const amt = Number(item.remainingAmount > 0 ? item.remainingAmount : item.amount) || 0;
+      itemsOverdueMap.set(code, (itemsOverdueMap.get(code) ?? 0) + amt);
+    }
+
+    totalItemsCount = allItems.length;
+    hasCompleteOverdueItems = allItems.length >= reportedTotal && allItems.length > 0;
+  }
+
+  if (outstandingFirstRes.status === 'rejected' && overdueReportRes.status === 'rejected') {
+    return null;
+  }
+
+  const allCodes = new Set<string>([
+    ...itemsOverdueMap.keys(),
+    ...outstandingSummaryMap.keys(),
+    ...overdueReportSummaryMap.keys(),
+  ]);
+
+  const resolved = new Map<string, number>();
+  for (const code of allCodes) {
+    if (hasCompleteOverdueItems && totalItemsCount > 0) {
+      const itemsSum = itemsOverdueMap.get(code) ?? 0;
+      const summaryFallback = Math.max(
+        outstandingSummaryMap.get(code) ?? 0,
+        overdueReportSummaryMap.get(code) ?? 0
+      );
+      resolved.set(code, itemsSum > 0 ? itemsSum : summaryFallback);
+    } else {
+      resolved.set(
+        code,
+        Math.max(
+          itemsOverdueMap.get(code) ?? 0,
+          outstandingSummaryMap.get(code) ?? 0,
+          overdueReportSummaryMap.get(code) ?? 0
+        )
+      );
+    }
+  }
+
+  return resolved;
+}
 
 /**
  * GET https://whateq.runasp.net/api/Dashboard/summary
@@ -13,8 +110,38 @@ import { normalizeCurrencyCode, getCurrencyId } from '../utils/currency';
  * httpClient), per the confirmed API contract.
  */
 export async function getDashboardSummary(): Promise<DashboardSummary> {
-  const response = await httpClient.get<unknown>('/Dashboard/summary');
-  return normalizeDashboardSummary(extractDashboardSummary(response));
+  const [summaryResult, overdueByCurrencyResult] = await Promise.allSettled([
+    httpClient.get<unknown>('/Dashboard/summary'),
+    fetchOverdueAmountsByCurrency(),
+  ]);
+
+  if (summaryResult.status === 'rejected') {
+    throw summaryResult.reason;
+  }
+
+  const summary = normalizeDashboardSummary(extractDashboardSummary(summaryResult.value));
+
+  // If the backend's /Dashboard/summary doesn't return per-currency overdueAmount inside
+  // summaryByCurrency, populate each currency's overdue total from overdue reports/items
+  // so multi-currency merchants see exact overdue values for every currency (USD, ILS, EUR...).
+  if (
+    summary.summaryByCurrency &&
+    summary.summaryByCurrency.length > 0 &&
+    summary.summaryByCurrency.some((c) => c.overdueAmount === undefined) &&
+    overdueByCurrencyResult.status === 'fulfilled' &&
+    overdueByCurrencyResult.value !== null
+  ) {
+    const overdueMap = overdueByCurrencyResult.value;
+    summary.summaryByCurrency = summary.summaryByCurrency.map((c) => {
+      const code = normalizeCurrencyCode(c.currencyCode);
+      return {
+        ...c,
+        overdueAmount: c.overdueAmount ?? (overdueMap.get(code) ?? 0),
+      };
+    });
+  }
+
+  return summary;
 }
 
 /** Calculates whole calendar days elapsed since the due date (if strictly overdue). */
@@ -59,7 +186,7 @@ export async function getOverduePayments(): Promise<OverduePaymentItem[]> {
       }
     }
 
-    return rawItems.map((item) => {
+    const mapped = rawItems.map((item) => {
       const it = (item || {}) as Record<string, unknown>;
       const rawDueDate = String(it.dueDate ?? it.DueDate ?? it.date ?? it.createdAt ?? '');
       const rawCurr =
@@ -69,19 +196,66 @@ export async function getOverduePayments(): Promise<OverduePaymentItem[]> {
         it.Currency ??
         it.currencyId ??
         it.CurrencyId;
-      const currencyCode = rawCurr != null && rawCurr !== '' ? normalizeCurrencyCode(rawCurr) : 'ILS';
+      const hasExplicitCurrency = rawCurr != null && rawCurr !== '';
+      const currencyCode = hasExplicitCurrency ? normalizeCurrencyCode(rawCurr) : 'ILS';
+      const numericAmount = Number(
+        it.amount ?? it.Amount ?? it.remainingAmount ?? it.RemainingAmount ?? 0
+      );
 
       return {
-        id: String(it.id ?? it.debtId ?? it.paymentId ?? it.customerId ?? ''),
-        customerId: String(it.customerId ?? it.CustomerId ?? ''),
-        customerName: String(it.customerName ?? it.CustomerName ?? 'عميل بدون اسم'),
-        amount: Number(it.amount ?? it.Amount ?? it.remainingAmount ?? it.RemainingAmount ?? 0).toLocaleString('en-US'),
-        dueDate: formatArabicDate(rawDueDate),
-        phone: String(it.phone ?? it.phoneNumber ?? it.PhoneNumber ?? ''),
-        currencyCode,
-        daysOverdue: computeDaysOverdue(rawDueDate),
+        item: {
+          id: String(it.id ?? it.debtId ?? it.paymentId ?? it.customerId ?? ''),
+          customerId: String(it.customerId ?? it.CustomerId ?? ''),
+          customerName: String(it.customerName ?? it.CustomerName ?? 'عميل بدون اسم'),
+          amount: numericAmount.toLocaleString('en-US'),
+          dueDate: formatArabicDate(rawDueDate),
+          phone: String(it.phone ?? it.phoneNumber ?? it.PhoneNumber ?? ''),
+          currencyCode,
+          daysOverdue: computeDaysOverdue(rawDueDate),
+        } satisfies OverduePaymentItem,
+        numericAmount,
+        hasExplicitCurrency,
       };
     });
+
+    if (mapped.some((m) => !m.hasExplicitCurrency)) {
+      try {
+        const overdueReport = await getOutstandingDebtsReport({
+          isOverdue: true,
+          pageNumber: 1,
+          pageSize: 100,
+        });
+        const items = overdueReport.details?.items ?? [];
+        if (items.length > 0) {
+          const byDebtId = new Map<string, string>();
+          const byCustomerAmount = new Map<string, string>();
+          for (const d of items) {
+            const code = normalizeCurrencyCode(d.currencyCode);
+            if (d.debtId) byDebtId.set(String(d.debtId), code);
+            if (d.customerId) {
+              byCustomerAmount.set(`${d.customerId}:${d.remainingAmount}`, code);
+              byCustomerAmount.set(`${d.customerId}:${d.amount}`, code);
+            }
+          }
+
+          return mapped.map(({ item, numericAmount, hasExplicitCurrency }) => {
+            if (hasExplicitCurrency) return item;
+            const resolved =
+              byDebtId.get(item.id) ??
+              byCustomerAmount.get(`${item.customerId}:${numericAmount}`);
+            if (!resolved) return item;
+            return {
+              ...item,
+              currencyCode: normalizeCurrencyCode(resolved),
+            };
+          });
+        }
+      } catch {
+        // Keep base overdue items if supplementary currency lookup fails
+      }
+    }
+
+    return mapped.map((m) => m.item);
   } catch (err) {
     console.error('[getOverduePayments] Failed to fetch:', err);
     return [];
@@ -205,12 +379,19 @@ function normalizeDashboardSummary(raw: unknown): DashboardSummary {
     const rawCurr = it.currencyCode ?? it.CurrencyCode ?? it.currency ?? it.Currency ?? it.currencyId ?? it.CurrencyId;
     const code = normalizeCurrencyCode(rawCurr);
     const id = Number(it.currencyId ?? it.CurrencyId) || getCurrencyId(code);
+    const rawOverdue =
+      it.overdueAmount ?? it.OverdueAmount ?? it.totalOverdueAmount ?? it.TotalOverdueAmount;
+    const overdueAmount =
+      rawOverdue !== undefined && rawOverdue !== null && rawOverdue !== ''
+        ? Number(rawOverdue) || 0
+        : undefined;
     return {
       currencyId: id,
       currencyCode: code,
       totalDebt: Number(it.totalDebt ?? it.TotalDebt) || 0,
       collectedAmount: Number(it.collectedAmount ?? it.CollectedAmount) || 0,
       remainingAmount: Number(it.remainingAmount ?? it.RemainingAmount) || 0,
+      overdueAmount,
     };
   });
 

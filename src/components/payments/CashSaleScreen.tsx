@@ -52,7 +52,7 @@ export const CashSaleScreen: FC = () => {
     const updateDateTime = () => {
       const now = new Date();
       setCurrentDateTime(
-        now.toLocaleString('ar-EG', {
+        now.toLocaleString('en-GB', {
           year: 'numeric',
           month: 'short',
           day: 'numeric',

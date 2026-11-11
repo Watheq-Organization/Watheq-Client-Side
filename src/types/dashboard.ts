@@ -15,6 +15,7 @@ export interface DashboardCurrencySummaryDto {
   totalDebt: number;
   collectedAmount: number;
   remainingAmount: number;
+  overdueAmount?: number;
 }
 
 export interface DashboardSummary {

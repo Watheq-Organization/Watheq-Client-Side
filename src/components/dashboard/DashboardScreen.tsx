@@ -65,7 +65,7 @@ export const DashboardScreen: FC = () => {
                 <span aria-hidden="true" className="text-slate-300 dark:text-slate-700">
                   ·
                 </span>
-                <span className="tabular-nums">{currentDateDisplay}</span>
+                <span className="tabular-nums font-jakarta" dir="ltr">{currentDateDisplay}</span>
               </div>
               <h1 className="mt-1 text-xl sm:text-2xl font-bold font-cairo text-slate-900 dark:text-white tracking-tight">
                 لوحة التحكم
