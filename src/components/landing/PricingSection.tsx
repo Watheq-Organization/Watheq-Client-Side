@@ -1,11 +1,142 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, ArrowLeft, Sparkles } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { PATHS } from '../../routes/paths';
+
+/**
+ * Code 2 (Lovable) design system tokens, scoped to this section.
+ * Light values are the exact Code 2 oklch tokens. Dark values are derived from the
+ * same system and switch with the project's `.dark` class.
+ */
+
+const PRICING_STYLES = `
+.wq-pricing {
+  --wq-foreground: #18332d;
+  --wq-background: #f8fbf9;
+  --wq-card: #ffffff;
+
+  --wq-primary: #0f8069;
+  --wq-primary-foreground: #ffffff;
+
+  --wq-muted: #f0f6f3;
+  --wq-muted-foreground: #647871;
+
+  --wq-border: #e2ebe7;
+  --wq-input: #dce7e2;
+
+  --wq-brand: #0f8069;
+  --wq-surface-soft: #f0f6f3;
+
+  --wq-shadow-float: 0 30px 60px -24px rgba(15, 65, 52, 0.25);
+
+  /* Fixed deep palette (featured plan, identical in light and dark) */
+  --wq-on-deep: #f4f4f5;
+  --wq-on-deep-muted: #a1a1aa;
+  --wq-on-brand: #0f8069;
+
+  color: var(--wq-foreground);
+}
+
+.dark .wq-pricing {
+  --wq-foreground: #f4f4f5;
+  --wq-background: #18181b;
+  --wq-card: #202023;
+
+  --wq-primary: #0f8069;
+  --wq-primary-foreground: #ffffff;
+
+  --wq-muted: #27272a;
+  --wq-muted-foreground: #a1a1aa;
+
+  --wq-border: #333338;
+  --wq-input: #3f3f46;
+
+  --wq-brand: #0f8069;
+  --wq-surface-soft: #27272a;
+
+  --wq-shadow-float: 0 30px 60px -24px rgba(0, 0, 0, 0.7);
+}
+
+.wq-pricing {
+  --wq-on-deep-15: color-mix(in oklab, var(--wq-on-deep) 15%, transparent);
+  --wq-on-deep-30: color-mix(in oklab, var(--wq-on-deep) 30%, transparent);
+}
+
+.wq-pricing-deep-gradient {
+  background: #0f8069;
+}
+
+@keyframes wq-pr-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 28px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes wq-pr-scale {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .wq-pr-reveal {
+    opacity: 0;
+  }
+
+  .wq-pr-reveal.is-in {
+    animation: wq-pr-up 800ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    animation-delay: var(--d, 0ms);
+  }
+
+  .wq-pr-reveal.scale.is-in {
+    animation-name: wq-pr-scale;
+  }
+}
+`;
+
+
+/** Fires once when the element first scrolls into view. */
+function useInView<T extends Element>() {
+  const ref = useRef<T>(null);
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setSeen(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          setSeen(true);
+          io.disconnect();
+        }
+      },
+      { threshold: 0.1 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return { ref, seen };
+}
+
+const delay = (ms: number) => ({ '--d': `${ms}ms` }) as React.CSSProperties;
 
 export const PricingSection: React.FC = () => {
   const navigate = useNavigate();
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const { ref, seen } = useInView<HTMLDivElement>();
+  const inClass = seen ? 'is-in' : '';
 
   const plans = [
     {
@@ -67,146 +198,155 @@ export const PricingSection: React.FC = () => {
   ];
 
   return (
-    <section id="pricing" className="py-24 relative overflow-hidden bg-white dark:bg-[#070D1D] transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        
+    <section id="pricing" className="wq-pricing bg-[color:var(--wq-card)] py-20 lg:py-28">
+      <style>{PRICING_STYLES}</style>
+
+      <div ref={ref} className="mx-auto max-w-6xl px-5">
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-14 space-y-4">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#E6F9F0] dark:bg-[#00D685]/10 border border-[#00D685]/30 text-[#00A86B] dark:text-[#00D685] text-xs sm:text-sm font-bold shadow-sm">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>الخطط والأسعار</span>
-          </div>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-[#0F172A] dark:text-white leading-tight font-cairo">
+        <div className="text-center">
+          <p
+            style={delay(0)}
+            className={`wq-pr-reveal ${inClass} text-xs font-bold tracking-wide text-[color:var(--wq-brand)]`}
+          >
+            الخطط والأسعار
+          </p>
+          <h2
+            style={delay(90)}
+            className={`wq-pr-reveal ${inClass} mt-3 font-cairo text-2xl font-bold leading-[1.6] sm:text-3xl lg:text-4xl lg:leading-[1.5]`}
+          >
             خطط مرنة تناسب حجم تجارتك
           </h2>
-          <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed font-normal">
+          <p
+            style={delay(180)}
+            className={`wq-pr-reveal ${inClass} mx-auto mt-4 max-w-2xl leading-8 text-[color:var(--wq-muted-foreground)]`}
+          >
             استثمر في راحة بالك ووثّق كل حركة مالية بأسعار شفافة وبدون أي تكاليف خفية.
           </p>
 
           {/* Billing Cycle Toggle */}
-          <div className="pt-4 flex items-center justify-center">
-            <div className="inline-flex items-center p-1.5 rounded-full bg-slate-100 dark:bg-[#111C35] border border-slate-200 dark:border-white/10">
-              <button
-                onClick={() => setBillingCycle('monthly')}
-                className={`px-5 py-2 rounded-full text-xs sm:text-sm font-bold transition-all ${
-                  billingCycle === 'monthly'
-                    ? 'bg-white dark:bg-[#0B132B] text-[#0F172A] dark:text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                الدفع الشهري
-              </button>
-              <button
-                onClick={() => setBillingCycle('yearly')}
-                className={`px-5 py-2 rounded-full text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 ${
-                  billingCycle === 'yearly'
-                    ? 'bg-[#00D685] text-[#0B132B] shadow-sm'
-                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                <span>الدفع السنوي</span>
-                <span className="text-[10px] bg-[#0B132B] text-white px-2 py-0.5 rounded-full font-bold">
-                  وفّر 20%
-                </span>
-              </button>
-            </div>
+          <div
+            style={delay(240)}
+            className={`wq-pr-reveal ${inClass} mt-8 inline-flex rounded-full border border-[color:var(--wq-border)] bg-[color:var(--wq-card)] p-1`}
+          >
+            <button
+              type="button"
+              onClick={() => setBillingCycle('monthly')}
+              aria-pressed={billingCycle === 'monthly'}
+              className={`cursor-pointer rounded-full px-6 py-2 text-sm font-semibold transition ${
+                billingCycle === 'monthly'
+                  ? 'bg-[color:var(--wq-primary)] text-[color:var(--wq-primary-foreground)]'
+                  : 'text-[color:var(--wq-muted-foreground)]'
+              }`}
+            >
+              الدفع الشهري
+            </button>
+            <button
+              type="button"
+              onClick={() => setBillingCycle('yearly')}
+              aria-pressed={billingCycle === 'yearly'}
+              className={`flex cursor-pointer items-center gap-1.5 rounded-full px-6 py-2 text-sm font-semibold transition ${
+                billingCycle === 'yearly'
+                  ? 'bg-[color:var(--wq-primary)] text-[color:var(--wq-primary-foreground)]'
+                  : 'text-[color:var(--wq-muted-foreground)]'
+              }`}
+            >
+              <span>الدفع السنوي</span>
+              <span className="text-[11px] font-bold opacity-80">وفّر 20%</span>
+            </button>
           </div>
         </div>
 
         {/* 3 Pricing Cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
-          {plans.map((plan) => {
-            const isGrowth = plan.isFeatured;
+        <div className="mt-14 grid items-stretch gap-5 lg:grid-cols-3">
+          {plans.map((plan, idx) => {
+            const hi = plan.isFeatured;
             const price = billingCycle === 'monthly' ? plan.priceMonthly : plan.priceYearly;
             const period = billingCycle === 'monthly' ? '/ شهرياً' : '/ سنوياً';
 
             return (
               <div
                 key={plan.id}
-                className={`rounded-3xl p-8 transition-all duration-300 flex flex-col justify-between text-right relative overflow-hidden card-hover-luxury ${
-                  isGrowth
-                    ? 'bg-[#0B132B] text-white border-2 border-[#00D685] shadow-[0_15px_40px_-5px_rgba(0,214,133,0.35)] lg:-translate-y-2'
-                    : 'bg-white dark:bg-[#111C35] text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-white/10 shadow-sm hover:shadow-lg'
+                style={delay(hi ? 120 : 220 + idx * 60)}
+                className={`wq-pr-reveal ${hi ? 'scale' : ''} ${inClass} flex flex-col rounded-3xl p-8 text-right transition duration-300 hover:-translate-y-1 ${
+                  hi
+                    ? 'wq-pricing-deep-gradient text-[color:var(--wq-on-deep)] shadow-[var(--wq-shadow-float)] lg:-my-4'
+                    : 'border border-[color:var(--wq-border)] bg-[color:var(--wq-background)]'
                 }`}
               >
-                {/* Subtle Light Shimmer for Featured Growth Card */}
-                {isGrowth && (
-                  <div className="absolute inset-0 animate-shimmer pointer-events-none opacity-25"></div>
-                )}
-
-                {/* Featured Badge for Growth Card */}
-                {isGrowth && (
-                  <div className="absolute top-0 right-0 left-0 bg-[#00D685] text-[#0B132B] text-center text-xs font-black py-1 tracking-wider uppercase">
-                    ⭐ {plan.badge}
-                  </div>
-                )}
-
-                <div className={`space-y-6 ${isGrowth ? 'pt-4' : ''}`}>
-                  {/* Card Title & Subtitle */}
-                  <div>
-                    {!isGrowth && (
-                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5 px-3 py-1 rounded-full border border-slate-200 dark:border-white/5 inline-block mb-3">
-                        {plan.badge}
-                      </span>
-                    )}
-                    <h3 className={`text-2xl font-black ${isGrowth ? 'text-white' : 'text-[#0F172A] dark:text-white'}`}>
-                      {plan.name}
-                    </h3>
-                    <p className={`text-xs sm:text-sm mt-1 leading-relaxed ${isGrowth ? 'text-slate-300' : 'text-slate-500 dark:text-slate-400'}`}>
-                      {plan.subtitle}
-                    </p>
-                  </div>
-
-                  {/* Price */}
-                  <div className="flex items-baseline gap-1 font-mono">
-                    <span className={`text-4xl sm:text-5xl font-black ${isGrowth ? 'text-[#00D685]' : 'text-[#0F172A] dark:text-white'}`}>
-                      {price}
-                    </span>
-                    <span className="text-base font-bold text-[#00A86B] dark:text-[#00D685]">₪</span>
-                    <span className={`text-xs ${isGrowth ? 'text-slate-400' : 'text-slate-500'}`}>
-                      {period}
-                    </span>
-                  </div>
-
-                  {/* Features List */}
-                  <ul className="space-y-3.5 pt-4 border-t border-slate-100 dark:border-white/10 text-xs sm:text-sm">
-                    {plan.features.map((feature, fIdx) => (
-                      <li key={fIdx} className="flex items-start gap-2.5">
-                        <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
-                          isGrowth
-                            ? 'bg-[#00D685]/20 text-[#00D685]'
-                            : 'bg-[#E6F9F0] dark:bg-[#00D685]/15 text-[#00A86B] dark:text-[#00D685]'
-                        }`}>
-                          <Check className="w-3 h-3 stroke-[3]" />
-                        </div>
-                        <span className={isGrowth ? 'text-slate-200 font-medium' : 'text-slate-600 dark:text-slate-300'}>
-                          {feature}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Card Button */}
-                <div className="pt-8 mt-6">
-                  <button
-                    onClick={() => navigate(PATHS.REGISTER)}
-                    className={`w-full py-3.5 px-6 rounded-full text-sm font-extrabold transition-all duration-200 flex items-center justify-center gap-2 group cursor-pointer ${
-                      isGrowth
-                        ? 'bg-[#00D685] hover:bg-[#00C875] text-[#0B132B] shadow-[0_8px_24px_-4px_rgba(0,214,133,0.5)] hover:-translate-y-0.5'
-                        : 'bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-800 dark:text-white border border-slate-200 dark:border-white/10 hover:border-[#00D685]'
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-xl font-bold">{plan.name}</h3>
+                  <span
+                    className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
+                      hi
+                        ? 'bg-[color:var(--wq-on-deep-15)]'
+                        : 'bg-[color:var(--wq-surface-soft)] text-[color:var(--wq-brand)]'
                     }`}
                   >
-                    <span>{plan.buttonText}</span>
-                    <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-                  </button>
+                    {plan.badge}
+                  </span>
                 </div>
 
+                <p
+                  className={`mt-3 text-sm leading-7 ${
+                    hi ? 'text-[color:var(--wq-on-deep-muted)]' : 'text-[color:var(--wq-muted-foreground)]'
+                  }`}
+                >
+                  {plan.subtitle}
+                </p>
+
+                {/* Price */}
+                <div
+                  className={`mt-6 rounded-xl border border-dashed px-4 py-3 ${
+                    hi ? 'border-[color:var(--wq-on-deep-30)]' : 'border-[color:var(--wq-input)]'
+                  }`}
+                >
+                  <p className="flex items-baseline gap-1 font-mono">
+                    <span className="text-3xl font-bold">{price}</span>
+                    <span className="text-base font-bold">₪</span>
+                    <span
+                      className={`font-cairo text-[11px] ${
+                        hi ? 'text-[color:var(--wq-on-deep-muted)]' : 'text-[color:var(--wq-muted-foreground)]'
+                      }`}
+                    >
+                      {period}
+                    </span>
+                  </p>
+                </div>
+
+                {/* Features List */}
+                <ul className="mt-6 flex-1 space-y-3 text-sm">
+                  {plan.features.map((feature) => (
+                    <li key={feature} className="flex items-start gap-2.5">
+                      <Check
+                        className={`mt-1 size-4 shrink-0 ${
+                          hi ? 'text-[color:var(--wq-on-deep)]' : 'text-[color:var(--wq-brand)]'
+                        }`}
+                      />
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+
+                {/* Card Button */}
+                <button
+                  type="button"
+                  onClick={() => navigate(PATHS.REGISTER)}
+                  className={`mt-8 w-full cursor-pointer rounded-full py-3 text-center text-sm font-semibold transition ${
+                    hi
+                      ? 'bg-[color:var(--wq-card)] text-[color:var(--wq-brand)] hover:bg-[color:var(--wq-surface-soft)]'
+                      : 'border border-[color:var(--wq-primary)] text-[color:var(--wq-brand)] hover:bg-[color:var(--wq-primary)] hover:text-[color:var(--wq-primary-foreground)]'
+                  }`}
+                >
+                  {plan.buttonText}
+                </button>
               </div>
             );
           })}
         </div>
 
+        <p className="mt-10 text-center text-xs text-[color:var(--wq-muted-foreground)]">
+          الأسعار بالشيكل، ويمكنك تغيير الخطة في أي وقت.
+        </p>
       </div>
     </section>
   );

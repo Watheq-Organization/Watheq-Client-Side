@@ -1,18 +1,129 @@
-import React from 'react';
-import { 
-  UserCheck, 
-  Mic, 
-  BarChart3, 
-  Sparkles 
-} from 'lucide-react';
+
+import React, { useEffect, useRef, useState } from 'react';
+
+/**
+ * Code 2 (Lovable) design system tokens, scoped to this section.
+ */
+
+
+const HOW_STYLES = `
+.wq-how {
+  --wq-foreground: #18332d;
+  --wq-background: #f8fbf9;
+  --wq-card: #ffffff;
+
+  --wq-primary: #0f8069;
+  --wq-primary-foreground: #ffffff;
+
+  --wq-muted-foreground: #647871;
+  --wq-border: #e2ebe7;
+  --wq-input: #dce7e2;
+
+  --wq-ring: #0f8069;
+  --wq-brand: #0f8069;
+  --wq-brand-deep: #096653;
+
+  --wq-surface-soft: #f0f6f3;
+
+  color: var(--wq-foreground);
+}
+
+.dark .wq-how {
+  --wq-foreground: #f4f4f5;
+  --wq-background: #18181b;
+  --wq-card: #202023;
+
+  --wq-primary: #0f8069;
+  --wq-primary-foreground: #ffffff;
+
+  --wq-muted-foreground: #a1a1aa;
+  --wq-border: #333338;
+  --wq-input: #3f3f46;
+
+  --wq-ring: #0f8069;
+  --wq-brand: #0f8069;
+  --wq-brand-deep: #0b6957;
+
+  --wq-surface-soft: #27272a;
+}
+
+@keyframes wq-how-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 28px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .wq-how-reveal {
+    opacity: 0;
+  }
+
+  .wq-how-reveal.is-in {
+    animation: wq-how-up 800ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    animation-delay: var(--d, 0ms);
+  }
+
+  .wq-how-line {
+    transform: scaleX(0);
+    transform-origin: right;
+    transition: transform 1400ms cubic-bezier(0.22, 0.61, 0.36, 1) 300ms;
+  }
+
+  .wq-how-line.is-in {
+    transform: scaleX(1);
+  }
+}
+`;
+
+
+/** Fires once when the element first scrolls into view. */
+function useInView<T extends Element>() {
+  const ref = useRef<T>(null);
+  const [seen, setSeen] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setSeen(true);
+      return;
+    }
+
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          setSeen(true);
+          io.disconnect();
+        }
+      },
+      { threshold: 0.15 },
+    );
+
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  return { ref, seen };
+}
+
+const delay = (ms: number) =>
+  ({ '--d': `${ms}ms` }) as React.CSSProperties;
 
 export const HowItWorksSection: React.FC = () => {
+  const { ref, seen } = useInView<HTMLDivElement>();
+  const inClass = seen ? 'is-in' : '';
+
   const steps = [
     {
-      num: '01',
+      num: 1,
       title: 'أنشئ حسابك واضبط بيانات محلك',
-      description: 'سجّل متجرك في دقائق وأضف زبائنك بسهولة عبر مسح كود QR أو رابط واتساب.',
-      icon: UserCheck,
+      description:
+        'سجّل متجرك في دقائق وأضف زبائنك بسهولة عبر مسح كود QR أو رابط واتساب.',
       badge: 'إعداد سريع في دقيقتين',
       preview: {
         tag: 'مسح QR فوري للزبائن',
@@ -20,10 +131,10 @@ export const HowItWorksSection: React.FC = () => {
       },
     },
     {
-      num: '02',
+      num: 2,
       title: 'سجّل عمليات البيع والحسابات بالصوت أو النص',
-      description: 'أدخل المبيعات، الديون، والتحويلات في ثوانٍ (حتى بدون إنترنت) مع إشعار فوري للزبون.',
-      icon: Mic,
+      description:
+        'أدخل المبيعات، الديون، والتحويلات في ثوانٍ (حتى بدون إنترنت) مع إشعار فوري للزبون.',
       badge: 'إدخال صوتي بالعامية + أوفلاين',
       preview: {
         tag: 'تحدث فقط وسجّل',
@@ -31,10 +142,10 @@ export const HowItWorksSection: React.FC = () => {
       },
     },
     {
-      num: '03',
+      num: 3,
       title: 'راجع التقارير والحركات واتخذ قرارات أوضح',
-      description: 'تابع مطابقة التحويلات، الأرباح الصافية، وكشوفات الحساب الموحدة بلحظتها.',
-      icon: BarChart3,
+      description:
+        'تابع مطابقة التحويلات، الأرباح الصافية، وكشوفات الحساب الموحدة بلحظتها.',
       badge: 'رؤية مالية شاملة ودقيقة',
       preview: {
         tag: 'كشوفات حساب رسمية',
@@ -44,85 +155,89 @@ export const HowItWorksSection: React.FC = () => {
   ];
 
   return (
-    <section id="how-it-works" className="py-24 relative overflow-hidden bg-white dark:bg-[#070D1D] transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        
+    <section
+      id="how-it-works"
+      className="wq-how bg-[color:var(--wq-card)] py-20 lg:py-28"
+    >
+      <style>{HOW_STYLES}</style>
+
+      <div ref={ref} className="mx-auto max-w-6xl px-5">
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-20 space-y-4">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#E6F9F0] dark:bg-[#00D685]/10 border border-[#00D685]/30 text-[#00A86B] dark:text-[#00D685] text-xs sm:text-sm font-bold shadow-sm">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>كيف يعمل وثّق؟</span>
-          </div>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-[#0F172A] dark:text-white leading-tight font-cairo">
+        <div className="text-center">
+          <p
+            style={delay(0)}
+            className={`wq-how-reveal ${inClass} text-xs font-bold tracking-wide text-[color:var(--wq-brand)]`}
+          >
+            كيف يعمل وثّق؟
+          </p>
+
+          <h2
+            style={delay(90)}
+            className={`wq-how-reveal ${inClass} mt-3 font-cairo text-2xl font-bold leading-[1.6] sm:text-3xl lg:text-4xl lg:leading-[1.5]`}
+          >
             بساطة فائقة في 3 خطوات
           </h2>
-          <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed font-normal">
+
+          <p
+            style={delay(180)}
+            className={`wq-how-reveal ${inClass} mx-auto mt-4 max-w-2xl leading-8 text-[color:var(--wq-muted-foreground)]`}
+          >
             صُمم النظام ليعمل معك بسلاسة في خضم ضغط العمل اليومي دون أي تعقيد محاسبي.
           </p>
         </div>
 
-        {/* 3 Connected Step Cards */}
-        <div className="relative">
-          
-          {/* Desktop Connecting Line between cards */}
-          <div className="hidden lg:block absolute top-1/2 right-[15%] left-[15%] h-0.5 border-t-2 border-dashed border-[#00D685]/30 -translate-y-12 z-0"></div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-10">
-            {steps.map((step) => {
-              const IconComp = step.icon;
-
-              return (
-                <div
-                  key={step.num}
-                  className="bg-slate-50/80 dark:bg-[#111C35] rounded-3xl p-8 border border-slate-200/80 dark:border-white/10 shadow-sm hover:border-[#00D685] transition-all duration-300 flex flex-col justify-between text-right group relative overflow-hidden card-hover-luxury"
-                >
-                  {/* Subtle hover gradient background */}
-                  <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-l from-[#00D685] to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-
-                  <div className="space-y-5">
-                    {/* Top Row: Large Emerald Step Number & Icon */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-4xl sm:text-5xl font-black text-[#00D685] font-jakarta tracking-tight drop-shadow-[0_2px_10px_rgba(0,214,133,0.3)]">
-                        {step.num}
-                      </span>
-                      <div className="w-12 h-12 rounded-2xl bg-white dark:bg-[#0B132B] border border-slate-200 dark:border-white/10 text-[#00A86B] dark:text-[#00D685] flex items-center justify-center font-bold shadow-sm group-hover:scale-110 transition-transform">
-                        <IconComp className="w-6 h-6 stroke-[2]" />
-                      </div>
-                    </div>
-
-                    {/* Step Title & Badge */}
-                    <div>
-                      <span className="inline-block text-[11px] font-bold text-[#00A86B] dark:text-[#00D685] bg-[#E6F9F0] dark:bg-[#00D685]/10 px-3 py-1 rounded-full border border-[#00D685]/30 mb-2">
-                        {step.badge}
-                      </span>
-                      <h3 className="text-xl font-extrabold text-[#0F172A] dark:text-white leading-snug">
-                        {step.title}
-                      </h3>
-                    </div>
-
-                    {/* Step Description */}
-                    <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-normal">
-                      {step.description}
-                    </p>
-                  </div>
-
-                  {/* Step Mini Preview Box */}
-                  <div className="mt-8 pt-4 border-t border-slate-200/60 dark:border-white/5 bg-white dark:bg-[#0B132B] p-4 rounded-2xl border border-slate-200/80 dark:border-white/10 space-y-1">
-                    <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                      {step.preview.tag}
-                    </div>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                      {step.preview.detail}
-                    </div>
-                  </div>
-
-                </div>
-              );
-            })}
+        {/* 3 Connected Steps */}
+        <ol className="relative mt-14 grid items-stretch gap-10 md:grid-cols-3 md:gap-8">
+          {/* Connecting line (desktop) */}
+          <div
+            aria-hidden
+            className="absolute inset-x-[16%] top-7 hidden h-px bg-[color:var(--wq-border)] md:block"
+          >
+            <div
+              className={`wq-how-line ${inClass} h-full w-full bg-[color:var(--wq-brand)]`}
+            />
           </div>
 
-        </div>
+          {steps.map((step, i) => (
+            <li
+              key={step.num}
+              style={delay(250 + i * 350)}
+              className={`wq-how-reveal ${inClass} relative flex h-full flex-col items-center text-center`}
+            >
+              {/* Step Number */}
+              <span
+                className={`relative grid size-14 shrink-0 place-items-center rounded-full text-lg font-bold ${
+                  i === 2
+                    ? 'bg-[color:var(--wq-primary)] text-[color:var(--wq-primary-foreground)]'
+                    : 'border-2 border-[color:var(--wq-primary)] bg-[color:var(--wq-card)] text-[color:var(--wq-brand)]'
+                }`}
+              >
+                {step.num}
+              </span>
 
+              {/* Badge */}
+              <span className="mt-5 inline-block text-[11px] font-bold text-[color:var(--wq-brand)]">
+                {step.badge}
+              </span>
+
+              {/* Title */}
+              <h3 className="mx-auto mt-2 min-h-[64px] max-w-72 font-semibold leading-8">
+                {step.title}
+              </h3>
+
+              {/* Step Mini Preview Box */}
+              <div className="mx-auto mt-auto min-h-[100px] w-full max-w-72 space-y-1 rounded-2xl border border-[color:var(--wq-border)] bg-[color:var(--wq-background)] p-4 text-right">
+                <div className="text-xs font-bold">
+                  {step.preview.tag}
+                </div>
+
+                <div className="text-[11px] leading-5 text-[color:var(--wq-muted-foreground)]">
+                  {step.preview.detail}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ol>
       </div>
     </section>
   );

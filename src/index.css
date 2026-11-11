@@ -260,4 +260,4 @@ html.is-transitioning * {
 .card-hover-luxury:hover {
   transform: translateY(-4px);
   box-shadow: 0 16px 36px -8px rgba(0, 214, 133, 0.18), 0 0 1px 1px rgba(0, 214, 133, 0.3);
-}
+}
