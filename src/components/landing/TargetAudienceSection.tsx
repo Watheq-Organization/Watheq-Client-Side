@@ -1,16 +1,114 @@
-import React, { useState } from 'react';
-import { 
-  ShoppingBag, 
-  Store, 
-  Truck, 
-  Banknote, 
-  Check, 
-  ArrowLeft,
-  Sparkles
-} from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ShoppingBag, Store, Truck, Banknote } from 'lucide-react';
+
+/**
+ * Code 2 (Lovable) design system tokens, scoped to this section.
+ * Light values are the exact Code 2 oklch tokens. Dark values are derived from the
+ * same system and switch with the project's `.dark` class.
+ */
+
+const AUDIENCE_STYLES = `
+.wq-audience {
+  --wq-foreground: #18332d;
+  --wq-card: #ffffff;
+
+  --wq-muted-foreground: #647871;
+  --wq-border: #e2ebe7;
+
+  --wq-brand: #0f8069;
+  --wq-surface-soft: #f0f6f3;
+
+  --wq-shadow-card:
+    0 1px 2px rgba(15, 65, 52, 0.04),
+    0 12px 32px -16px rgba(15, 65, 52, 0.16);
+
+  --wq-shadow-float:
+    0 30px 60px -24px rgba(15, 65, 52, 0.25);
+
+  color: var(--wq-foreground);
+}
+
+.dark .wq-audience {
+  --wq-foreground: #f4f4f5;
+  --wq-card: #18181b;
+
+  --wq-muted-foreground: #a1a1aa;
+  --wq-border: #333338;
+
+  --wq-brand: #0f8069;
+  --wq-surface-soft: #27272a;
+
+  --wq-shadow-card:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 12px 32px -16px rgba(0, 0, 0, 0.5);
+
+  --wq-shadow-float:
+    0 30px 60px -24px rgba(0, 0, 0, 0.7);
+}
+
+.wq-audience {
+  --wq-brand-30: color-mix(in oklab, var(--wq-brand) 30%, transparent);
+}
+
+@keyframes wq-aud-in-right {
+  from { opacity: 0; transform: translate3d(36px, 0, 0); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes wq-aud-in-scale {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .wq-aud-right,
+  .wq-aud-scale {
+    opacity: 0;
+  }
+
+  .wq-aud-right.is-in {
+    animation: wq-aud-in-right 800ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    animation-delay: var(--d, 0ms);
+  }
+
+  .wq-aud-scale.is-in {
+    animation: wq-aud-in-scale 700ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    animation-delay: var(--d, 0ms);
+  }
+}
+`;
+
+/** Fires once when the element first scrolls into view. */
+function useInView<T extends Element>() {
+  const ref = useRef<T>(null);
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setSeen(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          setSeen(true);
+          io.disconnect();
+        }
+      },
+      { threshold: 0.1 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return { ref, seen };
+}
+
+const delay = (ms: number) => ({ '--d': `${ms}ms` }) as React.CSSProperties;
 
 export const TargetAudienceSection: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<number | null>(null);
+  const { ref, seen } = useInView<HTMLDivElement>();
+  const inClass = seen ? 'is-in' : '';
 
   const categories = [
     {
@@ -55,7 +153,7 @@ export const TargetAudienceSection: React.FC = () => {
       subtitle: 'توثيق فوري يمنع النسيان والخلافات المالية تماماً',
       icon: Banknote,
       details: [
-        'إقرار إلكتروني ملزم بزر (تأكيد ✅ / اعتراض ❌) من طرف العميل.',
+        'إقرار إلكتروني ملزم بزر (تأكيد / اعتراض) من طرف العميل.',
         'سجل مشفر غير قابل للتعديل العشوائي أو الضياع كالأوراق.',
         'توفير ساعات طويلة من تدقيق الحسابات ونهاية الشهر.',
       ],
@@ -64,89 +162,95 @@ export const TargetAudienceSection: React.FC = () => {
   ];
 
   return (
-    <section className="py-24 relative overflow-hidden bg-slate-50 dark:bg-[#0B132B]/60 border-t border-slate-200/80 dark:border-white/5">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        
+    <section className="wq-audience bg-[color:var(--wq-surface-soft)] py-20 lg:py-24">
+      <style>{AUDIENCE_STYLES}</style>
+
+      <div
+        ref={ref}
+        className="mx-auto grid max-w-6xl gap-10 px-5 lg:grid-cols-[1fr_2fr] lg:items-center"
+      >
         {/* Header */}
-        <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#E6F9F0] dark:bg-[#00D685]/10 border border-[#00D685]/30 text-[#00A86B] dark:text-[#00D685] text-xs sm:text-sm font-bold shadow-sm">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>لمين وثّق؟</span>
-          </div>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#0F172A] dark:text-white leading-tight font-cairo">
+        <div className="text-right">
+          <p
+            style={delay(0)}
+            className={`wq-aud-right ${inClass} text-xs font-bold tracking-wide text-[color:var(--wq-brand)]`}
+          >
+            لمين وثّق؟
+          </p>
+          <h2
+            style={delay(90)}
+            className={`wq-aud-right ${inClass} mt-3 font-cairo text-2xl font-bold leading-[1.6] sm:text-3xl lg:text-4xl lg:leading-[1.5]`}
+          >
             لأي محل بده يفهم أرقامه ويحمي رأس ماله
           </h2>
-          <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed font-normal">
+          <p
+            style={delay(180)}
+            className={`wq-aud-right ${inClass} mt-4 leading-8 text-[color:var(--wq-muted-foreground)]`}
+          >
             مهما كان حجم تجارتك، وثّق مصمم ليتكيف مع طبيعة عملك اليومية ويلغي فوضى السجلات.
           </p>
         </div>
 
         {/* 4 Interactive Category Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {categories.map((cat, idx) => {
             const IconComp = cat.icon;
-            const isHovered = activeCategory === idx;
+            const isActive = activeCategory === idx;
 
             return (
               <div
                 key={cat.id}
+                tabIndex={0}
                 onMouseEnter={() => setActiveCategory(idx)}
                 onMouseLeave={() => setActiveCategory(null)}
-                className={`bg-white dark:bg-[#111C35] rounded-3xl p-6 sm:p-7 border transition-all duration-300 flex flex-col justify-between text-right cursor-pointer relative overflow-hidden card-hover-luxury ${
-                  isHovered
-                    ? 'border-[#00D685] shadow-[0_12px_30px_-5px_rgba(0,214,133,0.25)] -translate-y-1'
-                    : 'border-slate-200 dark:border-white/10 shadow-sm'
+                onFocus={() => setActiveCategory(idx)}
+                onBlur={() => setActiveCategory(null)}
+                style={delay(150 + idx * 100)}
+                className={`wq-aud-scale ${inClass} flex cursor-pointer flex-col gap-4 rounded-2xl border bg-[color:var(--wq-card)] p-5 text-right transition duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--wq-brand)] ${
+                  isActive
+                    ? '-translate-y-1 border-[color:var(--wq-brand-30)] shadow-[var(--wq-shadow-float)]'
+                    : 'border-transparent shadow-[var(--wq-shadow-card)]'
                 }`}
               >
-                {/* Accent top gradient line on hover */}
-                <div
-                  className={`absolute top-0 right-0 left-0 h-1 bg-[#00D685] transition-opacity duration-300 ${
-                    isHovered ? 'opacity-100' : 'opacity-0'
-                  }`}
-                />
-
-                <div className="space-y-4">
-                  {/* Icon & Tag Badge */}
-                  <div className="flex items-center justify-between">
-                    <div className="w-12 h-12 rounded-2xl bg-[#E6F9F0] dark:bg-[#00D685]/10 text-[#00A86B] dark:text-[#00D685] flex items-center justify-center font-bold">
-                      <IconComp className="w-6 h-6 stroke-[1.8]" />
-                    </div>
-                    <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/5">
-                      {cat.tag}
-                    </span>
-                  </div>
-
-                  {/* Title & Subtitle */}
-                  <div>
-                    <h3 className="text-lg sm:text-xl font-extrabold text-[#0F172A] dark:text-white mb-2">
-                      {cat.title}
-                    </h3>
-                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                {/* Icon, Title & Tag */}
+                <div className="flex items-start gap-4">
+                  <IconComp
+                    className={`size-7 shrink-0 text-[color:var(--wq-brand)] transition duration-500 ${
+                      isActive ? 'scale-110' : ''
+                    }`}
+                    strokeWidth={1.5}
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold leading-7">{cat.title}</p>
+                    <p className="text-xs leading-6 text-[color:var(--wq-muted-foreground)]">
                       {cat.subtitle}
                     </p>
                   </div>
-
-                  {/* Detailed Bullet Points */}
-                  <ul className="space-y-2.5 pt-3 border-t border-slate-100 dark:border-white/5">
-                    {cat.details.map((detail, dIdx) => (
-                      <li key={dIdx} className="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300 leading-snug">
-                        <Check className="w-3.5 h-3.5 text-[#00D685] shrink-0 mt-0.5" />
-                        <span>{detail}</span>
-                      </li>
-                    ))}
-                  </ul>
                 </div>
 
-                {/* Footer action link */}
-                <div className="pt-6 mt-4 flex items-center text-xs font-bold text-[#00A86B] dark:text-[#00D685] gap-1 group">
-                  <span>اكتشف الحل المناسب</span>
-                  <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-1" />
-                </div>
+                <span className="w-fit rounded-full bg-[color:var(--wq-surface-soft)] px-2.5 py-1 text-[11px] font-bold text-[color:var(--wq-brand)]">
+                  {cat.tag}
+                </span>
+
+                {/* Detailed Points */}
+                {/* <ul className="space-y-2 border-t border-[color:var(--wq-border)] pt-3">
+                  {cat.details.map((detail) => (
+                    <li
+                      key={detail}
+                      className="flex items-start gap-2 text-xs leading-6 text-[color:var(--wq-muted-foreground)]"
+                    >
+                      <span
+                        aria-hidden
+                        className="mt-2 size-1.5 shrink-0 rounded-full bg-[color:var(--wq-brand)]"
+                      />
+                      <span>{detail}</span>
+                    </li>
+                  ))}
+                </ul> */}
               </div>
             );
           })}
         </div>
-
       </div>
     </section>
   );

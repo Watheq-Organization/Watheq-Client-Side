@@ -1,8 +1,128 @@
-import React, { useState } from 'react';
-import { ChevronDown, HelpCircle } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
+
+/**
+ * Code 2 (Lovable) design system tokens, scoped to this section.
+ * Light values are the exact Code 2 oklch tokens. Dark values are derived from the
+ * same system and switch with the project's `.dark` class.
+ */
+
+const FAQ_STYLES = `
+.wq-faq {
+  --wq-foreground: #18332d;
+  --wq-background: #f8fbf9;
+  --wq-card: #ffffff;
+
+  --wq-primary: #0f8069;
+  --wq-primary-foreground: #ffffff;
+
+  --wq-muted-foreground: #647871;
+  --wq-border: #e2ebe7;
+  --wq-input: #dce7e2;
+
+  --wq-ring: #0f8069;
+  --wq-brand: #0f8069;
+  --wq-brand-deep: #096653;
+
+  --wq-surface-soft: #f0f6f3;
+
+  color: var(--wq-foreground);
+}
+
+.dark .wq-faq {
+  --wq-foreground: #f4f4f5;
+  --wq-background: #18181b;
+  --wq-card: #202023;
+
+  --wq-primary: #0f8069;
+  --wq-primary-foreground: #ffffff;
+
+  --wq-muted-foreground: #a1a1aa;
+  --wq-border: #333338;
+  --wq-input: #3f3f46;
+
+  --wq-ring: #0f8069;
+  --wq-brand: #0f8069;
+  --wq-brand-deep: #0b6957;
+
+  --wq-surface-soft: #27272a;
+}
+
+.wq-faq-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 300ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.wq-faq-panel.is-open {
+  grid-template-rows: 1fr;
+}
+
+.wq-faq-panel > div {
+  overflow: hidden;
+}
+
+@keyframes wq-faq-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 28px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .wq-faq-reveal {
+    opacity: 0;
+  }
+
+  .wq-faq-reveal.is-in {
+    animation: wq-faq-up 800ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    animation-delay: var(--d, 0ms);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wq-faq-panel {
+    transition: none;
+  }
+}
+`;
+
+
+/** Fires once when the element first scrolls into view. */
+function useInView<T extends Element>() {
+  const ref = useRef<T>(null);
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setSeen(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          setSeen(true);
+          io.disconnect();
+        }
+      },
+      { threshold: 0.1 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return { ref, seen };
+}
+
+const delay = (ms: number) => ({ '--d': `${ms}ms` }) as React.CSSProperties;
 
 export const FaqSection: React.FC = () => {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
+  const { ref, seen } = useInView<HTMLDivElement>();
+  const inClass = seen ? 'is-in' : '';
 
   const faqs = [
     {
@@ -23,7 +143,7 @@ export const FaqSection: React.FC = () => {
     },
     {
       question: 'شو فائدة مطابقة التحويلات البنكية وتوثيق الزبون عبر تليجرام؟',
-      answer: 'الفائدة المباشرة هي حماية رأس مالك ومنع النزاعات والسرقات؛ مطابقة التحويلات تضمن أن كل حوالة بنكية استلمتها يقابلها بيع حقيقي مسجل، وتوثيق تليجرام/واتساب يوفر لك إقراراً رسمياً ملزماً من الزبون بالدين أو الدفعة بزر (تأكيد ✅ / اعتراض ❌) مما يلغي النسيان وإنكار المديونية.',
+      answer: 'الفائدة المباشرة هي حماية رأس مالك ومنع النزاعات والسرقات؛ مطابقة التحويلات تضمن أن كل حوالة بنكية استلمتها يقابلها بيع حقيقي مسجل، وتوثيق تليجرام/واتساب يوفر لك إقراراً رسمياً ملزماً من الزبون بالدين أو الدفعة بزر (تأكيد / اعتراض) مما يلغي النسيان وإنكار المديونية.',
     },
     {
       question: 'هل يدعم وثّق إدارة المخزون والفروع المتعددة؟',
@@ -36,64 +156,77 @@ export const FaqSection: React.FC = () => {
   };
 
   return (
-    <section id="faq" className="py-24 relative overflow-hidden bg-white dark:bg-[#070D1D] transition-colors">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        
+    <section id="faq" className="wq-faq bg-[color:var(--wq-card)] py-20 lg:py-28">
+      <style>{FAQ_STYLES}</style>
+
+      <div ref={ref} className="mx-auto grid max-w-6xl gap-10 px-5 lg:grid-cols-[1fr_1.6fr]">
         {/* Header */}
-        <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#E6F9F0] dark:bg-[#00D685]/10 border border-[#00D685]/30 text-[#00A86B] dark:text-[#00D685] text-xs sm:text-sm font-bold shadow-sm">
-            <HelpCircle className="w-3.5 h-3.5" />
-            <span>الأسئلة الشائعة</span>
-          </div>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-[#0F172A] dark:text-white leading-tight font-cairo">
+        <div className="text-right">
+          <p
+            style={delay(0)}
+            className={`wq-faq-reveal ${inClass} text-xs font-bold tracking-wide text-[color:var(--wq-brand)]`}
+          >
+            الأسئلة الشائعة
+          </p>
+          <h2
+            style={delay(90)}
+            className={`wq-faq-reveal ${inClass} mt-3 font-cairo text-2xl font-bold leading-[1.6] sm:text-3xl lg:text-4xl lg:leading-[1.5]`}
+          >
             عندك سؤال؟
           </h2>
-          <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed font-normal">
+          <p
+            style={delay(180)}
+            className={`wq-faq-reveal ${inClass} mt-4 leading-8 text-[color:var(--wq-muted-foreground)]`}
+          >
             إليك إجابات شافية ومباشرة عن كافة الأسئلة التي قد تراودك حول تجربة وثّق.
           </p>
         </div>
 
-        {/* Accordion Container */}
-        <div className="space-y-4 text-right">
+        {/* Accordion */}
+        <div className="w-full text-right">
           {faqs.map((faq, idx) => {
             const isOpen = openIndex === idx;
+            const panelId = `wq-faq-panel-${idx}`;
+            const buttonId = `wq-faq-button-${idx}`;
 
             return (
               <div
-                key={idx}
-                className={`rounded-2xl border transition-all duration-300 overflow-hidden ${
-                  isOpen
-                    ? 'bg-white dark:bg-[#111C35] border-[#00D685] shadow-md ring-1 ring-[#00D685]/20'
-                    : 'bg-slate-50 dark:bg-[#0B132B] border-slate-200 dark:border-white/5 hover:border-slate-300'
-                }`}
+                key={faq.question}
+                style={delay(idx * 60)}
+                className={`wq-faq-reveal ${inClass} border-b border-[color:var(--wq-border)]`}
               >
-                <button
-                  onClick={() => toggleFaq(idx)}
-                  className="w-full p-5 sm:p-6 text-right flex items-center justify-between gap-4 cursor-pointer focus:outline-none"
-                  aria-expanded={isOpen}
-                >
-                  <span className="text-base sm:text-lg font-bold text-[#0F172A] dark:text-white leading-snug">
-                    {faq.question}
-                  </span>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-transform duration-300 ${
-                    isOpen
-                      ? 'bg-[#00D685] text-[#0B132B] rotate-180'
-                      : 'bg-slate-200 dark:bg-white/10 text-slate-500'
-                  }`}>
-                    <ChevronDown className="w-4 h-4 stroke-[2.5]" />
-                  </div>
-                </button>
+                <h3>
+                  <button
+                    id={buttonId}
+                    type="button"
+                    onClick={() => toggleFaq(idx)}
+                    aria-expanded={isOpen}
+                    aria-controls={panelId}
+                    className="flex w-full cursor-pointer items-center justify-between gap-4 py-5 text-right text-base font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--wq-ring)]"
+                  >
+                    <span>{faq.question}</span>
+                    <ChevronDown
+                      className={`size-4 shrink-0 text-[color:var(--wq-muted-foreground)] transition-transform duration-300 ${
+                        isOpen ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+                </h3>
 
-                {isOpen && (
-                  <div className="px-5 pb-6 sm:px-6 sm:pb-6 text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed border-t border-slate-100 dark:border-white/5 pt-4">
-                    {faq.answer}
+                <div
+                  id={panelId}
+                  role="region"
+                  aria-labelledby={buttonId}
+                  className={`wq-faq-panel ${isOpen ? 'is-open' : ''}`}
+                >
+                  <div>
+                    <p className="pb-5 leading-8 text-[color:var(--wq-muted-foreground)]">{faq.answer}</p>
                   </div>
-                )}
+                </div>
               </div>
             );
           })}
         </div>
-
       </div>
     </section>
   );

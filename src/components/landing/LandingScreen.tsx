@@ -44,7 +44,8 @@ export const LandingScreen: React.FC = () => {
     <div
       dir="rtl"
       lang="ar"
-      className="min-h-screen bg-[#F8FAFC] dark:bg-[#070D1D] text-[#0F172A] dark:text-slate-100 font-cairo selection:bg-[#00D685]/30 selection:text-[#0B132B] dark:selection:text-[#00D685] transition-colors duration-200"
+     className="min-h-screen bg-[#f8fbf9] dark:bg-[#18181b] text-[#18332d] dark:text-[#f4f4f5] font-cairo selection:bg-[#0f8069]/20 selection:text-[#096653] dark:selection:bg-[#0f8069]/30 dark:selection:text-white transition-colors duration-200"
+      // className="min-h-screen bg-[#F8FAFC] dark:bg-[#070D1D] text-[#0F172A] dark:text-slate-100 font-cairo selection:bg-[#00D685]/30 selection:text-[#0B132B] dark:selection:text-[#00D685] transition-colors duration-200"
     >
       {/* Section 1: Sticky Glassmorphic Navbar */}
       <LandingNavbar theme={theme} onToggleTheme={toggleTheme} />
