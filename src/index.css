@@ -1,3 +1,4 @@
+
 @import "tailwindcss";
 @custom-variant dark (&:is(.dark *));
 
@@ -9,21 +10,31 @@
   --font-sans: "Cairo", system-ui, sans-serif;
 }
 
+/* Base Styles */
 @layer base {
   html,
-body {
-  font-family: var(--font-cairo), "Cairo", system-ui, -apple-system, sans-serif;
-  font-feature-settings: "locl" 0;
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+  body {
+    font-family: var(--font-cairo), "Cairo", system-ui, -apple-system, sans-serif;
+    font-feature-settings: "locl" 0;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
 
   :where(button, input, select, textarea) {
-  font-family: inherit;
-  font-feature-settings: "locl" 0;
+    font-family: inherit;
+    font-feature-settings: "locl" 0;
+  }
 }
 
+/* Native modal scroll containment per modern dialog best practices */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
 }
 
 /* Disable number input arrows globally */
@@ -32,6 +43,7 @@ input[type="number"]::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
+
 input[type="number"] {
   -moz-appearance: textfield;
 }
@@ -103,8 +115,6 @@ input[type="number"] {
   animation: toastSlideUp 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-
-
 /* View Transitions for Dark Mode */
 ::view-transition-old(root),
 ::view-transition-new(root) {
@@ -112,7 +122,6 @@ input[type="number"] {
   mix-blend-mode: normal !important;
 }
 
-/* When switching TO dark mode, animate the new state (dark) over the old state */
 html.dark::view-transition-new(root) {
   z-index: 2;
 }
@@ -121,7 +130,6 @@ html.dark::view-transition-old(root) {
   z-index: 1;
 }
 
-/* When switching TO light mode, shrink the old state (dark) over the new state */
 html:not(.dark)::view-transition-old(root) {
   z-index: 2;
 }
@@ -130,10 +138,7 @@ html:not(.dark)::view-transition-new(root) {
   z-index: 1;
 }
 
-
-/* Disable all other transitions during View Transition to prevent flickering */
-
-
+/* Disable all other transitions during View Transition */
 html.is-transitioning * {
   transition: none !important;
 }
@@ -142,6 +147,7 @@ html.is-transitioning * {
   0%, 100% {
     transform: translateY(0px);
   }
+
   50% {
     transform: translateY(-8px);
   }
@@ -151,6 +157,7 @@ html.is-transitioning * {
   0%, 100% {
     transform: translateY(0px);
   }
+
   50% {
     transform: translateY(8px);
   }
@@ -161,6 +168,7 @@ html.is-transitioning * {
     opacity: 0.35;
     transform: scale(1);
   }
+
   50% {
     opacity: 0.85;
     transform: scale(1.06);
@@ -172,10 +180,12 @@ html.is-transitioning * {
     transform: scale(0.95);
     opacity: 0.8;
   }
+
   50% {
     transform: scale(1.15);
     opacity: 0.2;
   }
+
   100% {
     transform: scale(0.95);
     opacity: 0.8;
@@ -186,6 +196,7 @@ html.is-transitioning * {
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
@@ -195,6 +206,7 @@ html.is-transitioning * {
   0% {
     transform: rotate(0deg);
   }
+
   100% {
     transform: rotate(360deg);
   }
@@ -204,6 +216,7 @@ html.is-transitioning * {
   0% {
     stroke-dashoffset: 314;
   }
+
   100% {
     stroke-dashoffset: 0;
   }

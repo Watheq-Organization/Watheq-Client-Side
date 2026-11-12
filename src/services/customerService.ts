@@ -430,6 +430,12 @@ export function toGetCustomersErrorMessage(error: unknown): string {
     if (error.status === 401) {
       return 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.';
     }
+    if (error.status === 403) {
+      return 'لا تملك صلاحية عرض قائمة العملاء.';
+    }
+    if (error.status === 408 || error.message === 'TIMEOUT') {
+      return 'انتهت مهلة الاتصال بالخادم أثناء جلب العملاء. يرجى المحاولة مرة أخرى.';
+    }
     if (error.status >= 500) {
       return 'حدث خطأ في الخادم. يرجى المحاولة لاحقاً.';
     }
@@ -753,11 +759,17 @@ export function toGetCustomerProfileErrorMessage(error: unknown): string {
     if (error.status === 0) {
       return 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.';
     }
+    if (error.status === 408 || error.message === 'TIMEOUT') {
+      return 'انتهت مهلة الاتصال بالخادم أثناء جلب ملف العميل. يرجى المحاولة مرة أخرى.';
+    }
     if (error.status === 400) {
       return 'معرّف العميل غير صالح.';
     }
     if (error.status === 401) {
       return 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.';
+    }
+    if (error.status === 403) {
+      return 'لا تملك صلاحية عرض ملف هذا العميل.';
     }
     if (error.status === 404) {
       return 'تعذر العثور على بيانات هذا العميل.';
@@ -839,6 +851,9 @@ export function toDeleteCustomerErrorMessage(error: unknown): string {
     if (error.status === 0) {
       return 'تعذر الاتصال بالخادم لإتمام الحذف. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.';
     }
+    if (error.status === 408 || error.message === 'TIMEOUT') {
+      return 'انتهت مهلة الاتصال بالخادم أثناء حذف العميل. يرجى المحاولة مرة أخرى.';
+    }
     if (error.status === 400) {
       return 'لا يمكن حذف هذا العميل نظراً لوجود ديون أو معاملات مسجلة عليه في الخادم.';
     }
@@ -851,8 +866,11 @@ export function toDeleteCustomerErrorMessage(error: unknown): string {
     if (error.status === 404) {
       return 'تعذر العثور على بيانات هذا العميل في قاعدة البيانات.';
     }
+    if (error.status === 409) {
+      return 'لا يمكن حذف العميل لوجود ارتباطات أو معاملات نشطة.';
+    }
     if (error.status >= 500) {
-      return 'حدث خطأ في الخادم (إذا كان للعميل ديون أو دفعات مسجلة، فالخادم يرفض الحذف حالياً). يرجى المحاولة لاحقاً أو مراجعة مبرمج الباك إند.';
+      return 'حدث خطأ في الخادم أثناء حذف العميل (قد يرتبط بسجلات مالية نشطة). يرجى المحاولة لاحقاً.';
     }
     return 'تعذر حذف العميل. يرجى المحاولة مرة أخرى.';
   }
@@ -956,8 +974,14 @@ export function validateCustomerInitialDebt(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
   const num = Number(trimmed);
-  if (isNaN(num) || num < 0) {
-    return 'يرجى إدخال مبلغ صحيح لرصيد المديونية.';
+  if (!Number.isFinite(num)) {
+    return 'يرجى إدخال مبلغ صحيح لرصيد المديونية بالأرقام فقط.';
+  }
+  if (num < 0) {
+    return 'رصيد المديونية الافتتاحي لا يمكن أن يكون سالباً.';
+  }
+  if (!/^\d+(\.\d{1,2})?$/.test(trimmed)) {
+    return 'رصيد المديونية يجب ألا يتجاوز منزلتين عشريتين (مثال: 150.50).';
   }
   return null;
 }
@@ -1150,10 +1174,6 @@ export function parseAddCustomerApiError(error: unknown): ParsedCustomerApiError
     result.generalMessage = 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.';
     return result;
   }
-  if (error.status === 404) {
-    result.generalMessage = 'لا يوجد نشاط تجاري مرتبط بحسابك. يرجى التواصل مع الدعم.';
-    return result;
-  }
   if (error.status >= 500) {
     result.generalMessage = 'حدث خطأ في الخادم. يرجى المحاولة لاحقاً.';
     return result;
@@ -1251,6 +1271,10 @@ export function parseAddCustomerApiError(error: unknown): ParsedCustomerApiError
       result.generalMessage = firstFieldErr;
     } else if (error.status === 400) {
       result.generalMessage = 'يرجى التحقق من البيانات المدخلة والمحاولة مرة أخرى.';
+    } else if (error.status === 403) {
+      result.generalMessage = 'لا تملك صلاحية إضافة عملاء في هذا المتجر.';
+    } else if (error.status === 404) {
+      result.generalMessage = 'لا يوجد نشاط تجاري مرتبط بحسابك. يرجى التواصل مع الدعم.';
     } else if (error.status === 409) {
       result.generalMessage = 'يوجد عميل مسجل مسبقاً بهذه البيانات.';
     } else {
@@ -1272,6 +1296,9 @@ export function toUpdateCustomerErrorMessage(error: unknown): string {
     }
     if (error.status === 401) {
       return 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.';
+    }
+    if (error.status === 403) {
+      return 'لا تملك صلاحية تعديل بيانات هذا العميل.';
     }
     if (error.status === 404) {
       return 'تعذر العثور على بيانات هذا العميل.';
@@ -1556,4 +1583,88 @@ export async function regenerateTelegramLink(customerId: string): Promise<string
  */
 export async function unlinkTelegram(customerId: string): Promise<void> {
   await httpClient.delete<unknown>(`/Telegram/unlink/${encodeURIComponent(customerId)}`);
+}
+
+/**
+ * Maps Telegram link generation / regeneration errors to clear Arabic messages
+ * without exposing raw JSON payloads or English generic fallbacks.
+ */
+export function toTelegramLinkErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 0) {
+      return 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.';
+    }
+    if (error.status === 401) {
+      return 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.';
+    }
+    if (error.status === 403) {
+      return 'لا تملك صلاحية إنشاء أو تجديد رابط تيليجرام.';
+    }
+    if (error.status === 408 || error.message === 'TIMEOUT') {
+      return 'انتهت مهلة الاتصال بالخادم أثناء إنشاء رابط تيليجرام. يرجى المحاولة مرة أخرى.';
+    }
+    if (error.status === 429) {
+      return 'تم إرسال طلبات كثيرة مؤقتاً. يرجى الانتظار لحظات ثم المحاولة مرة أخرى.';
+    }
+
+    const parsed = parseAddCustomerApiError(error);
+    if (
+      parsed.generalMessage &&
+      parsed.generalMessage !== 'تعذر إضافة العميل. يرجى المحاولة مرة أخرى.' &&
+      parsed.generalMessage !== 'يرجى التحقق من البيانات المدخلة والمحاولة مرة أخرى.'
+    ) {
+      if (parsed.generalMessage === 'لا يوجد نشاط تجاري مرتبط بحسابك. يرجى التواصل مع الدعم.' && error.status === 404) {
+        return 'تعذر العثور على العميل أو خدمة الربط.';
+      }
+      return parsed.generalMessage;
+    }
+
+    if (error.status === 400) {
+      return 'بيانات طلب الربط غير صالحة. تحقق من بيانات العميل وأعد المحاولة.';
+    }
+    if (error.status === 404) {
+      return 'تعذر العثور على العميل أو رابط الربط المطلوب.';
+    }
+    if (error.status === 409) {
+      return 'الحساب مربوط بالفعل أو توجد محاولة ربط قيد التنفيذ.';
+    }
+    if (error.status >= 500) {
+      return 'حدث خطأ في الخادم أثناء إنشاء رابط تيليجرام. يرجى المحاولة لاحقاً.';
+    }
+    return 'تعذر إنشاء رابط تيليجرام. يرجى المحاولة مرة أخرى.';
+  }
+
+  if (error instanceof Error && /[\u0600-\u06FF]/.test(error.message)) {
+    return error.message;
+  }
+
+  return 'حدث خطأ غير متوقع أثناء جلب رابط تيليجرام. يرجى المحاولة مرة أخرى.';
+}
+
+/**
+ * Maps Telegram unlink errors to clear Arabic messages.
+ */
+export function toTelegramUnlinkErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 0) {
+      return 'تعذر الاتصال بالخادم لإلغاء ربط تيليجرام. يرجى التحقق من الإنترنت والمحاولة مرة أخرى.';
+    }
+    if (error.status === 408 || error.message === 'TIMEOUT') {
+      return 'انتهت مهلة الاتصال بالخادم أثناء إلغاء ربط تيليجرام. يرجى المحاولة مرة أخرى.';
+    }
+    if (error.status === 401) {
+      return 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.';
+    }
+    if (error.status === 403) {
+      return 'لا تملك صلاحية إلغاء ربط حساب تيليجرام لهذا العميل.';
+    }
+    if (error.status === 404) {
+      return 'حساب تيليجرام غير مرتبط بالفعل أو تعذر العثور على العميل.';
+    }
+    if (error.status >= 500) {
+      return 'حدث خطأ في الخادم أثناء إلغاء ربط تيليجرام. يرجى المحاولة لاحقاً.';
+    }
+    return 'تعذر فك ربط تيليجرام. يرجى المحاولة مرة أخرى.';
+  }
+  return 'تعذر فك ربط تيليجرام. يرجى المحاولة لاحقاً.';
 }

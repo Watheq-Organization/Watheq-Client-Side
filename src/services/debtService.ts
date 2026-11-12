@@ -376,6 +376,9 @@ export function toDeleteDebtErrorMessage(error: unknown): string {
     if (error.status === 0) {
       return 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.';
     }
+    if (error.status === 408 || error.message === 'TIMEOUT') {
+      return 'انتهت مهلة الاتصال بالخادم أثناء حذف الدين. يرجى المحاولة مرة أخرى.';
+    }
     if (error.status === 401) {
       return 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.';
     }

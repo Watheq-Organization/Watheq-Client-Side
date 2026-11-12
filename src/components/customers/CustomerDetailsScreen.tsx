@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import type { FC } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import type { FC, ReactNode } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Check,
@@ -18,6 +18,9 @@ import {
   RefreshCw,
   Package,
   Coins,
+  Printer,
+  QrCode,
+  AlertCircle,
 } from 'lucide-react';
 import { TelegramLinkModal } from './TelegramLinkModal';
 import { Sidebar } from '../dashboard/Sidebar';
@@ -36,6 +39,10 @@ import {
   parseCustomerPhone,
   formatFullCustomerPhone,
   unlinkTelegram,
+  toTelegramUnlinkErrorMessage,
+  validateCustomerFullName,
+  validateCustomerNationalId,
+  validateCustomerPhoneNumber,
 } from '../../services/customerService';
 import {
   getEditableDebt,
@@ -46,13 +53,16 @@ import {
 } from '../../services/debtService';
 import { deletePayment, toDeletePaymentErrorMessage } from '../../services/paymentService';
 import { getPosTransactionDetails } from '../../services/posService';
-import type { Customer, CustomerProfileTransactionDto, CustomerCurrencyBalanceDto } from '../../types/customer';
+import type {
+  Customer,
+  CustomerProfileTransactionDto,
+  CustomerCurrencyBalanceDto,
+} from '../../types/customer';
 import { ApiError } from '../../api/httpClient';
 import { Toast, type ToastType } from '../ui/Toast';
 import { PhoneInputWithCountry, type CountryCode } from '../ui/PhoneInputWithCountry';
 import { PATHS } from '../../routes/paths';
 import { formatApiDate } from '../../lib/dateUtils';
-
 import {
   formatCurrency,
   getCurrencyConfig,
@@ -63,8 +73,16 @@ import {
   type CurrencyCode,
 } from '../../utils/currency';
 
+type TransactionWithFallbackCurrency = CustomerProfileTransactionDto & {
+  currency?: string;
+};
+
+function getTransactionCurrencyCode(tx: TransactionWithFallbackCurrency): CurrencyCode {
+  return normalizeCurrencyCode(tx.currencyCode || tx.currency || 'ILS');
+}
+
 /**
- * Returns complete badge style classes (bg + text + border) for any currency code
+ * Returns complete badge style classes (bg + text + border) for any currency code.
  */
 const getCurrencyBadgeClasses = (code: string | CurrencyCode | undefined) => {
   const normalized = normalizeCurrencyCode(code);
@@ -72,39 +90,91 @@ const getCurrencyBadgeClasses = (code: string | CurrencyCode | undefined) => {
   return `${style.bg} ${style.text} ${style.border} border`;
 };
 
-/**
- * Visual styling theme for multi-currency breakdown cards
- */
-const CURRENCY_CARD_THEMES: Record<
-  string,
-  {
-    gradient: string;
-    iconBox: string;
-    border: string;
-  }
-> = {
-  ILS: {
-    gradient: 'from-blue-600 via-sky-500 to-cyan-500',
-    iconBox: 'bg-blue-50 text-blue-700 border border-blue-200/80 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800',
-    border: 'border-blue-100 dark:border-blue-900/40',
-  },
-  USD: {
-    gradient: 'from-emerald-600 via-teal-500 to-green-500',
-    iconBox: 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800',
-    border: 'border-emerald-100 dark:border-emerald-900/40',
-  },
-  EUR: {
-    gradient: 'from-amber-600 via-amber-500 to-yellow-500',
-    iconBox: 'bg-amber-50 text-amber-700 border border-amber-200/80 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800',
-    border: 'border-amber-100 dark:border-amber-900/40',
-  },
-  GBP: {
-    gradient: 'from-indigo-600 via-violet-500 to-purple-500',
-    iconBox: 'bg-indigo-50 text-indigo-700 border border-indigo-200/80 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800',
-    border: 'border-indigo-100 dark:border-indigo-900/40',
-  },
+const CURRENCY_CARD_TOP_BORDER: Record<string, string> = {
+  ILS: 'border-t-blue-600 dark:border-t-blue-500',
+  USD: 'border-t-emerald-600 dark:border-t-emerald-500',
+  EUR: 'border-t-amber-600 dark:border-t-amber-500',
+  GBP: 'border-t-indigo-600 dark:border-t-indigo-500',
 };
 
+const CURRENCY_CARD_ICON_BOX: Record<string, string> = {
+  ILS: 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800',
+  USD: 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800',
+  EUR: 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800',
+  GBP: 'bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800',
+};
+
+interface LedgerModalProps {
+  onClose: () => void;
+  isBusy?: boolean;
+  labelledBy: string;
+  maxWidthClass?: string;
+  closeOnBackdrop?: boolean;
+  children: ReactNode;
+}
+
+/**
+ * Native modal dialog wrapper using HTML `<dialog>` + `showModal()` for
+ * top-layer stacking, focus containment, Esc dismissal, and focus restoration.
+ */
+const LedgerModal: FC<LedgerModalProps> = ({
+  onClose,
+  isBusy = false,
+  labelledBy,
+  maxWidthClass = 'max-w-sm',
+  closeOnBackdrop = true,
+  children,
+}) => {
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
+  const pressedOutsideRef = useRef(false);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog || dialog.open) return;
+    dialog.showModal();
+    return () => {
+      if (dialog.open) {
+        dialog.close();
+      }
+    };
+  }, []);
+
+  const isPointerOutside = (e: React.PointerEvent<HTMLDialogElement>) => {
+    const dialog = dialogRef.current;
+    if (!dialog) return false;
+    const rect = dialog.getBoundingClientRect();
+    return (
+      e.clientX < rect.left ||
+      e.clientX > rect.right ||
+      e.clientY < rect.top ||
+      e.clientY > rect.bottom
+    );
+  };
+
+  return (
+    <dialog
+      ref={dialogRef}
+      dir="rtl"
+      aria-labelledby={labelledBy}
+      onCancel={(e) => {
+        e.preventDefault();
+        if (!isBusy) onClose();
+      }}
+      onPointerDown={(e) => {
+        pressedOutsideRef.current = isPointerOutside(e);
+      }}
+      onPointerUp={(e) => {
+        if (closeOnBackdrop && !isBusy && pressedOutsideRef.current && isPointerOutside(e)) {
+          onClose();
+        }
+        pressedOutsideRef.current = false;
+      }}
+      className={`m-auto w-full ${maxWidthClass} max-w-[calc(100vw-2rem)] bg-transparent p-0 border-0 outline-none backdrop:bg-slate-950/60 backdrop:backdrop-blur-xs print:hidden`}
+    >
+      {children}
+    </dialog>
+  );
+};
 
 interface ActivityItem {
   id: string;
@@ -129,7 +199,7 @@ interface ActivityItem {
   /** Unformatted transaction amount (tx.amount, no sign/decimals applied),
    * used to prefill the edit form when no local cache entry exists. */
   rawAmount: number;
-  /** Currency code for transaction ('ILS' | 'USD' | 'JOD') */
+  /** Currency code for transaction ('ILS' | 'USD' | 'EUR' | 'GBP') */
   currencyCode: CurrencyCode;
   /** Raw debt status (tx.status), null for payments. */
   rawStatus: string | null;
@@ -166,11 +236,7 @@ function formatPaymentMethodLabel(method: string | null | undefined): string {
   ) {
     return 'تحويل بنكي';
   }
-  if (
-    normalized.includes('cash') ||
-    normalized.includes('نقدي') ||
-    normalized === '1'
-  ) {
+  if (normalized.includes('cash') || normalized.includes('نقدي') || normalized === '1') {
     return 'نقدي (Cash)';
   }
   return method;
@@ -191,9 +257,7 @@ function formatDebtStatusLabel(status: string | null | undefined): string {
 
 /**
  * Treat totalDebt below this as "paid off" for the Delete Customer guard —
- * avoids blocking deletion over a sub-cent floating-point remainder
- * (e.g. 0.0000000001 from repeated debt/payment recalculation) that isn't
- * a real outstanding balance.
+ * avoids blocking deletion over a sub-cent floating-point remainder.
  */
 const DEBT_ZERO_EPSILON = 0.009;
 
@@ -208,21 +272,15 @@ const EMPTY_CUSTOMER: Customer = {
   status: 'paid',
   statusLabel: 'تم السداد',
   avatarLetter: 'ع',
-  avatarBg: 'bg-rose-100 text-rose-600',
+  avatarBg: 'bg-slate-900 text-white',
   phone: '',
   address: '',
   registrationDate: '',
 };
 
 /**
- * The backend has no nationalOrCrId field at all (see the comments in
- * customerService.ts) — getCustomerProfile/addCustomer/updateCustomer never
- * return or accept it. That's why it kept showing "غير متوفر" even right
- * after being entered: the value the user typed was validated, but there
- * was nowhere for it to be saved, so the next render (and the next visit)
- * had nothing to read it back from. Persisting it locally, keyed by
- * customer id, is the smallest fix that survives a save and a page
- * reload without needing a backend field that doesn't exist.
+ * The backend has no nationalOrCrId field at all — persisted locally keyed by
+ * customer id so it survives save and reload without needing a missing API field.
  */
 function getStoredNationalId(customerId: string): string {
   if (!customerId) return '';
@@ -238,16 +296,15 @@ function setStoredNationalId(customerId: string, value: string): void {
   try {
     localStorage.setItem(`customer-national-id:${customerId}`, value);
   } catch {
-    // Ignore storage failures (e.g. private browsing) — the field simply
-    // won't persist across reloads in that case.
+    // Ignore storage failures (e.g. private browsing).
   }
 }
-
 
 export const CustomerDetailsScreen: FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeActivityTab, setActiveActivityTab] = useState<'all' | 'debt' | 'payment'>('all');
   const [selectedCurrencyTab, setSelectedCurrencyTab] = useState<'all' | CurrencyCode>('all');
@@ -261,17 +318,22 @@ export const CustomerDetailsScreen: FC = () => {
   } | null>(null);
   const [showUnlinkConfirm, setShowUnlinkConfirm] = useState(false);
   const [isUnlinkingTelegram, setIsUnlinkingTelegram] = useState(false);
+  const [unlinkError, setUnlinkError] = useState<string | null>(null);
 
   // Customer Data — fetched from GET /api/Customer/getCustomerProfile/{customerId}
   const [customer, setCustomer] = useState<Customer>(EMPTY_CUSTOMER);
   const [profileTransactions, setProfileTransactions] = useState<CustomerProfileTransactionDto[]>([]);
   const [profileBalances, setProfileBalances] = useState<CustomerCurrencyBalanceDto[]>([]);
   const [posItemsMap, setPosItemsMap] = useState<Record<string, string>>({});
+  const fetchedPosIdsRef = useRef<Set<string>>(new Set());
   const [currentBalance, setCurrentBalance] = useState(0);
-  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState<boolean>(() => Boolean(id));
+  const [loadError, setLoadError] = useState<string | null>(() =>
+    id ? null : 'معرّف العميل غير موجود.'
+  );
+  const [reloadNonce, setReloadNonce] = useState(0);
 
-  const loadCustomerProfile = useCallback(() => {
+  const reloadCustomerProfile = useCallback(() => {
     if (!id) {
       setIsLoadingProfile(false);
       setLoadError('معرّف العميل غير موجود.');
@@ -279,8 +341,16 @@ export const CustomerDetailsScreen: FC = () => {
     }
     setIsLoadingProfile(true);
     setLoadError(null);
+    setReloadNonce((n) => n + 1);
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    let isCancelled = false;
+
     getCustomerProfile(id)
       .then((dto) => {
+        if (isCancelled) return;
         setCustomer({
           ...mapCustomerProfileToCustomer(dto),
           nationalOrCrId: getStoredNationalId(dto.id),
@@ -288,22 +358,28 @@ export const CustomerDetailsScreen: FC = () => {
         setProfileTransactions(dto.transactions);
         setProfileBalances(dto.balances ?? []);
         setCurrentBalance(dto.currentBalance);
+        setLoadError(null);
       })
       .catch((err) => {
-        setLoadError(toGetCustomerProfileErrorMessage(err));
+        if (!isCancelled) {
+          setLoadError(toGetCustomerProfileErrorMessage(err));
+        }
       })
       .finally(() => {
-        setIsLoadingProfile(false);
+        if (!isCancelled) {
+          setIsLoadingProfile(false);
+        }
       });
-  }, [id, location.state]);
 
-  useEffect(() => {
-    loadCustomerProfile();
-  }, [loadCustomerProfile]);
+    return () => {
+      isCancelled = true;
+    };
+  }, [id, reloadNonce]);
 
   // Load real purchased items from POS API for any debt transactions that have placeholder notes
   useEffect(() => {
     if (!profileTransactions || profileTransactions.length === 0) return;
+    let isCancelled = false;
 
     profileTransactions.forEach((tx) => {
       const isDebt =
@@ -324,37 +400,47 @@ export const CustomerDetailsScreen: FC = () => {
       if (!txId) return;
 
       const idStr = String(txId);
-      if (posItemsMap[idStr] || posItemsMap[`DEBT-${idStr}`]) return;
+      if (fetchedPosIdsRef.current.has(idStr)) return;
 
-      // Check localStorage first
+      // Skip API request if already cached locally (resolved synchronously in useMemo)
       const cached =
         localStorage.getItem(`debt-notes:${customer.id}:${idStr}`) ||
         localStorage.getItem(`debt-notes:${idStr}`) ||
         localStorage.getItem(`debt-notes:DEBT-${idStr}`);
       if (cached) {
-        setPosItemsMap((prev) => ({ ...prev, [idStr]: cached }));
+        fetchedPosIdsRef.current.add(idStr);
         return;
       }
 
-      // Try fetching from POS transactions API
+      fetchedPosIdsRef.current.add(idStr);
       const lookupId = idStr.startsWith('DEBT-') ? idStr : `DEBT-${idStr}`;
+
+      const persistAndStore = (itemsText: string, detailsId?: string) => {
+        if (isCancelled || !itemsText) return;
+        setPosItemsMap((prev) => ({
+          ...prev,
+          [idStr]: itemsText,
+          ...(detailsId ? { [detailsId]: itemsText } : {}),
+        }));
+        try {
+          localStorage.setItem(`debt-notes:${customer.id}:${idStr}`, itemsText);
+          localStorage.setItem(`debt-notes:${idStr}`, itemsText);
+          if (detailsId) {
+            localStorage.setItem(`debt-notes:${customer.id}:${detailsId}`, itemsText);
+            localStorage.setItem(`debt-notes:${detailsId}`, itemsText);
+          }
+        } catch {
+          // Ignore storage quota errors
+        }
+      };
+
       getPosTransactionDetails(lookupId)
         .then((details) => {
           if (details?.items && details.items.length > 0) {
             const itemsText = details.items
               .map((it) => `${it.productName} × ${it.quantity}`)
               .join(' | ');
-            if (itemsText) {
-              setPosItemsMap((prev) => ({ ...prev, [idStr]: itemsText, [details.id]: itemsText }));
-              try {
-                localStorage.setItem(`debt-notes:${customer.id}:${idStr}`, itemsText);
-                localStorage.setItem(`debt-notes:${customer.id}:${details.id}`, itemsText);
-                localStorage.setItem(`debt-notes:${idStr}`, itemsText);
-                localStorage.setItem(`debt-notes:${details.id}`, itemsText);
-              } catch {
-                // ignore
-              }
-            }
+            persistAndStore(itemsText, details.id);
           }
         })
         .catch(() => {
@@ -366,24 +452,20 @@ export const CustomerDetailsScreen: FC = () => {
                   const itemsText = details.items
                     .map((it) => `${it.productName} × ${it.quantity}`)
                     .join(' | ');
-                  if (itemsText) {
-                    setPosItemsMap((prev) => ({ ...prev, [idStr]: itemsText }));
-                    try {
-                      localStorage.setItem(`debt-notes:${customer.id}:${idStr}`, itemsText);
-                      localStorage.setItem(`debt-notes:${idStr}`, itemsText);
-                    } catch {
-                      // ignore
-                    }
-                  }
+                  persistAndStore(itemsText);
                 }
               })
               .catch(() => {
-                // ignore
+                // Ignore secondary lookup failures
               });
           }
         });
     });
-  }, [profileTransactions, customer.id, posItemsMap]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [profileTransactions, customer.id]);
 
   // Edit Customer Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -400,88 +482,49 @@ export const CustomerDetailsScreen: FC = () => {
   }>({});
   const [isSavingCustomer, setIsSavingCustomer] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ message: string; type?: ToastType } | null>(null);
 
-  const showToast = (msg: string, type?: ToastType) => {
+  const [toast, setToast] = useState<{ message: string; type?: ToastType } | null>(() => {
+    const state = location.state as { toast?: string } | null;
+    return state?.toast ? { message: state.toast, type: 'success' } : null;
+  });
+
+  const showToast = useCallback((msg: string, type: ToastType = 'success') => {
     setToast({ message: msg, type });
     setTimeout(() => {
       setToast((prev) => (prev?.message === msg ? null : prev));
-    }, 4000);
-  };
+    }, 4500);
+  }, []);
 
-  // Shows a one-off success toast passed via navigation state (e.g. after
-  // saving a payment from the New Payment page), then clears it from
-  // history so it doesn't reappear on back/forward navigation or refresh.
+  // Clear one-off navigation toast state so back/forward/refresh won't replay it
   useEffect(() => {
     const state = location.state as { toast?: string } | null;
-    if (state?.toast) {
-      showToast(state.toast);
-      navigate(location.pathname, { replace: true, state: {} });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!state?.toast) return;
+    navigate(location.pathname, { replace: true, state: {} });
+    const msg = state.toast;
+    const timer = setTimeout(() => {
+      setToast((prev) => (prev?.message === msg ? null : prev));
+    }, 4500);
+    return () => clearTimeout(timer);
+  }, [location.pathname, location.state, navigate]);
 
   // Delete Customer Modal State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeletingCustomer, setIsDeletingCustomer] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  /**
-   * Delete-Activity affordance on each timeline item (per the "add debt" /
-   * "receive payment" reference design).
-   *
-   * Debts ARE wired to a real endpoint — DELETE /api/Debt/{id} — per the
-   * confirmed API doc. That endpoint has a two-step contract: a first call
-   * with confirmDeleteWithPayments=false either deletes the debt directly
-   * (no prior payments) or comes back 400 with requiresConfirmation=true
-   * (the debt has payments, and deleting it will also delete all of
-   * them). `debtPendingHardDelete` below drives that second, stronger
-   * confirmation step; `activityPendingDelete` is the first, ordinary
-   * "delete this?" prompt.
-   *
-   * Payments ARE also wired to a real endpoint — DELETE /api/Payment/{id}
-   * — per the confirmed API doc. Unlike debts, deleting a payment is a
-   * single-step call: the backend recalculates the debt's PaidAmount and
-   * Status plus the customer's TotalDebt in one transaction, so no second
-   * confirmation step is needed.
-   *
-   * The edit icon, in contrast, IS wired to a real endpoint for debts
-   * (PUT /api/Debt/{id}) — see handleEditActivityClick below.
-   */
+  // Delete Activity Modals State
   const [activityPendingDelete, setActivityPendingDelete] = useState<ActivityItem | null>(null);
-  /** Set only when the backend reports the debt has payments and a second,
-   * explicit confirmation is required before it (and all its payments)
-   * are deleted. `paymentsCount` comes straight from that response. */
   const [debtPendingHardDelete, setDebtPendingHardDelete] = useState<{
     activity: ActivityItem;
     paymentsCount: number;
   } | null>(null);
   const [isDeletingActivity, setIsDeletingActivity] = useState(false);
+  const [activityDeleteError, setActivityDeleteError] = useState<string | null>(null);
 
-  /**
-   * Edit icon on a debt row: opens the Add Debt screen pre-filled with
-   * this debt's details, in edit mode (see AddDebtNavigationState in
-   * AddDebtScreen.tsx).
-   *
-   * getCustomerProfile (confirmed API doc) returns the real numeric debt
-   * id as `transactions[].id`, so every debt is editable now — not just
-   * ones created/edited in this browser. What that endpoint does NOT
-   * return is `dueDate` or `notes` (only the combined `description` and
-   * `status`/`currencyCode`), so those two fields can't be prefilled from
-   * it alone. The local cache (see rememberEditableDebt in
-   * debtService.ts) is kept as a bonus: when this exact debt was created
-   * or last edited in this browser, it still has the accurate dueDate —
-   * use it when present. Otherwise the form opens with the due date left
-   * blank for the merchant to (re)select, rather than silently guessing a
-   * wrong date.
-   *
-   * Payments have no update endpoint in the documented API at all, so the
-   * edit icon on a payment row always shows the "coming soon" message.
-   */
   const handleEditActivityClick = (act: ActivityItem) => {
     if (act.type === 'payment') {
       if (!act.recordId) {
-        showToast('تعذر فتح هذه الدفعة للتعديل.');
+        showToast('تعذر فتح هذه الدفعة للتعديل: معرّف الدفعة غير متوفر.', 'error');
         return;
       }
       navigate(`/customers/${customer.id}/payments/new`, {
@@ -501,7 +544,7 @@ export const CustomerDetailsScreen: FC = () => {
     }
 
     if (!act.recordId) {
-      showToast('تعذر فتح هذا الدين للتعديل.');
+      showToast('تعذر فتح هذا الدين للتعديل: معرّف الدين غير متوفر.', 'error');
       return;
     }
 
@@ -538,14 +581,41 @@ export const CustomerDetailsScreen: FC = () => {
     });
   };
 
+  const computedTotalPaid = useMemo(() => {
+    const transactionsPaid = profileTransactions.reduce((acc, tx) => {
+      const typeStr = String(tx.type || '').toLowerCase();
+      if (
+        typeStr.includes('payment') ||
+        typeStr.includes('pay') ||
+        typeStr.includes('دفعة') ||
+        typeStr.includes('سداد')
+      ) {
+        return acc + (Number(tx.amount) || 0);
+      }
+      return acc;
+    }, 0);
+
+    const diffPaid =
+      customer.totalDebt > 0 && currentBalance >= 0 && customer.totalDebt > currentBalance
+        ? customer.totalDebt - currentBalance
+        : 0;
+
+    const storedPaid = getStoredTotalPaid(customer.id);
+
+    return Math.max(customer.totalPaid || 0, transactionsPaid, diffPaid, storedPaid);
+  }, [customer, profileTransactions, currentBalance]);
+
   const confirmDeleteActivity = async () => {
     if (!activityPendingDelete) return;
+    setActivityDeleteError(null);
 
     if (!activityPendingDelete.recordId) {
-      showToast(
-        activityPendingDelete.type === 'debt' ? 'تعذر حذف هذا الدين.' : 'تعذر حذف هذه الدفعة.'
-      );
-      setActivityPendingDelete(null);
+      const msg =
+        activityPendingDelete.type === 'debt'
+          ? 'تعذر حذف هذا الدين لعدم توفر معرّف العملية.'
+          : 'تعذر حذف هذه الدفعة لعدم توفر معرّف العملية.';
+      setActivityDeleteError(msg);
+      showToast(msg, 'error');
       return;
     }
 
@@ -556,12 +626,14 @@ export const CustomerDetailsScreen: FC = () => {
       try {
         await deletePayment(activity.recordId);
         setActivityPendingDelete(null);
+        setActivityDeleteError(null);
         setStoredTotalPaid(customer.id, Math.max(0, computedTotalPaid - (activity.rawAmount || 0)));
-        loadCustomerProfile();
-        showToast('تم حذف الدفعة بنجاح.');
+        reloadCustomerProfile();
+        showToast('تم حذف الدفعة بنجاح.', 'success');
       } catch (err) {
-        showToast(toDeletePaymentErrorMessage(err));
-        setActivityPendingDelete(null);
+        const msg = toDeletePaymentErrorMessage(err);
+        setActivityDeleteError(msg);
+        showToast(msg, 'error');
       } finally {
         setIsDeletingActivity(false);
       }
@@ -572,20 +644,21 @@ export const CustomerDetailsScreen: FC = () => {
     try {
       await deleteDebt(activity.recordId, false);
       setActivityPendingDelete(null);
-      loadCustomerProfile();
-      showToast('تم حذف الدين بنجاح.');
+      setActivityDeleteError(null);
+      reloadCustomerProfile();
+      showToast('تم حذف الدين بنجاح.', 'success');
     } catch (err) {
       if (isDeleteDebtRequiresConfirmation(err)) {
-        // The debt has payments — hand off to the stronger confirmation
-        // step instead of treating this as a failure.
         setActivityPendingDelete(null);
+        setActivityDeleteError(null);
         setDebtPendingHardDelete({
           activity,
           paymentsCount: err.body.paymentsCount ?? 0,
         });
       } else {
-        showToast(toDeleteDebtErrorMessage(err));
-        setActivityPendingDelete(null);
+        const msg = toDeleteDebtErrorMessage(err);
+        setActivityDeleteError(msg);
+        showToast(msg, 'error');
       }
     } finally {
       setIsDeletingActivity(false);
@@ -595,15 +668,18 @@ export const CustomerDetailsScreen: FC = () => {
   const confirmHardDeleteDebt = async () => {
     if (!debtPendingHardDelete) return;
     const { activity } = debtPendingHardDelete;
+    setActivityDeleteError(null);
     setIsDeletingActivity(true);
     try {
       await deleteDebt(activity.recordId, true);
       setDebtPendingHardDelete(null);
-      loadCustomerProfile();
-      showToast('تم حذف الدين والدفعات المرتبطة به بنجاح.');
+      setActivityDeleteError(null);
+      reloadCustomerProfile();
+      showToast('تم حذف الدين والدفعات المرتبطة به بنجاح.', 'success');
     } catch (err) {
-      showToast(toDeleteDebtErrorMessage(err));
-      setDebtPendingHardDelete(null);
+      const msg = toDeleteDebtErrorMessage(err);
+      setActivityDeleteError(msg);
+      showToast(msg, 'error');
     } finally {
       setIsDeletingActivity(false);
     }
@@ -612,27 +688,23 @@ export const CustomerDetailsScreen: FC = () => {
   const handleDeleteCustomer = async () => {
     if (!customer.id) return;
     setDeleteError(null);
-    // Frontend-only guard (not enforced by the Delete Customer API itself):
-    // a customer with an outstanding balance must be paid off first.
-    // Re-checked here too — not just at the button click below — in case
-    // the profile refreshed with a new totalDebt while the modal was open.
+
     if (customer.totalDebt > DEBT_ZERO_EPSILON) {
       const message = 'لا يمكن حذف هذا العميل، فعليه ديون لم يتم تسديدها بعد.';
       setDeleteError(message);
       showToast(message, 'error');
       return;
     }
+
     setIsDeletingCustomer(true);
     try {
       await deleteCustomer(customer.id);
       setIsDeleteModalOpen(false);
-      // Navigate back to the customers list (no page refresh) and let it
-      // show the success toast itself, since this screen unmounts here.
       navigate(PATHS.CUSTOMERS, { state: { toast: 'تم حذف العميل بنجاح.' } });
     } catch (err) {
       const message = toDeleteCustomerErrorMessage(err);
       setDeleteError(message);
-      showToast(message);
+      showToast(message, 'error');
     } finally {
       setIsDeletingCustomer(false);
     }
@@ -656,7 +728,9 @@ export const CustomerDetailsScreen: FC = () => {
 
     const targetCustomerId = customer.id || id;
     if (!targetCustomerId) {
-      setSubmitError('معرّف العميل غير متوفر.');
+      const msg = 'معرّف العميل غير متوفر.';
+      setSubmitError(msg);
+      showToast(msg, 'error');
       return;
     }
 
@@ -664,24 +738,14 @@ export const CustomerDetailsScreen: FC = () => {
     const trimmedPhone = editForm.phoneNumber.trim();
     const trimmedNationalId = editForm.nationalOrCrId.trim();
 
+    const fullNameError = validateCustomerFullName(trimmedName);
+    const nationalIdError = validateCustomerNationalId(trimmedNationalId);
+    const phoneError = validateCustomerPhoneNumber(trimmedPhone);
+
     const errors: typeof fieldErrors = {};
-    if (!trimmedName || trimmedName.length < 2) {
-      errors.fullName = 'الاسم مطلوب ويجب ألا يقل عن حرفين.';
-    } else if (trimmedName.length > 150) {
-      errors.fullName = 'الاسم طويل جداً (الحد الأقصى 150 حرفاً).';
-    }
-
-    if (!trimmedNationalId) {
-      errors.nationalOrCrId = 'رقم الهوية الوطنية / السجل التجاري مطلوب.';
-    } else if (!/^\d{9}$/.test(trimmedNationalId)) {
-      errors.nationalOrCrId = 'رقم الهوية يجب أن يتكون من 9 أرقام.';
-    }
-
-    if (!trimmedPhone) {
-      errors.phoneNumber = 'رقم الجوال مطلوب.';
-    } else if (!/^\d{9}$/.test(trimmedPhone)) {
-      errors.phoneNumber = 'رقم الجوال يجب أن يتكون من 9 أرقام (مثال: 59XXXXXXX).';
-    }
+    if (fullNameError) errors.fullName = fullNameError;
+    if (nationalIdError) errors.nationalOrCrId = nationalIdError;
+    if (phoneError) errors.phoneNumber = phoneError;
 
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
@@ -689,9 +753,7 @@ export const CustomerDetailsScreen: FC = () => {
     setSubmitError(null);
     setIsSavingCustomer(true);
     try {
-      const fullPhone = trimmedPhone
-        ? formatFullCustomerPhone(editForm.countryCode, trimmedPhone)
-        : '';
+      const fullPhone = formatFullCustomerPhone(editForm.countryCode, trimmedPhone);
 
       const dto = await updateCustomer(targetCustomerId, {
         fullName: trimmedName,
@@ -700,8 +762,6 @@ export const CustomerDetailsScreen: FC = () => {
         nationalId: trimmedNationalId,
       });
 
-      // The backend doesn't store nationalOrCrId (see getStoredNationalId
-      // above), so it's persisted locally here instead of coming back from `dto`.
       setStoredNationalId(targetCustomerId, trimmedNationalId);
 
       setCustomer((prev) => ({
@@ -715,15 +775,18 @@ export const CustomerDetailsScreen: FC = () => {
       }));
 
       setIsEditModalOpen(false);
-      showToast('تم تحديث بيانات العميل بنجاح.');
-      loadCustomerProfile();
+      showToast('تم تحديث بيانات العميل بنجاح.', 'success');
+      reloadCustomerProfile();
     } catch (err) {
       if (err instanceof ApiError && isDuplicatePhoneNumberError(err)) {
-        setFieldErrors((p) => ({ ...p, phoneNumber: 'يوجد عميل آخر مسجل بنفس رقم الجوال.' }));
+        const dupMsg = 'يوجد عميل آخر مسجل بنفس رقم الجوال.';
+        setFieldErrors((p) => ({ ...p, phoneNumber: dupMsg }));
+        setSubmitError(dupMsg);
+        showToast(dupMsg, 'error');
       } else {
         const message = toUpdateCustomerErrorMessage(err);
         setSubmitError(message);
-        showToast(message);
+        showToast(message, 'error');
       }
     } finally {
       setIsSavingCustomer(false);
@@ -731,28 +794,30 @@ export const CustomerDetailsScreen: FC = () => {
   };
 
   const confirmUnlinkTelegram = async () => {
+    setUnlinkError(null);
     setIsUnlinkingTelegram(true);
     try {
       await unlinkTelegram(customer.id);
-      showToast('تم فك ربط Telegram عن العميل بنجاح.');
-      setCustomer(prev => ({ ...prev, isTelegramLinked: false }));
+      setCustomer((prev) => ({ ...prev, isTelegramLinked: false }));
       setShowUnlinkConfirm(false);
+      showToast('تم فك ربط Telegram عن العميل بنجاح.', 'success');
     } catch (err) {
-      showToast('تعذر فك ربط Telegram. يرجى المحاولة لاحقاً.', 'error');
+      const message = toTelegramUnlinkErrorMessage(err);
+      setUnlinkError(message);
+      showToast(message, 'error');
     } finally {
       setIsUnlinkingTelegram(false);
     }
   };
 
-  // Activity Log — derived from the transaction history returned by
-  // getCustomerProfile (already newest-first, per the API contract).
+  // Activity Log — derived from transaction history returned by getCustomerProfile
   const activities: ActivityItem[] = useMemo(() => {
     return profileTransactions.map((tx, index) => {
       const isDebt =
         String(tx.type || '').toLowerCase().includes('debt') ||
         String(tx.type || '').includes('دين');
       const sign = isDebt ? '+' : '-';
-      const currencyCode = normalizeCurrencyCode(tx.currencyCode || (tx as any).currency || 'ILS');
+      const currencyCode = getTransactionCurrencyCode(tx as TransactionWithFallbackCurrency);
       const cleanRef = tx.reference ? tx.reference.trim() : '';
       const digitsRef = cleanRef ? cleanRef.replace(/\D/g, '') : '';
       const txIdStr = tx.id ? String(tx.id) : '';
@@ -790,7 +855,7 @@ export const CustomerDetailsScreen: FC = () => {
         if (cachedDebt) break;
       }
 
-      const rawDueDate = isDebt ? (tx.dueDate || cachedDebt?.dueDate) : null;
+      const rawDueDate = isDebt ? tx.dueDate || cachedDebt?.dueDate : null;
       const formattedDueDate = rawDueDate ? formatApiDate(rawDueDate) : undefined;
 
       let resolvedDescription = tx.description ? tx.description.trim() : '';
@@ -828,10 +893,12 @@ export const CustomerDetailsScreen: FC = () => {
             ? formatDebtStatusLabel(tx.status)
             : formatPaymentMethodLabel(tx.paymentMethod)) || undefined,
         badgeStyle: isDebt
-          ? 'bg-blue-50 text-blue-600 border border-blue-100'
-          : 'bg-emerald-50 text-emerald-600 border border-emerald-100',
+          ? 'bg-sky-50 text-sky-800 border border-sky-200 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800'
+          : 'bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800',
         amount: `${sign}${tx.amount.toFixed(2)}`,
-        amountColor: isDebt ? 'text-[#e11d48]' : 'text-emerald-600',
+        amountColor: isDebt
+          ? 'text-rose-700 dark:text-rose-400'
+          : 'text-emerald-700 dark:text-emerald-400',
         description: resolvedDescription,
         date: formatApiDate(tx.date, true),
         dueDate: formattedDueDate,
@@ -845,14 +912,29 @@ export const CustomerDetailsScreen: FC = () => {
         currencyCode,
         rawStatus: isDebt ? tx.status : null,
         rawPaymentMethod: isDebt ? null : tx.paymentMethod,
-        iconBg: isDebt ? 'bg-[#0c2444] text-white' : 'bg-emerald-600 text-white',
+        iconBg: isDebt
+          ? 'bg-[#09152B] text-white dark:bg-blue-600'
+          : 'bg-emerald-700 text-white dark:bg-emerald-600',
         invoiceId: tx.invoiceId,
       };
     });
   }, [profileTransactions, customer.id, posItemsMap]);
 
-  // Latest payment record, used in the debt banner below. Transactions are
-  // already newest-first, so the first Payment entry is the most recent one.
+  const activityCounts = useMemo(() => {
+    let debts = 0;
+    let payments = 0;
+    for (const act of activities) {
+      if (act.type === 'debt') debts += 1;
+      else if (act.type === 'payment') payments += 1;
+    }
+    return {
+      all: activities.length,
+      debt: debts,
+      payment: payments,
+    };
+  }, [activities]);
+
+  // Latest payment record, used in the debt banner below.
   const lastPayment = useMemo(() => {
     return profileTransactions.find((tx) => {
       const typeStr = String(tx.type || '').toLowerCase();
@@ -860,42 +942,11 @@ export const CustomerDetailsScreen: FC = () => {
     });
   }, [profileTransactions]);
 
-  // Real total paid: combines backend customer.totalPaid, transactions history sum,
-  // debt differential (totalDebt - currentBalance), and locally persisted payment total.
-  const computedTotalPaid = useMemo(() => {
-    const transactionsPaid = profileTransactions.reduce((acc, tx) => {
-      const typeStr = String(tx.type || '').toLowerCase();
-      if (
-        typeStr.includes('payment') ||
-        typeStr.includes('pay') ||
-        typeStr.includes('دفعة') ||
-        typeStr.includes('سداد')
-      ) {
-        return acc + (Number(tx.amount) || 0);
-      }
-      return acc;
-    }, 0);
-
-    const diffPaid =
-      customer.totalDebt > 0 && currentBalance >= 0 && customer.totalDebt > currentBalance
-        ? customer.totalDebt - currentBalance
-        : 0;
-
-    const storedPaid = getStoredTotalPaid(customer.id);
-
-    return Math.max(
-      customer.totalPaid || 0,
-      transactionsPaid,
-      diffPaid,
-      storedPaid
-    );
-  }, [customer.totalPaid, customer.totalDebt, customer.id, profileTransactions, currentBalance]);
-
   // Strict Accounting Multi-Currency Breakdown (ILS, USD, EUR, GBP never merged)
   const currencyBreakdown = useMemo(() => {
     const currencies: CurrencyCode[] = ALL_CURRENCY_CODES;
 
-    // 1. If backend returned balances[], use them directly (primary source of truth)
+    // 1. Primary source of truth: backend balances[]
     if (profileBalances && profileBalances.length > 0) {
       const items = currencies.map((c) => {
         const found = profileBalances.find((b) => normalizeCurrencyCode(b.currencyCode) === c);
@@ -928,8 +979,6 @@ export const CustomerDetailsScreen: FC = () => {
                   hasActivity: true,
                 },
               ],
-        debtsByCur: {},
-        paymentsByCur: {},
       };
     }
 
@@ -940,7 +989,7 @@ export const CustomerDetailsScreen: FC = () => {
     profileTransactions.forEach((tx) => {
       const typeStr = String(tx.type || '').toLowerCase();
       const isDebt = typeStr.includes('debt') || typeStr.includes('دين');
-      const code = normalizeCurrencyCode(tx.currencyCode || (tx as any).currency || 'ILS');
+      const code = getTransactionCurrencyCode(tx as TransactionWithFallbackCurrency);
       if (isDebt) {
         debtItems.push({ amount: tx.amount, currency: code });
       } else {
@@ -981,10 +1030,10 @@ export const CustomerDetailsScreen: FC = () => {
                 hasActivity: true,
               },
             ],
-      debtsByCur,
-      paymentsByCur,
     };
   }, [profileBalances, profileTransactions, customer.totalDebt, computedTotalPaid, currentBalance]);
+
+  const primaryCurrency: CurrencyCode = currencyBreakdown.activeCurrencies[0]?.currency || 'ILS';
 
   // Filter activities based on tab, currency, and search query
   const filteredActivities = useMemo(() => {
@@ -1001,15 +1050,31 @@ export const CustomerDetailsScreen: FC = () => {
           act.title.toLowerCase().includes(q) ||
           act.description.toLowerCase().includes(q) ||
           (act.amount && act.amount.includes(q)) ||
-          act.currencyCode.toLowerCase().includes(q)
+          act.currencyCode.toLowerCase().includes(q) ||
+          (act.reference && act.reference.toLowerCase().includes(q))
         );
       }
       return true;
     });
   }, [activities, activeActivityTab, selectedCurrencyTab, searchActivityQuery]);
 
+  const handlePrintStatement = () => {
+    if (isLoadingProfile) {
+      showToast('يرجى انتظار اكتمال تحميل بيانات العميل قبل الطباعة.', 'error');
+      return;
+    }
+    if (loadError) {
+      showToast('لا يمكن طباعة كشف الحساب قبل حل خطأ تحميل بيانات العميل.', 'error');
+      return;
+    }
+    window.print();
+  };
+
   return (
-    <div className="min-h-screen bg-[#f4f7fb] dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-cairo antialiased flex print:bg-white dark:bg-slate-800 print:block" dir="rtl">
+    <div
+      className="min-h-screen bg-[#F5F6F8] dark:bg-[#0B0F19] text-[#09152B] dark:text-slate-100 font-cairo antialiased flex print:bg-white print:text-slate-900 print:block"
+      dir="rtl"
+    >
       {/* Sidebar */}
       <Sidebar
         isOpen={isSidebarOpen}
@@ -1019,7 +1084,6 @@ export const CustomerDetailsScreen: FC = () => {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 lg:mr-72 transition-all duration-300 print:mr-0 print:p-0">
-
         {/* Toast Notification */}
         <Toast
           message={toast?.message ?? null}
@@ -1032,198 +1096,213 @@ export const CustomerDetailsScreen: FC = () => {
           onMenuClick={() => setIsSidebarOpen(true)}
           searchQuery={searchActivityQuery}
           onSearchChange={setSearchActivityQuery}
-          searchPlaceholder="بحث عن معاملة..."
+          searchPlaceholder="بحث في سجل معاملات العميل..."
           className="print:hidden"
         />
 
         {/* Page Main Content */}
         <main className="p-4 sm:p-6 lg:p-8 space-y-6 flex-1 max-w-7xl w-full mx-auto print:p-0 print:m-0 print:max-w-none print:w-full">
-
           {/* Breadcrumb / Section Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 text-xs">
                 <button
                   type="button"
                   onClick={() => navigate(PATHS.CUSTOMERS)}
-                  className="text-slate-400 hover:text-[#0c2444] dark:text-blue-400 transition-colors inline-flex items-center gap-1 text-xs font-semibold"
+                  className="text-slate-600 dark:text-slate-400 hover:text-[#09152B] dark:hover:text-white transition-colors inline-flex items-center gap-1 font-semibold cursor-pointer"
                 >
                   <ArrowRight className="w-3.5 h-3.5" />
                   <span>العملاء</span>
                 </button>
-                <span className="text-slate-300">/</span>
-                <span className="text-slate-700 dark:text-slate-300 text-xs font-bold">ملف العميل</span>
+                <span className="text-slate-300 dark:text-slate-700">/</span>
+                <span className="text-[#09152B] dark:text-slate-200 font-bold">ملف العميل</span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold font-cairo text-[#0c2444] dark:text-blue-400 tracking-tight mt-1">
+              <h1 className="text-2xl sm:text-3xl font-extrabold font-cairo text-[#09152B] dark:text-white tracking-tight mt-1">
                 ملف العميل
               </h1>
-              <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-                عرض وإدارة سجل المديونية الخاص بالعميل
+              <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400 mt-0.5">
+                عرض وإدارة السجل المالي والمديونيات وسندات العميل
               </p>
             </div>
 
-            {/* Top Action Buttons (Visual UI only) */}
-            <div className="flex items-center gap-3 self-start sm:self-auto">
+            {/* Top Action Buttons */}
+            <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
               <button
                 type="button"
                 onClick={openEditModal}
-                className="px-4 py-2 bg-[#0c2444] hover:bg-[#123663] text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-all cursor-pointer"
+                disabled={isLoadingProfile || Boolean(loadError) || !customer.id}
+                className="px-4 py-2 bg-[#09152B] hover:bg-[#122344] dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
               >
-                تحديث بيانات العميل
+                <Pencil className="w-3.5 h-3.5" />
+                <span>تحديث بيانات العميل</span>
               </button>
 
               <button
                 type="button"
-                onClick={() => window.print()}
-                className="px-4 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer"
+                onClick={handlePrintStatement}
+                disabled={isLoadingProfile || Boolean(loadError)}
+                className="px-4 py-2 bg-white dark:bg-[#111827] hover:bg-slate-50 dark:hover:bg-slate-800 text-[#09152B] dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-semibold shadow-2xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
               >
-                تحميل السجل
+                <Printer className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                <span>طباعة / تحميل السجل</span>
               </button>
             </div>
           </div>
 
           {/* Profile Load Status */}
           {loadError && (
-            <div className="rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-sm px-4 py-3 flex items-center justify-between gap-3 print:hidden">
-              <span>{loadError}</span>
+            <div
+              role="alert"
+              className="rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-sm px-4 py-3 flex items-center justify-between gap-3 print:hidden"
+            >
+              <div className="flex items-center gap-2.5">
+                <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                <span className="font-semibold">{loadError}</span>
+              </div>
               <button
                 type="button"
-                onClick={loadCustomerProfile}
-                className="shrink-0 text-xs font-bold underline hover:no-underline cursor-pointer"
+                onClick={reloadCustomerProfile}
+                className="shrink-0 px-3 py-1 rounded-lg bg-white dark:bg-slate-900 border border-rose-300 dark:border-rose-700 text-xs font-bold text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/60 transition-colors cursor-pointer"
               >
                 إعادة المحاولة
               </button>
             </div>
           )}
+
           {isLoadingProfile && !loadError && (
-            <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-sm px-4 py-3 text-center print:hidden">
-              جاري تحميل بيانات العميل...
+            <div className="rounded-xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 text-sm px-4 py-3 text-center print:hidden font-medium">
+              جاري تحميل بيانات ملف العميل وسجل معاملاته...
             </div>
           )}
 
-          {/* Main 2-Column Grid matching Design */}
+          {/* Main 2-Column Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start print:block print:w-full">
-
-            {/* RIGHT COLUMN: Client Profile Card & Actions (Takes 4 cols on desktop) */}
+            {/* RIGHT COLUMN: Client Profile Card & Actions */}
             <div className="lg:col-span-4 space-y-4 print:hidden">
-
               {/* Profile Card */}
-              <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-7 border border-slate-100 dark:border-slate-700 shadow-xs flex flex-col items-center text-center">
-
-                {/* Avatar with Verified Badge */}
+              <div className="bg-white dark:bg-[#111827] rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col items-center text-center">
+                {/* Avatar */}
                 <div className="relative mb-4">
                   {isLoadingProfile ? (
-                    <div className="w-24 h-24 rounded-3xl bg-slate-200 dark:bg-slate-700 animate-pulse ring-4 ring-slate-100/80 shadow-md" />
+                    <div className="w-20 h-20 rounded-xl bg-slate-200 dark:bg-slate-800" />
                   ) : (
-                    <div className="w-24 h-24 rounded-3xl overflow-hidden ring-4 ring-slate-100/80 shadow-md bg-gradient-to-br from-[#123663] to-[#0c2444] text-white font-bold flex items-center justify-center text-3xl font-cairo">
+                    <div className="w-20 h-20 rounded-xl bg-[#09152B] dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-white font-extrabold flex items-center justify-center text-2xl font-cairo">
                       {customer.avatarLetter || customer.name?.trim()?.charAt(0) || 'ع'}
                     </div>
                   )}
-                  {/* Verified Green Shield / Check Badge */}
-                  {!isLoadingProfile && (
-                    <div className="absolute -bottom-1 -left-1 w-7 h-7 bg-emerald-600 rounded-full border-2 border-white flex items-center justify-center text-white shadow-sm">
-                      <Check className="w-4 h-4 stroke-[3]" />
+                  {!isLoadingProfile && !loadError && (
+                    <div
+                      title="عميل مسجل"
+                      className="absolute -bottom-1.5 -left-1.5 w-6 h-6 bg-emerald-600 rounded-lg border-2 border-white dark:border-[#111827] flex items-center justify-center text-white"
+                    >
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
                     </div>
                   )}
                 </div>
 
                 {/* Name */}
-                <h2 className="text-xl font-extrabold font-cairo text-[#0c2444] dark:text-blue-400">
-                  {isLoadingProfile ? (
-                    <div className="h-6 w-32 bg-slate-200 dark:bg-slate-700 rounded-md animate-pulse mx-auto" />
-                  ) : (
-                    customer.name || 'بدون اسم'
-                  )}
+                <h2 className="text-lg font-extrabold font-cairo text-[#09152B] dark:text-white">
+                  {isLoadingProfile ? 'جاري التحميل...' : customer.name || 'بدون اسم'}
                 </h2>
 
                 {/* National ID Pill */}
-                {isLoadingProfile ? (
-                  <div className="mt-2 h-6 w-24 bg-slate-200 dark:bg-slate-700 rounded-full animate-pulse" />
-                ) : (
-                  <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-full text-xs font-semibold font-mono" dir="rtl">
-                    <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
-                    <span>هوية: {customer.nationalOrCrId || 'غير متوفر'}</span>
+                {!isLoadingProfile && (
+                  <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold">
+                    <ShieldCheck className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                    <span>هوية:</span>
+                    <span className="font-jakarta tabular-nums" dir="ltr">
+                      {customer.nationalOrCrId || 'غير متوفر'}
+                    </span>
                   </div>
                 )}
 
                 {/* Divider */}
-                <div className="w-full border-t border-slate-100 dark:border-slate-700 my-5" />
+                <div className="w-full border-t border-slate-200 dark:border-slate-800 my-5" />
 
                 {/* Info List */}
-                <div className="w-full space-y-4 text-xs sm:text-sm">
+                <div className="w-full space-y-3.5 text-xs sm:text-sm">
                   {/* Phone */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium">
-                      <Phone className="w-4 h-4 text-slate-400" />
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 font-medium">
+                      <Phone className="w-4 h-4 text-slate-400 shrink-0" />
                       <span>رقم الهاتف</span>
                     </div>
-                    {isLoadingProfile ? (
-                      <div className="h-5 w-24 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
-                    ) : (
-                      <span className="font-bold text-slate-800 dark:text-slate-200 font-mono" dir="ltr">
-                        {customer.phone || 'غير متوفر'}
-                      </span>
-                    )}
+                    <span
+                      className="font-bold text-[#09152B] dark:text-slate-100 font-jakarta tabular-nums"
+                      dir="ltr"
+                    >
+                      {isLoadingProfile ? '—' : customer.phone || 'غير متوفر'}
+                    </span>
                   </div>
 
                   {/* Registration Date */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium">
-                      <Clock className="w-4 h-4 text-slate-400" />
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 font-medium">
+                      <Clock className="w-4 h-4 text-slate-400 shrink-0" />
                       <span>تاريخ التسجيل</span>
                     </div>
-                    {isLoadingProfile ? (
-                      <div className="h-5 w-20 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
-                    ) : (
-                      <span className="font-bold text-slate-800 dark:text-slate-200">
-                        {customer.registrationDate ? formatApiDate(customer.registrationDate) : 'غير متوفر'}
-                      </span>
-                    )}
+                    <span
+                      className="font-bold text-[#09152B] dark:text-slate-100 font-jakarta tabular-nums"
+                      dir="ltr"
+                    >
+                      {isLoadingProfile
+                        ? '—'
+                        : customer.registrationDate
+                        ? formatApiDate(customer.registrationDate)
+                        : 'غير متوفر'}
+                    </span>
                   </div>
 
                   {/* Total Paid */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium">
-                      <Check className="w-4 h-4 text-slate-400" />
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 font-medium shrink-0">
+                      <Check className="w-4 h-4 text-slate-400 shrink-0" />
                       <span>إجمالي المدفوع</span>
                     </div>
                     {isLoadingProfile ? (
-                      <div className="h-5 w-16 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
+                      <span className="font-jakarta text-slate-400">—</span>
                     ) : currencyBreakdown.activeCurrencies.length > 1 ? (
                       <div className="flex items-center gap-1.5 flex-wrap justify-end">
                         {currencyBreakdown.activeCurrencies.map((c) => (
                           <span
                             key={c.currency}
-                            className={`px-2 py-0.5 rounded-md text-[11px] font-bold font-mono ${getCurrencyBadgeClasses(c.currency)}`}
+                            dir="ltr"
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-bold font-jakarta tabular-nums ${getCurrencyBadgeClasses(
+                              c.currency
+                            )}`}
                           >
                             {formatCurrency(c.totalPaid, c.currency)}
                           </span>
                         ))}
                       </div>
                     ) : (
-                      <span className="font-bold text-slate-800 dark:text-slate-200 font-mono" dir="ltr">
-                        {formatCurrency(computedTotalPaid, currencyBreakdown.activeCurrencies[0]?.currency || 'ILS')}
+                      <span
+                        className="font-bold text-emerald-700 dark:text-emerald-400 font-jakarta tabular-nums"
+                        dir="ltr"
+                      >
+                        {formatCurrency(computedTotalPaid, primaryCurrency)}
                       </span>
                     )}
                   </div>
 
                   {/* Total Debt */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium">
-                      <FileText className="w-4 h-4 text-slate-400" />
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 font-medium shrink-0">
+                      <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                       <span>إجمالي المديونية</span>
                     </div>
                     {isLoadingProfile ? (
-                      <div className="h-5 w-16 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
+                      <span className="font-jakarta text-slate-400">—</span>
                     ) : currencyBreakdown.activeCurrencies.length > 1 ? (
                       <div className="flex items-center gap-1.5 flex-wrap justify-end">
                         {currencyBreakdown.activeCurrencies.map((c) => (
                           <span
                             key={c.currency}
-                            className={`px-2 py-0.5 rounded-md text-[11px] font-bold font-mono ${
+                            dir="ltr"
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-bold font-jakarta tabular-nums border ${
                               c.remaining > 0
-                                ? 'bg-rose-50 text-rose-700 border border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300'
-                                : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+                                ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
+                                : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
                             }`}
                           >
                             {formatCurrency(c.remaining, c.currency)}
@@ -1231,38 +1310,48 @@ export const CustomerDetailsScreen: FC = () => {
                         ))}
                       </div>
                     ) : (
-                      <span className="font-bold text-rose-600 dark:text-rose-500 font-mono" dir="ltr">
-                        {formatCurrency(currentBalance, currencyBreakdown.activeCurrencies[0]?.currency || 'ILS')}
+                      <span
+                        className={`font-bold font-jakarta tabular-nums ${
+                          currentBalance > DEBT_ZERO_EPSILON
+                            ? 'text-rose-700 dark:text-rose-400'
+                            : 'text-emerald-700 dark:text-emerald-400'
+                        }`}
+                        dir="ltr"
+                      >
+                        {formatCurrency(currentBalance, primaryCurrency)}
                       </span>
                     )}
                   </div>
 
                   {/* Credit Status */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium">
-                      <ShieldCheck className="w-4 h-4 text-slate-400" />
-                      <span>حالة الائتمان</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 font-medium">
+                      <ShieldCheck className="w-4 h-4 text-slate-400 shrink-0" />
+                      <span>حالة الحساب</span>
                     </div>
                     {isLoadingProfile ? (
-                      <div className="h-5 w-12 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
+                      <span className="text-slate-400">—</span>
+                    ) : currentBalance > DEBT_ZERO_EPSILON ? (
+                      <span className="px-2.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 rounded-md text-xs font-bold">
+                        رصيد قائم
+                      </span>
                     ) : (
-                      <span className="px-3 py-0.5 bg-emerald-500 text-white rounded-md text-xs font-bold shadow-2xs">
-                        موثوق
+                      <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 rounded-md text-xs font-bold">
+                        مسدد بالكامل
                       </span>
                     )}
                   </div>
                 </div>
-
               </div>
 
-              {/* Action Buttons Stack (Visual UI as requested) */}
+              {/* Action Buttons Stack */}
               <div className="space-y-2.5">
                 {/* 1. Record New Payment Button */}
                 <button
                   type="button"
                   onClick={() => navigate(`/customers/${customer.id}/payments/new`)}
                   disabled={!customer.id}
-                  className="w-full py-3 px-4 bg-[#007a3d] hover:bg-[#006633] text-white rounded-2xl text-sm font-bold flex items-center justify-center gap-2 shadow-sm hover:shadow-md transition-all active:scale-[0.99] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full py-2.5 px-4 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <CreditCard className="w-4 h-4" />
                   <span>تسجيل دفعة جديدة</span>
@@ -1287,7 +1376,7 @@ export const CustomerDetailsScreen: FC = () => {
                     })
                   }
                   disabled={!customer.id}
-                  className="w-full py-3 px-4 bg-[#0c2444] hover:bg-[#123663] text-white rounded-2xl text-sm font-bold flex items-center justify-center gap-2 shadow-sm hover:shadow-md transition-all active:scale-[0.99] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full py-2.5 px-4 bg-[#09152B] hover:bg-[#122344] dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Plus className="w-4 h-4" />
                   <span>إضافة دين جديد</span>
@@ -1296,87 +1385,96 @@ export const CustomerDetailsScreen: FC = () => {
                 {/* 3. Export Statement PDF */}
                 <button
                   type="button"
-                  onClick={() => window.print()}
-                  className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border border-slate-200/90 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 shadow-2xs hover:shadow-xs transition-all cursor-pointer"
+                  onClick={handlePrintStatement}
+                  disabled={isLoadingProfile || Boolean(loadError)}
+                  className="w-full py-2.5 px-4 bg-white dark:bg-[#111827] hover:bg-slate-50 dark:hover:bg-slate-800 text-[#09152B] dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-2xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <FileText className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                   <span>تصدير كشف حساب (PDF)</span>
                 </button>
 
                 {/* Telegram Card */}
-                <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 border border-slate-100 dark:border-slate-700 shadow-xs flex flex-col mt-4">
-                  <div className="flex items-center justify-between mb-4">
+                <div className="bg-white dark:bg-[#111827] rounded-xl p-5 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col">
+                  <div className="flex items-center justify-between gap-2 mb-3.5">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-[#2AABEE]">
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.46.93-4.12 2.73-.39.26-.74.39-1.06.38-.35-.01-1.02-.2-1.52-.36-.62-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .24z"/>
-                        </svg>
+                      <div className="w-9 h-9 rounded-lg bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 flex items-center justify-center text-sky-700 dark:text-sky-400 shrink-0">
+                        <QrCode className="w-4.5 h-4.5" />
                       </div>
                       <div>
-                        <div className="font-bold text-[#0c2444] dark:text-slate-200 font-cairo">ربط Telegram</div>
-                        <div className="text-xs text-slate-400">كشف الحساب وتنبيهات الديون</div>
+                        <div className="font-bold text-sm text-[#09152B] dark:text-white font-cairo">
+                          ربط تيليجرام
+                        </div>
+                        <div className="text-[11px] text-slate-600 dark:text-slate-400">
+                          كشف الحساب وتنبيهات الديون
+                        </div>
                       </div>
                     </div>
                     {customer.isTelegramLinked ? (
-                      <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-xs font-bold border border-emerald-100 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      <span className="px-2.5 py-0.5 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 rounded-md text-xs font-bold border border-emerald-200 dark:border-emerald-800">
                         مرتبط
                       </span>
                     ) : (
-                      <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-bold border border-slate-200 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                      <span className="px-2.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-md text-xs font-bold border border-slate-200 dark:border-slate-700">
                         غير مرتبط
                       </span>
                     )}
                   </div>
-                  
-                  <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-4 text-center px-1 font-medium">
-                    {customer.isTelegramLinked 
-                      ? "العميل مرتبط بنجاح بروبوت وثّق على تيليجرام. يستلم كشف حسابه وتنبيهات الديون بشكل آلي." 
-                      : "عند إنشاء الرابط، سيتم إرساله للعميل عبر WhatsApp ليتمكن من ربط حسابه ومتابعة ديونه بنفسه."}
-                  </div>
-                  
+
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
+                    {customer.isTelegramLinked
+                      ? 'العميل مرتبط ببوت وثّق على تيليجرام ويستلم كشوفات الحساب وتنبيهات الديون تلقائياً.'
+                      : 'أنشئ رمز QR أو رابطاً مباشراً ليربط العميل حسابه على تيليجرام ويتابع ديونه بنفسه.'}
+                  </p>
+
                   {customer.isTelegramLinked ? (
-                    <div className="grid grid-cols-2 gap-3 mt-auto">
+                    <div className="grid grid-cols-2 gap-2.5 mt-auto">
                       <button
                         type="button"
-                        onClick={() => setShowUnlinkConfirm(true)}
-                        className="py-2.5 px-3 rounded-xl text-rose-500 font-bold text-xs border border-rose-200 hover:bg-rose-50 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                        onClick={() => {
+                          setUnlinkError(null);
+                          setShowUnlinkConfirm(true);
+                        }}
+                        disabled={!customer.id}
+                        className="py-2 px-3 rounded-lg text-rose-700 dark:text-rose-400 font-bold text-xs border border-rose-200 dark:border-rose-900 bg-rose-50/70 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-950/60 transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                       >
-                        <Trash2 className="w-4 h-4" />
-                        إلغاء الربط
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>إلغاء الربط</span>
                       </button>
                       <button
                         type="button"
-                        onClick={() => setTelegramModalCustomer({
-                          id: customer.id,
-                          name: customer.name,
-                          phone: customer.phone || '',
-                          mode: 'regenerate',
-                          sendViaWhatsApp: false,
-                        })}
-                        className="py-2.5 px-3 rounded-xl text-[#2AABEE] font-bold text-xs border border-blue-200 hover:bg-blue-50 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                        onClick={() =>
+                          setTelegramModalCustomer({
+                            id: customer.id,
+                            name: customer.name,
+                            phone: customer.phone || '',
+                            mode: 'regenerate',
+                            sendViaWhatsApp: false,
+                          })
+                        }
+                        disabled={!customer.id}
+                        className="py-2 px-3 rounded-lg text-sky-700 dark:text-sky-300 font-bold text-xs border border-sky-200 dark:border-sky-800 bg-sky-50/70 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-950/70 transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                       >
-                        <RefreshCw className="w-4 h-4" />
-                        تجديد الرابط
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>تجديد الرابط</span>
                       </button>
                     </div>
                   ) : (
                     <button
                       type="button"
-                      onClick={() => setTelegramModalCustomer({
-                        id: customer.id,
-                        name: customer.name,
-                        phone: customer.phone || '',
-                        mode: 'generate',
-                        sendViaWhatsApp: false, // Case B: Re-linking / viewing QR code only, do not send WhatsApp
-                      })}
-                      className="w-full py-3 px-4 bg-[#2AABEE] hover:bg-[#2299d6] text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-sm hover:shadow-md transition-all active:scale-[0.99] mt-auto cursor-pointer"
+                      onClick={() =>
+                        setTelegramModalCustomer({
+                          id: customer.id,
+                          name: customer.name,
+                          phone: customer.phone || '',
+                          mode: 'generate',
+                          sendViaWhatsApp: false,
+                        })
+                      }
+                      disabled={!customer.id}
+                      className="w-full py-2.5 px-4 bg-sky-700 hover:bg-sky-800 text-white rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-colors mt-auto cursor-pointer disabled:opacity-50"
                     >
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M3 3h8v8H3zm2 2v4h4V5zm8-2h8v8h-8zm2 2v4h4V5zM3 13h8v8H3zm2 2v4h4v-4zm13-2h3v2h-3zm-5 0h3v2h-3zm3 2h2v3h-2zm-3 3h3v2h-3zm3 2h2v3h-2zm-2 0h2v3h-2zm-1-2h2v2h-2zm-2-1h2v2h-2z"/>
-                      </svg>
-                      عرض رمز QR ورابط Telegram
+                      <QrCode className="w-4 h-4" />
+                      <span>عرض رمز QR ورابط تيليجرام</span>
                     </button>
                   )}
                 </div>
@@ -1385,10 +1483,6 @@ export const CustomerDetailsScreen: FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    // Frontend-only guard (the Delete Customer API doesn't
-                    // enforce this itself): block deletion up front — and
-                    // tell the merchant why — instead of opening the
-                    // confirmation modal only to fail on submit.
                     if (customer.totalDebt > DEBT_ZERO_EPSILON) {
                       showToast('لا يمكن حذف هذا العميل، فعليه ديون لم يتم تسديدها بعد.', 'error');
                       return;
@@ -1396,64 +1490,105 @@ export const CustomerDetailsScreen: FC = () => {
                     setDeleteError(null);
                     setIsDeleteModalOpen(true);
                   }}
-                  className="w-full py-3 px-4 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 border border-rose-200/60 transition-all cursor-pointer"
+                  disabled={!customer.id || isLoadingProfile}
+                  className="w-full py-2.5 px-4 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-950/50 text-rose-700 dark:text-rose-400 rounded-xl text-sm font-bold flex items-center justify-center gap-2 border border-rose-200 dark:border-rose-900/70 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Trash2 className="w-4 h-4" />
                   <span>حذف العميل</span>
                 </button>
               </div>
-
             </div>
 
-            {/* LEFT COLUMN: Financial Activity Log & Total Debt Banner (Takes 8 cols on desktop) */}
+            {/* LEFT COLUMN: Financial Activity Log & Total Debt Banner */}
             <div className="lg:col-span-8 space-y-6 print:w-full print:space-y-4 print:m-0 print:p-0">
-
               {/* Financial Activity Log Card */}
-              <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 border border-slate-100 dark:border-slate-700 shadow-xs space-y-6 print:border print:border-slate-200 dark:border-slate-700 print:rounded-2xl print:p-6 print:shadow-none">
-
-                {/* Print-Only Header with Customer Info */}
-                <div className="hidden print:flex items-center justify-between pb-4 border-b-2 border-slate-200 dark:border-slate-700" dir="rtl">
+              <div className="bg-white dark:bg-[#111827] rounded-xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-xs space-y-6 print:border print:border-slate-300 print:rounded-xl print:p-6 print:shadow-none">
+                {/* Print-Only Header */}
+                <div
+                  className="hidden print:flex items-center justify-between pb-4 border-b-2 border-slate-300"
+                  dir="rtl"
+                >
                   <div>
-                    <h2 className="text-xl font-extrabold font-cairo text-[#0c2444] dark:text-blue-400">
+                    <h2 className="text-xl font-extrabold font-cairo text-[#09152B]">
                       سجل النشاط المالي وكشف الحساب
                     </h2>
-                    <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 mt-1 font-cairo">
-                      <span><strong>العميل:</strong> {customer.name || 'عميل'}</span>
+                    <div className="flex items-center gap-3 text-xs text-slate-700 mt-1 font-cairo">
+                      <span>
+                        <strong>العميل:</strong> {customer.name || 'عميل'}
+                      </span>
                       <span>•</span>
-                      <span><strong>الهاتف:</strong> <span dir="ltr">{customer.phone || 'غير متوفر'}</span></span>
+                      <span>
+                        <strong>الهاتف:</strong>{' '}
+                        <span className="font-jakarta tabular-nums" dir="ltr">
+                          {customer.phone || 'غير متوفر'}
+                        </span>
+                      </span>
                       <span>•</span>
-                      <span><strong>معرف/هوية:</strong> {customer.nationalOrCrId || 'غير متوفر'}</span>
+                      <span>
+                        <strong>رقم الهوية:</strong>{' '}
+                        <span className="font-jakarta tabular-nums" dir="ltr">
+                          {customer.nationalOrCrId || 'غير متوفر'}
+                        </span>
+                      </span>
                     </div>
                   </div>
-                  <div className="text-left text-xs text-slate-500 dark:text-slate-400 font-mono">
-                    <span className="font-bold text-[#0c2444] dark:text-blue-400 block font-cairo text-sm">منصة وثّق</span>
-                    <span>{new Date().toLocaleDateString('en-GB')}</span>
+                  <div className="text-left text-xs text-slate-600 font-jakarta tabular-nums">
+                    <span className="font-bold text-[#09152B] block font-cairo text-sm">
+                      منصة وثّق
+                    </span>
+                    <span dir="ltr">{formatApiDate(new Date().toISOString())}</span>
                   </div>
                 </div>
 
                 {/* Print-Only Multi-Currency Summary Table */}
-                <div className="hidden print:block my-4 border border-slate-300 rounded-xl overflow-hidden" dir="rtl">
-                  <div className="bg-slate-100 px-4 py-2 text-xs font-bold text-slate-800 border-b border-slate-300">
-                    جدول مطابقة الأرصدة والذمم المالية حسب العملة (Multi-Currency Statement Summary)
+                <div
+                  className="hidden print:block my-4 border border-slate-300 rounded-xl overflow-hidden"
+                  dir="rtl"
+                >
+                  <div className="bg-slate-100 px-4 py-2 text-xs font-bold text-slate-900 border-b border-slate-300">
+                    جدول مطابقة الأرصدة والذمم المالية حسب العملة
                   </div>
-                  <table className="w-full text-right text-xs">
+                  <table className="w-full text-right text-xs border-separate border-spacing-0">
+                    <caption className="sr-only">
+                      ملخص الأرصدة والديون والمدفوعات حسب العملة
+                    </caption>
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200">
-                        <th className="p-2.5 font-bold">العملة</th>
-                        <th className="p-2.5 font-bold">إجمالي الديون</th>
-                        <th className="p-2.5 font-bold">إجمالي المدفوعات</th>
-                        <th className="p-2.5 font-bold">الرصيد المتبقي</th>
+                        <th scope="col" className="p-2.5 font-bold text-slate-900">
+                          العملة
+                        </th>
+                        <th scope="col" className="p-2.5 font-bold text-slate-900">
+                          إجمالي الديون
+                        </th>
+                        <th scope="col" className="p-2.5 font-bold text-slate-900">
+                          إجمالي المدفوعات
+                        </th>
+                        <th scope="col" className="p-2.5 font-bold text-slate-900">
+                          الرصيد المتبقي
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
                       {currencyBreakdown.activeCurrencies.map((c) => (
                         <tr key={c.currency}>
-                          <td className="p-2.5 font-bold font-mono">
+                          <td className="p-2.5 font-bold font-jakarta">
                             {c.config.labelArFull} ({c.currency} {c.config.symbol})
                           </td>
-                          <td className="p-2.5 font-mono">{formatCurrency(c.totalDebt, c.currency)}</td>
-                          <td className="p-2.5 font-mono text-emerald-700">{formatCurrency(c.totalPaid, c.currency)}</td>
-                          <td className="p-2.5 font-mono font-bold text-rose-700">{formatCurrency(c.remaining, c.currency)}</td>
+                          <td className="p-2.5 font-jakarta tabular-nums" dir="ltr">
+                            {formatCurrency(c.totalDebt, c.currency)}
+                          </td>
+                          <td
+                            className="p-2.5 font-jakarta tabular-nums text-emerald-700"
+                            dir="ltr"
+                          >
+                            {formatCurrency(c.totalPaid, c.currency)}
+                          </td>
+                          <td
+                            className="p-2.5 font-jakarta tabular-nums font-bold text-rose-700"
+                            dir="ltr"
+                          >
+                            {formatCurrency(c.remaining, c.currency)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1462,24 +1597,23 @@ export const CustomerDetailsScreen: FC = () => {
 
                 {/* On-Screen Multi-Currency Balances Cards */}
                 {currencyBreakdown.activeCurrencies.length > 1 && (
-                  <div className="bg-gradient-to-b from-slate-50/90 to-white dark:from-slate-800/70 dark:to-slate-850/70 border border-slate-200/90 dark:border-slate-700/80 rounded-2xl p-4 sm:p-5 shadow-2xs print:hidden">
-                    <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-slate-200/70 dark:border-slate-700/60">
+                  <div className="bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-4 sm:p-5 print:hidden">
+                    <div className="flex flex-wrap items-center justify-between gap-2 pb-3.5 mb-4 border-b border-slate-200 dark:border-slate-800">
                       <div className="flex items-center gap-2.5 font-cairo">
-                        <div className="w-8 h-8 rounded-xl bg-blue-100/90 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-2xs">
+                        <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[#09152B] dark:text-blue-400 flex items-center justify-center">
                           <Coins className="w-4 h-4" />
                         </div>
                         <div>
-                          <h3 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-slate-100 leading-tight">
+                          <h3 className="text-sm sm:text-base font-extrabold text-[#09152B] dark:text-white leading-tight">
                             الأرصدة والذمم المالية حسب العملة
                           </h3>
-                          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                          <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
                             كشف تفصيلي بالأرصدة المستحقة والمسددة لكل عملة
                           </span>
                         </div>
                       </div>
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-cairo bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200/70 dark:border-blue-800/60 shadow-2xs">
-                        <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                        حساب متعدد العملات ({currencyBreakdown.activeCurrencies.length} عملات)
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-white dark:bg-slate-800 text-[#09152B] dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-jakarta tabular-nums">
+                        {currencyBreakdown.activeCurrencies.length} عملات نشطة
                       </span>
                     </div>
 
@@ -1490,15 +1624,14 @@ export const CustomerDetailsScreen: FC = () => {
                           : currencyBreakdown.activeCurrencies.length === 3
                           ? 'grid-cols-1 sm:grid-cols-3'
                           : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
-                      } gap-4`}
+                      } gap-3.5`}
                     >
                       {currencyBreakdown.activeCurrencies.map((c) => {
-                        const theme = CURRENCY_CARD_THEMES[c.currency] || {
-                          gradient: 'from-slate-600 to-slate-400',
-                          iconBox:
-                            'bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600',
-                          border: 'border-slate-200 dark:border-slate-700',
-                        };
+                        const topBorder =
+                          CURRENCY_CARD_TOP_BORDER[c.currency] || 'border-t-slate-600';
+                        const iconBox =
+                          CURRENCY_CARD_ICON_BOX[c.currency] ||
+                          'bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700';
                         const paidPercent =
                           c.totalDebt > 0
                             ? Math.min(100, Math.max(0, Math.round((c.totalPaid / c.totalDebt) * 100)))
@@ -1509,104 +1642,95 @@ export const CustomerDetailsScreen: FC = () => {
                         return (
                           <div
                             key={c.currency}
-                            className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 shadow-2xs hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+                            className={`rounded-xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 border-t-2 ${topBorder} p-4 flex flex-col justify-between`}
                           >
-                            {/* Top Accent Gradient Bar */}
-                            <div className={`h-1.5 w-full bg-gradient-to-r ${theme.gradient}`} />
-
-                            <div className="p-4 flex flex-col justify-between flex-1">
-                              {/* Header Row: Currency Name & Status Pill */}
-                              <div className="flex items-center justify-between gap-2 mb-3">
-                                <div className="flex items-center gap-2.5">
-                                  <div
-                                    className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold font-mono text-base shadow-2xs ${theme.iconBox}`}
-                                  >
-                                    {c.config.symbol}
-                                  </div>
-                                  <div>
-                                    <h4 className="text-sm font-extrabold text-slate-800 dark:text-slate-100 font-cairo leading-tight">
-                                      {c.config.labelArFull}
-                                    </h4>
-                                    <span className="text-[11px] font-mono font-bold text-slate-400 dark:text-slate-400 block mt-0.5">
-                                      {c.currency} ({c.config.symbol})
-                                    </span>
-                                  </div>
+                            {/* Header Row: Currency Name & Status Pill */}
+                            <div className="flex items-center justify-between gap-2 mb-3">
+                              <div className="flex items-center gap-2.5">
+                                <div
+                                  className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold font-jakarta text-sm ${iconBox}`}
+                                >
+                                  {c.config.symbol}
                                 </div>
-
-                                {c.remaining > 0 ? (
-                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold font-cairo bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200/70 dark:border-rose-900/50 shadow-2xs">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                                    مستحق السداد
+                                <div>
+                                  <h4 className="text-sm font-extrabold text-[#09152B] dark:text-white font-cairo leading-tight">
+                                    {c.config.labelArFull}
+                                  </h4>
+                                  <span className="text-[11px] font-jakarta font-bold text-slate-500 dark:text-slate-400 block mt-0.5">
+                                    {c.currency} ({c.config.symbol})
                                   </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold font-cairo bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-900/50 shadow-2xs">
-                                    <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                                    تمت التسوية
-                                  </span>
-                                )}
+                                </div>
                               </div>
 
-                              {/* Hero Value: Remaining Balance */}
-                              <div className="bg-slate-50/90 dark:bg-slate-750/70 rounded-xl p-3.5 border border-slate-100 dark:border-slate-700/60 mb-3">
-                                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">
-                                  <span className="font-cairo">الرصيد المتبقي (المستحق):</span>
-                                  {c.totalDebt > 0 && (
-                                    <span className="text-[11px] font-bold font-cairo text-slate-500 dark:text-slate-400">
-                                      تم سداد {paidPercent}%
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex items-baseline justify-between" dir="ltr">
-                                  <span
-                                    className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
-                                      c.remaining > 0
-                                        ? 'text-rose-600 dark:text-rose-400'
-                                        : 'text-slate-700 dark:text-slate-200'
-                                    }`}
-                                  >
-                                    {formatCurrency(c.remaining, c.currency)}
-                                  </span>
-                                </div>
+                              {c.remaining > 0 ? (
+                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                                  مستحق
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                  <Check className="w-3 h-3" />
+                                  مسدد
+                                </span>
+                              )}
+                            </div>
 
-                                {/* Settlement Progress Bar */}
+                            {/* Hero Value: Remaining Balance */}
+                            <div className="bg-slate-50 dark:bg-slate-900/70 rounded-lg p-3 border border-slate-200/80 dark:border-slate-800 mb-3">
+                              <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 font-medium mb-1">
+                                <span>المتبقي:</span>
                                 {c.totalDebt > 0 && (
-                                  <div className="w-full bg-slate-200/80 dark:bg-slate-700 h-2 rounded-full mt-2.5 overflow-hidden">
-                                    <div
-                                      className={`h-full rounded-full transition-all duration-500 ${
-                                        c.remaining === 0
-                                          ? 'bg-emerald-500'
-                                          : 'bg-gradient-to-r from-emerald-500 to-blue-500'
-                                      }`}
-                                      style={{ width: `${paidPercent}%` }}
-                                    />
-                                  </div>
+                                  <span className="text-[11px] font-bold font-jakarta tabular-nums">
+                                    سُدد {paidPercent}%
+                                  </span>
                                 )}
                               </div>
+                              <div className="flex items-baseline justify-between" dir="ltr">
+                                <span
+                                  className={`text-xl sm:text-2xl font-extrabold font-jakarta tabular-nums tracking-tight ${
+                                    c.remaining > 0
+                                      ? 'text-rose-700 dark:text-rose-400'
+                                      : 'text-[#09152B] dark:text-slate-100'
+                                  }`}
+                                >
+                                  {formatCurrency(c.remaining, c.currency)}
+                                </span>
+                              </div>
 
-                              {/* Sub-Metrics: Total Debt & Total Paid */}
-                              <div className="grid grid-cols-2 gap-2 text-xs pt-2.5 border-t border-slate-100 dark:border-slate-700/60">
-                                <div className="bg-slate-50/60 dark:bg-slate-750/50 rounded-lg p-2.5 border border-slate-100 dark:border-slate-700/40">
-                                  <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-cairo font-medium">
-                                    إجمالي الدين
-                                  </span>
-                                  <span
-                                    className="font-bold font-mono text-slate-800 dark:text-slate-200 text-xs sm:text-sm mt-0.5 block"
-                                    dir="ltr"
-                                  >
-                                    {formatCurrency(c.totalDebt, c.currency)}
-                                  </span>
+                              {c.totalDebt > 0 && (
+                                <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all duration-300 ${
+                                      c.remaining === 0 ? 'bg-emerald-600' : 'bg-[#09152B] dark:bg-blue-500'
+                                    }`}
+                                    style={{ width: `${paidPercent}%` }}
+                                  />
                                 </div>
-                                <div className="bg-slate-50/60 dark:bg-slate-750/50 rounded-lg p-2.5 border border-slate-100 dark:border-slate-700/40">
-                                  <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-cairo font-medium">
-                                    إجمالي المسدد
-                                  </span>
-                                  <span
-                                    className="font-bold font-mono text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm mt-0.5 block"
-                                    dir="ltr"
-                                  >
-                                    {formatCurrency(c.totalPaid, c.currency)}
-                                  </span>
-                                </div>
+                              )}
+                            </div>
+
+                            {/* Sub-Metrics */}
+                            <div className="grid grid-cols-2 gap-2 text-xs pt-2.5 border-t border-slate-200 dark:border-slate-800">
+                              <div className="bg-slate-50/70 dark:bg-slate-900/50 rounded-lg p-2 border border-slate-200/70 dark:border-slate-800">
+                                <span className="text-[11px] text-slate-600 dark:text-slate-400 block font-medium">
+                                  إجمالي الدين
+                                </span>
+                                <span
+                                  className="font-bold font-jakarta tabular-nums text-[#09152B] dark:text-slate-100 text-xs mt-0.5 block"
+                                  dir="ltr"
+                                >
+                                  {formatCurrency(c.totalDebt, c.currency)}
+                                </span>
+                              </div>
+                              <div className="bg-slate-50/70 dark:bg-slate-900/50 rounded-lg p-2 border border-slate-200/70 dark:border-slate-800">
+                                <span className="text-[11px] text-slate-600 dark:text-slate-400 block font-medium">
+                                  إجمالي المسدد
+                                </span>
+                                <span
+                                  className="font-bold font-jakarta tabular-nums text-emerald-700 dark:text-emerald-400 text-xs mt-0.5 block"
+                                  dir="ltr"
+                                >
+                                  {formatCurrency(c.totalPaid, c.currency)}
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -1617,86 +1741,94 @@ export const CustomerDetailsScreen: FC = () => {
                 )}
 
                 {/* Header with Title and Filter Tabs */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-700 pb-4 print:hidden">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-4 print:hidden">
                   <div className="flex items-center gap-2.5">
-                    <h3 className="text-lg sm:text-xl font-extrabold font-cairo text-[#0c2444] dark:text-blue-400">
+                    <h3 className="text-lg sm:text-xl font-extrabold font-cairo text-[#09152B] dark:text-white">
                       سجل النشاط المالي
                     </h3>
-                    <span className="text-xs text-slate-400 font-bold font-mono px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700">
+                    <span className="text-xs text-[#09152B] dark:text-slate-200 font-bold font-jakarta tabular-nums px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                       {filteredActivities.length}
                     </span>
                   </div>
 
-                  {/* Filter Controls: single row, neatly aligned */}
+                  {/* Filter Controls */}
                   <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                     {/* Activity Type Tabs */}
-                    <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-700/80 p-1 rounded-xl">
-                      <button
-                        type="button"
-                        onClick={() => setActiveActivityTab('all')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                          activeActivityTab === 'all'
-                            ? 'bg-white dark:bg-slate-800 text-[#0c2444] dark:text-blue-400 shadow-xs'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                        }`}
-                      >
-                        الكل
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setActiveActivityTab('debt')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                          activeActivityTab === 'debt'
-                            ? 'bg-white dark:bg-slate-800 text-[#0c2444] dark:text-blue-400 shadow-xs'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                        }`}
-                      >
-                        الديون
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setActiveActivityTab('payment')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                          activeActivityTab === 'payment'
-                            ? 'bg-white dark:bg-slate-800 text-[#0c2444] dark:text-blue-400 shadow-xs'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                        }`}
-                      >
-                        المدفوعات
-                      </button>
+                    <div
+                      role="tablist"
+                      aria-label="تصفية حسب نوع العملية"
+                      className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700 overflow-x-auto max-w-full"
+                    >
+                      {(
+                        [
+                          { id: 'all', label: 'الكل', count: activityCounts.all },
+                          { id: 'debt', label: 'الديون', count: activityCounts.debt },
+                          { id: 'payment', label: 'المدفوعات', count: activityCounts.payment },
+                        ] as const
+                      ).map((tab) => {
+                        const isSelected = activeActivityTab === tab.id;
+                        return (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            role="tab"
+                            aria-selected={isSelected}
+                            onClick={() => setActiveActivityTab(tab.id)}
+                            className={`flex-none px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-1.5 border ${
+                              isSelected
+                                ? 'bg-white dark:bg-[#111827] text-[#09152B] dark:text-white border-slate-300 dark:border-slate-600 shadow-2xs'
+                                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-[#09152B] dark:hover:text-white'
+                            }`}
+                          >
+                            <span>{tab.label}</span>
+                            <span className="text-[11px] font-jakarta tabular-nums opacity-75">
+                              ({tab.count})
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
 
-                    {/* Currency Filter Tabs — ONLY rendered if customer has transactions in multiple currencies */}
+                    {/* Currency Filter Tabs */}
                     {currencyBreakdown.activeCurrencies.length > 1 && (
-                      <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-700/80 p-1 rounded-xl">
+                      <div
+                        role="tablist"
+                        aria-label="تصفية حسب العملة"
+                        className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700 overflow-x-auto max-w-full"
+                      >
                         <button
                           type="button"
+                          role="tab"
+                          aria-selected={selectedCurrencyTab === 'all'}
                           onClick={() => setSelectedCurrencyTab('all')}
-                          className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          className={`flex-none px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer border ${
                             selectedCurrencyTab === 'all'
-                              ? 'bg-white dark:bg-slate-800 text-[#0c2444] dark:text-blue-400 shadow-xs'
-                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                              ? 'bg-white dark:bg-[#111827] text-[#09152B] dark:text-white border-slate-300 dark:border-slate-600 shadow-2xs'
+                              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-[#09152B] dark:hover:text-white'
                           }`}
                         >
                           كل العملات
                         </button>
-                        {currencyBreakdown.activeCurrencies.map((c) => (
-                          <button
-                            key={c.currency}
-                            type="button"
-                            onClick={() => setSelectedCurrencyTab(c.currency)}
-                            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                              selectedCurrencyTab === c.currency
-                                ? 'bg-white dark:bg-slate-800 text-[#0c2444] dark:text-blue-400 shadow-xs'
-                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                            }`}
-                          >
-                            <span>{c.config.symbol}</span>
-                            <span>{c.config.labelAr}</span>
-                          </button>
-                        ))}
+                        {currencyBreakdown.activeCurrencies.map((c) => {
+                          const isSelected = selectedCurrencyTab === c.currency;
+                          return (
+                            <button
+                              key={c.currency}
+                              type="button"
+                              role="tab"
+                              aria-selected={isSelected}
+                              onClick={() => setSelectedCurrencyTab(c.currency)}
+                              className={`flex-none px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer border ${
+                                isSelected
+                                  ? 'bg-white dark:bg-[#111827] text-[#09152B] dark:text-white border-slate-300 dark:border-slate-600 shadow-2xs'
+                                  : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-[#09152B] dark:hover:text-white'
+                              }`}
+                            >
+                              <span className="font-jakarta">{c.config.symbol}</span>
+                              <span>{c.config.labelAr}</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -1704,74 +1836,90 @@ export const CustomerDetailsScreen: FC = () => {
 
                 {/* Timeline Items */}
                 {isLoadingProfile ? (
-                  <div className="space-y-6">
+                  <div className="space-y-4">
                     {[1, 2, 3].map((i) => (
-                      <div key={i} className="flex items-start gap-4 sm:gap-5 animate-pulse">
-                        <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-700 flex-shrink-0" />
-                        <div className="flex-1 rounded-2xl h-28 bg-slate-200 dark:bg-slate-700" />
+                      <div key={i} className="flex items-start gap-4">
+                        <div className="w-10 h-10 rounded-lg bg-slate-200 dark:bg-slate-800 shrink-0" />
+                        <div className="flex-1 rounded-xl h-24 bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800" />
                       </div>
                     ))}
                   </div>
                 ) : filteredActivities.length === 0 ? (
-                  <div className="py-12 text-center text-slate-400 space-y-2">
-                    <FileText className="w-10 h-10 mx-auto text-slate-300 stroke-[1.5]" />
-                    <p className="text-sm font-semibold">لا توجد معاملات مسجلة لهذا العميل حتى الآن</p>
+                  <div className="py-12 text-center text-slate-500 dark:text-slate-400 space-y-2">
+                    <FileText className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 stroke-[1.5]" />
+                    <p className="text-sm font-semibold">
+                      {activities.length > 0
+                        ? 'لا توجد معاملات تطابق خيارات التصفية أو البحث الحالية.'
+                        : 'لا توجد معاملات مسجلة لهذا العميل حتى الآن.'}
+                    </p>
                   </div>
                 ) : (
-                  <div className="relative space-y-6 before:absolute before:top-4 before:bottom-4 before:right-5 before:w-0.5 before:bg-slate-100 dark:bg-slate-700">
+                  <div className="relative space-y-4 before:absolute before:top-4 before:bottom-4 before:right-5 before:w-px before:bg-slate-200 dark:before:bg-slate-800">
                     {filteredActivities.map((act) => (
-                      <div key={act.id} className="relative flex items-start gap-4 sm:gap-5">
-
+                      <div key={act.id} className="relative flex items-start gap-3.5 sm:gap-4">
                         {/* Timeline Icon Node */}
                         <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 z-10 shadow-2xs ${act.iconBg}`}
+                          className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 z-10 border border-white dark:border-[#111827] ${act.iconBg}`}
                         >
-                          {act.type === 'debt' && <Plus className="w-5 h-5 stroke-[2.5]" />}
-                          {act.type === 'payment' && <Check className="w-5 h-5 stroke-[2.5]" />}
-                          {act.type === 'alert' && <AlertTriangle className="w-5 h-5 text-slate-600 dark:text-slate-400" />}
+                          {act.type === 'debt' && <Plus className="w-4.5 h-4.5 stroke-[2.5]" />}
+                          {act.type === 'payment' && <Check className="w-4.5 h-4.5 stroke-[2.5]" />}
+                          {act.type === 'alert' && (
+                            <AlertTriangle className="w-4.5 h-4.5 text-slate-600 dark:text-slate-400" />
+                          )}
                         </div>
 
                         {/* Content Card */}
                         <div
-                          className={`flex-1 rounded-2xl p-4 sm:p-5 transition-all ${act.type === 'alert'
-                            ? 'bg-[#f8fafc] dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-700'
-                            : 'bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-2xs hover:shadow-xs'
-                            }`}
+                          className={`flex-1 rounded-xl p-4 transition-colors ${
+                            act.type === 'alert'
+                              ? 'bg-slate-50 dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-700'
+                              : 'bg-white dark:bg-[#0F172A]/60 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                          }`}
                         >
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                            <div className="flex items-center gap-2.5 flex-wrap">
-                              <span className="font-bold text-[#0c2444] dark:text-blue-400 text-sm sm:text-base font-cairo">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-[#09152B] dark:text-white text-sm sm:text-base font-cairo">
                                 {act.title}
                               </span>
                               {act.badgeText && (
                                 <span
-                                  className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold ${act.badgeStyle}`}
+                                  className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${act.badgeStyle}`}
                                 >
                                   {act.badgeText}
                                 </span>
                               )}
                             </div>
 
-                            {/* Amount + Row Actions (Delete / Edit / Register Payment) */}
-                            <div className="flex items-center gap-3">
+                            {/* Amount + Row Actions */}
+                            <div className="flex items-center gap-3 flex-wrap justify-between sm:justify-end">
                               {act.amount && (
                                 <div className="text-left" dir="ltr">
                                   <div className="flex items-center gap-1.5 justify-end">
-                                    <span className={`text-base sm:text-lg font-extrabold font-cairo ${act.amountColor}`}>
-                                      {act.type === 'debt' ? '+' : '-'}{act.rawAmount.toFixed(2)}
+                                    <span
+                                      className={`text-base sm:text-lg font-extrabold font-jakarta tabular-nums ${act.amountColor}`}
+                                    >
+                                      {act.type === 'debt' ? '+' : '-'}
+                                      {act.rawAmount.toFixed(2)}
                                     </span>
-                                    <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold font-mono ${getCurrencyBadgeClasses(act.currencyCode)}`}>
+                                    <span
+                                      className={`px-2 py-0.5 rounded-md text-[11px] font-bold font-jakarta ${getCurrencyBadgeClasses(
+                                        act.currencyCode
+                                      )}`}
+                                    >
                                       {getCurrencyConfig(act.currencyCode).symbol} {act.currencyCode}
                                     </span>
                                   </div>
-                                  <span className="text-[10px] text-slate-400 block font-cairo mt-0.5 text-right" dir="rtl">
+                                  <span
+                                    className="text-[10px] text-slate-500 dark:text-slate-400 block font-cairo mt-0.5 text-right"
+                                    dir="rtl"
+                                  >
                                     {getCurrencyConfig(act.currencyCode).labelArFull}
                                   </span>
                                 </div>
                               )}
 
                               {act.type !== 'alert' && (
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1.5 print:hidden">
                                   {act.type === 'debt' && (
                                     <button
                                       type="button"
@@ -1787,9 +1935,9 @@ export const CustomerDetailsScreen: FC = () => {
                                           },
                                         });
                                       }}
-                                      aria-label="تسجيل دفعة لهذا الدين"
+                                      aria-label={`تسجيل دفعة لـ ${act.title}`}
                                       title="تسجيل دفعة لهذا الدين"
-                                      className="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 flex items-center justify-center transition-colors cursor-pointer"
+                                      className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center transition-colors cursor-pointer"
                                     >
                                       <CreditCard className="w-3.5 h-3.5" />
                                     </button>
@@ -1798,30 +1946,35 @@ export const CustomerDetailsScreen: FC = () => {
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        navigate(`/debts/${act.recordId || act.reference || 'UNKNOWN'}/invoice`, {
-                                          state: {
-                                            debt: {
-                                              id: String(act.recordId),
-                                              invoiceId: act.invoiceId || undefined,
-                                              invoiceNumber: `INV-DEBT-${act.reference || act.recordId || 'UNKNOWN'}`,
-                                              customerId: customer.id,
-                                              customerName: customer.name,
-                                              customerNationalId: customer.nationalOrCrId,
-                                              customerPhone: customer.phone,
-                                              customerRegistrationDate: customer.registrationDate,
-                                              fileOpenDate: customer.registrationDate,
-                                              invoiceAmount: act.rawAmount,
-                                              issueDate: act.date,
-                                              dueDate: act.dueDate,
-                                              currency: act.currencyCode,
-                                              notes: act.description,
+                                        navigate(
+                                          `/debts/${act.recordId || act.reference || 'UNKNOWN'}/invoice`,
+                                          {
+                                            state: {
+                                              debt: {
+                                                id: String(act.recordId),
+                                                invoiceId: act.invoiceId || undefined,
+                                                invoiceNumber: `INV-DEBT-${
+                                                  act.reference || act.recordId || 'UNKNOWN'
+                                                }`,
+                                                customerId: customer.id,
+                                                customerName: customer.name,
+                                                customerNationalId: customer.nationalOrCrId,
+                                                customerPhone: customer.phone,
+                                                customerRegistrationDate: customer.registrationDate,
+                                                fileOpenDate: customer.registrationDate,
+                                                invoiceAmount: act.rawAmount,
+                                                issueDate: act.date,
+                                                dueDate: act.dueDate,
+                                                currency: act.currencyCode,
+                                                notes: act.description,
+                                              },
                                             },
-                                          },
-                                        });
+                                          }
+                                        );
                                       }}
-                                      aria-label="عرض سند إثبات الدين"
+                                      aria-label={`عرض سند إثبات الدين ${act.title}`}
                                       title="عرض سند إثبات الدين"
-                                      className="w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 flex items-center justify-center transition-colors cursor-pointer"
+                                      className="w-8 h-8 rounded-lg bg-sky-50 dark:bg-sky-950/50 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-800 flex items-center justify-center transition-colors cursor-pointer"
                                     >
                                       <FileText className="w-3.5 h-3.5" />
                                     </button>
@@ -1830,48 +1983,55 @@ export const CustomerDetailsScreen: FC = () => {
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        navigate(`/payments/${act.recordId || act.reference || '4821'}/receipt`, {
-                                          state: {
-                                            payment: {
-                                              id: String(act.recordId),
-                                              invoiceId: act.invoiceId || undefined,
-                                              customerId: customer.id,
-                                              receiptNumber: act.reference,
-                                              customerName: customer.name,
-                                              phone: customer.phone,
-                                              nationalId: customer.nationalOrCrId,
-                                              amount: act.rawAmount,
-                                              date: act.date,
-                                              method: act.rawPaymentMethod || 'نقداً',
-                                              remainingDebt: customer.totalDebt,
-                                              previousDebt: (customer.totalDebt ?? 0) + (act.rawAmount ?? 0),
-                                              currency: act.currencyCode,
+                                        navigate(
+                                          `/payments/${act.recordId || act.reference || '4821'}/receipt`,
+                                          {
+                                            state: {
+                                              payment: {
+                                                id: String(act.recordId),
+                                                invoiceId: act.invoiceId || undefined,
+                                                customerId: customer.id,
+                                                receiptNumber: act.reference,
+                                                customerName: customer.name,
+                                                phone: customer.phone,
+                                                nationalId: customer.nationalOrCrId,
+                                                amount: act.rawAmount,
+                                                date: act.date,
+                                                method: act.rawPaymentMethod || 'نقداً',
+                                                remainingDebt: customer.totalDebt,
+                                                previousDebt:
+                                                  (customer.totalDebt ?? 0) + (act.rawAmount ?? 0),
+                                                currency: act.currencyCode,
+                                              },
                                             },
-                                          },
-                                        });
+                                          }
+                                        );
                                       }}
-                                      aria-label="عرض سند القبض"
+                                      aria-label={`عرض سند القبض ${act.title}`}
                                       title="عرض سند القبض"
-                                      className="w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 flex items-center justify-center transition-colors cursor-pointer"
+                                      className="w-8 h-8 rounded-lg bg-sky-50 dark:bg-sky-950/50 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-800 flex items-center justify-center transition-colors cursor-pointer"
                                     >
                                       <FileText className="w-3.5 h-3.5" />
                                     </button>
                                   )}
                                   <button
                                     type="button"
-                                    onClick={() => setActivityPendingDelete(act)}
-                                    aria-label="حذف العملية"
+                                    onClick={() => {
+                                      setActivityDeleteError(null);
+                                      setActivityPendingDelete(act);
+                                    }}
+                                    aria-label={`حذف ${act.title}`}
                                     title="حذف"
-                                    className="w-8 h-8 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-500 flex items-center justify-center transition-colors cursor-pointer"
+                                    className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800 flex items-center justify-center transition-colors cursor-pointer"
                                   >
-                                    <Trash2 className="w-4 h-4" />
+                                    <Trash2 className="w-3.5 h-3.5" />
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => handleEditActivityClick(act)}
-                                    aria-label="تعديل العملية"
+                                    aria-label={`تعديل ${act.title}`}
                                     title="تعديل"
-                                    className="w-8 h-8 rounded-lg bg-[#0c2444] hover:bg-[#123663] text-white flex items-center justify-center transition-colors cursor-pointer"
+                                    className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-[#09152B] hover:text-white dark:hover:bg-blue-600 text-[#09152B] dark:text-slate-200 border border-slate-300 dark:border-slate-700 flex items-center justify-center transition-colors cursor-pointer"
                                   >
                                     <Pencil className="w-3.5 h-3.5" />
                                   </button>
@@ -1883,10 +2043,11 @@ export const CustomerDetailsScreen: FC = () => {
                           {/* Description & Items Display */}
                           {act.description && (
                             <div className="mt-2.5">
-                              {act.description.includes(' | ') || (act.type === 'debt' && /×\s*\d+/.test(act.description)) ? (
-                                <div className="p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-900/40 border border-slate-200/70 dark:border-slate-700/60 space-y-2">
-                                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
-                                    <Package className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                              {act.description.includes(' | ') ||
+                              (act.type === 'debt' && /×\s*\d+/.test(act.description)) ? (
+                                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-2">
+                                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#09152B] dark:text-slate-200">
+                                    <Package className="w-3.5 h-3.5 text-sky-700 dark:text-sky-400" />
                                     <span>الأصناف المشتراة في الفاتورة:</span>
                                   </div>
                                   <div className="flex flex-wrap gap-1.5">
@@ -1895,18 +2056,20 @@ export const CustomerDetailsScreen: FC = () => {
                                       .map((item) => item.trim())
                                       .filter(Boolean)
                                       .map((item, idx) => {
-                                        const match = item.match(/^(.*?)\s*[×xX*]\s*(\d+(?:\.\d+)?)$/);
+                                        const match = item.match(
+                                          /^(.*?)\s*[×xX*]\s*(\d+(?:\.\d+)?)$/
+                                        );
                                         const name = match ? match[1].trim() : item;
                                         const qty = match ? match[2] : null;
 
                                         return (
                                           <span
                                             key={idx}
-                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-2xs"
+                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-[#09152B] dark:text-slate-200 border border-slate-200 dark:border-slate-700"
                                           >
                                             <span>{name}</span>
                                             {qty && (
-                                              <span className="px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-mono font-bold text-[11px]">
+                                              <span className="px-1.5 py-0.5 rounded bg-sky-50 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 font-jakarta tabular-nums font-bold text-[11px]">
                                                 × {qty}
                                               </span>
                                             )}
@@ -1924,199 +2087,266 @@ export const CustomerDetailsScreen: FC = () => {
                           )}
 
                           {/* Date & Running Balance & Due Date */}
-                          <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
-                            <div className="flex items-center gap-3.5 flex-wrap">
-                              <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono">
+                          <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-3 flex-wrap">
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-jakarta tabular-nums">
                                 <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                                <span>{act.date}</span>
+                                <span dir="ltr">{act.date}</span>
                               </div>
                               {act.dueDate && (
-                                <div className="flex items-center gap-1.5 text-[11px] text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200/60 font-cairo font-semibold">
-                                  <Clock className="w-3 h-3 text-amber-600" />
-                                  <span>تاريخ الاستحقاق: {act.dueDate}</span>
+                                <div className="flex items-center gap-1.5 text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800 font-semibold">
+                                  <Clock className="w-3 h-3 text-amber-700 dark:text-amber-400" />
+                                  <span>تاريخ الاستحقاق:</span>
+                                  <span className="font-jakarta tabular-nums" dir="ltr">
+                                    {act.dueDate}
+                                  </span>
                                 </div>
                               )}
                             </div>
                             {act.balanceLabel && (
-                              <span className="text-[11px] text-slate-400 font-mono" dir="ltr">
-                                الرصيد بعد العملية: {act.balanceLabel}
+                              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                                الرصيد بعد العملية:{' '}
+                                <span
+                                  className="font-jakarta tabular-nums font-bold text-[#09152B] dark:text-slate-200"
+                                  dir="ltr"
+                                >
+                                  {act.balanceLabel}
+                                </span>
                               </span>
                             )}
                           </div>
                         </div>
-
                       </div>
                     ))}
                   </div>
                 )}
 
                 {/* Footer Note */}
-                <div className="pt-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-center gap-2 text-xs text-slate-400 print:hidden">
+                <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400 print:hidden">
                   <Clock className="w-4 h-4" />
                   <span>يتم تحديث السجل تلقائياً عند كل عملية إضافة أو سداد موثقة.</span>
                 </div>
-
               </div>
 
-              {/* Total Current Debt Banner (Dark Navy Banner) */}
-              <div className="bg-[#0c2444] rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden print:rounded-2xl print:p-6 print:shadow-none print:break-inside-avoid">
-                {/* Ambient glow */}
-                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-
+              {/* Total Current Debt Banner (Precision Navy Ledger Summary) */}
+              <div className="bg-[#09152B] dark:bg-[#111827] border border-slate-800 rounded-xl p-6 text-white shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 print:rounded-xl print:p-6 print:shadow-none print:break-inside-avoid">
                 {/* Right: Total Debt Amount */}
-                <div className="text-right space-y-1 relative z-10">
+                <div className="text-right space-y-1.5">
                   <span className="text-xs sm:text-sm font-semibold text-slate-300 block">
                     إجمالي المديونية الحالية
                   </span>
                   {isLoadingProfile ? (
-                    <div className="h-10 w-32 bg-blue-900/50 rounded-lg animate-pulse" />
+                    <div className="h-9 w-32 bg-slate-800 rounded-lg" />
                   ) : currencyBreakdown.activeCurrencies.length > 1 ? (
-                    <div className="flex items-center gap-3 flex-wrap mt-2">
+                    <div className="flex items-center gap-2.5 flex-wrap pt-1">
                       {currencyBreakdown.activeCurrencies.map((c) => (
                         <div
                           key={c.currency}
-                          className="px-3.5 py-1.5 rounded-xl bg-white/10 border border-white/15 backdrop-blur-xs flex items-baseline gap-1.5"
+                          dir="ltr"
+                          className="px-3.5 py-1.5 rounded-lg bg-white/10 border border-white/15 flex items-baseline gap-1.5"
                         >
-                          <span className="text-xl sm:text-2xl font-black font-cairo">
+                          <span className="text-xl sm:text-2xl font-extrabold font-jakarta tabular-nums">
                             {c.remaining.toFixed(2)}
                           </span>
-                          <span className="text-xs font-bold text-slate-300 font-mono">
+                          <span className="text-xs font-bold text-slate-300 font-jakarta">
                             {c.config.symbol} {c.currency}
                           </span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-3xl sm:text-5xl font-black font-cairo tracking-tight">
+                    <div className="flex items-baseline gap-2" dir="ltr">
+                      <span className="text-3xl sm:text-4xl font-extrabold font-jakarta tabular-nums tracking-tight">
                         {currentBalance.toFixed(2)}
                       </span>
-                      <span className="text-sm font-bold text-slate-400 font-cairo">
-                        {getCurrencyConfig(currencyBreakdown.activeCurrencies[0]?.currency || 'ILS').symbol}
+                      <span className="text-sm font-bold text-slate-300 font-jakarta">
+                        {getCurrencyConfig(primaryCurrency).symbol} {primaryCurrency}
                       </span>
                     </div>
                   )}
                 </div>
 
-                {/* Left: 2 Inset Cards */}
-                <div className="flex items-center gap-3 w-full md:w-auto relative z-10">
-                  {/* Last Payment Card */}
-                  <div className="flex-1 md:w-36 bg-white/5 border border-white/10 rounded-2xl p-3.5 text-center backdrop-blur-xs">
-                    <span className="text-[11px] text-slate-400 font-medium block mb-1">
+                {/* Left: 2 Inset Stat Cards */}
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                  <div className="flex-1 md:w-40 bg-white/5 border border-white/10 rounded-xl p-3.5 text-center">
+                    <span className="text-[11px] text-slate-300 font-medium block mb-1">
                       آخر دفعة
                     </span>
                     {isLoadingProfile ? (
-                      <div className="h-6 w-16 bg-blue-900/50 rounded-md animate-pulse mx-auto" />
+                      <span className="text-sm font-jakarta text-slate-400">—</span>
                     ) : (
-                      <span className="text-sm sm:text-base font-bold text-white font-cairo">
-                        {lastPayment ? formatCurrency(lastPayment.amount, lastPayment.currencyCode || 'ILS') : '0.00 ₪'}
+                      <span
+                        className="text-sm sm:text-base font-bold text-white font-jakarta tabular-nums block"
+                        dir="ltr"
+                      >
+                        {lastPayment
+                          ? formatCurrency(lastPayment.amount, lastPayment.currencyCode || 'ILS')
+                          : `0.00 ${getCurrencyConfig(primaryCurrency).symbol}`}
                       </span>
                     )}
                   </div>
 
-                  {/* Transaction Count Card */}
-                  <div className="flex-1 md:w-36 bg-white/5 border border-white/10 rounded-2xl p-3.5 text-center backdrop-blur-xs">
-                    <span className="text-[11px] text-slate-400 font-medium block mb-1">
+                  <div className="flex-1 md:w-36 bg-white/5 border border-white/10 rounded-xl p-3.5 text-center">
+                    <span className="text-[11px] text-slate-300 font-medium block mb-1">
                       عدد المعاملات
                     </span>
                     {isLoadingProfile ? (
-                      <div className="h-5 w-10 bg-blue-900/50 rounded-md animate-pulse mx-auto mt-1" />
+                      <span className="text-sm font-jakarta text-slate-400">—</span>
                     ) : (
-                      <span className="text-xs sm:text-sm font-bold text-white font-cairo block mt-1">
+                      <span className="text-sm sm:text-base font-bold text-white font-jakarta tabular-nums block">
                         {profileTransactions.length}
                       </span>
                     )}
                   </div>
                 </div>
-
               </div>
-
             </div>
-
           </div>
-
         </main>
       </div>
 
       {/* Edit Customer Modal */}
       {isEditModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in print:hidden"
-          dir="rtl"
+        <LedgerModal
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setIsSavingCustomer(false);
+            setSubmitError(null);
+            setFieldErrors({});
+          }}
+          isBusy={isSavingCustomer}
+          labelledBy="edit-customer-modal-title"
+          maxWidthClass="max-w-md"
+          closeOnBackdrop={false}
         >
-          <div className="bg-white dark:bg-slate-800 rounded-[12px] w-[450px] max-w-[calc(100vw-32px)] shadow-2xl overflow-hidden">
+          <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-300 dark:border-slate-700 shadow-xl overflow-hidden text-right">
             {/* Header */}
-            <div className="h-[68px] flex items-center justify-between px-6 border-b border-slate-200 dark:border-slate-700">
-              <h3 className="text-lg font-bold font-cairo text-[#0c2444] dark:text-blue-400">
+            <div className="px-5 py-4 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/60">
+              <h3
+                id="edit-customer-modal-title"
+                className="text-base sm:text-lg font-extrabold font-cairo text-[#09152B] dark:text-white"
+              >
                 تعديل بيانات العميل
               </h3>
               <button
                 type="button"
+                disabled={isSavingCustomer}
                 onClick={() => {
                   setIsEditModalOpen(false);
                   setIsSavingCustomer(false);
                   setSubmitError(null);
                   setFieldErrors({});
                 }}
-                className="text-slate-900 dark:text-white hover:opacity-60 transition-opacity cursor-pointer"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-400 hover:text-[#09152B] dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-50"
                 aria-label="إغلاق"
               >
-                <X className="w-5 h-5" strokeWidth={2} />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleUpdateCustomer}>
-              <div className="px-6 py-5 space-y-4">
+            <form onSubmit={handleUpdateCustomer} noValidate>
+              <div className="px-5 py-5 space-y-4">
                 {submitError && (
-                  <div className="rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-sm px-3.5 py-2.5 text-right">
-                    {submitError}
+                  <div
+                    role="alert"
+                    className="rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs sm:text-sm px-3.5 py-2.5 flex items-start gap-2"
+                  >
+                    <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                    <span>{submitError}</span>
                   </div>
                 )}
+
                 {/* Field 1: Customer Name */}
                 <div>
-                  <label className="block text-sm font-bold text-[#0c2444] dark:text-blue-400 mb-1.5">
-                    اسم العميل <span className="text-red-600">*</span>
+                  <label
+                    htmlFor="edit-full-name"
+                    className="block text-sm font-bold text-[#09152B] dark:text-slate-200 mb-1.5"
+                  >
+                    اسم العميل <span className="text-rose-600">*</span>
                   </label>
                   <input
+                    id="edit-full-name"
                     type="text"
+                    autoFocus
                     value={editForm.fullName}
-                    onChange={(e) => setEditForm((p) => ({ ...p, fullName: e.target.value }))}
+                    onChange={(e) => {
+                      setEditForm((p) => ({ ...p, fullName: e.target.value }));
+                      setFieldErrors((p) => ({ ...p, fullName: undefined }));
+                      setSubmitError(null);
+                    }}
+                    aria-invalid={Boolean(fieldErrors.fullName)}
+                    aria-describedby={fieldErrors.fullName ? 'edit-full-name-error' : undefined}
                     dir="rtl"
-                    className={`w-full h-[38px] bg-white dark:bg-slate-800 border rounded-lg px-3.5 text-sm text-right text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none focus:border-[#123663] transition-colors ${fieldErrors.fullName ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'
-                      }`}
+                    className={`w-full h-10 bg-white dark:bg-slate-900 border rounded-lg px-3.5 text-sm text-right text-[#09152B] dark:text-slate-100 placeholder-slate-400 outline-none transition-colors ${
+                      fieldErrors.fullName
+                        ? 'border-rose-400 focus:border-rose-600'
+                        : 'border-slate-300 dark:border-slate-700 focus:border-[#09152B] dark:focus:border-blue-500'
+                    }`}
                   />
                   {fieldErrors.fullName && (
-                    <p className="mt-1 text-xs text-rose-600">{fieldErrors.fullName}</p>
+                    <p
+                      id="edit-full-name-error"
+                      role="alert"
+                      className="mt-1 text-xs font-medium text-rose-700 dark:text-rose-400"
+                    >
+                      {fieldErrors.fullName}
+                    </p>
                   )}
                 </div>
 
-                {/* Field 2: National ID / CR Number (display only — not sent to the API) */}
+                {/* Field 2: National ID */}
                 <div>
-                  <label className="block text-sm font-bold text-[#0c2444] dark:text-blue-400 mb-1.5">
-                    رقم الهوية الوطنية <span className="text-red-600">*</span>
+                  <label
+                    htmlFor="edit-national-id"
+                    className="block text-sm font-bold text-[#09152B] dark:text-slate-200 mb-1.5"
+                  >
+                    رقم الهوية الوطنية <span className="text-rose-600">*</span>
                   </label>
                   <input
+                    id="edit-national-id"
                     type="text"
+                    inputMode="numeric"
+                    maxLength={9}
                     value={editForm.nationalOrCrId}
-                    onChange={(e) =>
-                      setEditForm((p) => ({ ...p, nationalOrCrId: e.target.value }))
+                    onChange={(e) => {
+                      setEditForm((p) => ({
+                        ...p,
+                        nationalOrCrId: e.target.value.replace(/\D/g, '').slice(0, 9),
+                      }));
+                      setFieldErrors((p) => ({ ...p, nationalOrCrId: undefined }));
+                      setSubmitError(null);
+                    }}
+                    aria-invalid={Boolean(fieldErrors.nationalOrCrId)}
+                    aria-describedby={
+                      fieldErrors.nationalOrCrId ? 'edit-national-id-error' : undefined
                     }
-                    dir="rtl"
-                    className={`w-full h-[38px] bg-white dark:bg-slate-800 border rounded-lg px-3.5 text-sm text-right text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none focus:border-[#123663] transition-colors ${fieldErrors.nationalOrCrId ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'
-                      }`}
+                    dir="ltr"
+                    className={`w-full h-10 bg-white dark:bg-slate-900 border rounded-lg px-3.5 text-sm text-right font-jakarta tabular-nums text-[#09152B] dark:text-slate-100 placeholder-slate-400 outline-none transition-colors ${
+                      fieldErrors.nationalOrCrId
+                        ? 'border-rose-400 focus:border-rose-600'
+                        : 'border-slate-300 dark:border-slate-700 focus:border-[#09152B] dark:focus:border-blue-500'
+                    }`}
                   />
                   {fieldErrors.nationalOrCrId && (
-                    <p className="mt-1 text-xs text-rose-600">{fieldErrors.nationalOrCrId}</p>
+                    <p
+                      id="edit-national-id-error"
+                      role="alert"
+                      className="mt-1 text-xs font-medium text-rose-700 dark:text-rose-400"
+                    >
+                      {fieldErrors.nationalOrCrId}
+                    </p>
                   )}
                 </div>
 
                 {/* Field 3: Mobile Number with Country Code */}
                 <div>
                   <PhoneInputWithCountry
+                    id="edit-customer-phone"
                     countryCode={editForm.countryCode}
                     localNumber={editForm.phoneNumber}
                     onCountryCodeChange={(code) => {
                       setEditForm((p) => ({ ...p, countryCode: code }));
+                      setSubmitError(null);
                     }}
                     onLocalNumberChange={(localNumber) => {
                       setEditForm((p) => ({ ...p, phoneNumber: localNumber }));
@@ -2127,264 +2357,326 @@ export const CustomerDetailsScreen: FC = () => {
                   />
                 </div>
 
-                {/* Field 4: Debt Balance — read-only, not sent to the API */}
+                {/* Field 4: Debt Balance — read-only */}
                 <div>
-                  <label className="block text-sm font-bold text-[#0c2444] dark:text-blue-400 mb-1.5">
-                    رصيد المديونية (شيكل) <span className="font-normal text-slate-400">(اختياري)</span>
+                  <label
+                    htmlFor="edit-balance-readonly"
+                    className="block text-sm font-bold text-[#09152B] dark:text-slate-200 mb-1.5"
+                  >
+                    رصيد المديونية الحالي ({getCurrencyConfig(primaryCurrency).labelAr}){' '}
+                    <span className="font-normal text-xs text-slate-500 dark:text-slate-400">
+                      (للقراءة فقط)
+                    </span>
                   </label>
                   <div className="relative flex items-center">
-                    <span className="absolute left-3.5 text-sm font-semibold text-slate-400 pointer-events-none">
-                      ILS
+                    <span className="absolute left-3.5 text-xs font-bold font-jakarta text-slate-500 pointer-events-none">
+                      {primaryCurrency}
                     </span>
                     <input
+                      id="edit-balance-readonly"
                       type="text"
-                      value={customer.totalDebt.toFixed(2)}
+                      value={currentBalance.toFixed(2)}
                       disabled
                       readOnly
-                      dir="rtl"
-                      className="w-full h-[38px] bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg pr-3.5 pl-12 text-sm text-right text-slate-500 dark:text-slate-400 outline-none cursor-not-allowed"
+                      dir="ltr"
+                      className="w-full h-10 bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg pr-3.5 pl-14 text-sm text-right font-jakarta tabular-nums text-slate-600 dark:text-slate-400 outline-none cursor-not-allowed"
                     />
                   </div>
-                  <p className="mt-1.5 text-xs text-slate-400">القيمة الحالية للمديونية.</p>
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
+              <div className="px-5 py-3.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/60 flex items-center justify-between gap-3">
                 <button
                   type="button"
+                  disabled={isSavingCustomer}
                   onClick={() => {
                     setIsEditModalOpen(false);
                     setIsSavingCustomer(false);
                     setSubmitError(null);
                     setFieldErrors({});
                   }}
-                  className="h-9 px-4 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 transition-colors cursor-pointer"
+                  className="h-9 px-4 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
                   disabled={isSavingCustomer}
-                  className="h-9 px-5 rounded-lg bg-[#007a3d] hover:bg-[#006633] text-white text-sm font-bold shadow-sm transition-colors cursor-pointer disabled:opacity-70 flex items-center gap-2"
+                  className="h-9 px-5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-60 flex items-center gap-2"
                 >
                   {isSavingCustomer ? (
                     <>
-                      <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                      <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                       <span>جاري التحديث...</span>
                     </>
                   ) : (
-                    <span>تحديث البيانات</span>
+                    <span>حفظ التعديلات</span>
                   )}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </LedgerModal>
       )}
 
       {/* Delete Customer Confirmation Modal */}
       {isDeleteModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs transition-opacity duration-200 print:hidden"
-          dir="rtl"
-          onClick={() => !isDeletingCustomer && setIsDeleteModalOpen(false)}
-          aria-modal="true"
-          role="dialog"
+        <LedgerModal
+          onClose={() => {
+            setIsDeleteModalOpen(false);
+            setDeleteError(null);
+          }}
+          isBusy={isDeletingCustomer}
+          labelledBy="delete-customer-modal-title"
+          maxWidthClass="max-w-sm"
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 dark:border-slate-700 text-center transform transition-all duration-200 scale-100 animate-in fade-in zoom-in-95"
-          >
-            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 shadow-xs">
-              <Trash2 className="w-7 h-7" />
+          <div className="w-full bg-white dark:bg-[#111827] rounded-2xl p-6 shadow-xl border border-slate-300 dark:border-slate-700 text-center">
+            <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 flex items-center justify-center text-rose-600 dark:text-rose-400">
+              <Trash2 className="w-6 h-6" />
             </div>
 
-            <h3 className="text-xl font-bold font-cairo text-slate-900 dark:text-white mb-2">
+            <h3
+              id="delete-customer-modal-title"
+              className="text-lg font-extrabold font-cairo text-[#09152B] dark:text-white mb-2"
+            >
               حذف العميل
             </h3>
 
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6 font-cairo">
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-5 font-cairo">
               هل أنت متأكد من حذف {customer.name || 'هذا العميل'}؟ لا يمكن التراجع عن هذا الإجراء.
             </p>
 
             {deleteError && (
-              <div className="mb-4 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs sm:text-sm px-3.5 py-2.5 text-right">
+              <div
+                role="alert"
+                className="mb-4 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs px-3 py-2 text-right"
+              >
                 {deleteError}
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 disabled={isDeletingCustomer}
                 onClick={handleDeleteCustomer}
-                className="w-full py-2.5 px-4 rounded-xl text-sm font-bold bg-[#fecaca] hover:bg-[#fca5a5] text-[#b91c1c] transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-50"
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors cursor-pointer disabled:opacity-50"
               >
                 {isDeletingCustomer ? 'جاري الحذف...' : 'حذف العميل'}
               </button>
 
               <button
                 type="button"
+                autoFocus
                 disabled={isDeletingCustomer}
-                onClick={() => setIsDeleteModalOpen(false)}
-                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-50"
+                onClick={() => {
+                  setIsDeleteModalOpen(false);
+                  setDeleteError(null);
+                }}
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer disabled:opacity-50"
               >
                 إلغاء
               </button>
             </div>
           </div>
-        </div>
+        </LedgerModal>
       )}
 
       {/* Delete Activity (Debt/Payment) Confirmation Modal */}
       {activityPendingDelete && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs transition-opacity duration-200"
-          dir="rtl"
-          onClick={() => !isDeletingActivity && setActivityPendingDelete(null)}
-          aria-modal="true"
-          role="dialog"
+        <LedgerModal
+          onClose={() => {
+            setActivityPendingDelete(null);
+            setActivityDeleteError(null);
+          }}
+          isBusy={isDeletingActivity}
+          labelledBy="delete-activity-modal-title"
+          maxWidthClass="max-w-sm"
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 dark:border-slate-700 text-center transform transition-all duration-200 scale-100 animate-in fade-in zoom-in-95"
-          >
-            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 shadow-xs">
-              <Trash2 className="w-7 h-7" />
+          <div className="w-full bg-white dark:bg-[#111827] rounded-2xl p-6 shadow-xl border border-slate-300 dark:border-slate-700 text-center">
+            <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 flex items-center justify-center text-rose-600 dark:text-rose-400">
+              <Trash2 className="w-6 h-6" />
             </div>
 
-            <h3 className="text-xl font-bold font-cairo text-slate-900 dark:text-white mb-2">
+            <h3
+              id="delete-activity-modal-title"
+              className="text-lg font-extrabold font-cairo text-[#09152B] dark:text-white mb-2"
+            >
               {activityPendingDelete.type === 'debt' ? 'حذف الدين' : 'حذف الدفعة'}
             </h3>
 
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6 font-cairo">
-              هل أنت متأكد من حذف "{activityPendingDelete.title}"؟ لا يمكن التراجع عن هذا الإجراء.
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-5 font-cairo">
+              هل أنت متأكد من حذف &quot;{activityPendingDelete.title}&quot;؟ لا يمكن التراجع عن هذا
+              الإجراء.
             </p>
 
-            <div className="grid grid-cols-2 gap-3">
+            {activityDeleteError && (
+              <div
+                role="alert"
+                className="mb-4 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs px-3 py-2 text-right"
+              >
+                {activityDeleteError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={confirmDeleteActivity}
                 disabled={isDeletingActivity}
-                className="w-full py-2.5 px-4 rounded-xl text-sm font-bold bg-[#fecaca] hover:bg-[#fca5a5] text-[#b91c1c] transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {isDeletingActivity ? 'جارٍ الحذف...' : 'حذف'}
+                {isDeletingActivity ? 'جارٍ الحذف...' : 'تأكيد الحذف'}
               </button>
 
               <button
                 type="button"
-                onClick={() => setActivityPendingDelete(null)}
+                autoFocus
+                onClick={() => {
+                  setActivityPendingDelete(null);
+                  setActivityDeleteError(null);
+                }}
                 disabled={isDeletingActivity}
-                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 إلغاء
               </button>
             </div>
           </div>
-        </div>
+        </LedgerModal>
       )}
 
-      {/* Hard-Delete Debt Confirmation Modal — shown when the backend
-          reports the debt has associated payments (DELETE /api/Debt/{id}
-          responded 400 with requiresConfirmation=true) and deleting it
-          means deleting every linked payment too. */}
+      {/* Hard-Delete Debt Confirmation Modal */}
       {debtPendingHardDelete && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs transition-opacity duration-200"
-          dir="rtl"
-          onClick={() => !isDeletingActivity && setDebtPendingHardDelete(null)}
-          aria-modal="true"
-          role="dialog"
+        <LedgerModal
+          onClose={() => {
+            setDebtPendingHardDelete(null);
+            setActivityDeleteError(null);
+          }}
+          isBusy={isDeletingActivity}
+          labelledBy="hard-delete-debt-modal-title"
+          maxWidthClass="max-w-sm"
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 dark:border-slate-700 text-center transform transition-all duration-200 scale-100 animate-in fade-in zoom-in-95"
-          >
-            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 shadow-xs">
-              <AlertTriangle className="w-7 h-7" />
+          <div className="w-full bg-white dark:bg-[#111827] rounded-2xl p-6 shadow-xl border border-slate-300 dark:border-slate-700 text-center">
+            <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 flex items-center justify-center text-rose-600 dark:text-rose-400">
+              <AlertTriangle className="w-6 h-6" />
             </div>
 
-            <h3 className="text-xl font-bold font-cairo text-slate-900 dark:text-white mb-2">
+            <h3
+              id="hard-delete-debt-modal-title"
+              className="text-lg font-extrabold font-cairo text-[#09152B] dark:text-white mb-2"
+            >
               هذا الدين مرتبط بدفعات
             </h3>
 
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6 font-cairo">
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-5 font-cairo">
               يحتوي هذا الدين على{' '}
               {debtPendingHardDelete.paymentsCount > 0
                 ? `${debtPendingHardDelete.paymentsCount} دفعة/دفعات مرتبطة به`
                 : 'دفعات مرتبطة به'}
               . حذف الدين سيؤدي أيضاً إلى حذف جميع الدفعات المرتبطة به، ولا يمكن التراجع عن هذا
-              الإجراء. هل أنت متأكد من المتابعة؟
+              الإجراء.
             </p>
 
-            <div className="grid grid-cols-2 gap-3">
+            {activityDeleteError && (
+              <div
+                role="alert"
+                className="mb-4 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs px-3 py-2 text-right"
+              >
+                {activityDeleteError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={confirmHardDeleteDebt}
                 disabled={isDeletingActivity}
-                className="w-full py-2.5 px-4 rounded-xl text-sm font-bold bg-[#fecaca] hover:bg-[#fca5a5] text-[#b91c1c] transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {isDeletingActivity ? 'جارٍ الحذف...' : 'حذف الدين والدفعات'}
               </button>
 
               <button
                 type="button"
-                onClick={() => setDebtPendingHardDelete(null)}
+                autoFocus
+                onClick={() => {
+                  setDebtPendingHardDelete(null);
+                  setActivityDeleteError(null);
+                }}
                 disabled={isDeletingActivity}
-                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 إلغاء
               </button>
             </div>
           </div>
-        </div>
+        </LedgerModal>
       )}
 
       {/* Telegram Unlink Confirmation Modal */}
       {showUnlinkConfirm && (
-        <div 
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200"
-          aria-modal="true"
-          role="dialog"
+        <LedgerModal
+          onClose={() => {
+            setShowUnlinkConfirm(false);
+            setUnlinkError(null);
+          }}
+          isBusy={isUnlinkingTelegram}
+          labelledBy="unlink-telegram-modal-title"
+          maxWidthClass="max-w-sm"
         >
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 dark:border-slate-700 text-center transform transition-all duration-200 scale-100 animate-in fade-in zoom-in-95"
-          >
-            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 shadow-xs">
-              <Trash2 className="w-7 h-7" />
+          <div className="w-full bg-white dark:bg-[#111827] rounded-2xl p-6 shadow-xl border border-slate-300 dark:border-slate-700 text-center">
+            <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 flex items-center justify-center text-rose-600 dark:text-rose-400">
+              <Trash2 className="w-6 h-6" />
             </div>
 
-            <h3 className="text-xl font-bold font-cairo text-slate-900 dark:text-white mb-2">
-              إلغاء ربط Telegram
+            <h3
+              id="unlink-telegram-modal-title"
+              className="text-lg font-extrabold font-cairo text-[#09152B] dark:text-white mb-2"
+            >
+              إلغاء ربط تيليجرام
             </h3>
 
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6 font-cairo">
-              هل أنت متأكد من فك ربط حساب Telegram لهذا العميل؟ سيتم إيقاف كشوفات الحساب وتنبيهات الديون عبر حسابه الحالي.
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-5 font-cairo">
+              هل أنت متأكد من فك ربط حساب تيليجرام لهذا العميل؟ سيتم إيقاف كشوفات الحساب وتنبيهات
+              الديون عبر حسابه الحالي.
             </p>
 
-            <div className="grid grid-cols-2 gap-3">
+            {unlinkError && (
+              <div
+                role="alert"
+                className="mb-4 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs px-3 py-2 text-right"
+              >
+                {unlinkError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={confirmUnlinkTelegram}
                 disabled={isUnlinkingTelegram}
-                className="w-full py-2.5 px-4 rounded-xl text-sm font-bold bg-[#fecaca] hover:bg-[#fca5a5] text-[#b91c1c] transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {isUnlinkingTelegram ? 'جارٍ الإلغاء...' : 'نعم، إلغاء الربط'}
               </button>
 
               <button
                 type="button"
-                onClick={() => setShowUnlinkConfirm(false)}
+                autoFocus
+                onClick={() => {
+                  setShowUnlinkConfirm(false);
+                  setUnlinkError(null);
+                }}
                 disabled={isUnlinkingTelegram}
-                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 تراجع
               </button>
             </div>
           </div>
-        </div>
+        </LedgerModal>
       )}
 
       {/* Telegram Link Modal */}
