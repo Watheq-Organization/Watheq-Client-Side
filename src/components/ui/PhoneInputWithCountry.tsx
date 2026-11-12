@@ -15,7 +15,7 @@ export interface PhoneInputWithCountryProps {
   id?: string;
 }
 
-export const COUNTRIES: { code: CountryCode; name: string; prefix: string; flag: string }[] = [
+const COUNTRIES: { code: CountryCode; name: string; prefix: string; flag: string }[] = [
   { code: '970', name: 'فلسطين', prefix: '+970', flag: '🇵🇸' },
   { code: '972', name: 'إسرائيل', prefix: '+972', flag: '🇮🇱' },
 ];
@@ -27,7 +27,7 @@ export const COUNTRIES: { code: CountryCode; name: string; prefix: string; flag:
  * - Automatically removes leading '0' (e.g., '059...' becomes '59...').
  * - Truncates to at most 9 digits.
  */
-export function sanitizePhoneInput(
+function sanitizePhoneInput(
   rawInput: string
 ): { localNumber: string; detectedCountryCode?: CountryCode } {
   let cleaned = rawInput.replace(/\D/g, '');
@@ -63,6 +63,9 @@ export const PhoneInputWithCountry: FC<PhoneInputWithCountryProps> = ({
   disabled = false,
   id,
 }) => {
+  const hintId = id ? `${id}-hint` : undefined;
+  const errorId = id ? `${id}-error` : undefined;
+
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { localNumber: cleanNum, detectedCountryCode } = sanitizePhoneInput(
       e.target.value
@@ -77,37 +80,40 @@ export const PhoneInputWithCountry: FC<PhoneInputWithCountryProps> = ({
   return (
     <div className="w-full">
       {label && (
-        <label htmlFor={id} className="block text-sm font-bold text-[#0c2444] dark:text-blue-400 mb-1.5 text-right">
-          {label} {required && <span className="text-red-600">*</span>}
+        <label
+          htmlFor={id}
+          className="block text-xs font-bold text-[#09152B] dark:text-slate-200 mb-1.5 text-right"
+        >
+          {label} {required && <span className="text-rose-600">*</span>}
         </label>
       )}
 
       <div
-        className={`flex items-center rounded-lg border bg-white dark:bg-slate-800 overflow-hidden transition-colors ${
+        className={`flex items-center rounded-xl border bg-slate-50 dark:bg-slate-900 overflow-hidden transition-colors ${
           error
-            ? 'border-red-400 focus-within:border-red-500'
-            : 'border-slate-200 dark:border-slate-700 focus-within:border-[#123663]'
-        } ${disabled ? 'opacity-60 bg-slate-50 dark:bg-slate-800/50 cursor-not-allowed' : ''}`}
+            ? 'border-rose-400 dark:border-rose-500 focus-within:border-rose-500'
+            : 'border-slate-300 dark:border-slate-700 focus-within:border-[#09152B] dark:focus-within:border-slate-400 focus-within:bg-white dark:focus-within:bg-slate-900'
+        } ${disabled ? 'opacity-60 bg-slate-100 dark:bg-slate-800/50 cursor-not-allowed' : ''}`}
         dir="rtl"
       >
         {/* Country Code Dropdown */}
-        <div className="relative bg-slate-50 dark:bg-slate-800/50 border-l border-slate-200 dark:border-slate-700 flex-shrink-0">
+        <div className="relative bg-slate-100/90 dark:bg-slate-800 border-l border-slate-300 dark:border-slate-700 shrink-0">
           <select
             value={countryCode}
             onChange={(e) => onCountryCodeChange(e.target.value as CountryCode)}
             disabled={disabled}
             aria-label="مقدمة الدولة"
-            className="h-[40px] appearance-none bg-transparent pl-7 pr-3 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 outline-none cursor-pointer text-right hover:bg-slate-100 dark:hover:bg-slate-600 dark:bg-slate-700 transition-colors"
+            className="h-10 appearance-none bg-transparent pl-7 pr-3 text-xs sm:text-[13px] font-bold text-[#09152B] dark:text-slate-200 outline-none cursor-pointer text-right hover:bg-slate-200/70 dark:hover:bg-slate-700 transition-colors"
           >
             {COUNTRIES.map((c) => (
-              <option key={c.code} value={c.code}>
+              <option key={c.code} value={c.code} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
                 {c.flag} {c.name} ({c.prefix})
               </option>
             ))}
           </select>
           {/* Custom Arrow Icon */}
-          <div className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">
-            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
+          <div className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-600 dark:text-slate-400">
+            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20" aria-hidden="true">
               <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
             </svg>
           </div>
@@ -125,14 +131,18 @@ export const PhoneInputWithCountry: FC<PhoneInputWithCountryProps> = ({
           placeholder={placeholder}
           disabled={disabled}
           dir="ltr"
-          className="flex-1 h-[40px] px-3.5 text-sm text-right sm:text-left font-mono text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none bg-transparent"
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? errorId : hintId}
+          className="flex-1 h-10 px-3.5 text-sm text-right sm:text-left font-jakarta tabular-nums font-semibold text-[#09152B] dark:text-white placeholder:text-slate-400 outline-none bg-transparent"
         />
       </div>
 
       {error ? (
-        <p className="mt-1 text-xs text-red-600 text-right">{error}</p>
+        <p id={errorId} className="mt-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 text-right">
+          {error}
+        </p>
       ) : (
-        <p className="mt-1 text-[11px] text-slate-400 text-right">
+        <p id={hintId} className="mt-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 text-right">
           أدخل 9 أرقام بدون 0 في البداية (مثال: 599123456).
         </p>
       )}
