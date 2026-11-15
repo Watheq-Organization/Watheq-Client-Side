@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { FC } from 'react';
+import type { FC, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { CustomerDto } from '../../types/customer';
 import { getCustomers } from '../../services/customerService';
@@ -16,7 +16,8 @@ import {
   Lock,
   Info,
   Check,
-  Search
+  Search,
+  Loader2,
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
@@ -43,9 +44,7 @@ export const CashSaleScreen: FC = () => {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Calculations
   const numericAmount = parseFloat(amount) || 0;
-
   const [currentDateTime, setCurrentDateTime] = useState('');
 
   useEffect(() => {
@@ -80,15 +79,24 @@ export const CashSaleScreen: FC = () => {
 
   useEffect(() => {
     if (customerType === 'registered' && customers.length === 0) {
-      setIsLoadingCustomers(true);
+      let isMounted = true;
       getCustomers()
-        .then((data) => setCustomers(data))
+        .then((data) => {
+          if (!isMounted) return;
+          setCustomers(data);
+        })
         .catch((err) => console.error(err))
-        .finally(() => setIsLoadingCustomers(false));
+        .finally(() => {
+          if (isMounted) setIsLoadingCustomers(false);
+        });
+      return () => {
+        isMounted = false;
+      };
     }
   }, [customerType, customers.length]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e?: FormEvent) => {
+    if (e) e.preventDefault();
     if (numericAmount <= 0) {
       showToast('يرجى إدخال مبلغ صحيح أكبر من صفر', 'error');
       return;
@@ -113,7 +121,7 @@ export const CashSaleScreen: FC = () => {
         guestCustomerPhoneNumber: customerType === 'guest' && phoneNumber ? `${phonePrefix}${phoneNumber}` : null,
         GuestCustomerPhoneNumber: customerType === 'guest' && phoneNumber ? `${phonePrefix}${phoneNumber}` : null,
       });
-      showToast('تم إنشاء الفاتورة النقدية بنجاح!');
+      showToast('تم إنشاء الفاتورة النقدية بنجاح!', 'success');
       setTimeout(() => navigate(PATHS.PAYMENTS), 1500);
     } catch (error) {
       console.error(error);
@@ -125,7 +133,7 @@ export const CashSaleScreen: FC = () => {
 
   return (
     <div
-      className="min-h-screen bg-[#f4f7fb] dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-cairo antialiased flex"
+      className="min-h-screen bg-[#F5F6F8] dark:bg-[#0B0F19] text-slate-800 dark:text-slate-200 font-cairo antialiased flex"
       dir="rtl"
     >
       <Sidebar
@@ -148,77 +156,79 @@ export const CashSaleScreen: FC = () => {
             type={toastMessage?.type} 
             onClose={() => setToastMessage(null)} 
           />
+
           {/* Breadcrumbs & Title */}
           <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400">
+            <nav className="flex items-center gap-2 text-xs font-semibold text-slate-400" aria-label="مسار التنقل">
               <button 
+                type="button"
                 onClick={() => navigate(PATHS.PAYMENTS)}
-                className="hover:text-[#051838] dark:text-white transition-colors"
+                className="hover:text-[#09152B] dark:hover:text-white transition-colors cursor-pointer"
               >
                 سجل المدفوعات
               </button>
-              <ChevronRight className="w-4 h-4" />
-              <span className="text-[#051838] dark:text-white">تسجيل بيع نقدي فوري</span>
-            </div>
+              <ChevronRight className="w-3.5 h-3.5" />
+              <span className="text-slate-700 dark:text-slate-300 font-bold">تسجيل بيع نقدي فوري</span>
+            </nav>
             
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-[#051838] dark:text-white">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-[#09152B] dark:text-white tracking-tight">
                 تسجيل مبيعات / دفعة نقدية فورية
               </h1>
-              <p className="mt-1.5 text-slate-500 dark:text-slate-400 font-medium">
+              <p className="mt-1.5 text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium">
                 تسجيل حركة بيع نقدي مباشر، إصدار فاتورة فورية، وإرسال نسخة إلكترونية للزبون بدون فتح قيد دين أو مطالبات لاحقة.
               </p>
             </div>
           </div>
 
           {/* Info Card */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
+          <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-5 flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-6">
               <div>
-                <p className="text-xs text-slate-400 font-medium mb-1">رقم الفاتورة المؤقت</p>
-                <p className="font-bold text-slate-800 dark:text-slate-200 font-sans tracking-wide">يُولَّد عند الحفظ</p>
+                <p className="text-xs text-slate-400 font-bold mb-1">رقم الفاتورة المؤقت</p>
+                <p className="font-extrabold text-slate-800 dark:text-slate-200 text-sm tracking-wide">يُولَّد تلقائياً عند الحفظ</p>
               </div>
-              <div className="h-10 w-px bg-slate-100 dark:bg-slate-700 hidden sm:block"></div>
+              <div className="h-10 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block" />
               <div>
-                <p className="text-xs text-slate-400 font-medium mb-1">تاريخ وتوقيت البيع</p>
-                <p className="font-bold text-slate-800 dark:text-slate-200">{currentDateTime || 'جاري التحميل...'}</p>
+                <p className="text-xs text-slate-400 font-bold mb-1">تاريخ وتوقيت البيع</p>
+                <p className="font-bold text-slate-800 dark:text-slate-200 font-jakarta tabular-nums text-sm">{currentDateTime || 'جاري التحميل...'}</p>
               </div>
             </div>
             
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-xl border border-emerald-100">
-              <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-              <span className="text-sm font-bold text-emerald-700">سداد فوري غير آجل (مغلق)</span>
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800 text-xs font-bold text-emerald-700 dark:text-emerald-400">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <span>سداد فوري غير آجل (مغلق محاسبياً)</span>
             </div>
           </div>
 
-          {/* Main Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          {/* Main Grid: Form (2 cols) + Summary (1 col) */}
+          <form onSubmit={handleSubmit} noValidate className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
             
-            {/* Right Column (Forms) */}
+            {/* Right Column (Inputs) */}
             <div className="lg:col-span-2 space-y-6">
               
               {/* Section 1: Customer Details */}
-              <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
-                <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between bg-slate-50/5 dark:bg-slate-800/50 dark:bg-slate-800/50 rounded-t-2xl">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+              <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/60">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
                       <User className="w-4 h-4" />
                     </div>
-                    <h2 className="text-lg font-bold text-[#051838] dark:text-white">1. بيانات العميل / المشتري</h2>
+                    <h2 className="text-base font-extrabold text-[#09152B] dark:text-white">1. بيانات العميل / المشتري</h2>
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-md">
+                  <span className="text-[11px] font-bold px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg">
                     اختياري لمبيعات الزبائن العابرين
                   </span>
                 </div>
                 
                 <div className="p-5 space-y-5">
                   {/* Customer Type Selection */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="radiogroup" aria-label="نوع العميل">
                     <label 
                       className={`relative flex flex-col p-4 rounded-xl border-2 cursor-pointer transition-all ${
                         customerType === 'guest' 
-                          ? 'border-[#051838] dark:border-blue-500 bg-slate-50 dark:bg-slate-800/50' 
-                          : 'border-slate-100 dark:border-slate-700 hover:border-slate-200 dark:border-slate-700'
+                          ? 'border-[#09152B] dark:border-blue-500 bg-slate-50 dark:bg-slate-800/50 shadow-xs' 
+                          : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
                       }`}
                     >
                       <input 
@@ -231,18 +241,18 @@ export const CashSaleScreen: FC = () => {
                       />
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-bold text-sm text-slate-800 dark:text-slate-200">زبون عابر / نقدي سريع</span>
-                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${customerType === 'guest' ? 'border-[#051838] dark:border-blue-500' : 'border-slate-300'}`}>
-                          {customerType === 'guest' && <div className="w-2 h-2 rounded-full bg-[#051838] dark:bg-blue-500"></div>}
+                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${customerType === 'guest' ? 'border-[#09152B] dark:border-blue-500' : 'border-slate-300 dark:border-slate-600'}`}>
+                          {customerType === 'guest' && <div className="w-2 h-2 rounded-full bg-[#09152B] dark:bg-blue-500" />}
                         </div>
                       </div>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">بدون تسجيل ملف مالي</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">بدون تسجيل ملف مالي مسبق</span>
                     </label>
 
                     <label 
                       className={`relative flex flex-col p-4 rounded-xl border-2 cursor-pointer transition-all ${
                         customerType === 'registered' 
-                          ? 'border-[#051838] dark:border-blue-500 bg-slate-50 dark:bg-slate-800/50' 
-                          : 'border-slate-100 dark:border-slate-700 hover:border-slate-200 dark:border-slate-700'
+                          ? 'border-[#09152B] dark:border-blue-500 bg-slate-50 dark:bg-slate-800/50 shadow-xs' 
+                          : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
                       }`}
                     >
                       <input 
@@ -250,32 +260,36 @@ export const CashSaleScreen: FC = () => {
                         name="customerType" 
                         value="registered" 
                         checked={customerType === 'registered'} 
-                        onChange={() => setCustomerType('registered')}
+                        onChange={() => {
+                          setCustomerType('registered');
+                          if (customers.length === 0) setIsLoadingCustomers(true);
+                        }}
                         className="sr-only" 
                       />
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-bold text-sm text-slate-800 dark:text-slate-200">عميل مسجل بالقائمة</span>
-                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${customerType === 'registered' ? 'border-[#051838] dark:border-blue-500' : 'border-slate-300'}`}>
-                          {customerType === 'registered' && <div className="w-2 h-2 rounded-full bg-[#051838] dark:bg-blue-500"></div>}
+                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${customerType === 'registered' ? 'border-[#09152B] dark:border-blue-500' : 'border-slate-300 dark:border-slate-600'}`}>
+                          {customerType === 'registered' && <div className="w-2 h-2 rounded-full bg-[#09152B] dark:bg-blue-500" />}
                         </div>
                       </div>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">ربط بسجل العملاء</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">ربط بحساب العميل القائم</span>
                     </label>
                   </div>
 
                   {/* Customer Details Inputs */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                        {customerType === 'registered' ? 'اختر العميل من السجل' : 'اسم صاحب الحساب المحول منه'}
+                    <div className="space-y-1.5 text-right">
+                      <label htmlFor="cash-customer-input" className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        {customerType === 'registered' ? 'اختر العميل من السجل' : 'اسم المشتري / الزبون'}
                       </label>
                       <div className="relative">
                         {customerType === 'registered' ? (
                           <>
-                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                            <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
                               <Search className="h-4 w-4 text-slate-400" />
                             </div>
                             <input
+                              id="cash-customer-input"
                               type="text"
                               value={isCustomerDropdownOpen ? customerSearchQuery : (selectedCustomer ? selectedCustomer.fullName : customerSearchQuery)}
                               onChange={(e) => {
@@ -286,10 +300,10 @@ export const CashSaleScreen: FC = () => {
                               onFocus={() => setIsCustomerDropdownOpen(true)}
                               onBlur={() => setTimeout(() => setIsCustomerDropdownOpen(false), 200)}
                               placeholder={isLoadingCustomers ? 'جاري تحميل العملاء...' : 'ابحث بالاسم أو رقم الجوال...'}
-                              className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 pr-10 pl-4 text-sm font-semibold text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#051838] dark:focus:ring-blue-500 focus:border-transparent transition-all"
+                              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 pr-10 pl-4 text-sm font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#09152B]/15 dark:focus:ring-blue-500/20 focus:border-[#09152B] dark:focus:border-blue-500 transition-all text-right"
                             />
                             {isCustomerDropdownOpen && !isLoadingCustomers && (
-                              <div className="absolute z-20 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                              <div className="absolute z-20 w-full mt-1 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg max-h-60 overflow-y-auto">
                                 {filteredCustomers.length > 0 ? (
                                   filteredCustomers.map((c) => (
                                     <div
@@ -299,59 +313,64 @@ export const CashSaleScreen: FC = () => {
                                         setCustomerSearchQuery(c.fullName);
                                         setIsCustomerDropdownOpen(false);
                                       }}
-                                      className="px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 cursor-pointer border-b last:border-b-0 border-slate-100 dark:border-slate-700 flex flex-col"
+                                      className="px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer border-b last:border-b-0 border-slate-100 dark:border-slate-800 flex flex-col text-right"
                                     >
-                                      <span className="font-semibold text-sm text-slate-800 dark:text-slate-200">{c.fullName}</span>
-                                      {c.phoneNumber && <span className="text-xs text-slate-500 dark:text-slate-400">{c.phoneNumber}</span>}
+                                      <span className="font-bold text-sm text-slate-800 dark:text-slate-200">{c.fullName}</span>
+                                      {c.phoneNumber && <span className="text-xs text-slate-400 font-jakarta tabular-nums" dir="ltr">{c.phoneNumber}</span>}
                                     </div>
                                   ))
                                 ) : (
-                                  <div className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400 text-center">لا توجد نتائج مطابقة</div>
+                                  <div className="px-4 py-3 text-xs text-slate-400 text-center font-bold">لا توجد نتائج مطابقة</div>
                                 )}
                               </div>
                             )}
                           </>
                         ) : (
                           <>
-                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                            <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
                               <User className="h-4 w-4 text-slate-400" />
                             </div>
                             <input
+                              id="cash-customer-input"
                               type="text"
                               value={guestName}
                               onChange={(e) => setGuestName(e.target.value)}
-                              className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 pr-10 pl-4 text-sm font-semibold text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#051838] dark:focus:ring-blue-500 focus:border-transparent transition-all"
+                              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 pr-10 pl-4 text-sm font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#09152B]/15 dark:focus:ring-blue-500/20 focus:border-[#09152B] dark:focus:border-blue-500 transition-all text-right"
                             />
                           </>
                         )}
                       </div>
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">رقم الجوال (لإرسال إشعار الفاتورة الفوري)</label>
+
+                    <div className="space-y-1.5 text-right">
+                      <label htmlFor="cash-phone-input" className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        رقم الجوال (لإرسال إشعار الفاتورة الفوري)
+                      </label>
                       {customerType === 'registered' ? (
                         <div className="relative" dir="ltr">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
                             <Phone className="h-4 w-4 text-slate-400" />
                           </div>
                           <input
+                            id="cash-phone-input"
                             type="text"
                             value={selectedCustomer ? (selectedCustomer.phoneNumber || 'لا يوجد رقم مسجل') : 'الرجاء اختيار عميل أولاً'}
                             disabled
-                            className="w-full bg-slate-100/70 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 px-10 text-sm font-bold text-slate-500 dark:text-slate-400 cursor-not-allowed text-center"
+                            className="w-full bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 px-10 text-sm font-bold text-slate-500 dark:text-slate-400 cursor-not-allowed text-center font-jakarta tabular-nums"
                           />
                         </div>
                       ) : (
-                        <div className="flex items-center bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:ring-2 focus-within:ring-[#051838] dark:focus-within:ring-blue-500 focus-within:border-transparent transition-all shadow-xs" dir="ltr">
+                        <div className="flex items-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:ring-2 focus-within:ring-[#09152B]/15 dark:focus-within:ring-blue-500/20 focus-within:border-[#09152B] dark:focus-within:border-blue-500 transition-all" dir="ltr">
                           <div className="relative shrink-0 h-full">
                             <select
                               value={phonePrefix}
                               onChange={(e) => setPhonePrefix(e.target.value)}
-                              className="appearance-none bg-slate-100/8 dark:bg-slate-800/80 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-l-xl pl-2 pr-6 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-300 outline-none cursor-pointer border-r border-slate-200 dark:border-slate-700 h-full w-[65px] transition-colors text-center"
+                              className="appearance-none bg-slate-100 dark:bg-slate-800 rounded-l-xl pl-2 pr-6 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-300 outline-none cursor-pointer border-r border-slate-200 dark:border-slate-700 h-full w-[68px] font-jakarta tabular-nums text-center"
                             >
                               <option value="+970">+970</option>
                               <option value="+972">+972</option>
                             </select>
-                            <div className="absolute inset-y-0 right-0 pr-1.5 flex items-center pointer-events-none text-slate-500 dark:text-slate-400">
+                            <div className="absolute inset-y-0 right-0 pr-1.5 flex items-center pointer-events-none text-slate-400">
                               <ChevronDown className="w-3.5 h-3.5" />
                             </div>
                           </div>
@@ -360,11 +379,12 @@ export const CashSaleScreen: FC = () => {
                               <Phone className="w-4 h-4 text-slate-400" />
                             </div>
                             <input
+                              id="cash-phone-input"
                               type="tel"
                               value={phoneNumber}
                               onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
                               placeholder="5x xxx xxxx"
-                              className="w-full bg-transparent py-2.5 pr-4 pl-10 text-sm font-semibold text-slate-800 dark:text-slate-200 outline-none placeholder:text-slate-300"
+                              className="w-full bg-transparent py-2.5 pr-4 pl-10 text-sm font-bold text-slate-800 dark:text-slate-200 outline-none font-jakarta tabular-nums placeholder:text-slate-400"
                             />
                           </div>
                         </div>
@@ -375,43 +395,55 @@ export const CashSaleScreen: FC = () => {
               </div>
 
               {/* Section 2: Sales Details */}
-              <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
-                <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between bg-slate-50/5 dark:bg-slate-800/50 dark:bg-slate-800/50">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+              <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/60">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
                       <Receipt className="w-4 h-4" />
                     </div>
-                    <h2 className="text-lg font-bold text-[#051838] dark:text-white">2. تفاصيل المبيعات</h2>
+                    <h2 className="text-base font-extrabold text-[#09152B] dark:text-white">2. تفاصيل المبيعات والمبلغ</h2>
                   </div>
                 </div>
                 
                 <div className="p-5 space-y-5">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5 sm:col-span-1">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">إجمالي مبلغ البيع </label>
-                      <div className="flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:ring-2 focus-within:ring-[#051838] dark:focus-within:ring-blue-500 focus-within:border-transparent transition-all shadow-xs" dir="ltr">
-                        <div className="px-4 py-3 bg-slate-50/80 dark:bg-slate-800/80 border-r border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-sm font-bold shrink-0 rounded-l-xl select-none">
-                          شيكل
+                    <div className="space-y-1.5 sm:col-span-1 text-right">
+                      <label htmlFor="cash-amount-input" className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        إجمالي مبلغ البيع <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="flex items-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-600 transition-all" dir="ltr">
+                        <div className="px-4 py-3 bg-slate-100 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-xs font-bold shrink-0 rounded-l-xl select-none">
+                          شيكل (ILS)
                         </div>
                         <input
-                          type="number"
+                          id="cash-amount-input"
+                          type="text"
+                          inputMode="decimal"
                           value={amount}
-                          onChange={(e) => setAmount(e.target.value)}
+                          onChange={(e) => {
+                            let val = e.target.value.replace(/,/g, '.').replace(/[^0-9.]/g, '');
+                            const parts = val.split('.');
+                            if (parts.length > 2) val = parts[0] + '.' + parts.slice(1).join('');
+                            setAmount(val);
+                          }}
                           placeholder="0.00"
-                          className="flex-1 bg-transparent py-3 px-4 text-lg font-bold text-slate-800 dark:text-slate-200 outline-none border-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          className="flex-1 bg-transparent py-3 px-4 text-lg font-bold text-slate-800 dark:text-slate-200 outline-none font-jakarta tabular-nums text-right"
                           dir="ltr"
                         />
                       </div>
                     </div>
                     
-                    <div className="space-y-1.5 sm:col-span-2">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">وصف المبيعات (المنتجات / الخدمات)</label>
+                    <div className="space-y-1.5 sm:col-span-2 text-right">
+                      <label htmlFor="cash-description-input" className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        وصف المبيعات (المنتجات / الخدمات)
+                      </label>
                       <input
+                        id="cash-description-input"
                         type="text"
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        placeholder="مثال: أجهزة إلكترونية، صيانة عامة، إلخ..."
-                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 px-4 text-sm font-semibold text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#051838] dark:focus:ring-blue-500 focus:border-transparent transition-all placeholder:font-normal"
+                        placeholder="مثال: أصناف مواد غذائية، كرتونة زيت، إلخ..."
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 px-4 text-sm font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#09152B]/15 dark:focus:ring-blue-500/20 focus:border-[#09152B] dark:focus:border-blue-500 transition-all text-right"
                       />
                     </div>
                   </div>
@@ -419,214 +451,161 @@ export const CashSaleScreen: FC = () => {
               </div>
 
               {/* Section 3: Payment Method */}
-              <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
-                <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2 bg-slate-50/5 dark:bg-slate-800/50 dark:bg-slate-800/50">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                    <Banknote className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold text-[#051838] dark:text-white">3. طريقة الدفع الفوري المستلمة</h2>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">اختر وسيلة التحصيل الفعلية التي تم استلام المبلغ بها حالياً</p>
+              <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/60">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+                      <Banknote className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-extrabold text-[#09152B] dark:text-white">3. طريقة الدفع الفوري المستلمة</h2>
+                      <p className="text-[11px] text-slate-400 font-medium">اختر وسيلة التحصيل الفعلية التي تم استلام المبلغ بها حالياً</p>
+                    </div>
                   </div>
                 </div>
                 
                 <div className="p-5 space-y-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <label 
-                      className={`relative flex flex-col items-center justify-center p-4 rounded-xl border-2 cursor-pointer transition-all text-center ${
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" role="radiogroup" aria-label="طريقة الدفع">
+                    <button 
+                      type="button"
+                      role="radio"
+                      aria-checked={paymentMethod === 'cash'}
+                      onClick={() => setPaymentMethod('cash')}
+                      className={`relative flex flex-col items-center justify-center p-4 rounded-xl border text-center transition-all cursor-pointer ${
                         paymentMethod === 'cash' 
-                          ? 'border-emerald-500 bg-emerald-50' 
-                          : 'border-slate-100 dark:border-slate-700 hover:border-slate-200 dark:border-slate-700'
+                          ? 'border-[#007a3d] bg-emerald-50/70 dark:bg-emerald-950/40 text-[#007a3d] dark:text-emerald-400 shadow-xs font-bold' 
+                          : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900'
                       }`}
                     >
-                      <input 
-                        type="radio" 
-                        name="paymentMethod" 
-                        value="cash" 
-                        checked={paymentMethod === 'cash'} 
-                        onChange={() => setPaymentMethod('cash')}
-                        className="sr-only" 
-                      />
                       {paymentMethod === 'cash' && (
-                        <div className="absolute top-2 right-2 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center">
+                        <div className="absolute top-2.5 right-2.5 w-4 h-4 bg-[#007a3d] rounded-full flex items-center justify-center">
                           <Check className="w-2.5 h-2.5 text-white" />
                         </div>
                       )}
-                      <Banknote className={`w-6 h-6 mb-2 ${paymentMethod === 'cash' ? 'text-emerald-600' : 'text-slate-400'}`} />
-                      <span className={`font-bold text-sm ${paymentMethod === 'cash' ? 'text-emerald-700' : 'text-slate-700 dark:text-slate-300'}`}>نقداً / كاش</span>
-                      <span className="text-[10px] text-slate-400 mt-1">استلام الخزينة</span>
-                    </label>
+                      <Banknote className={`w-6 h-6 mb-2 ${paymentMethod === 'cash' ? 'text-[#007a3d] dark:text-emerald-400' : 'text-slate-400'}`} />
+                      <span className="font-bold text-xs sm:text-sm">نقداً / كاش</span>
+                      <span className="text-[10px] text-slate-400 mt-0.5">استلام الخزينة</span>
+                    </button>
 
-                    <label 
-                      className={`relative flex flex-col items-center justify-center p-4 rounded-xl border-2 cursor-pointer transition-all text-center ${
+                    <button 
+                      type="button"
+                      role="radio"
+                      aria-checked={paymentMethod === 'transfer'}
+                      onClick={() => setPaymentMethod('transfer')}
+                      className={`relative flex flex-col items-center justify-center p-4 rounded-xl border text-center transition-all cursor-pointer ${
                         paymentMethod === 'transfer' 
-                          ? 'border-emerald-500 bg-emerald-50' 
-                          : 'border-slate-100 dark:border-slate-700 hover:border-slate-200 dark:border-slate-700'
+                          ? 'border-[#007a3d] bg-emerald-50/70 dark:bg-emerald-950/40 text-[#007a3d] dark:text-emerald-400 shadow-xs font-bold' 
+                          : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900'
                       }`}
                     >
-                      <input 
-                        type="radio" 
-                        name="paymentMethod" 
-                        value="transfer" 
-                        checked={paymentMethod === 'transfer'} 
-                        onChange={() => setPaymentMethod('transfer')}
-                        className="sr-only" 
-                      />
                       {paymentMethod === 'transfer' && (
-                        <div className="absolute top-2 right-2 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center">
+                        <div className="absolute top-2.5 right-2.5 w-4 h-4 bg-[#007a3d] rounded-full flex items-center justify-center">
                           <Check className="w-2.5 h-2.5 text-white" />
                         </div>
                       )}
-                      <Landmark className={`w-6 h-6 mb-2 ${paymentMethod === 'transfer' ? 'text-emerald-600' : 'text-slate-400'}`} />
-                      <span className={`font-bold text-sm ${paymentMethod === 'transfer' ? 'text-emerald-700' : 'text-slate-700 dark:text-slate-300'}`}>تحويل بنكي</span>
-                      <span className="text-[10px] text-slate-400 mt-1">فوري / سريع</span>
-                    </label>
+                      <Landmark className={`w-6 h-6 mb-2 ${paymentMethod === 'transfer' ? 'text-[#007a3d] dark:text-emerald-400' : 'text-slate-400'}`} />
+                      <span className="font-bold text-xs sm:text-sm">تحويل بنكي</span>
+                      <span className="text-[10px] text-slate-400 mt-0.5">حوالة بنكية فورية</span>
+                    </button>
 
-                    <label 
-                      className={`relative flex flex-col items-center justify-center p-4 rounded-xl border-2 cursor-pointer transition-all text-center ${
+                    <button 
+                      type="button"
+                      role="radio"
+                      aria-checked={paymentMethod === 'wallet'}
+                      onClick={() => setPaymentMethod('wallet')}
+                      className={`relative flex flex-col items-center justify-center p-4 rounded-xl border text-center transition-all cursor-pointer ${
                         paymentMethod === 'wallet' 
-                          ? 'border-emerald-500 bg-emerald-50' 
-                          : 'border-slate-100 dark:border-slate-700 hover:border-slate-200 dark:border-slate-700'
+                          ? 'border-[#007a3d] bg-emerald-50/70 dark:bg-emerald-950/40 text-[#007a3d] dark:text-emerald-400 shadow-xs font-bold' 
+                          : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900'
                       }`}
                     >
-                      <input 
-                        type="radio" 
-                        name="paymentMethod" 
-                        value="wallet" 
-                        checked={paymentMethod === 'wallet'} 
-                        onChange={() => setPaymentMethod('wallet')}
-                        className="sr-only" 
-                      />
                       {paymentMethod === 'wallet' && (
-                        <div className="absolute top-2 right-2 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center">
+                        <div className="absolute top-2.5 right-2.5 w-4 h-4 bg-[#007a3d] rounded-full flex items-center justify-center">
                           <Check className="w-2.5 h-2.5 text-white" />
                         </div>
                       )}
-                      <Smartphone className={`w-6 h-6 mb-2 ${paymentMethod === 'wallet' ? 'text-emerald-600' : 'text-slate-400'}`} />
-                      <span className={`font-bold text-sm ${paymentMethod === 'wallet' ? 'text-emerald-700' : 'text-slate-700 dark:text-slate-300'}`}>محفظة إلكترونية</span>
-                      <span className="text-[10px] text-slate-400 mt-1">Apple Pay / STC</span>
-                    </label>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">المرجع البنكي / رقم العملية (اختياري)</label>
-                      <input
-                        type="text"
-                        placeholder="رقم إيصال الشبكة أو الحوالة إن وُجد"
-                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 px-4 text-sm font-semibold text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#051838] dark:focus:ring-blue-500 focus:border-transparent transition-all placeholder:font-normal"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">صندوق الإيداع / الحساب</label>
-                      <input
-                        type="text"
-                        defaultValue="الصندوق الرئيسي (الخزينة النقدية اليومية)"
-                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 px-4 text-sm font-semibold text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#051838] dark:focus:ring-blue-500 focus:border-transparent transition-all"
-                        readOnly
-                      />
-                    </div>
+                      <Smartphone className={`w-6 h-6 mb-2 ${paymentMethod === 'wallet' ? 'text-[#007a3d] dark:text-emerald-400' : 'text-slate-400'}`} />
+                      <span className="font-bold text-xs sm:text-sm">محفظة إلكترونية</span>
+                      <span className="text-[10px] text-slate-400 mt-0.5">Jawwal Pay / PalPay</span>
+                    </button>
                   </div>
                 </div>
               </div>
 
             </div>
 
-            {/* Left Column (Sidebar Summary) */}
+            {/* Left Column (Invoice Summary & Actions) */}
             <div className="space-y-4 sticky top-24">
-              <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-5 space-y-5">
+              <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-5 space-y-5">
                 
-                <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-700">
+                <div className="flex items-center justify-between pb-3.5 border-b border-slate-200/80 dark:border-slate-800">
                   <div className="flex items-center gap-2">
                     <Receipt className="w-5 h-5 text-slate-400" />
-                    <h2 className="text-base font-bold text-[#051838] dark:text-white">ملخص الفاتورة النقدية</h2>
+                    <h2 className="text-sm font-extrabold text-[#09152B] dark:text-white">ملخص الفاتورة النقدية</h2>
                   </div>
-                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-md text-xs font-bold border border-emerald-100">
+                  <span className="px-2.5 py-0.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 rounded-md text-xs font-bold border border-emerald-200 dark:border-emerald-800">
                     غير آجل
                   </span>
                 </div>
 
-                <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100">
+                <div className="bg-emerald-50 dark:bg-emerald-950/40 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800/60">
                   <div className="flex justify-between items-end">
-                    <span className="text-sm font-bold text-emerald-800">الإجمالي المدفوع فوراً:</span>
+                    <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">الإجمالي المدفوع فوراً:</span>
                     <div className="text-left" dir="ltr">
-                      <span className="text-3xl font-bold text-emerald-600 tracking-tight font-sans">
+                      <span className="text-2xl sm:text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 tracking-tight font-jakarta tabular-nums">
                         {numericAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
+                      <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 ml-1.5 font-cairo">₪</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-3 pt-2">
-                  <label className="flex items-start gap-2.5 cursor-pointer group">
-                    <div className="relative flex items-center justify-center w-4 h-4 mt-0.5">
-                      <input type="checkbox" defaultChecked className="peer sr-only" />
-                      <div className="w-4 h-4 border-2 border-slate-300 rounded peer-checked:bg-emerald-500 peer-checked:border-emerald-500 transition-colors"></div>
-                      <Check className="absolute w-3 h-3 text-white opacity-0 peer-checked:opacity-100 pointer-events-none" />
-                    </div>
-                    <span className="text-xs text-slate-600 dark:text-slate-400 font-medium group-hover:text-slate-800 dark:text-slate-200 transition-colors leading-relaxed">
-                      إرسال نسخة الفاتورة الإلكترونية عبر واتساب تلقائياً إلى رقم الزبون
-                    </span>
-                  </label>
-
-                  <label className="flex items-start gap-2.5 cursor-pointer group">
-                    <div className="relative flex items-center justify-center w-4 h-4 mt-0.5">
-                      <input type="checkbox" defaultChecked className="peer sr-only" />
-                      <div className="w-4 h-4 border-2 border-slate-300 rounded peer-checked:bg-emerald-500 peer-checked:border-emerald-500 transition-colors"></div>
-                      <Check className="absolute w-3 h-3 text-white opacity-0 peer-checked:opacity-100 pointer-events-none" />
-                    </div>
-                    <span className="text-xs text-slate-600 dark:text-slate-400 font-medium group-hover:text-slate-800 dark:text-slate-200 transition-colors leading-relaxed">
-                      إرفاق إقرار باستلام كامل المبلغ نقداً / بدون أي ذمم مالية عالقة
-                    </span>
-                  </label>
-
-                  <label className="flex items-start gap-2.5 cursor-pointer group">
-                    <div className="relative flex items-center justify-center w-4 h-4 mt-0.5">
-                      <input type="checkbox" className="peer sr-only" />
-                      <div className="w-4 h-4 border-2 border-slate-300 rounded peer-checked:bg-emerald-500 peer-checked:border-emerald-500 transition-colors"></div>
-                      <Check className="absolute w-3 h-3 text-white opacity-0 peer-checked:opacity-100 pointer-events-none" />
-                    </div>
-                    <span className="text-xs text-slate-600 dark:text-slate-400 font-medium group-hover:text-slate-800 dark:text-slate-200 transition-colors leading-relaxed">
-                      طباعة الإيصال الحراري الفوري (طابعة الكاشير POS)
-                    </span>
-                  </label>
-                </div>
-
-                <div className="space-y-2 pt-2">
+                <div className="space-y-2.5 pt-2">
                   <button 
-                    onClick={handleSubmit}
+                    type="submit"
                     disabled={isSubmitting}
-                    className="w-full flex items-center justify-center gap-2 bg-[#007a3d] hover:bg-[#006633] text-white py-3 rounded-xl font-bold transition-colors shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full flex items-center justify-center gap-2 bg-[#007a3d] hover:bg-[#006633] text-white py-3 rounded-xl font-bold text-sm transition-all shadow-xs cursor-pointer disabled:opacity-60"
                   >
-                    <CheckCircle2 className="w-5 h-5" />
-                    <span>{isSubmitting ? 'جاري الحفظ...' : 'إتمام البيع وإصدار الفاتورة النقدية'}</span>
+                    {isSubmitting ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>جاري حفظ الفاتورة...</span>
+                      </span>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>إتمام البيع وإصدار الفاتورة النقدية</span>
+                      </>
+                    )}
                   </button>
                   
                   <button 
+                    type="button"
                     onClick={() => navigate(PATHS.PAYMENTS)}
-                    className="w-full flex items-center justify-center gap-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 py-3 rounded-xl font-bold transition-colors cursor-pointer"
+                    disabled={isSubmitting}
+                    className="w-full flex items-center justify-center gap-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-60"
                   >
-                    <span>إلغاء العملية والتراجع</span>
+                    إلغاء العملية والتراجع
                   </button>
                 </div>
 
-                <div className="flex items-center justify-center gap-1.5 pt-2 text-[#007a3d]">
+                <div className="flex items-center justify-center gap-1.5 pt-1 text-slate-400 text-xs">
                   <Lock className="w-3.5 h-3.5" />
-                  <span className="text-[10px] font-bold">موثق ومسجل بنظام وثق للسداد الفوري المعتمد</span>
+                  <span>موثق ومسجل بنظام وثّق للسداد الفوري المعتمد</span>
                 </div>
               </div>
 
-              <div className="bg-[#f0f4f8] dark:bg-slate-800/80 rounded-2xl p-4 border border-[#e2e8f0] dark:border-slate-700 flex items-start gap-3">
-                <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+              <div className="bg-slate-100 dark:bg-slate-800/80 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 flex items-start gap-3">
+                <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
                 <div>
                   <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">الفرق بين البيع النقدي والدين الآجل</h3>
-                  <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
                     هذه العملية تسجل كقبض فوري وتغلق الدورة المالية مباشرة دون إبقاء التزام مالي أو إرسال مطالبات سداد لاحقة على المشتري.
                   </p>
                 </div>
               </div>
             </div>
-          </div>
+          </form>
         </main>
       </div>
     </div>

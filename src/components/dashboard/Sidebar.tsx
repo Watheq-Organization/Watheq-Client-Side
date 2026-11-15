@@ -99,10 +99,11 @@ export const Sidebar: FC<SidebarProps> = ({
 
       {/* Sidebar Container (w-72 preserved for compatibility with lg:mr-72 layout offset) */}
       <aside
-        className={`fixed top-0 right-0 bottom-0 z-50 w-72 bg-[#09152B] dark:bg-[#070D18] text-slate-200 flex flex-col border-l border-slate-800/70 transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-0 right-0 bottom-0 z-50 w-72 bg-[#09152B] dark:bg-[#070D18] text-slate-200 flex flex-col border-l border-slate-800/70 transition-transform duration-300 ease-in-out overflow-hidden lg:translate-x-0 ${
           isOpen ? 'translate-x-0 shadow-2xl' : 'translate-x-full lg:translate-x-0'
         } print:hidden`}
         dir="rtl"
+        style={{ colorScheme: 'dark' }}
       >
         {/* Top Brand Lockup */}
         <div className="px-5 h-16 flex items-center justify-between border-b border-white/[0.07] shrink-0">
@@ -138,8 +139,8 @@ export const Sidebar: FC<SidebarProps> = ({
           )}
         </div>
 
-        {/* Scrollable Grouped Navigation */}
-        <nav className="flex-1 overflow-y-auto px-3.5 py-5 space-y-6">
+        {/* Scrollable Grouped Navigation (full original size with no visible scrollbar) */}
+        <nav className="flex-1 overflow-y-auto px-3.5 py-5 space-y-6 no-scrollbar">
           {NAV_GROUPS.map((group) => (
             <div key={group.title}>
               <div className="px-3 mb-2 text-[11px] font-semibold text-slate-400/80 tracking-wide font-cairo">

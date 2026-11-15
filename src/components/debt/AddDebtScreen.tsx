@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { FC } from 'react';
+import type { FC, FormEvent } from 'react';
 import { parseVoiceDebt } from '../../lib/voiceDebtParser';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -9,6 +9,11 @@ import {
   Lock,
   Check,
   Loader2,
+  AlertCircle,
+  ChevronLeft,
+  User,
+  X,
+  Calendar,
 } from 'lucide-react';
 import { Sidebar } from '../dashboard/Sidebar';
 import { Header } from '../dashboard/Header';
@@ -35,10 +40,9 @@ import {
   rememberEditableDebt,
   type EditableDebtRecord,
 } from '../../services/debtService';
+import { PATHS } from '../../routes/paths';
 
-// Minimal ambient shape for the browser's native SpeechRecognition API —
-// no @types package for it is installed in this project, and only the
-// handful of members actually used below are declared.
+// Minimal ambient shape for the browser's native SpeechRecognition API
 interface MinimalSpeechRecognition {
   lang: string;
   interimResults: boolean;
@@ -58,21 +62,6 @@ function getSpeechRecognitionCtor(): (new () => MinimalSpeechRecognition) | null
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
-/**
- * Optional navigation state set when this screen is opened from a specific
- * customer's profile (the "إضافة دين جديد" button on Customer Details),
- * so that customer arrives already selected instead of making the merchant
- * search for them again. Entirely optional: the screen still works exactly
- * as before (empty search) when reached from the sidebar's generic
- * "إضافة دين" link, which sends no state at all.
- *
- * `editingDebt` is set instead when this screen is opened via the edit
- * (pencil) icon on a debt row in the Financial Activity Log — it carries
- * the cached record (see rememberEditableDebt/getEditableDebt in
- * debtService.ts) plus the customer's display info, and switches the whole
- * screen into "edit" mode: the form is pre-filled, the customer is locked,
- * and Save calls updateDebt() instead of createDebt().
- */
 interface AddDebtNavigationState {
   presetCustomer?: CustomerDto;
   editingDebt?: EditableDebtRecord & { customerFullName: string; phoneNumber: string };
@@ -86,9 +75,6 @@ export const AddDebtScreen: FC = () => {
   const editingDebt = navState?.editingDebt ?? null;
   const isEditMode = editingDebt !== null;
 
-  // When editing, the customer is fixed to whoever the debt already
-  // belongs to — build a minimal CustomerDto from what the caller passed
-  // (see AddDebtNavigationState above) rather than requiring a re-search.
   const editingCustomerAsDto: CustomerDto | null = editingDebt
     ? {
       id: editingDebt.customerId,
@@ -104,13 +90,6 @@ export const AddDebtScreen: FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [headerSearchQuery, setHeaderSearchQuery] = useState('');
 
-  // Customer search — no dedicated search endpoint exists, so this filters
-  // the existing customer list client-side (see debtService.searchCustomersByIdOrPhone).
-  // When a presetCustomer arrives via navigation state, the field starts
-  // already filled in and selected rather than empty. In edit mode the
-  // customer comes from editingDebt instead and the field is locked (see
-  // the input's `disabled` prop below) — editing a debt never moves it to
-  // a different customer.
   const [customerQuery, setCustomerQuery] = useState(
     editingCustomerAsDto?.fullName ?? presetCustomer?.fullName ?? ''
   );
@@ -121,13 +100,42 @@ export const AddDebtScreen: FC = () => {
   );
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    if (selectedCustomer) return; // don't re-search once a customer is chosen
-    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+  const [fieldErrors, setFieldErrors] = useState<{
+    customer?: string;
+    amount?: string;
+    dueDate?: string;
+    notes?: string;
+  }>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-    if (!customerQuery.trim()) {
-      return;
+  const handleCustomerQueryChange = useCallback((value: string) => {
+    setCustomerQuery(value);
+    setSelectedCustomer(null);
+    if (!value.trim()) {
+      setCustomerResults([]);
     }
+    setFieldErrors((prev) => ({ ...prev, customer: undefined }));
+  }, []);
+
+  const handleSelectCustomer = useCallback((customer: CustomerDto) => {
+    setSelectedCustomer(customer);
+    setCustomerQuery(customer.fullName);
+    setCustomerResults([]);
+    setFieldErrors((prev) => ({ ...prev, customer: undefined }));
+  }, []);
+
+  const handleClearSelectedCustomer = useCallback(() => {
+    if (isEditMode) return;
+    setSelectedCustomer(null);
+    setCustomerQuery('');
+    setCustomerResults([]);
+  }, [isEditMode]);
+
+  useEffect(() => {
+    if (selectedCustomer || !customerQuery.trim()) return;
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
 
     searchDebounceRef.current = setTimeout(() => {
       setIsSearchingCustomers(true);
@@ -142,24 +150,12 @@ export const AddDebtScreen: FC = () => {
     };
   }, [customerQuery, selectedCustomer]);
 
-  const handleSelectCustomer = (customer: CustomerDto) => {
-    setSelectedCustomer(customer);
-    setCustomerQuery(customer.fullName);
-    setCustomerResults([]);
-    setFieldErrors((prev) => ({ ...prev, customer: undefined }));
-  };
-
-  const handleCustomerQueryChange = (value: string) => {
-    setCustomerQuery(value);
-    if (selectedCustomer) setSelectedCustomer(null);
-  };
-
   // Currencies from GET /api/Currency/getCurrencies
   const [currencies, setCurrencies] = useState<CurrencyDto[]>(DEFAULT_CURRENCIES);
   const [currencyId, setCurrencyId] = useState<number>(() => {
     if (editingDebt?.currencyId) return editingDebt.currencyId;
     if (editingDebt?.currencyCode) return getCurrencyId(editingDebt.currencyCode);
-    return getCurrencyId('ILS'); // default ILS (id: 4)
+    return getCurrencyId('ILS');
   });
 
   useEffect(() => {
@@ -178,24 +174,12 @@ export const AddDebtScreen: FC = () => {
   const [dueDate, setDueDate] = useState(editingDebt?.dueDate ?? '');
   const [notes, setNotes] = useState(editingDebt?.notes ?? '');
 
-  const [fieldErrors, setFieldErrors] = useState<{
-    customer?: string;
-    amount?: string;
-    dueDate?: string;
-    notes?: string;
-  }>({});
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Voice input — browser-native Web Speech API only (no backend of any
-  // kind is invented for this). When unsupported, the button stays
-  // visually present per the screenshot but informs the user via toast.
+  // Voice input
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<MinimalSpeechRecognition | null>(null);
 
@@ -244,7 +228,7 @@ export const AddDebtScreen: FC = () => {
     recognitionRef.current = recognition;
     setIsListening(true);
     recognition.start();
-  }, [isListening]);
+  }, [isListening, selectedCustomer, handleCustomerQueryChange]);
 
   useEffect(() => {
     return () => {
@@ -252,12 +236,12 @@ export const AddDebtScreen: FC = () => {
     };
   }, []);
 
-
   const handleCancel = () => {
     navigate(-1);
   };
 
-  const handleSave = async () => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     if (isSaving) return;
 
     const customerId = selectedCustomer?.id ?? '';
@@ -274,7 +258,7 @@ export const AddDebtScreen: FC = () => {
     if (errors.customer || errors.amount || errors.dueDate || errors.notes) {
       return;
     }
-    //
+
     setSubmitError(null);
     setIsSaving(true);
     try {
@@ -313,14 +297,7 @@ export const AddDebtScreen: FC = () => {
           currencyId,
         }, dto);
 
-        // Debt created successfully — do NOT call sendDebtReminder() here.
-        // The backend's createDebt endpoint no longer sends a Telegram
-        // notification on its own (all sendTelegramNotification flags are
-        // set to false in buildCreateDebtPayload). Reminders are only sent
-        // when the merchant explicitly presses the reminder/bell button
-        // in OverduePaymentsTable or CustomersScreen.
         const toastMsg = 'تم تسجيل الدين بنجاح.';
-
         window.dispatchEvent(new Event('watheq:activity-updated'));
         navigate(`/customers/${customerId}`, {
           state: { toast: toastMsg },
@@ -334,7 +311,7 @@ export const AddDebtScreen: FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F9F9FF] dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-cairo antialiased flex" dir="rtl">
+    <div className="min-h-screen bg-[#F5F6F8] dark:bg-[#0B0F19] text-slate-800 dark:text-slate-200 font-cairo antialiased flex" dir="rtl">
       <Sidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -350,39 +327,74 @@ export const AddDebtScreen: FC = () => {
 
         {/* Toast Notification */}
         {toastMessage && (
-          <div className="fixed bottom-6 left-6 z-50 bg-[#051838] text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-3 animate-fade-in text-sm font-medium">
+          <div className="fixed bottom-6 left-6 z-50 bg-[#09152B] dark:bg-slate-800 text-white px-5 py-3 rounded-xl shadow-xl border border-slate-700/50 flex items-center gap-3 animate-fade-in text-sm font-semibold">
             <Check className="w-5 h-5 text-emerald-400" />
             <span>{toastMessage}</span>
           </div>
         )}
 
-        <main className="p-4 sm:p-6 lg:p-10 flex-1">
-          {/* Page Title */}
-          <div className="text-center mb-6 sm:mb-8">
-            <h1 className="text-xl sm:text-2xl font-semibold text-[#00204F] dark:text-white font-cairo">
+        <main className="p-4 sm:p-6 lg:p-8 flex-1 max-w-2xl w-full mx-auto space-y-6">
+          {/* Breadcrumb Navigation */}
+          <nav className="flex items-center gap-1.5 text-xs font-semibold text-slate-400" aria-label="مسار التنقل">
+            <button
+              type="button"
+              onClick={() => navigate(PATHS.DASHBOARD)}
+              className="hover:text-[#09152B] dark:hover:text-blue-400 transition-colors cursor-pointer"
+            >
+              الرئيسية
+            </button>
+            <ChevronLeft className="w-3.5 h-3.5" />
+            <button
+              type="button"
+              onClick={() => navigate(selectedCustomer?.id ? `/customers/${selectedCustomer.id}` : PATHS.CUSTOMERS)}
+              className="hover:text-[#09152B] dark:hover:text-blue-400 transition-colors cursor-pointer"
+            >
+              العملاء
+            </button>
+            <ChevronLeft className="w-3.5 h-3.5" />
+            <span className="text-slate-600 dark:text-slate-400">
+              {isEditMode ? 'تعديل الدين' : 'إضافة دين جديد'}
+            </span>
+          </nav>
+
+          {/* Page Header */}
+          <div className="text-center sm:text-right">
+            <h1 className="text-2xl sm:text-3xl font-extrabold font-cairo text-[#09152B] dark:text-white tracking-tight">
               {isEditMode ? 'تعديل الدين' : 'إضافة دين جديد'}
             </h1>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1.5">
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
               {isEditMode
-                ? 'قم بتعديل تفاصيل هذا الدين وحفظ التغييرات.'
-                : 'قم بإدخال تفاصيل الدين للعميل الجديد أو الحالي.'}
+                ? 'قم بتعديل تفاصيل هذا الدين وحفظ التغييرات في سجل العميل المالي.'
+                : 'قم بإدخال تفاصيل الدين لتسجيلها في ذمة العميل المحددة وفق المعايير المالية.'}
             </p>
           </div>
 
           {/* Main Form Card */}
-          <div className="max-w-[485px] mx-auto bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm border-t-[3px] border-t-[#00204F] p-7 space-y-5">
+          <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-6 sm:p-8 space-y-6">
+            {/* Explicit Submission Error Alert */}
             {submitError && (
-              <div className="rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-sm px-3.5 py-2.5 text-right">
-                {submitError}
+              <div
+                role="alert"
+                className="rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/70 text-rose-800 dark:text-rose-200 p-4 text-right flex items-start gap-3 animate-fade-in"
+              >
+                <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                <div className="space-y-1 text-sm">
+                  <p className="font-bold font-cairo">
+                    {isEditMode ? 'تعذر تعديل الدين:' : 'تعذر تسجيل الدين:'}
+                  </p>
+                  <p className="text-xs sm:text-sm font-medium text-rose-700 dark:text-rose-300 leading-relaxed">
+                    {submitError}
+                  </p>
+                </div>
               </div>
             )}
 
             {/* Voice Input Section */}
             <div className="space-y-2">
               <style>{`
-                @keyframes watheqAudioWave {
-                  0% { transform: scaleY(0.25); opacity: 0.55; }
-                  50% { transform: scaleY(1.25); opacity: 1; }
+                @keyframes watheqWavePulse {
+                  0% { transform: scaleY(0.3); opacity: 0.6; }
+                  50% { transform: scaleY(1.15); opacity: 1; }
                   100% { transform: scaleY(0.4); opacity: 0.7; }
                 }
               `}</style>
@@ -390,17 +402,17 @@ export const AddDebtScreen: FC = () => {
                 type="button"
                 onClick={handleVoiceInputClick}
                 aria-pressed={isListening}
-                aria-label="إدخال صوتي سريع"
+                aria-label={isListening ? 'إيقاف الاستماع الصوتي' : 'بدء الإدخال الصوتي السريع'}
                 className={`w-full flex items-center justify-between gap-3 rounded-xl px-4 py-3 border transition-all text-right cursor-pointer select-none overflow-hidden ${
                   isListening
-                    ? 'bg-gradient-to-l from-blue-50/90 to-indigo-50/50 dark:from-slate-900 dark:to-slate-800 border-blue-400 dark:border-blue-500 shadow-sm shadow-blue-500/10'
-                    : 'bg-[#F2F4F6] hover:bg-[#e9ecf0] dark:bg-slate-800/50 dark:hover:bg-slate-800/80 border-slate-200/70 dark:border-slate-700/60'
+                    ? 'bg-blue-50/80 dark:bg-blue-950/40 border-blue-400 dark:border-blue-600 shadow-xs'
+                    : 'bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-700'
                 }`}
               >
                 {isListening ? (
                   <div className="flex items-center justify-between w-full gap-2">
                     <div className="flex items-center gap-3 shrink-0">
-                      <div className="w-9 h-9 shrink-0 rounded-lg flex items-center justify-center text-white bg-blue-600 shadow-sm shadow-blue-600/30">
+                      <div className="w-9 h-9 shrink-0 rounded-lg flex items-center justify-center text-white bg-blue-600 shadow-xs">
                         <Mic className="w-4 h-4 animate-pulse" />
                       </div>
                       <div className="text-right">
@@ -414,28 +426,26 @@ export const AddDebtScreen: FC = () => {
                       </div>
                     </div>
 
-                    {/* Animated Sound Waveform matching provided image */}
-                    <div className="flex items-center gap-[3px] h-8 px-2.5 py-1 bg-white/80 dark:bg-slate-800/80 rounded-lg border border-blue-200/70 dark:border-blue-700/50 shrink-0">
+                    {/* Precision Sound Waveform */}
+                    <div className="flex items-center gap-[3px] h-8 px-2.5 py-1 bg-white dark:bg-slate-900 rounded-lg border border-blue-200 dark:border-blue-800 shrink-0">
                       {[
-                        { h: 12, bg: 'bg-blue-300 dark:bg-blue-400', dur: '0.65s', del: '0.1s' },
-                        { h: 20, bg: 'bg-blue-500 dark:bg-blue-400', dur: '0.5s', del: '0.25s' },
-                        { h: 16, bg: 'bg-blue-300 dark:bg-blue-400', dur: '0.75s', del: '0.0s' },
-                        { h: 26, bg: 'bg-[#00204F] dark:bg-blue-200', dur: '0.6s', del: '0.35s' },
-                        { h: 32, bg: 'bg-blue-600 dark:bg-blue-500', dur: '0.45s', del: '0.15s' },
-                        { h: 22, bg: 'bg-blue-300 dark:bg-blue-400', dur: '0.7s', del: '0.3s' },
-                        { h: 28, bg: 'bg-[#00204F] dark:bg-blue-200', dur: '0.55s', del: '0.05s' },
-                        { h: 30, bg: 'bg-blue-500 dark:bg-blue-400', dur: '0.65s', del: '0.2s' },
-                        { h: 24, bg: 'bg-blue-300 dark:bg-blue-400', dur: '0.8s', del: '0.1s' },
-                        { h: 28, bg: 'bg-[#00204F] dark:bg-blue-200', dur: '0.5s', del: '0.4s' },
-                        { h: 18, bg: 'bg-blue-400 dark:bg-blue-400', dur: '0.7s', del: '0.15s' },
-                        { h: 24, bg: 'bg-[#00204F] dark:bg-blue-200', dur: '0.6s', del: '0.3s' },
+                        { h: 12, dur: '0.65s', del: '0.1s' },
+                        { h: 20, dur: '0.5s', del: '0.25s' },
+                        { h: 16, dur: '0.75s', del: '0.0s' },
+                        { h: 26, dur: '0.6s', del: '0.35s' },
+                        { h: 28, dur: '0.45s', del: '0.15s' },
+                        { h: 22, dur: '0.7s', del: '0.3s' },
+                        { h: 26, dur: '0.55s', del: '0.05s' },
+                        { h: 28, dur: '0.65s', del: '0.2s' },
+                        { h: 20, dur: '0.8s', del: '0.1s' },
+                        { h: 16, dur: '0.5s', del: '0.4s' },
                       ].map((bar, i) => (
                         <span
                           key={i}
-                          className={`w-[3px] rounded-full ${bar.bg}`}
+                          className="w-[3px] rounded-full bg-blue-600 dark:bg-blue-400"
                           style={{
                             height: `${bar.h}px`,
-                            animation: `watheqAudioWave ${bar.dur} ease-in-out infinite alternate`,
+                            animation: `watheqWavePulse ${bar.dur} ease-in-out infinite alternate`,
                             animationDelay: bar.del,
                             transformOrigin: 'center',
                           }}
@@ -446,223 +456,313 @@ export const AddDebtScreen: FC = () => {
                 ) : (
                   <>
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 shrink-0 rounded-lg flex items-center justify-center text-white bg-[#00204F]">
+                      <div className="w-9 h-9 shrink-0 rounded-lg flex items-center justify-center text-white bg-[#09152B] dark:bg-slate-700">
                         <Mic className="w-4 h-4" />
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-semibold text-[#00204F] dark:text-white">
+                        <p className="text-sm font-bold text-[#09152B] dark:text-white">
                           إدخال صوتي سريع
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          انقر للتحدث وإملاء بيانات الدين تلقائياً
                         </p>
                       </div>
                     </div>
-                    <span className="w-2 h-2 rounded-full shrink-0 bg-slate-400" />
+                    <span className="w-2 h-2 rounded-full shrink-0 bg-slate-300 dark:bg-slate-600" />
                   </>
                 )}
               </button>
 
-              {/* Exemplary format shown outside the box */}
               <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 text-right leading-relaxed px-1">
-                <span className="font-medium text-slate-600 dark:text-slate-300">مثال:</span> «سجل دين على [اسم العميل] بقيمة [المبلغ] يستحق بتاريخ [التاريخ] والملاحظات [الملاحظات]»
+                <span className="font-bold text-slate-700 dark:text-slate-300">صيغة مقترحة:</span> «سجل دين على [اسم العميل] بقيمة [المبلغ] يستحق بتاريخ [التاريخ] والملاحظات [الملاحظات]»
               </p>
             </div>
 
-            <div className="border-t border-slate-100 dark:border-slate-700" />
+            <div className="border-t border-slate-100 dark:border-slate-800" />
 
-            {/* Customer Search */}
-            <div className="space-y-1.5 text-right relative">
-              <label className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">بحث عن عميل</label>
-              <div className="relative flex items-center">
-                <UserSearch className="absolute right-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
-                {isSearchingCustomers && (
-                  <Loader2 className="absolute left-3.5 w-4 h-4 text-slate-400 animate-spin pointer-events-none" />
-                )}
-                <input
-                  type="text"
-                  value={customerQuery}
-                  onChange={(e) => handleCustomerQueryChange(e.target.value)}
-                  placeholder="ابحث بالاسم، رقم الهوية أو رقم الجوال..."
-                  dir="rtl"
-                  disabled={isEditMode}
-                  className={`w-full pr-10 pl-9 py-2.5 bg-[#F7F7FC] dark:bg-slate-900 border rounded-lg text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#00204F]/20 dark:focus:ring-blue-500/20 focus:border-[#00204F] dark:focus:border-blue-500 transition-all text-right disabled:cursor-not-allowed disabled:opacity-70 ${fieldErrors.customer ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'
-                    }`}
-                />
-              </div>
-
-              {isEditMode && (
-                <p className="text-xs text-slate-400">
-                  لا يمكن تغيير العميل عند تعديل دين قائم.
-                </p>
-              )}
-
-              {/* Results dropdown */}
-              {!selectedCustomer && customerQuery.trim() && customerResults.length > 0 && (
-                <div className="absolute z-10 top-full mt-1 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                  {customerResults.map((customer) => (
-                    <button
-                      key={customer.id}
-                      type="button"
-                      onClick={() => handleSelectCustomer(customer)}
-                      className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 text-sm text-right hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 transition-colors cursor-pointer"
-                    >
-                      <span className="font-medium text-slate-700 dark:text-slate-300">{customer.fullName}</span>
-                      <span className="text-xs text-slate-400" dir="ltr">
-                        {customer.phoneNumber}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {!selectedCustomer &&
-                !isSearchingCustomers &&
-                customerQuery.trim() &&
-                customerResults.length === 0 && (
-                  <p className="text-xs text-slate-400">لا يوجد عملاء مطابقون لهذا البحث.</p>
-                )}
-
-              {fieldErrors.customer && (
-                <p className="text-xs text-rose-600">{fieldErrors.customer}</p>
-              )}
-
-              {selectedCustomer && (
-                <p className="text-sm text-slate-600 dark:text-slate-400 pt-0.5">
-                  اسم العميل : <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedCustomer.fullName}</span>
-                </p>
-              )}
-            </div>
-
-            {/* Currency Selector (Confirmed Backend Dropdown Spec) */}
-            <div className="space-y-1.5 text-right">
-              <label className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">
-                عملة الدين
-              </label>
-              <select
-                value={currencyId}
-                onChange={(e) => setCurrencyId(Number(e.target.value))}
-                disabled={isEditMode}
-                className="w-full pr-3.5 pl-3 py-2.5 bg-[#F7F7FC] dark:bg-slate-900 border rounded-lg text-sm font-bold text-slate-800 dark:text-slate-200 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#00204F]/20 dark:focus:ring-blue-500/20 focus:border-[#00204F] dark:focus:border-blue-500 transition-all text-right disabled:cursor-not-allowed disabled:opacity-70 border-slate-200 dark:border-slate-700 cursor-pointer"
-              >
-                {currencies.map((curr) => (
-                  <option key={curr.id} value={curr.id}>
-                    {curr.name} ({curr.code})
-                  </option>
-                ))}
-              </select>
-              {isEditMode && (
-                <p className="text-xs text-slate-400">لا يمكن تغيير عملة الدين أثناء تعديل بياناته.</p>
-              )}
-            </div>
-
-            {/* Amount + Due Date, side by side (amount renders on the right in RTL) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Amount */}
-              <div className="space-y-1.5 text-right">
-                <label className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  المبلغ ({activeCurrencyConfig.labelArFull})
-                </label>
-                <div
-                  className={`w-full flex items-center gap-1 pr-3.5 pl-3 py-2.5 bg-[#F7F7FC] dark:bg-slate-900 border rounded-lg focus-within:bg-white dark:bg-slate-800 focus-within:ring-2 focus-within:ring-[#00204F]/20 dark:focus-within:ring-blue-500/20 focus-within:border-[#00204F] dark:focus-within:border-blue-500 transition-all ${fieldErrors.amount ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'
-                    }`}
+            {/* Semantic Form Container */}
+            <form onSubmit={handleSubmit} noValidate className="space-y-5">
+              {/* Customer Search Section */}
+              <div className="space-y-1.5 text-right relative">
+                <label
+                  htmlFor="customer-search-input"
+                  className="block text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300"
                 >
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={amount}
-                    onChange={(e) => {
-                      let val = e.target.value.replace(/,/g, '.').replace(/[^0-9.]/g, '');
-                      const parts = val.split('.');
-                      if (parts.length > 2) {
-                        val = parts[0] + '.' + parts.slice(1).join('');
-                      }
-                      setAmount(val);
-                      setFieldErrors((prev) => ({ ...prev, amount: undefined }));
-                    }}
-                    placeholder="0.00"
-                    dir="ltr"
-                    className="min-w-0 flex-1 bg-transparent text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none text-right font-sans"
-                  />
-                  <span className="text-base font-bold text-slate-500 dark:text-slate-300 shrink-0 mr-1 font-sans">
-                    {activeCurrencyConfig.symbol}
-                  </span>
-                </div>
-                {fieldErrors.amount && <p className="text-xs text-rose-600">{fieldErrors.amount}</p>}
-              </div>
+                  العميل المستهدف <span className="text-rose-500">*</span>
+                </label>
 
-              {/* Due Date */}
-              <div className="space-y-1.5 text-right">
-                <label className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">تاريخ الاستحقاق</label>
-                <div className="relative flex items-center">
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => {
-                      setDueDate(e.target.value);
-                      setFieldErrors((prev) => ({ ...prev, dueDate: undefined }));
-                    }}
-                    dir="ltr"
-                    className={`w-full px-3.5 py-2.5 bg-[#F7F7FC] dark:bg-slate-900 border rounded-lg text-sm text-slate-800 dark:text-slate-200 focus:bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#00204F]/20 dark:focus:ring-blue-500/20 focus:border-[#00204F] dark:focus:border-blue-500 transition-all text-right font-sans ${fieldErrors.dueDate ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'
-                      }`}
-                  />
-                </div>
-                {fieldErrors.dueDate && <p className="text-xs text-rose-600">{fieldErrors.dueDate}</p>}
-              </div>
-            </div>
+                {selectedCustomer ? (
+                  <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 flex items-center justify-center font-bold text-sm shrink-0">
+                        <User className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0 text-right">
+                        <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">
+                          {selectedCustomer.fullName}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-jakarta tabular-nums font-medium" dir="ltr">
+                          {selectedCustomer.phoneNumber || 'لا يوجد هاتف'}
+                        </p>
+                      </div>
+                    </div>
 
-            {/* Notes */}
-            <div>
-              <Textarea
-                label="ملاحظات (اختياري)"
-                placeholder="أضف تفاصيل إضافية حول هذا الدين..."
-                value={notes}
-                maxLength={2000}
-                onChange={(e) => {
-                  setNotes(e.target.value);
-                  setFieldErrors((prev) => ({ ...prev, notes: undefined }));
-                }}
-                className={`w-full px-3.5 py-2.5 bg-[#F7F7FC] dark:bg-slate-900 border rounded-lg text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#00204F]/20 dark:focus:ring-blue-500/20 focus:border-[#00204F] dark:focus:border-blue-500 transition-all text-right resize-none h-[75px] ${fieldErrors.notes ? 'border-rose-400' : 'border-slate-200 dark:border-slate-700'
-                  }`}
-              />
-              {fieldErrors.notes && <p className="text-xs text-rose-600 text-right mt-1">{fieldErrors.notes}</p>}
-            </div>
-
-
-            <div className="border-t border-slate-100 dark:border-slate-700" />
-
-            {/* Action Buttons */}
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={isSaving}
-                className="flex-1 py-2.5 px-4 bg-[#00204F] hover:bg-[#00204F]/90 text-white rounded-lg text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.99] cursor-pointer disabled:opacity-70"
-              >
-                {isSaving ? (
-                  <span className="flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    {isEditMode ? 'جاري تعديل الدين...' : 'جاري الحفظ...'}
-                  </span>
+                    {!isEditMode && (
+                      <button
+                        type="button"
+                        onClick={handleClearSelectedCustomer}
+                        className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline inline-flex items-center gap-1 cursor-pointer p-1"
+                        aria-label="تغيير العميل المختار"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>تغيير</span>
+                      </button>
+                    )}
+                  </div>
                 ) : (
-                  <>
-                    <Save className="w-4 h-4" />
-                    <span>{isEditMode ? 'تعديل دين' : 'حفظ وتسجيل الدين'}</span>
-                  </>
+                  <div className="relative flex items-center">
+                    <UserSearch className="absolute right-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
+                    {isSearchingCustomers && (
+                      <Loader2 className="absolute left-3.5 w-4 h-4 text-slate-400 animate-spin pointer-events-none" />
+                    )}
+                    <input
+                      id="customer-search-input"
+                      name="customerQuery"
+                      type="text"
+                      value={customerQuery}
+                      onChange={(e) => handleCustomerQueryChange(e.target.value)}
+                      placeholder="ابحث بالاسم، رقم الهوية أو رقم الجوال..."
+                      dir="rtl"
+                      disabled={isEditMode}
+                      aria-invalid={Boolean(fieldErrors.customer)}
+                      aria-describedby={fieldErrors.customer ? 'customer-error' : undefined}
+                      className={`w-full pr-10 pl-9 py-2.5 bg-slate-50 dark:bg-slate-900 border rounded-xl text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#09152B]/15 dark:focus:ring-blue-500/20 focus:border-[#09152B] dark:focus:border-blue-500 transition-all text-right disabled:cursor-not-allowed disabled:opacity-70 ${
+                        fieldErrors.customer ? 'border-rose-400 dark:border-rose-500' : 'border-slate-200 dark:border-slate-700'
+                      }`}
+                    />
+                  </div>
                 )}
-              </button>
-              <button
-                type="button"
-                onClick={handleCancel}
-                disabled={isSaving}
-                className="py-2.5 px-6 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold transition-all cursor-pointer disabled:opacity-60"
-              >
-                إلغاء
-              </button>
-            </div>
+
+                {isEditMode && (
+                  <p className="text-xs text-slate-400">
+                    لا يمكن تغيير العميل عند تعديل دين قائم.
+                  </p>
+                )}
+
+                {/* Search Results Dropdown */}
+                {!selectedCustomer && customerQuery.trim() && customerResults.length > 0 && (
+                  <div className="absolute z-20 top-full mt-1.5 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg max-h-52 overflow-y-auto">
+                    {customerResults.map((customer) => (
+                      <button
+                        key={customer.id}
+                        type="button"
+                        onClick={() => handleSelectCustomer(customer)}
+                        className="w-full flex items-center justify-between gap-2 px-4 py-3 text-sm text-right hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer border-b last:border-b-0 border-slate-100 dark:border-slate-700/50"
+                      >
+                        <div className="font-semibold text-slate-800 dark:text-slate-100">
+                          {customer.fullName}
+                        </div>
+                        <div className="text-xs text-slate-400 font-jakarta tabular-nums" dir="ltr">
+                          {customer.phoneNumber}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {!selectedCustomer &&
+                  !isSearchingCustomers &&
+                  customerQuery.trim() &&
+                  customerResults.length === 0 && (
+                    <p className="text-xs text-slate-400">لا يوجد عملاء مطابقون لهذا البحث.</p>
+                  )}
+
+                {fieldErrors.customer && (
+                  <p id="customer-error" role="alert" className="text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1 mt-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{fieldErrors.customer}</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Currency Selector */}
+              <div className="space-y-1.5 text-right">
+                <label
+                  htmlFor="debt-currency-select"
+                  className="block text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300"
+                >
+                  عملة الدين <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  id="debt-currency-select"
+                  name="currencyId"
+                  value={currencyId}
+                  onChange={(e) => setCurrencyId(Number(e.target.value))}
+                  disabled={isEditMode}
+                  className="w-full pr-3.5 pl-3 py-2.5 bg-slate-50 dark:bg-slate-900 border rounded-xl text-sm font-bold text-slate-800 dark:text-slate-200 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#09152B]/15 dark:focus:ring-blue-500/20 focus:border-[#09152B] dark:focus:border-blue-500 transition-all text-right disabled:cursor-not-allowed disabled:opacity-70 border-slate-200 dark:border-slate-700 cursor-pointer"
+                >
+                  {currencies.map((curr) => (
+                    <option key={curr.id} value={curr.id}>
+                      {curr.name} ({curr.code})
+                    </option>
+                  ))}
+                </select>
+                {isEditMode && (
+                  <p className="text-xs text-slate-400">لا يمكن تغيير عملة الدين أثناء تعديل بياناته.</p>
+                )}
+              </div>
+
+              {/* Amount + Due Date (2-column layout) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Amount */}
+                <div className="space-y-1.5 text-right">
+                  <label
+                    htmlFor="debt-amount-input"
+                    className="block text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300"
+                  >
+                    المبلغ ({activeCurrencyConfig.labelArFull}) <span className="text-rose-500">*</span>
+                  </label>
+                  <div
+                    className={`w-full flex items-center gap-1 pr-3.5 pl-3 py-2.5 bg-slate-50 dark:bg-slate-900 border rounded-xl focus-within:bg-white dark:focus-within:bg-slate-800 focus-within:ring-2 focus-within:ring-[#09152B]/15 dark:focus-within:ring-blue-500/20 focus-within:border-[#09152B] dark:focus-within:border-blue-500 transition-all ${
+                      fieldErrors.amount ? 'border-rose-400 dark:border-rose-500' : 'border-slate-200 dark:border-slate-700'
+                    }`}
+                  >
+                    <input
+                      id="debt-amount-input"
+                      name="amount"
+                      type="text"
+                      inputMode="decimal"
+                      value={amount}
+                      aria-invalid={Boolean(fieldErrors.amount)}
+                      aria-describedby={fieldErrors.amount ? 'amount-error' : undefined}
+                      onChange={(e) => {
+                        let val = e.target.value.replace(/,/g, '.').replace(/[^0-9.]/g, '');
+                        const parts = val.split('.');
+                        if (parts.length > 2) {
+                          val = parts[0] + '.' + parts.slice(1).join('');
+                        }
+                        setAmount(val);
+                        setFieldErrors((prev) => ({ ...prev, amount: undefined }));
+                      }}
+                      placeholder="0.00"
+                      dir="ltr"
+                      className="min-w-0 flex-1 bg-transparent text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none text-right font-jakarta tabular-nums font-bold"
+                    />
+                    <span className="text-sm font-bold text-slate-500 dark:text-slate-400 shrink-0 mr-1 font-jakarta tabular-nums">
+                      {activeCurrencyConfig.symbol}
+                    </span>
+                  </div>
+                  {fieldErrors.amount && (
+                    <p id="amount-error" role="alert" className="text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1 mt-1">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{fieldErrors.amount}</span>
+                    </p>
+                  )}
+                </div>
+
+                {/* Due Date */}
+                <div className="space-y-1.5 text-right">
+                  <label
+                    htmlFor="debt-due-date-input"
+                    className="block text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300"
+                  >
+                    تاريخ الاستحقاق <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative flex items-center">
+                    <input
+                      id="debt-due-date-input"
+                      name="dueDate"
+                      type="date"
+                      value={dueDate}
+                      aria-invalid={Boolean(fieldErrors.dueDate)}
+                      aria-describedby={fieldErrors.dueDate ? 'due-date-error' : undefined}
+                      onChange={(e) => {
+                        setDueDate(e.target.value);
+                        setFieldErrors((prev) => ({ ...prev, dueDate: undefined }));
+                      }}
+                      dir="ltr"
+                      className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border rounded-xl text-sm text-slate-800 dark:text-slate-200 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#09152B]/15 dark:focus:ring-blue-500/20 focus:border-[#09152B] dark:focus:border-blue-500 transition-all text-right font-jakarta tabular-nums font-semibold cursor-pointer ${
+                        fieldErrors.dueDate ? 'border-rose-400 dark:border-rose-500' : 'border-slate-200 dark:border-slate-700'
+                      }`}
+                    />
+                    <Calendar className="absolute left-3 w-4 h-4 text-slate-400 pointer-events-none" />
+                  </div>
+                  {fieldErrors.dueDate && (
+                    <p id="due-date-error" role="alert" className="text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1 mt-1">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{fieldErrors.dueDate}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-1.5 text-right">
+                <Textarea
+                  id="debt-notes-input"
+                  name="notes"
+                  label="ملاحظات (اختياري)"
+                  placeholder="أضف تفاصيل إضافية حول هذا الدين أو بنود الفاتورة..."
+                  value={notes}
+                  maxLength={2000}
+                  aria-invalid={Boolean(fieldErrors.notes)}
+                  aria-describedby={fieldErrors.notes ? 'notes-error' : undefined}
+                  onChange={(e) => {
+                    setNotes(e.target.value);
+                    setFieldErrors((prev) => ({ ...prev, notes: undefined }));
+                  }}
+                  className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border rounded-xl text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#09152B]/15 dark:focus:ring-blue-500/20 focus:border-[#09152B] dark:focus:border-blue-500 transition-all text-right resize-none h-[85px] ${
+                    fieldErrors.notes ? 'border-rose-400 dark:border-rose-500' : 'border-slate-200 dark:border-slate-700'
+                  }`}
+                />
+                <div className="flex items-center justify-between text-xs text-slate-400">
+                  {fieldErrors.notes ? (
+                    <p id="notes-error" role="alert" className="text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{fieldErrors.notes}</span>
+                    </p>
+                  ) : <span />}
+                  <span className="font-jakarta tabular-nums" dir="ltr">{notes.length} / 2000</span>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-100 dark:border-slate-800 pt-2" />
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="flex-1 py-3 px-4 bg-[#09152B] hover:bg-[#060e1d] text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-xs transition-all active:scale-[0.99] cursor-pointer disabled:opacity-60"
+                >
+                  {isSaving ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      {isEditMode ? 'جاري تعديل الدين...' : 'جاري الحفظ والتسجيل...'}
+                    </span>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      <span>{isEditMode ? 'حفظ تعديل الدين' : 'حفظ وتسجيل الدين'}</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  disabled={isSaving}
+                  className="py-3 px-6 bg-white dark:bg-[#1f2937] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold transition-all cursor-pointer disabled:opacity-60"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </form>
           </div>
 
-          {/* Security Footer */}
-          <div className="flex items-center justify-center gap-1.5 mt-5 text-xs text-slate-400">
+          {/* Security Assurance Footer */}
+          <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400">
             <Lock className="w-3.5 h-3.5" />
-            <span>جميع البيانات مشفرة ومحفوظة بأمان في نظام وثّق.</span>
+            <span>جميع البيانات المالية مشفرة ومسجلة بدقة في نظام وثّق المحاسبي.</span>
           </div>
         </main>
       </div>

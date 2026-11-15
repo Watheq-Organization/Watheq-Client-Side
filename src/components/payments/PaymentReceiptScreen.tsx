@@ -27,7 +27,7 @@ import {
   triggerPdfDownload,
   toInvoiceErrorMessage,
 } from '../../services/invoiceService';
-import { getCustomerProfile, getCustomers } from '../../services/customerService';
+import { getCustomerProfile } from '../../services/customerService';
 import { formatApiDate, getDeviceLocalDateString } from '../../lib/dateUtils';
 import type { CustomerProfileDto } from '../../types/customer';
 import type { PaymentInvoiceDto } from '../../types/invoice';
@@ -69,19 +69,24 @@ export const PaymentReceiptScreen: FC = () => {
   const [serverPayment, setServerPayment] = useState<PaymentInvoiceDto | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [customerProfile, setCustomerProfile] = useState<CustomerProfileDto | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
 
   // Extract payment from navigation state if available
   const statePayment = (location.state as { payment?: PaymentState } | null)?.payment;
 
-  const fetchLivePayment = () => {
+  useEffect(() => {
     if (!id) return;
     const cleanId = String(id).trim();
     if (!cleanId) return;
 
-    setIsLoading(true);
+    let isMounted = true;
+    Promise.resolve().then(() => {
+      if (isMounted) setIsLoading(true);
+    });
+
     getInvoiceByPaymentId(cleanId)
       .then((data) => {
-        if (data) {
+        if (isMounted && data) {
           setServerPayment(data);
         }
       })
@@ -89,112 +94,72 @@ export const PaymentReceiptScreen: FC = () => {
         console.warn('[PaymentReceiptScreen] getInvoiceByPaymentId error:', err);
       })
       .finally(() => {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       });
-  };
-
-  useEffect(() => {
-    fetchLivePayment();
-  }, [id]);
-
-  // Resolve customer profile for real balance & debt numbers
-  useEffect(() => {
-    let isMounted = true;
-    const targetCustomerId = serverPayment?.customerId ?? statePayment?.customerId;
-    const targetCustomerName = serverPayment?.customerName ?? statePayment?.customerName;
-    const targetCustomerPhone = serverPayment?.customerPhone ?? statePayment?.phone;
-
-    async function fetchCustomerData() {
-      try {
-        if (targetCustomerId) {
-          const profile = await getCustomerProfile(String(targetCustomerId));
-          if (isMounted && profile) {
-            setCustomerProfile(profile);
-            return;
-          }
-        }
-        if (targetCustomerName || targetCustomerPhone) {
-          const customers = await getCustomers();
-          const matched = customers.find((c) => {
-            if (targetCustomerId && String(c.id) === String(targetCustomerId)) return true;
-            if (targetCustomerName && c.fullName && c.fullName.trim() === targetCustomerName.trim()) return true;
-            if (targetCustomerPhone && c.phoneNumber && targetCustomerPhone.includes(c.phoneNumber)) return true;
-            return false;
-          });
-          if (isMounted && matched) {
-            const profile = await getCustomerProfile(String(matched.id));
-            if (isMounted && profile) {
-              setCustomerProfile(profile);
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('[PaymentReceiptScreen] Could not fetch customer profile:', err);
-      }
-    }
-
-    if (targetCustomerId || targetCustomerName || targetCustomerPhone) {
-      fetchCustomerData();
-    }
 
     return () => {
       isMounted = false;
     };
-  }, [
-    serverPayment?.customerId,
-    serverPayment?.customerName,
-    serverPayment?.customerPhone,
-    statePayment?.customerId,
-    statePayment?.customerName,
-    statePayment?.phone,
-  ]);
+  }, [id, refreshTrigger]);
 
-  // Real data with defensive server fallbacks
+  const handleRefresh = () => {
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
+  // Resolve customer profile for real balance & debt numbers
+  useEffect(() => {
+    const custId = serverPayment?.customerId ?? statePayment?.customerId;
+    if (!custId) return;
+    let isMounted = true;
+    getCustomerProfile(String(custId))
+      .then((profile) => {
+        if (isMounted && profile) {
+          setCustomerProfile(profile);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [serverPayment?.customerId, statePayment?.customerId]);
+
   const paymentData = useMemo(() => {
-    const amount =
-      serverPayment?.amount ?? serverPayment?.paidAmount ?? statePayment?.amount ?? 0;
+    const amount = Number(serverPayment?.amount ?? statePayment?.amount ?? 0);
     const customerName =
-      serverPayment?.customerName ?? statePayment?.customerName ?? customerProfile?.fullName ?? 'العميل';
+      serverPayment?.customerName ??
+      statePayment?.customerName ??
+      customerProfile?.fullName ??
+      'العميل المعتمد';
     const customerNationalId =
-      serverPayment?.customerNationalId ?? statePayment?.nationalId ?? '—';
+      customerProfile?.nationalId ?? statePayment?.nationalId ?? '—';
     const customerPhone =
-      serverPayment?.customerPhone ?? statePayment?.phone ?? customerProfile?.phoneNumber ?? '—';
+      customerProfile?.phoneNumber ?? statePayment?.phone ?? '—';
+
+    const rawId = serverPayment?.id ?? serverPayment?.paymentId ?? id ?? statePayment?.id ?? '1';
     const receiptNumber =
       serverPayment?.receiptNumber ??
-      serverPayment?.invoiceNumber ??
       statePayment?.receiptNumber ??
-      (id ? `REC-${id}` : 'REC-001');
+      `REC-${String(rawId).padStart(5, '0')}`;
 
-    const rawPaymentDate =
-      serverPayment?.paymentDate ?? serverPayment?.date ?? statePayment?.date;
-    const paymentDate = rawPaymentDate
-      ? formatApiDate(rawPaymentDate)
-      : formatApiDate(getDeviceLocalDateString());
+    const paymentDate =
+      (serverPayment?.paymentDate ? formatApiDate(serverPayment.paymentDate) : null) ??
+      statePayment?.date ??
+      getDeviceLocalDateString();
 
-    const paymentTime =
-      serverPayment?.paymentTime ?? serverPayment?.time ?? statePayment?.time ?? '—';
-
-    const matchingTx = customerProfile?.transactions?.find(
-      (tx) => String(tx.id) === String(id) || (receiptNumber && String(tx.reference) === String(receiptNumber))
-    );
+    const paymentTime = statePayment?.time ?? '—';
 
     const rawMethod =
-      (serverPayment?.paymentMethod && serverPayment.paymentMethod !== 'نقداً'
-        ? serverPayment.paymentMethod
-        : undefined) ??
-      (statePayment?.method && statePayment.method !== 'نقداً'
-        ? statePayment.method
-        : undefined) ??
-      matchingTx?.paymentMethod ??
       serverPayment?.paymentMethod ??
+      serverPayment?.method ??
       statePayment?.method ??
       'نقداً';
 
     const method = String(rawMethod);
 
-    // Real accounting calculation (no mock +3000)
-    let previousDebt = 0;
-    let remainingDebt = 0;
+    let previousDebt: number;
+    let remainingDebt: number;
 
     if (serverPayment?.previousDebt !== undefined) {
       previousDebt = Number(serverPayment.previousDebt) || 0;
@@ -217,7 +182,7 @@ export const PaymentReceiptScreen: FC = () => {
     const rawCurrency =
       serverPayment?.currencyCode ??
       serverPayment?.currency ??
-      (serverPayment as any)?.currencyId ??
+      (serverPayment as unknown as { currencyId?: string | number })?.currencyId ??
       statePayment?.currency ??
       'ILS';
     const currencyCode: CurrencyCode = normalizeCurrencyCode(rawCurrency);
@@ -327,18 +292,18 @@ export const PaymentReceiptScreen: FC = () => {
 
   return (
     <div
-      className="min-h-screen bg-[#f4f7fb] dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-cairo antialiased flex"
+      className="min-h-screen bg-[#F5F6F8] dark:bg-[#0B0F19] text-slate-800 dark:text-slate-200 font-cairo antialiased flex"
       dir="rtl"
     >
       {/* Toast Notification */}
       {toast && (
         <div
-          className={`fixed top-5 left-1/2 -translate-x-1/2 z-50 px-5 py-3.5 rounded-xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200 border print:hidden max-w-md text-right ${
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-50 px-5 py-3.5 rounded-xl shadow-xl flex items-center gap-3 animate-fade-in border print:hidden max-w-md text-right ${
             toast.type === 'error'
               ? 'bg-rose-900/95 text-white border-rose-700 shadow-rose-950/30'
               : toast.type === 'success'
-                ? 'bg-[#0c2444] text-white border-emerald-500/40 shadow-slate-950/30'
-                : 'bg-[#0c2444] text-white border-blue-500/40'
+                ? 'bg-[#09152B] text-white border-emerald-500/40 shadow-slate-950/30'
+                : 'bg-[#09152B] text-white border-blue-500/40'
           }`}
         >
           {toast.type === 'error' ? (
@@ -348,7 +313,7 @@ export const PaymentReceiptScreen: FC = () => {
           ) : (
             <Loader2 className="w-5 h-5 text-blue-400 animate-spin shrink-0" />
           )}
-          <span className="text-sm font-medium">{toast.message}</span>
+          <span className="text-sm font-semibold">{toast.message}</span>
         </div>
       )}
 
@@ -378,7 +343,7 @@ export const PaymentReceiptScreen: FC = () => {
               <button
                 type="button"
                 onClick={() => navigate(PATHS.PAYMENTS)}
-                className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 flex items-center justify-center shadow-2xs hover:shadow-xs transition-all active:scale-95 cursor-pointer shrink-0"
+                className="w-10 h-10 rounded-xl bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center shadow-xs transition-all active:scale-95 cursor-pointer shrink-0"
                 title="الرجوع لسجل المدفوعات"
               >
                 <ArrowRight className="w-5 h-5" />
@@ -386,20 +351,20 @@ export const PaymentReceiptScreen: FC = () => {
 
               <div>
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  <h1 className="text-xl sm:text-2xl font-bold font-cairo text-slate-900 dark:text-white tracking-tight">
+                  <h1 className="text-xl sm:text-2xl font-extrabold font-cairo text-[#09152B] dark:text-white tracking-tight">
                     سند قبض مالي إلكتروني
                   </h1>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                     <span>مقبوض وموثق</span>
                   </span>
                   {serverPayment ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-jakarta tabular-nums">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                       مربوط بالسيرفر
                     </span>
                   ) : isLoading ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
                       <RotateCw className="w-2.5 h-2.5 animate-spin text-slate-500 dark:text-slate-400" />
                       جاري التحميل...
                     </span>
@@ -416,9 +381,9 @@ export const PaymentReceiptScreen: FC = () => {
               {/* Refresh Button */}
               <button
                 type="button"
-                onClick={fetchLivePayment}
+                onClick={handleRefresh}
                 disabled={isLoading}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-[#111827] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
                 title="تحديث سند القبض من الخادم"
               >
                 <RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-emerald-600' : ''}`} />
@@ -429,9 +394,9 @@ export const PaymentReceiptScreen: FC = () => {
               <button
                 type="button"
                 onClick={handleSendWhatsApp}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs sm:text-sm font-bold shadow-2xs hover:shadow-xs transition-all active:scale-98 cursor-pointer"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-all active:scale-[0.99] cursor-pointer"
               >
-                <Send className="w-4 h-4 text-emerald-600" />
+                <Send className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <span>إرسال واتساب</span>
               </button>
 
@@ -440,7 +405,7 @@ export const PaymentReceiptScreen: FC = () => {
                 type="button"
                 onClick={handleExportPdf}
                 disabled={isDownloadingPdf}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-800 dark:text-slate-200 border border-slate-200/90 rounded-xl text-xs sm:text-sm font-bold shadow-2xs hover:shadow-xs transition-all active:scale-98 cursor-pointer disabled:opacity-60"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-[#111827] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-all active:scale-[0.99] cursor-pointer disabled:opacity-60"
               >
                 {isDownloadingPdf ? (
                   <Loader2 className="w-4 h-4 text-emerald-600 animate-spin" />
@@ -457,81 +422,83 @@ export const PaymentReceiptScreen: FC = () => {
           {/* ============================================================ */}
           <div
             id="receipt-voucher-card"
-            className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden print:border-none print:shadow-none print:rounded-none print:m-0 print:p-0"
+            className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden print:border-none print:shadow-none print:rounded-none print:m-0 print:p-0"
           >
             <div className="p-6 sm:p-8 space-y-6">
               {/* Header */}
-              <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-700 pb-4">
+              <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                 <div>
-                  <h2 className="text-2xl font-bold text-[#0c2444] dark:text-blue-400">سند قبض</h2>
-                  <p className="text-sm text-slate-500 mt-1 font-mono">الرقم: {paymentData.receiptNumber}</p>
+                  <h2 className="text-2xl font-extrabold text-[#09152B] dark:text-white">سند قبض مالي</h2>
+                  <p className="text-xs sm:text-sm text-slate-500 font-jakarta tabular-nums mt-1 font-semibold">
+                    الرقم: {paymentData.receiptNumber}
+                  </p>
                 </div>
                 <div className="text-left">
-                  <h3 className="font-bold text-slate-800 dark:text-slate-200">{merchant.businessName || 'المتجر'}</h3>
-                  <p className="text-xs text-slate-500 mt-1">{paymentData.paymentDate}</p>
+                  <h3 className="font-extrabold text-slate-800 dark:text-slate-200 text-base">{merchant.businessName || 'المتجر'}</h3>
+                  <p className="text-xs text-slate-500 font-jakarta tabular-nums mt-1 font-medium">{paymentData.paymentDate}</p>
                 </div>
               </div>
 
               {/* Amount */}
-              <div className="bg-slate-50 dark:bg-slate-700/30 rounded-2xl p-6 text-center">
-                <span className="text-sm font-medium text-slate-500">المبلغ المقبوض</span>
-                <div className="text-3xl sm:text-4xl font-bold text-emerald-600 mt-2 font-mono flex items-center justify-center gap-2" dir="ltr">
+              <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800 rounded-2xl p-6 text-center">
+                <span className="text-xs font-bold text-slate-400">المبلغ المقبوض</span>
+                <div className="text-3xl sm:text-4xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-2 font-jakarta tabular-nums flex items-center justify-center gap-2" dir="ltr">
                   <span>{paymentData.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                   <span className="text-xl font-cairo text-slate-700 dark:text-slate-300">
                     {paymentData.currencyConfig.symbol} ({paymentData.currencyConfig.labelAr})
                   </span>
-                  <span className={`text-xs px-2 py-0.5 rounded-md font-bold font-sans ${CURRENCY_BADGE_STYLES[paymentData.currencyCode]}`}>
+                  <span className={`text-xs px-2.5 py-0.5 rounded-lg font-bold font-jakarta tabular-nums border ${CURRENCY_BADGE_STYLES[paymentData.currencyCode].bg} ${CURRENCY_BADGE_STYLES[paymentData.currencyCode].text} ${CURRENCY_BADGE_STYLES[paymentData.currencyCode].border}`}>
                     {paymentData.currencyCode}
                   </span>
                 </div>
-                <div className="text-sm font-medium text-slate-600 dark:text-slate-400 mt-2">
+                <div className="text-sm font-semibold text-slate-600 dark:text-slate-300 mt-2 font-cairo">
                   فقط وقدره {tafqeet(paymentData.amount, paymentData.currencyConfig.labelArFull)} لا غير
                 </div>
-                <div className="inline-flex items-center gap-2 mt-4 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
-                  <MethodIcon className="w-4 h-4 text-slate-400" />
+                <div className="inline-flex items-center gap-2 mt-4 px-3.5 py-1.5 bg-white dark:bg-[#111827] rounded-xl shadow-xs border border-slate-200 dark:border-slate-700">
+                  <MethodIcon className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                   <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{methodDetails.label}</span>
                 </div>
               </div>
 
               {/* Details Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="border border-slate-200 dark:border-slate-700 rounded-xl p-4">
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-500 mb-3">
+                <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 bg-white dark:bg-[#111827]">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-400 mb-2">
                     <User className="w-4 h-4" />
-                    استلمنا من السيد (العميل):
+                    <span>استلمنا من السيد (العميل):</span>
                   </div>
-                  <div className="font-bold text-slate-800 dark:text-slate-200">{paymentData.customerName}</div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400 mt-1" dir="ltr">{paymentData.customerPhone}</div>
+                  <div className="font-extrabold text-base text-slate-800 dark:text-slate-100">{paymentData.customerName}</div>
+                  <div className="text-xs text-slate-500 font-jakarta tabular-nums font-semibold mt-1" dir="ltr">{paymentData.customerPhone}</div>
                 </div>
                 
-                <div className="border border-slate-200 dark:border-slate-700 rounded-xl p-4">
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-500 mb-3">
+                <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 bg-white dark:bg-[#111827]">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-400 mb-2">
                     <FileText className="w-4 h-4" />
-                    البيان وسبب التحصيل:
+                    <span>البيان وسبب التحصيل:</span>
                   </div>
-                  <div className="font-medium text-sm text-slate-800 dark:text-slate-200 leading-relaxed">
+                  <div className="font-semibold text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-cairo">
                     {serverPayment?.notes || `سداد دفعة مالية لحساب العميل. ${paymentData.invoiceNumber ? `مرتبط بالفاتورة ${paymentData.invoiceNumber}` : ''}`}
                   </div>
                 </div>
               </div>
 
               {/* Accounting Summary */}
-              <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-100 dark:border-slate-700 text-center bg-slate-50/50 dark:bg-slate-800/50 rounded-xl p-4">
+              <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800 text-center bg-slate-50/70 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800 rounded-2xl p-4">
                 <div>
-                  <div className="text-xs text-slate-500 mb-1">الرصيد السابق</div>
-                  <div className="font-bold text-slate-800 dark:text-slate-200 font-mono" dir="ltr">
+                  <div className="text-xs text-slate-500 dark:text-slate-400 font-bold mb-1">الرصيد السابق</div>
+                  <div className="font-extrabold text-slate-800 dark:text-slate-200 font-jakarta tabular-nums text-sm sm:text-base" dir="ltr">
                     {paymentData.previousDebt.toLocaleString('en-US', { minimumFractionDigits: 2 })} {paymentData.currencyConfig.symbol}
                   </div>
                 </div>
                 <div>
-                  <div className="text-xs text-emerald-600 mb-1">المبلغ المسدد (-)</div>
-                  <div className="font-bold text-emerald-600 font-mono" dir="ltr">
+                  <div className="text-xs text-emerald-600 dark:text-emerald-400 font-bold mb-1">المبلغ المسدد (-)</div>
+                  <div className="font-extrabold text-emerald-600 dark:text-emerald-400 font-jakarta tabular-nums text-sm sm:text-base" dir="ltr">
                     {paymentData.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })} {paymentData.currencyConfig.symbol}
                   </div>
                 </div>
                 <div>
-                  <div className="text-xs text-blue-600 mb-1">الرصيد المتبقي</div>
-                  <div className="font-bold text-blue-600 font-mono" dir="ltr">
+                  <div className="text-xs text-blue-600 dark:text-blue-400 font-bold mb-1">الرصيد المتبقي</div>
+                  <div className="font-extrabold text-blue-600 dark:text-blue-400 font-jakarta tabular-nums text-sm sm:text-base" dir="ltr">
                     {paymentData.remainingDebt.toLocaleString('en-US', { minimumFractionDigits: 2 })} {paymentData.currencyConfig.symbol}
                   </div>
                 </div>

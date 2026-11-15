@@ -331,7 +331,7 @@ export const MizanReconciliation: FC = () => {
   const currentPeriodLabel = PERIOD_OPTIONS.find(p => p.id === selectedPeriodKey)?.label || 'اليوم';
 
   return (
-    <div className="min-h-screen bg-[#f4f7fb] dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-cairo antialiased flex" dir="rtl">
+    <div className="min-h-screen bg-[#F5F6F8] dark:bg-[#0B0F19] text-[#09152B] dark:text-[#F8FAFC] font-cairo antialiased flex" dir="rtl">
       <Toast message={toastMsg} onClose={() => setToastMsg(null)} />
 
       {/* Confirmation Modal for Creating Instant Sale with NO inputs */}
@@ -373,7 +373,7 @@ export const MizanReconciliation: FC = () => {
           {/* Header Section */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-[#09152B] dark:text-[#F8FAFC] flex items-center gap-2">
                 <RefreshCw className="w-6 h-6 text-emerald-600" />
                 ميزان — مطابقة المبيعات الفورية مع كشف البنك
               </h1>
@@ -383,12 +383,13 @@ export const MizanReconciliation: FC = () => {
             </div>
 
             {/* Mode Switcher */}
-            <div className="flex items-center gap-1.5 p-1.5 bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+            <div className="flex items-center gap-1 p-1 bg-white dark:bg-[#111827] rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
               <button
+                type="button"
                 onClick={() => setMainView('studio')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   mainView === 'studio'
-                    ? 'bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-400 shadow-xs'
+                    ? 'bg-[#09152B] text-white dark:bg-emerald-600 dark:text-white shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
@@ -397,17 +398,18 @@ export const MizanReconciliation: FC = () => {
               </button>
 
               <button
+                type="button"
                 onClick={() => setMainView('history')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   mainView === 'history'
-                    ? 'bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-400 shadow-xs'
+                    ? 'bg-[#09152B] text-white dark:bg-emerald-600 dark:text-white shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 <History className="w-3.5 h-3.5" />
                 <span>سجل وأرشيف المطابقات</span>
                 {historyCount > 0 && (
-                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400">
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold font-jakarta tabular-nums bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400">
                     {historyCount}
                   </span>
                 )}
@@ -431,13 +433,14 @@ export const MizanReconciliation: FC = () => {
             <>
               {/* Period and Bank Filter Header */}
               <div className="flex justify-end mb-4">
-                <div className="flex items-center gap-3 bg-white dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs">
+                <div className="flex items-center gap-3 bg-white dark:bg-[#111827] p-1.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
                   {/* Period Selector */}
                   <div className="relative">
                     <button 
+                      type="button"
                       onClick={() => setIsPeriodDropdownOpen(!isPeriodDropdownOpen)}
                       onBlur={() => setTimeout(() => setIsPeriodDropdownOpen(false), 200)}
-                      className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl border border-slate-100 dark:border-slate-700 transition-colors"
+                      className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg border border-slate-200/60 dark:border-slate-700/60 transition-colors cursor-pointer"
                     >
                       <Calendar className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                       <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
@@ -448,17 +451,18 @@ export const MizanReconciliation: FC = () => {
 
                     {isPeriodDropdownOpen && (
                       <div 
-                        className="absolute top-full right-0 mt-1.5 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden z-20"
+                        className="absolute top-full right-0 mt-1.5 w-48 bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-lg overflow-hidden z-20"
                         onMouseDown={(e) => e.preventDefault()}
                       >
                         {PERIOD_OPTIONS.map(period => (
                           <button
                             key={period.id}
+                            type="button"
                             onClick={() => {
                               setSelectedPeriodKey(period.id);
                               setIsPeriodDropdownOpen(false);
                             }}
-                            className={`w-full text-right px-4 py-2.5 text-xs font-medium transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
+                            className={`w-full text-right px-4 py-2 text-xs font-medium transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer ${
                               selectedPeriodKey === period.id 
                                 ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 font-bold' 
                                 : 'text-slate-700 dark:text-slate-300'
@@ -471,14 +475,15 @@ export const MizanReconciliation: FC = () => {
                     )}
                   </div>
                   
-                  <div className="h-6 w-px bg-slate-200 dark:bg-slate-700"></div>
+                  <div className="h-5 w-px bg-slate-200 dark:border-slate-800"></div>
                   
                   {/* Bank Selector */}
                   <div className="relative">
                     <button 
+                      type="button"
                       onClick={() => setIsBankDropdownOpen(!isBankDropdownOpen)}
                       onBlur={() => setTimeout(() => setIsBankDropdownOpen(false), 200)}
-                      className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-colors"
+                      className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition-colors cursor-pointer"
                     >
                       <Building2 className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                       <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{currentBankLabel}</span>
@@ -487,17 +492,18 @@ export const MizanReconciliation: FC = () => {
 
                     {isBankDropdownOpen && (
                       <div 
-                        className="absolute top-full left-0 mt-1.5 w-52 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden z-20"
+                        className="absolute top-full left-0 mt-1.5 w-52 bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-lg overflow-hidden z-20"
                         onMouseDown={(e) => e.preventDefault()}
                       >
                         {BANK_OPTIONS.map(bank => (
                           <button
                             key={bank.id}
+                            type="button"
                             onClick={() => {
                               setSelectedBankKey(bank.id);
                               setIsBankDropdownOpen(false);
                             }}
-                            className={`w-full text-right px-4 py-2.5 text-xs font-medium transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
+                            className={`w-full text-right px-4 py-2 text-xs font-medium transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer ${
                               selectedBankKey === bank.id 
                                 ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 font-bold' 
                                 : 'text-slate-700 dark:text-slate-300'
@@ -515,10 +521,10 @@ export const MizanReconciliation: FC = () => {
               {/* Upload Dropzone */}
               {!isParsed ? (
                 <div 
-                  className={`bg-white dark:bg-slate-800 rounded-3xl border-2 border-dashed p-10 text-center mb-6 transition-all cursor-pointer group ${
+                  className={`bg-white dark:bg-[#111827] rounded-2xl border-2 border-dashed p-8 sm:p-10 text-center mb-6 transition-all cursor-pointer group ${
                     isDragging 
                       ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-900/40 shadow-lg' 
-                      : 'border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-50/30 dark:hover:bg-emerald-900/10'
+                      : 'border-slate-200/80 dark:border-slate-800 hover:border-emerald-500/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/30'
                   }`}
                   onClick={handleUploadClick}
                   onDragOver={handleDragOver}
@@ -545,16 +551,16 @@ export const MizanReconciliation: FC = () => {
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center py-4">
-                      <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-xs">
-                        <UploadCloud className="w-8 h-8" />
+                      <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-105 transition-transform shadow-xs">
+                        <UploadCloud className="w-7 h-7" />
                       </div>
-                      <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-1">
+                      <h3 className="text-lg font-bold text-[#09152B] dark:text-[#F8FAFC] mb-1">
                         اسحب وأفلت كشف حساب {currentBankLabel} هنا
                       </h3>
                       <p className="text-slate-500 dark:text-slate-400 mb-5 text-xs">
                         يدعم ملفات PDF, Excel (.xlsx/.xls), و CSV الخاصة بالبنوك المحلية الفلسطينية ومحافظ الدفع
                       </p>
-                      <button className="bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-bold text-xs hover:bg-emerald-700 transition-colors flex items-center gap-2 shadow-sm pointer-events-none">
+                      <button type="button" className="bg-[#09152B] dark:bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-bold text-xs hover:bg-slate-800 dark:hover:bg-emerald-700 transition-colors flex items-center gap-2 shadow-xs pointer-events-none">
                         <FileSpreadsheet className="w-4 h-4" />
                         تصفح الملفات من جهازك
                       </button>
@@ -562,9 +568,9 @@ export const MizanReconciliation: FC = () => {
                   )}
                 </div>
               ) : (
-                <div className="bg-emerald-50/80 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 rounded-2xl p-4 mb-6 flex items-center justify-between">
+                <div className="bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/50 rounded-2xl p-4 mb-6 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                     <div>
                       <h4 className="font-bold text-sm text-emerald-950 dark:text-emerald-300">تمت مطابقة الكشف بنجاح</h4>
                       <p className="text-xs text-emerald-700 dark:text-emerald-400">
@@ -573,84 +579,81 @@ export const MizanReconciliation: FC = () => {
                     </div>
                   </div>
                   <button 
+                    type="button"
                     onClick={() => setIsParsed(false)} 
-                    className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 text-xs font-bold underline"
+                    className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 text-xs font-bold underline cursor-pointer"
                   >
                     رفع كشف حساب آخر
                   </button>
                 </div>
               )}
 
-              {/* KPIs Section - All Amounts bound in ILS ₪ */}
+              {/* KPIs Section - Precision Financial Ledger Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs relative overflow-hidden group hover:border-slate-300 transition-colors">
-                  <div className="absolute top-0 right-0 w-1.5 h-full bg-slate-800"></div>
+                <div className="bg-white dark:bg-[#111827] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">إجمالي الحركات البنكية</p>
-                      <h3 className="text-2xl font-black text-slate-900 dark:text-white">
+                      <h3 className="text-2xl font-black text-[#09152B] dark:text-[#F8FAFC] font-jakarta tabular-nums">
                         {(summary.totalBankTransactions ?? 0).toLocaleString()}
                       </h3>
                       {summary.totalAmount ? (
-                        <p className="text-xs text-slate-500 font-mono mt-1 font-semibold">
+                        <p className="text-xs text-slate-500 font-jakarta tabular-nums mt-1 font-semibold">
                           {summary.totalAmount.toLocaleString()} ₪
                         </p>
                       ) : null}
                     </div>
-                    <div className="p-2.5 bg-slate-100 dark:bg-slate-700 rounded-xl text-slate-600 dark:text-slate-300">
+                    <div className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60">
                       <ArrowRightLeft className="w-5 h-5" />
                     </div>
                   </div>
                   <p className="text-[11px] text-slate-400 mt-3">إجمالي العمليات المقروءة من الكشف</p>
                 </div>
 
-                <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-5 rounded-2xl border border-emerald-200/80 dark:border-emerald-800/50 shadow-xs relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-1.5 h-full bg-emerald-500"></div>
+                <div className="bg-emerald-50/40 dark:bg-emerald-950/20 p-5 rounded-2xl border border-emerald-200/80 dark:border-emerald-800/40 shadow-xs relative overflow-hidden">
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="text-xs text-emerald-800 dark:text-emerald-400 font-semibold mb-1">مطابقة بنكياً 🟢</p>
-                      <h3 className="text-2xl font-black text-emerald-900 dark:text-emerald-300">
+                      <h3 className="text-2xl font-black text-emerald-900 dark:text-emerald-300 font-jakarta tabular-nums">
                         {(summary.matched ?? summary.matchedCount ?? 0).toLocaleString()}
                       </h3>
                       {summary.matchedAmount ? (
-                        <p className="text-xs text-emerald-700 dark:text-emerald-400 font-mono mt-1 font-semibold">
+                        <p className="text-xs text-emerald-700 dark:text-emerald-400 font-jakarta tabular-nums mt-1 font-semibold">
                           {summary.matchedAmount.toLocaleString()} ₪
                         </p>
                       ) : null}
                     </div>
-                    <div className="p-2.5 bg-emerald-100 dark:bg-emerald-900/60 rounded-xl text-emerald-700 dark:text-emerald-400">
+                    <div className="p-2.5 bg-emerald-100/60 dark:bg-emerald-900/60 rounded-xl text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40">
                       <CheckCircle2 className="w-5 h-5" />
                     </div>
                   </div>
                   <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-3 font-medium">مبيعات تطابقت مع الكشف 100%</p>
                 </div>
 
-                <div className="bg-amber-50/50 dark:bg-amber-950/20 p-5 rounded-2xl border border-amber-200/80 dark:border-amber-800/50 shadow-xs relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-1.5 h-full bg-amber-500"></div>
+                <div className="bg-amber-50/40 dark:bg-amber-950/20 p-5 rounded-2xl border border-amber-200/80 dark:border-amber-800/40 shadow-xs relative overflow-hidden">
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="text-xs text-amber-800 dark:text-amber-400 font-semibold mb-1">تحتاج مراجعة ⚠️</p>
-                      <h3 className="text-2xl font-black text-amber-900 dark:text-amber-300">
+                      <h3 className="text-2xl font-black text-amber-900 dark:text-amber-300 font-jakarta tabular-nums">
                         {(summary.needsReview ?? summary.discrepancies ?? 0).toLocaleString()}
                       </h3>
                     </div>
-                    <div className="p-2.5 bg-amber-100 dark:bg-amber-900/60 rounded-xl text-amber-700 dark:text-amber-400">
+                    <div className="p-2.5 bg-amber-100/60 dark:bg-amber-900/60 rounded-xl text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/40">
                       <AlertTriangle className="w-5 h-5" />
                     </div>
                   </div>
                   <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-3 font-medium">فروقات مبالغ أو عمولات بنكية</p>
                 </div>
 
-                <div className="bg-red-50/50 dark:bg-red-950/20 p-5 rounded-2xl border border-red-200/80 dark:border-red-800/50 shadow-xs relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-1.5 h-full bg-red-500"></div>
+                <div className="bg-red-50/40 dark:bg-red-950/20 p-5 rounded-2xl border border-red-200/80 dark:border-red-800/40 shadow-xs relative overflow-hidden">
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="text-xs text-red-800 dark:text-red-400 font-semibold mb-1">مفقودة في البنك 🔴</p>
-                      <h3 className="text-2xl font-black text-red-900 dark:text-red-300">
+                      <h3 className="text-2xl font-black text-red-900 dark:text-red-300 font-jakarta tabular-nums">
                         {(summary.missingInBank ?? 0).toLocaleString()}
                       </h3>
                     </div>
-                    <div className="p-2.5 bg-red-100 dark:bg-red-900/60 rounded-xl text-red-700 dark:text-red-400">
+                    <div className="p-2.5 bg-red-100/60 dark:bg-red-900/60 rounded-xl text-red-700 dark:text-red-400 border border-red-200/60 dark:border-red-800/40">
                       <AlertCircle className="w-5 h-5" />
                     </div>
                   </div>
@@ -659,68 +662,72 @@ export const MizanReconciliation: FC = () => {
               </div>
 
               {/* Tabs Navigation & Transaction Data Section */}
-              <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-xs overflow-hidden">
+              <div className="bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden">
                 {/* Tabs Strip */}
-                <div className="flex overflow-x-auto border-b border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-850">
+                <div className="flex overflow-x-auto border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-[#0B0F19]/50">
                   <button 
+                    type="button"
                     onClick={() => handleTabChange('reconciled')}
-                    className={`flex items-center gap-2 px-6 py-4 text-xs font-bold transition-colors relative whitespace-nowrap ${
+                    className={`flex items-center gap-2 px-5 py-3.5 text-xs font-bold transition-colors relative whitespace-nowrap cursor-pointer ${
                       activeTab === 'reconciled' 
-                        ? 'text-emerald-700 dark:text-emerald-400 bg-white dark:bg-slate-800' 
+                        ? 'text-emerald-700 dark:text-emerald-400 bg-white dark:bg-[#111827]' 
                         : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                     }`}
                   >
                     <CheckCircle2 className={`w-4 h-4 ${activeTab === 'reconciled' ? 'text-emerald-600' : 'text-slate-400'}`} />
                     <span>مبيعات مطابقة تماماً</span>
-                    <span className="bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                    <span className="bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full text-[10px] font-bold font-jakarta tabular-nums">
                       {summary.matched ?? summary.matchedCount ?? 0}
                     </span>
                     {activeTab === 'reconciled' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600"></div>}
                   </button>
                   
                   <button 
+                    type="button"
                     onClick={() => handleTabChange('uncollected')}
-                    className={`flex items-center gap-2 px-6 py-4 text-xs font-bold transition-colors relative whitespace-nowrap ${
+                    className={`flex items-center gap-2 px-5 py-3.5 text-xs font-bold transition-colors relative whitespace-nowrap cursor-pointer ${
                       activeTab === 'uncollected' 
-                        ? 'text-red-700 dark:text-red-400 bg-white dark:bg-slate-800' 
+                        ? 'text-red-700 dark:text-red-400 bg-white dark:bg-[#111827]' 
                         : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                     }`}
                   >
                     <XCircle className={`w-4 h-4 ${activeTab === 'uncollected' ? 'text-red-600' : 'text-slate-400'}`} />
                     <span>مبيعات غير محصلة</span>
-                    <span className="bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-400 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                    <span className="bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-400 px-2 py-0.5 rounded-full text-[10px] font-bold font-jakarta tabular-nums">
                       {summary.missingInBank ?? 0}
                     </span>
                     {activeTab === 'uncollected' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-600"></div>}
                   </button>
 
                   <button 
+                    type="button"
                     onClick={() => handleTabChange('discrepancies')}
-                    className={`flex items-center gap-2 px-6 py-4 text-xs font-bold transition-colors relative whitespace-nowrap ${
+                    className={`flex items-center gap-2 px-5 py-3.5 text-xs font-bold transition-colors relative whitespace-nowrap cursor-pointer ${
                       activeTab === 'discrepancies' 
-                        ? 'text-amber-700 dark:text-amber-400 bg-white dark:bg-slate-800' 
+                        ? 'text-amber-700 dark:text-amber-400 bg-white dark:bg-[#111827]' 
                         : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                     }`}
                   >
                     <AlertTriangle className={`w-4 h-4 ${activeTab === 'discrepancies' ? 'text-amber-500' : 'text-slate-400'}`} />
                     <span>فروقات تحتاج مراجعة</span>
-                    <span className="bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                    <span className="bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full text-[10px] font-bold font-jakarta tabular-nums">
                       {summary.needsReview ?? summary.discrepancies ?? 0}
                     </span>
                     {activeTab === 'discrepancies' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500"></div>}
                   </button>
 
                   <button 
+                    type="button"
                     onClick={() => handleTabChange('unmatched')}
-                    className={`flex items-center gap-2 px-6 py-4 text-xs font-bold transition-colors relative whitespace-nowrap ${
+                    className={`flex items-center gap-2 px-5 py-3.5 text-xs font-bold transition-colors relative whitespace-nowrap cursor-pointer ${
                       activeTab === 'unmatched' 
-                        ? 'text-blue-700 dark:text-blue-400 bg-white dark:bg-slate-800' 
+                        ? 'text-blue-700 dark:text-blue-400 bg-white dark:bg-[#111827]' 
                         : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                     }`}
                   >
                     <HelpCircle className={`w-4 h-4 ${activeTab === 'unmatched' ? 'text-blue-500' : 'text-slate-400'}`} />
                     <span>حوالات بدون فواتير (إيداعات غير مطالب بها)</span>
-                    <span className="bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                    <span className="bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded-full text-[10px] font-bold font-jakarta tabular-nums">
                       {summary.unclaimedDeposits ?? 0}
                     </span>
                     {activeTab === 'unmatched' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500"></div>}
@@ -728,7 +735,7 @@ export const MizanReconciliation: FC = () => {
                 </div>
 
                 {/* Filter & Bulk Actions Bar */}
-                <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-800">
+                <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-[#111827]">
                   <div className="relative w-full sm:w-72">
                     <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
                     <input 
@@ -736,18 +743,19 @@ export const MizanReconciliation: FC = () => {
                       value={searchQuery}
                       onChange={(e) => handleSearchChange(e.target.value)}
                       placeholder="بحث بالرقم المرجعي، الاسم، أو المبلغ..." 
-                      className="pl-4 pr-10 py-2 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white rounded-xl text-xs w-full focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      className="pl-4 pr-10 py-2 border border-slate-200/80 dark:border-slate-800 bg-slate-50 dark:bg-[#0B0F19] text-slate-900 dark:text-white rounded-xl text-xs w-full focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
                     />
                   </div>
 
                   {activeTab === 'reconciled' && (
                     <button 
+                      type="button"
                       onClick={handleApproveSelected}
                       disabled={selectedTransactionIds.length === 0 || loadingAction === 'approve-selected'}
-                      className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs ${
+                      className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer ${
                         selectedTransactionIds.length > 0 && loadingAction !== 'approve-selected'
                           ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20' 
-                          : 'bg-slate-100 dark:bg-slate-700 text-slate-400 cursor-not-allowed'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
                       }`}
                     >
                       <CheckCircle2 className="w-4 h-4" />
@@ -774,13 +782,13 @@ export const MizanReconciliation: FC = () => {
                     </div>
                   ) : (
                     <table className="w-full text-xs text-right">
-                      <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-700">
+                      <thead className="bg-slate-50 dark:bg-[#0B0F19]/40 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200/80 dark:border-slate-800">
                         <tr>
                           {activeTab === 'reconciled' && (
                             <th className="px-5 py-3 w-12 text-center">
                               <input 
                                 type="checkbox" 
-                                className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                                className="w-4 h-4 text-emerald-600 rounded border-slate-300 dark:border-slate-700 focus:ring-emerald-500 cursor-pointer"
                                 checked={selectedTransactionIds.length === transactionsList.length && transactionsList.length > 0}
                                 onChange={(e) => {
                                   if (e.target.checked) {
@@ -800,7 +808,7 @@ export const MizanReconciliation: FC = () => {
                           <th className="px-5 py-3 text-center">الإجراء المطلوب</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                         {transactionsList.map((t) => {
                           const meta = getClassificationMeta(t.classification);
                           const approvalMeta = getApprovalStatusMeta(t.approvalStatus);
@@ -811,12 +819,12 @@ export const MizanReconciliation: FC = () => {
                           const amountVal = Number(t.bankAmount ?? t.amount ?? 0);
 
                           return (
-                            <tr key={t.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/40 transition-colors">
+                            <tr key={t.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
                               {activeTab === 'reconciled' && (
                                 <td className="px-5 py-3.5 text-center">
                                   <input 
                                     type="checkbox" 
-                                    className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                                    className="w-4 h-4 text-emerald-600 rounded border-slate-300 dark:border-slate-700 focus:ring-emerald-500 cursor-pointer"
                                     checked={isSelected}
                                     onChange={(e) => {
                                       if (e.target.checked) {
@@ -830,17 +838,17 @@ export const MizanReconciliation: FC = () => {
                               )}
                               
                               {/* Reference */}
-                              <td className="px-5 py-3.5 font-mono font-bold text-slate-900 dark:text-white">
+                              <td className="px-5 py-3.5 font-jakarta tabular-nums font-bold text-slate-900 dark:text-white">
                                 {refNumber}
                               </td>
 
                               {/* Time */}
-                              <td className="px-5 py-3.5 text-slate-500 dark:text-slate-400 font-medium">
+                              <td className="px-5 py-3.5 text-slate-500 dark:text-slate-400 font-jakarta tabular-nums font-medium">
                                 {timeStr}
                               </td>
 
                               {/* Amount */}
-                              <td className="px-5 py-3.5 font-black text-slate-900 dark:text-white text-sm font-mono">
+                              <td className="px-5 py-3.5 font-black text-slate-900 dark:text-white text-sm font-jakarta tabular-nums">
                                 {amountVal.toLocaleString()} ₪
                               </td>
 
@@ -871,7 +879,7 @@ export const MizanReconciliation: FC = () => {
                                     <button
                                       type="button"
                                       onClick={() => handleOpenCreateSaleDialog(t)}
-                                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition-all shadow-xs"
+                                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition-all shadow-xs cursor-pointer"
                                     >
                                       <Sparkles className="w-3.5 h-3.5" />
                                       <span>إنشاء مبيعة</span>
@@ -884,7 +892,7 @@ export const MizanReconciliation: FC = () => {
                                       type="button"
                                       onClick={() => handleConvertToDebt(t.saleId || String(t.id))}
                                       disabled={loadingAction === `debt-${t.saleId || t.id}`}
-                                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 border border-red-200 dark:border-red-800 font-bold transition-all"
+                                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 border border-red-200 dark:border-red-800 font-bold transition-all cursor-pointer disabled:opacity-50"
                                     >
                                       <AlertTriangle className="w-3.5 h-3.5" />
                                       <span>تحويل لدين ومطالبة الزبون ⚠️</span>
@@ -897,7 +905,7 @@ export const MizanReconciliation: FC = () => {
                                       type="button"
                                       onClick={() => handleApproveSingle(String(t.id))}
                                       disabled={loadingAction === `approve-${t.id}`}
-                                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 font-medium transition-all"
+                                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700 font-medium transition-all cursor-pointer disabled:opacity-50"
                                     >
                                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                                       <span>اعتماد المطابقة</span>
@@ -915,28 +923,30 @@ export const MizanReconciliation: FC = () => {
 
                 {/* Server Pagination Bar */}
                 {totalPages > 1 && (
-                  <div className="p-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
-                    <span className="text-xs text-slate-500">
+                  <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-[#0B0F19]/30">
+                    <span className="text-xs text-slate-500 font-jakarta tabular-nums">
                       صفحة {currentPage} من {totalPages} (إجمالي {tabTotalCount} حركة)
                     </span>
 
                     <div className="flex items-center gap-2">
                       <button
+                        type="button"
                         onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                         disabled={currentPage <= 1 || isLoadingTransactions}
-                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 disabled:opacity-40"
+                        className="p-1.5 rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#111827] text-slate-700 dark:text-slate-300 disabled:opacity-40 cursor-pointer"
                       >
                         <ChevronRight className="w-4 h-4" />
                       </button>
 
-                      <span className="text-xs font-mono font-bold px-2">
+                      <span className="text-xs font-jakarta tabular-nums font-bold px-2">
                         {currentPage}
                       </span>
 
                       <button
+                        type="button"
                         onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                         disabled={currentPage >= totalPages || isLoadingTransactions}
-                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 disabled:opacity-40"
+                        className="p-1.5 rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#111827] text-slate-700 dark:text-slate-300 disabled:opacity-40 cursor-pointer"
                       >
                         <ChevronLeft className="w-4 h-4" />
                       </button>
@@ -948,8 +958,9 @@ export const MizanReconciliation: FC = () => {
               {/* Export Button */}
               <div className="mt-6 flex justify-end">
                 <button 
+                  type="button"
                   onClick={() => window.print()}
-                  className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 px-5 py-2.5 rounded-xl text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-xs"
+                  className="flex items-center gap-2 bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-300 px-5 py-2.5 rounded-xl text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-xs cursor-pointer"
                 >
                   <Download className="w-4 h-4" />
                   <span>تصدير تقرير المطابقة اليومي (PDF)</span>

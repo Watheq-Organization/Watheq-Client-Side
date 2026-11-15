@@ -256,7 +256,7 @@ export const InventoryScreen: FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-slate-900 font-cairo overflow-hidden" dir="rtl">
+    <div className="flex h-screen bg-[#F5F6F8] dark:bg-[#0B0F19] text-[#09152B] dark:text-[#F8FAFC] font-cairo overflow-hidden" dir="rtl">
       {toast && (
         <Toast
           message={toast.message}
@@ -282,7 +282,7 @@ export const InventoryScreen: FC = () => {
                   <Package className="w-6 h-6" />
                 </div>
                 <div>
-                  <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
+                  <h1 className="text-xl sm:text-2xl font-black text-[#09152B] dark:text-[#F8FAFC]">
                     إدارة الأصناف والمخزون
                   </h1>
                   <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
@@ -296,7 +296,7 @@ export const InventoryScreen: FC = () => {
               <button
                 type="button"
                 onClick={() => navigate(PATHS.POS)}
-                className="px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white text-xs sm:text-sm font-bold shadow-md transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+                className="px-4 py-2.5 rounded-xl bg-[#09152B] dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white text-xs sm:text-sm font-bold shadow-xs transition-all flex items-center gap-2 cursor-pointer"
               >
                 <ShoppingCart className="w-4 h-4 text-emerald-400" />
                 <span>شاشة الكاشير (POS) ⚡</span>
@@ -308,7 +308,7 @@ export const InventoryScreen: FC = () => {
                   setEditingProduct(null);
                   setIsProductModalOpen(true);
                 }}
-                className="px-4 sm:px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold shadow-lg shadow-emerald-600/25 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+                className="px-4 sm:px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold shadow-xs shadow-emerald-600/20 transition-all flex items-center gap-2 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>+ إضافة صنف جديد</span>
@@ -317,12 +317,12 @@ export const InventoryScreen: FC = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 shadow-xs flex items-center justify-between">
+            <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center justify-between">
               <div>
                 <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block mb-1">
                   إجمالي الأصناف المعرفة
                 </span>
-                <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
+                <span className="text-2xl sm:text-3xl font-black text-[#09152B] dark:text-[#F8FAFC] font-jakarta tabular-nums">
                   {kpis.totalCount}
                 </span>
                 <span className="text-[11px] text-slate-400 block mt-1">صنف مسجل بالنظام</span>
