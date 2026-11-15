@@ -133,7 +133,7 @@ export const PaymentReceiptScreen: FC = () => {
       customerProfile?.fullName ??
       'العميل المعتمد';
     const customerNationalId =
-      customerProfile?.nationalId ?? statePayment?.nationalId ?? '—';
+      statePayment?.nationalId ?? '—';
     const customerPhone =
       customerProfile?.phoneNumber ?? statePayment?.phone ?? '—';
 
@@ -152,7 +152,6 @@ export const PaymentReceiptScreen: FC = () => {
 
     const rawMethod =
       serverPayment?.paymentMethod ??
-      serverPayment?.method ??
       statePayment?.method ??
       'نقداً';
 
