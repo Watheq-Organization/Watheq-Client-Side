@@ -50,25 +50,14 @@ export const ReportsScreen: FC = () => {
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Tab: 'collections' | 'overdue' | 'outstanding'
-  const isOverdueInitial = location.pathname === PATHS.OVERDUE_DEBTS_REPORT;
-  const isOutstandingInitial = location.pathname === PATHS.OUTSTANDING_DEBTS_REPORT;
-  const [activeReportTab, setActiveReportTab] = useState<'collections' | 'overdue' | 'outstanding'>(
-    isOutstandingInitial ? 'outstanding' : isOverdueInitial ? 'overdue' : 'collections'
-  );
-
-  useEffect(() => {
-    if (location.pathname === PATHS.OVERDUE_DEBTS_REPORT) {
-      setActiveReportTab('overdue');
-    } else if (location.pathname === PATHS.OUTSTANDING_DEBTS_REPORT) {
-      setActiveReportTab('outstanding');
-    } else if (location.pathname === PATHS.COLLECTIONS_REPORT) {
-      setActiveReportTab('collections');
-    }
+  // Tab: 'collections' | 'overdue' | 'outstanding' derived from pathname
+  const activeReportTab: 'collections' | 'overdue' | 'outstanding' = useMemo(() => {
+    if (location.pathname === PATHS.OVERDUE_DEBTS_REPORT) return 'overdue';
+    if (location.pathname === PATHS.OUTSTANDING_DEBTS_REPORT) return 'outstanding';
+    return 'collections';
   }, [location.pathname]);
 
   const handleTabChange = (tab: 'collections' | 'overdue' | 'outstanding') => {
-    setActiveReportTab(tab);
     if (tab === 'overdue') {
       navigate(PATHS.OVERDUE_DEBTS_REPORT);
     } else if (tab === 'outstanding') {
@@ -125,64 +114,73 @@ export const ReportsScreen: FC = () => {
       });
   }, []);
 
-  // Fetch collections report from https://whateq.runasp.net/api/reports/collections
-  const fetchCollections = async () => {
+  const [refreshCounter, setRefreshCounter] = useState(0);
+
+  const triggerRefresh = () => {
     setIsLoading(true);
-    setServerError(null);
-    try {
-      let startStr = fromDate;
-      let endStr = toDate;
-
-      if (!fromDate && !toDate && timeRange !== 'all') {
-        const today = new Date();
-        endStr = today.toISOString().split('T')[0];
-        if (timeRange === 'daily') {
-          startStr = endStr;
-        } else if (timeRange === 'weekly') {
-          const pastWeek = new Date();
-          pastWeek.setDate(today.getDate() - 7);
-          startStr = pastWeek.toISOString().split('T')[0];
-        } else if (timeRange === 'monthly') {
-          const pastMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-          startStr = pastMonth.toISOString().split('T')[0];
-        }
-      }
-
-      const params = {
-        fromDate: startStr ? `${startStr}T00:00:00Z` : undefined,
-        toDate: endStr ? `${endStr}T23:59:59Z` : undefined,
-        pageNumber,
-        pageSize,
-      };
-
-      const result = await getCollectionsReport(params);
-      setReportData(result);
-      setServerError(null);
-
-      if (result && result.totalCollected > 0) {
-        setStats((prev) => ({
-          ...prev,
-          collections: result.totalCollected,
-        }));
-      }
-    } catch (err) {
-      console.warn('Failed to load collections from server:', err);
-      setServerError(toReportErrorMessage(err));
-      setReportData({
-        totalCollected: 0,
-        totalRecords: 0,
-        pageNumber: 1,
-        pageSize: 20,
-        items: [],
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    setRefreshCounter((c) => c + 1);
   };
 
+  // Fetch collections report from https://whateq.runasp.net/api/reports/collections
   useEffect(() => {
-    fetchCollections();
-  }, [timeRange, fromDate, toDate, pageNumber, pageSize]);
+    let isMounted = true;
+    let startStr = fromDate;
+    let endStr = toDate;
+
+    if (!fromDate && !toDate && timeRange !== 'all') {
+      const today = new Date();
+      endStr = today.toISOString().split('T')[0];
+      if (timeRange === 'daily') {
+        startStr = endStr;
+      } else if (timeRange === 'weekly') {
+        const pastWeek = new Date();
+        pastWeek.setDate(today.getDate() - 7);
+        startStr = pastWeek.toISOString().split('T')[0];
+      } else if (timeRange === 'monthly') {
+        const pastMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        startStr = pastMonth.toISOString().split('T')[0];
+      }
+    }
+
+    const params = {
+      fromDate: startStr ? `${startStr}T00:00:00Z` : undefined,
+      toDate: endStr ? `${endStr}T23:59:59Z` : undefined,
+      pageNumber,
+      pageSize,
+    };
+
+    getCollectionsReport(params)
+      .then((result) => {
+        if (!isMounted) return;
+        setReportData(result);
+        setServerError(null);
+
+        if (result && result.totalCollected > 0) {
+          setStats((prev) => ({
+            ...prev,
+            collections: result.totalCollected,
+          }));
+        }
+        setIsLoading(false);
+      })
+      .catch((err: unknown) => {
+        if (!isMounted) return;
+        console.warn('Failed to load collections from server:', err);
+        setServerError(toReportErrorMessage(err));
+        setReportData({
+          totalCollected: 0,
+          totalRecords: 0,
+          pageNumber: 1,
+          pageSize: 20,
+          items: [],
+        });
+        setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [timeRange, fromDate, toDate, pageNumber, pageSize, refreshCounter]);
 
   // Client-side filtering by query & method
   const filteredCollections = useMemo(() => {
@@ -304,12 +302,12 @@ export const ReportsScreen: FC = () => {
 
   return (
     <div
-      className="min-h-screen bg-[#f4f7fb] dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-cairo antialiased flex"
+      className="min-h-screen bg-[#F5F6F8] dark:bg-[#0B0F19] text-[#09152B] dark:text-[#F8FAFC] font-cairo antialiased flex"
       dir="rtl"
     >
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-[#051838] text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200 border border-white/10">
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-[#09152B] text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200 border border-white/10">
           <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
           <span className="text-sm font-medium">{toastMessage}</span>
         </div>
@@ -335,14 +333,14 @@ export const ReportsScreen: FC = () => {
         {/* Reports Body Content */}
         <main className="p-4 sm:p-6 lg:p-8 space-y-6 flex-1">
           {/* Sub-navigation Tabs: تقرير التحصيلات / تقرير الديون المتأخرة */}
-          <div className="flex flex-wrap items-center gap-2.5 border-b border-slate-200/80 pb-4">
+          <div className="flex flex-wrap items-center gap-2.5 border-b border-slate-200/80 dark:border-slate-800 pb-4">
             <button
               type="button"
               onClick={() => handleTabChange('collections')}
               className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 activeReportTab === 'collections'
-                  ? 'bg-[#051838] dark:bg-blue-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50'
+                  ? 'bg-[#09152B] dark:bg-emerald-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-[#111827] text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
               }`}
             >
               <Banknote className="w-4 h-4 text-emerald-400" />
@@ -354,8 +352,8 @@ export const ReportsScreen: FC = () => {
               onClick={() => handleTabChange('outstanding')}
               className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 activeReportTab === 'outstanding'
-                  ? 'bg-[#051838] dark:bg-blue-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50'
+                  ? 'bg-[#09152B] dark:bg-emerald-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-[#111827] text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
               }`}
             >
               <Receipt className="w-4 h-4 text-amber-500" />
@@ -367,13 +365,13 @@ export const ReportsScreen: FC = () => {
               onClick={() => handleTabChange('overdue')}
               className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 activeReportTab === 'overdue'
-                  ? 'bg-[#051838] dark:bg-blue-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50'
+                  ? 'bg-[#09152B] dark:bg-emerald-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-[#111827] text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
               }`}
             >
               <Clock className="w-4 h-4 text-rose-500" />
               <span>تقرير الديون المتأخرة (Overdue Debts)</span>
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200">
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
                 جديد
               </span>
             </button>
@@ -389,10 +387,10 @@ export const ReportsScreen: FC = () => {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="text-right">
               <div className="flex items-center gap-2.5">
-                <h1 className="text-2xl sm:text-3xl font-bold font-cairo text-slate-900 dark:text-white tracking-tight">
+                <h1 className="text-2xl sm:text-3xl font-bold font-cairo text-[#09152B] dark:text-[#F8FAFC] tracking-tight">
                   تقرير التحصيلات والبيانات المالية
                 </h1>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   API مباشر
                 </span>
@@ -406,9 +404,9 @@ export const ReportsScreen: FC = () => {
             <div className="flex flex-wrap items-center gap-2.5">
               <button
                 type="button"
-                onClick={fetchCollections}
+                onClick={triggerRefresh}
                 disabled={isLoading}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-600 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-[#111827] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold border border-slate-200/80 dark:border-slate-800 transition-colors cursor-pointer disabled:opacity-50"
                 title="تحديث البيانات من الخادم"
               >
                 <RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
@@ -418,7 +416,7 @@ export const ReportsScreen: FC = () => {
               <button
                 type="button"
                 onClick={handleExportCsv}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-600 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-[#111827] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold border border-slate-200/80 dark:border-slate-800 transition-colors cursor-pointer"
                 title="تصدير كملف CSV"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
@@ -428,7 +426,7 @@ export const ReportsScreen: FC = () => {
               <button
                 type="button"
                 onClick={handlePrintPdf}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-[#051838] hover:bg-[#0c2b5e] text-white rounded-xl text-xs sm:text-sm font-semibold transition-all shadow-xs hover:shadow-md cursor-pointer active:scale-98"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#09152B] hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-semibold transition-all shadow-xs cursor-pointer active:scale-98"
               >
                 <Download className="w-4 h-4 text-white" />
                 <span>تصدير / طباعة PDF</span>
@@ -439,9 +437,9 @@ export const ReportsScreen: FC = () => {
           {/* Metric / Stat Cards (3 Top Cards - Pure Live Data) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {/* Card 1: إجمالي التحصيلات */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-6 flex flex-col justify-between hover:shadow-md transition-shadow duration-200">
+            <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-6 flex flex-col justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
               <div className="flex items-center justify-between">
-                <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-200/60 dark:border-emerald-800/40">
                   <Banknote className="w-6 h-6" />
                 </div>
                 <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">إجمالي التحصيلات</span>
@@ -451,7 +449,7 @@ export const ReportsScreen: FC = () => {
                 <div className="flex flex-col gap-1.5 justify-start">
                   {selectedCurrency !== 'all' ? (
                     <div className="flex items-baseline gap-1.5">
-                      <span className="text-3xl font-bold font-cairo text-[#047857] tracking-tight">
+                      <span className="text-3xl font-black font-jakarta tabular-nums text-emerald-600 dark:text-emerald-400 tracking-tight">
                         {collectionsByCurrency[selectedCurrency].total.toLocaleString('en-US')}
                       </span>
                       <span className="text-sm font-semibold text-slate-500 dark:text-slate-400 font-cairo">
@@ -472,7 +470,7 @@ export const ReportsScreen: FC = () => {
                             }`}
                           >
                             <span>{SUPPORTED_CURRENCIES[curr].labelAr}:</span>
-                            <span className="font-mono">{total.toLocaleString('en-US')} {SUPPORTED_CURRENCIES[curr].symbol}</span>
+                            <span className="font-jakarta tabular-nums">{total.toLocaleString('en-US')} {SUPPORTED_CURRENCIES[curr].symbol}</span>
                           </div>
                         );
                       })}
@@ -489,9 +487,9 @@ export const ReportsScreen: FC = () => {
             </div>
 
             {/* Card 2: الديون القائمة */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-6 flex flex-col justify-between hover:shadow-md transition-shadow duration-200">
+            <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-6 flex flex-col justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
               <div className="flex items-center justify-between">
-                <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-xl bg-blue-50/60 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-200/60 dark:border-blue-800/40">
                   <CreditCard className="w-6 h-6" />
                 </div>
                 <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">الديون القائمة</span>
@@ -499,7 +497,7 @@ export const ReportsScreen: FC = () => {
 
               <div className="mt-5 text-right">
                 <div className="flex items-baseline gap-1.5 justify-start">
-                  <span className="text-3xl font-bold font-cairo text-[#051838] dark:text-white tracking-tight">
+                  <span className="text-3xl font-black font-jakarta tabular-nums text-[#09152B] dark:text-[#F8FAFC] tracking-tight">
                     {stats.debts.toLocaleString('en-US')}
                   </span>
                   <span className="text-sm font-semibold text-slate-500 dark:text-slate-400 font-cairo">شيكل</span>
@@ -514,9 +512,9 @@ export const ReportsScreen: FC = () => {
             </div>
 
             {/* Card 3: العملاء النشطون */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-6 flex flex-col justify-between hover:shadow-md transition-shadow duration-200">
+            <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-6 flex flex-col justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
               <div className="flex items-center justify-between">
-                <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 flex items-center justify-center border border-slate-200/60 dark:border-slate-700/60">
                   <Users className="w-6 h-6" />
                 </div>
                 <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">العملاء النشطون</span>
@@ -524,7 +522,7 @@ export const ReportsScreen: FC = () => {
 
               <div className="mt-5 text-right">
                 <div className="flex items-baseline gap-1.5 justify-start">
-                  <span className="text-3xl font-bold font-cairo text-slate-900 dark:text-white tracking-tight">
+                  <span className="text-3xl font-black font-jakarta tabular-nums text-[#09152B] dark:text-[#F8FAFC] tracking-tight">
                     {stats.activeCustomers.toLocaleString('en-US')}
                   </span>
                 </div>
@@ -541,10 +539,10 @@ export const ReportsScreen: FC = () => {
           </div>
 
           {/* Filters Bar: Time Range & Custom Date */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
             {/* Range Pills */}
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-700 rounded-xl">
+              <div className="inline-flex p-1 bg-slate-100 dark:bg-[#0B0F19] rounded-xl border border-slate-200/60 dark:border-slate-800">
                 {(
                   [
                     { id: 'all', label: 'كافة الفترات' },
@@ -563,7 +561,7 @@ export const ReportsScreen: FC = () => {
                     }}
                     className={`px-3 py-1 text-xs sm:text-sm font-medium rounded-lg transition-colors cursor-pointer ${
                       timeRange === chip.id && !fromDate && !toDate
-                        ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold shadow-xs'
+                        ? 'bg-[#09152B] text-white dark:bg-emerald-600 dark:text-white font-bold shadow-xs'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'
                     }`}
                   >
@@ -573,7 +571,7 @@ export const ReportsScreen: FC = () => {
               </div>
 
               {/* Currency Selector Pills */}
-              <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-700 rounded-xl">
+              <div className="inline-flex p-1 bg-slate-100 dark:bg-[#0B0F19] rounded-xl border border-slate-200/60 dark:border-slate-800">
                 {(
                   [
                     { id: 'all', label: 'كافة العملات' },
@@ -588,7 +586,7 @@ export const ReportsScreen: FC = () => {
                     onClick={() => setSelectedCurrency(chip.id)}
                     className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                       selectedCurrency === chip.id
-                        ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                        ? 'bg-[#09152B] text-white dark:bg-emerald-600 dark:text-white shadow-xs'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white'
                     }`}
                   >
@@ -606,7 +604,7 @@ export const ReportsScreen: FC = () => {
                   type="date"
                   value={fromDate}
                   onChange={(e) => setFromDate(e.target.value)}
-                  className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#051838] dark:focus:ring-blue-500"
+                  className="bg-slate-50 dark:bg-[#0B0F19] border border-slate-200/80 dark:border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 font-jakarta tabular-nums focus:outline-none focus:ring-1 focus:ring-emerald-500"
                 />
               </div>
 
@@ -616,7 +614,7 @@ export const ReportsScreen: FC = () => {
                   type="date"
                   value={toDate}
                   onChange={(e) => setToDate(e.target.value)}
-                  className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#051838] dark:focus:ring-blue-500"
+                  className="bg-slate-50 dark:bg-[#0B0F19] border border-slate-200/80 dark:border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 font-jakarta tabular-nums focus:outline-none focus:ring-1 focus:ring-emerald-500"
                 />
               </div>
 
@@ -624,8 +622,8 @@ export const ReportsScreen: FC = () => {
                 <span className="text-slate-500 dark:text-slate-400 font-medium">طريقة الدفع:</span>
                 <select
                   value={methodFilter}
-                  onChange={(e) => setMethodFilter(e.target.value as any)}
-                  className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#051838] dark:focus:ring-blue-500"
+                  onChange={(e) => setMethodFilter(e.target.value as 'all' | 'نقداً' | 'تحويل بنكي' | 'بطاقة / محفظة')}
+                  className="bg-slate-50 dark:bg-[#0B0F19] border border-slate-200/80 dark:border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
                 >
                   <option value="all">الكل</option>
                   <option value="نقداً">نقداً</option>
@@ -637,9 +635,9 @@ export const ReportsScreen: FC = () => {
           </div>
 
           {/* Chart Section: توجهات التحصيل (Dynamic or Clean Zero State) */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs p-6">
+          <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-              <h2 className="text-lg font-bold font-cairo text-slate-900 dark:text-white">
+              <h2 className="text-lg font-bold font-cairo text-[#09152B] dark:text-[#F8FAFC]">
                 توجهات التحصيل المالي المباشر
               </h2>
 
@@ -726,7 +724,7 @@ export const ReportsScreen: FC = () => {
                 ) : (
                   <button
                     type="button"
-                    onClick={fetchCollections}
+                    onClick={triggerRefresh}
                     className="px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
                   >
                     <RotateCw className="w-3.5 h-3.5" />
@@ -738,10 +736,10 @@ export const ReportsScreen: FC = () => {
           )}
 
           {/* Collections Report Table: جدول التحصيلات الحقيقي من الخادم */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs overflow-hidden">
-            <div className="p-5 border-b border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
+            <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-base sm:text-lg font-bold font-cairo text-slate-900 dark:text-white">
+                <h2 className="text-base sm:text-lg font-bold font-cairo text-[#09152B] dark:text-[#F8FAFC]">
                   سجل عمليات التحصيل المباشرة (Collections Report)
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -757,7 +755,7 @@ export const ReportsScreen: FC = () => {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="البحث بالعميل أو رقم السند..."
-                    className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl pr-9 pl-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#051838] dark:focus:ring-blue-500"
+                    className="bg-slate-50 dark:bg-[#0B0F19] border border-slate-200/80 dark:border-slate-800 rounded-xl pr-9 pl-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   />
                 </div>
               </div>
@@ -767,7 +765,7 @@ export const ReportsScreen: FC = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-right text-xs sm:text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-medium text-xs bg-slate-50/50 dark:bg-slate-800/50">
+                  <tr className="border-b border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-bold text-xs bg-slate-50 dark:bg-[#0B0F19]/40">
                     <th className="px-6 py-4">رقم السند</th>
                     <th className="px-6 py-4">اسم العميل</th>
                     <th className="px-6 py-4">المبلغ المحصل</th>
@@ -778,12 +776,12 @@ export const ReportsScreen: FC = () => {
                     <th className="px-6 py-4 text-center">إجراء</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {isLoading ? (
                     <tr>
                       <td colSpan={8} className="py-14 text-center text-slate-400">
                         <div className="flex flex-col items-center gap-2">
-                          <RotateCw className="w-6 h-6 animate-spin text-[#051838] dark:text-white" />
+                          <RotateCw className="w-6 h-6 animate-spin text-emerald-600" />
                           <span className="text-xs font-cairo">جاري تحميل البيانات من الخادم...</span>
                         </div>
                       </td>
@@ -803,14 +801,14 @@ export const ReportsScreen: FC = () => {
                             <button
                               type="button"
                               onClick={() => navigate('/login')}
-                              className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 bg-[#051838] text-white rounded-xl text-xs font-bold hover:bg-[#072454] transition-colors cursor-pointer"
+                              className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 bg-[#09152B] text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors cursor-pointer"
                             >
                               الانتقال لتسجيل الدخول
                             </button>
                           ) : (
                             <button
                               type="button"
-                              onClick={fetchCollections}
+                              onClick={triggerRefresh}
                               className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                             >
                               <RotateCw className="w-3.5 h-3.5" />
@@ -834,7 +832,7 @@ export const ReportsScreen: FC = () => {
                           <button
                             type="button"
                             onClick={() => navigate('/customers')}
-                            className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-[#007a3d] hover:bg-[#009148] rounded-xl shadow-xs transition-colors cursor-pointer"
+                            className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition-colors cursor-pointer"
                           >
                             <Plus className="w-3.5 h-3.5" />
                             <span>عرض العملاء وتسجيل دفعة جديدة</span>
@@ -846,10 +844,10 @@ export const ReportsScreen: FC = () => {
                     filteredCollections.map((item) => (
                       <tr
                         key={item.id}
-                        className="hover:bg-slate-50/80 dark:hover:bg-slate-700/80 transition-colors group"
+                        className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors group"
                       >
                         {/* Receipt Number */}
-                        <td className="px-6 py-4 font-mono font-bold text-xs text-[#051838] dark:text-white">
+                        <td className="px-6 py-4 font-jakarta tabular-nums font-bold text-xs text-[#09152B] dark:text-[#F8FAFC]">
                           {item.receiptNumber || item.id}
                         </td>
 
@@ -859,14 +857,14 @@ export const ReportsScreen: FC = () => {
                         </td>
 
                         {/* Collected Amount */}
-                        <td className="px-6 py-4 font-bold font-cairo text-[#047857]">
+                        <td className="px-6 py-4 font-black font-jakarta tabular-nums text-emerald-600 dark:text-emerald-400">
                           {formatCurrency(item.amount, item.currency)}
                         </td>
 
                         {/* Currency Badge */}
                         <td className="px-6 py-4 text-center">
                           <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold ${
+                            className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold font-jakarta tabular-nums ${
                               CURRENCY_BADGE_STYLES[normalizeCurrencyCode(item.currency)]
                             }`}
                           >
@@ -875,20 +873,20 @@ export const ReportsScreen: FC = () => {
                         </td>
 
                         {/* Payment Date */}
-                        <td className="px-6 py-4 text-slate-500 dark:text-slate-400 font-medium">
+                        <td className="px-6 py-4 text-slate-500 dark:text-slate-400 font-jakarta tabular-nums font-medium">
                           {item.date}
                         </td>
 
                         {/* Payment Method */}
                         <td className="px-6 py-4">
-                          <span className="inline-block px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                          <span className="inline-block px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                             {formatPaymentMethod(item.paymentMethod)}
                           </span>
                         </td>
 
                         {/* Status */}
                         <td className="px-6 py-4">
-                          <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
+                          <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-full border border-emerald-100 dark:border-emerald-800/40">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                             <span>{item.status || 'مكتمل'}</span>
                           </div>
@@ -899,7 +897,7 @@ export const ReportsScreen: FC = () => {
                           <button
                             type="button"
                             onClick={() => handleViewReceipt(item)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#051838] dark:text-white bg-slate-100 dark:bg-slate-700 hover:bg-[#051838] hover:text-white rounded-lg transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-[#09152B] hover:text-white dark:hover:bg-emerald-600 dark:hover:text-white rounded-lg transition-colors cursor-pointer"
                             title="عرض سند القبض الإلكتروني"
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
@@ -914,8 +912,8 @@ export const ReportsScreen: FC = () => {
             </div>
 
             {/* Table Footer with Pagination */}
-            <div className="p-4 border-t border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
-              <div>
+            <div className="p-4 border-t border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400 bg-slate-50/50 dark:bg-[#0B0F19]/30">
+              <div className="font-jakarta tabular-nums">
                 عرض {filteredCollections.length} من إجمالي {reportData?.totalRecords || filteredCollections.length} سجل
               </div>
 
@@ -924,13 +922,13 @@ export const ReportsScreen: FC = () => {
                   type="button"
                   onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
                   disabled={pageNumber <= 1 || isLoading}
-                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                  className="p-1.5 rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#111827] hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
                   title="الصفحة السابقة"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
 
-                <span className="px-2 font-semibold text-slate-700 dark:text-slate-300">
+                <span className="px-2 font-semibold text-slate-700 dark:text-slate-300 font-jakarta tabular-nums">
                   صفحة {pageNumber}
                 </span>
 
@@ -938,7 +936,7 @@ export const ReportsScreen: FC = () => {
                   type="button"
                   onClick={() => setPageNumber((p) => p + 1)}
                   disabled={filteredCollections.length < pageSize || isLoading}
-                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                  className="p-1.5 rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#111827] hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
                   title="الصفحة التالية"
                 >
                   <ChevronLeft className="w-4 h-4" />

@@ -290,8 +290,8 @@ export const DebtInvoiceScreen: FC = () => {
     const rawCurrency =
       serverInvoice?.currencyCode ??
       serverInvoice?.currency ??
-      (serverInvoice as any)?.currencyId ??
-      (navState as any)?.currency ??
+      (serverInvoice as unknown as { currencyId?: string | number })?.currencyId ??
+      (navState as unknown as { currency?: string })?.currency ??
       'ILS';
     const currencyCode: CurrencyCode = normalizeCurrencyCode(rawCurrency);
     const currencyConfig = getCurrencyConfig(currencyCode);
@@ -363,7 +363,7 @@ export const DebtInvoiceScreen: FC = () => {
 
   return (
     <div
-      className="min-h-screen bg-[#f4f7fb] dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-cairo antialiased flex"
+      className="min-h-screen bg-[#F5F6F8] dark:bg-[#0B0F19] text-slate-800 dark:text-slate-200 font-cairo antialiased flex"
       dir="rtl"
     >
       {/* Toast Notification */}
@@ -373,8 +373,8 @@ export const DebtInvoiceScreen: FC = () => {
             toast.type === 'error'
               ? 'bg-rose-900/95 text-white border-rose-700 shadow-rose-950/30'
               : toast.type === 'success'
-                ? 'bg-[#0c2444] text-white border-emerald-500/40 shadow-slate-950/30'
-                : 'bg-[#0c2444] text-white border-blue-500/40'
+                ? 'bg-[#09152B] dark:bg-[#111827] text-white border-emerald-500/40 shadow-slate-950/30'
+                : 'bg-[#09152B] dark:bg-[#111827] text-white border-slate-700'
           }`}
         >
           {toast.type === 'error' ? (
@@ -382,9 +382,9 @@ export const DebtInvoiceScreen: FC = () => {
           ) : toast.type === 'success' ? (
             <Check className="w-5 h-5 text-emerald-400 shrink-0" />
           ) : (
-            <Loader2 className="w-5 h-5 text-blue-400 animate-spin shrink-0" />
+            <Loader2 className="w-5 h-5 text-emerald-400 animate-spin shrink-0" />
           )}
-          <span className="text-sm font-medium">{toast.message}</span>
+          <span className="text-sm font-medium font-cairo">{toast.message}</span>
         </div>
       )}
 
@@ -414,7 +414,7 @@ export const DebtInvoiceScreen: FC = () => {
               <button
                 type="button"
                 onClick={() => navigate(-1)}
-                className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 flex items-center justify-center shadow-2xs hover:shadow-xs transition-all active:scale-95 cursor-pointer shrink-0"
+                className="w-10 h-10 rounded-xl bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center shadow-xs transition-all active:scale-95 cursor-pointer shrink-0"
                 title="الرجوع"
               >
                 <ArrowRight className="w-5 h-5" />
@@ -422,41 +422,41 @@ export const DebtInvoiceScreen: FC = () => {
 
               <div>
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  <h1 className="text-xl sm:text-2xl font-bold font-cairo text-slate-900 dark:text-white tracking-tight">
+                  <h1 className="text-xl sm:text-2xl font-black font-cairo text-[#09152B] dark:text-[#F8FAFC] tracking-tight">
                     سند إثبات وقيد دين رقمي
                   </h1>
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-jakarta tabular-nums font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700">
                     #{invoiceData.invoiceNumber.replace('INV-DEBT-', 'INV-')}
                   </span>
                   {serverInvoice ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 font-cairo">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                       مربوط بالسيرفر
                     </span>
                   ) : isLoading ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700 font-cairo">
                       <RotateCw className="w-2.5 h-2.5 animate-spin" />
                       جاري التحميل...
                     </span>
                   ) : null}
                 </div>
                 <p className="mt-0.5 text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 font-cairo">
-                  العميل: <span className="font-bold text-slate-700 dark:text-slate-300">{invoiceData.customerName}</span> • تاريخ التحرير: {invoiceData.issueDate}
+                  العميل: <span className="font-bold text-[#09152B] dark:text-[#F8FAFC]">{invoiceData.customerName}</span> • تاريخ التحرير: <span className="font-jakarta tabular-nums">{invoiceData.issueDate}</span>
                 </p>
               </div>
             </div>
 
-            {/* Left: Action Buttons matching Image 3 */}
-            <div className="flex items-center gap-2.5 self-end sm:self-auto flex-wrap">
+            {/* Left: Action Buttons */}
+            <div className="flex items-center gap-2.5 self-end sm:self-auto flex-wrap font-cairo">
               {/* Refresh Live Invoice Button */}
               <button
                 type="button"
                 onClick={fetchLiveInvoice}
                 disabled={isLoading}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-[#111827] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs font-semibold transition-all cursor-pointer disabled:opacity-50"
                 title="تحديث الفاتورة من الخادم"
               >
-                <RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
+                <RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-slate-700 dark:text-slate-300' : ''}`} />
                 <span className="hidden sm:inline">تحديث</span>
               </button>
 
@@ -464,7 +464,7 @@ export const DebtInvoiceScreen: FC = () => {
               <button
                 type="button"
                 onClick={handleSendWhatsApp}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#15803d] hover:bg-[#166534] text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs hover:shadow-md transition-all active:scale-98 cursor-pointer"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-all active:scale-98 cursor-pointer"
               >
                 <Send className="w-4 h-4" />
                 <span>إرسال للعميل (واتساب)</span>
@@ -475,12 +475,12 @@ export const DebtInvoiceScreen: FC = () => {
                 type="button"
                 onClick={handleExportPdf}
                 disabled={isDownloadingPdf}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800/50 text-slate-800 dark:text-slate-200 border border-slate-200/90 rounded-xl text-xs sm:text-sm font-bold shadow-2xs hover:shadow-xs transition-all active:scale-98 cursor-pointer disabled:opacity-60"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#09152B] hover:bg-[#0c2b5e] dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-all active:scale-98 cursor-pointer disabled:opacity-60"
               >
                 {isDownloadingPdf ? (
-                  <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+                  <Loader2 className="w-4 h-4 text-white animate-spin" />
                 ) : (
-                  <FileDown className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                  <FileDown className="w-4 h-4 text-white" />
                 )}
                 <span>{isDownloadingPdf ? 'جاري التحميل...' : 'تحميل كـ PDF'}</span>
               </button>
@@ -488,21 +488,21 @@ export const DebtInvoiceScreen: FC = () => {
           </div>
 
           {/* Top Protected Document Notification Banner */}
-          <div className="bg-slate-50/90 dark:bg-slate-800/90 border border-slate-200/90 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-2xs print:hidden">
+          <div className="bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs print:hidden">
             <div className="flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm">
-                <Check className="w-6 h-6 stroke-[3]" />
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40 flex items-center justify-center shrink-0">
+                <Check className="w-5 h-5 stroke-[2.5]" />
               </div>
               <div className="space-y-0.5">
-                <h3 className="text-xs sm:text-sm font-bold font-cairo text-slate-900 dark:text-white">
+                <h3 className="text-xs sm:text-sm font-bold font-cairo text-[#09152B] dark:text-[#F8FAFC]">
                   مستند إلكتروني محمي ومشفر ومسجل في سجلات منصة وثّق
                 </h3>
-                <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium">
+                <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium font-cairo">
                   تم توثيق إقرار الدين ومطابقته رقمياً برقم مرجعي غير قابل للتعديل
                 </p>
               </div>
             </div>
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs shrink-0">
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 shadow-2xs shrink-0 font-cairo">
               حالة الفاتورة: {invoiceData.status}
             </span>
           </div>
@@ -512,49 +512,49 @@ export const DebtInvoiceScreen: FC = () => {
           {/* ============================================================ */}
           <div
             id="debt-invoice-card"
-            className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden print:border-none print:shadow-none print:rounded-none print:m-0 print:p-0"
+            className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden print:border-none print:shadow-none print:rounded-none print:m-0 print:p-0"
           >
             <div className="p-6 sm:p-8 space-y-6">
               {/* Header */}
-              <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-700 pb-4">
+              <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                 <div>
-                  <h2 className="text-2xl font-bold text-[#0c2444] dark:text-blue-400">فاتورة قيد مديونية</h2>
-                  <p className="text-sm text-slate-500 mt-1 font-mono">الرقم: {invoiceData.invoiceNumber}</p>
+                  <h2 className="text-2xl font-black font-cairo text-[#09152B] dark:text-[#F8FAFC]">فاتورة قيد مديونية</h2>
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 font-jakarta tabular-nums">الرقم: {invoiceData.invoiceNumber}</p>
                 </div>
                 <div className="text-left">
-                  <h3 className="font-bold text-slate-800 dark:text-slate-200">{merchant.businessName || 'المتجر'}</h3>
-                  <p className="text-xs text-slate-500 mt-1">{invoiceData.issueDate}</p>
+                  <h3 className="font-bold text-[#09152B] dark:text-[#F8FAFC] font-cairo">{merchant.businessName || 'المتجر'}</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-jakarta tabular-nums">{invoiceData.issueDate}</p>
                 </div>
               </div>
 
               {/* Parties and Terms */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="border border-slate-200 dark:border-slate-700 rounded-xl p-4">
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-500 mb-3">
+                <div className="border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-[#0B0F19]/40 rounded-xl p-4">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 font-cairo">
                     <User className="w-4 h-4" />
                     المطلوب من السيد (العميل):
                   </div>
-                  <div className="font-bold text-slate-800 dark:text-slate-200">{invoiceData.customerName}</div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400 mt-1" dir="ltr">{invoiceData.customerPhone}</div>
+                  <div className="font-bold text-[#09152B] dark:text-[#F8FAFC] font-cairo text-sm">{invoiceData.customerName}</div>
+                  <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 font-jakarta tabular-nums" dir="ltr">{invoiceData.customerPhone}</div>
                 </div>
                 
-                <div className="border border-slate-200 dark:border-slate-700 rounded-xl p-4">
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-500 mb-3">
+                <div className="border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-[#0B0F19]/40 rounded-xl p-4">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 font-cairo">
                     <Calendar className="w-4 h-4" />
                     شروط وموعد الاستحقاق:
                   </div>
-                  <div className="font-bold text-rose-600">
-                    أقصى موعد للسداد: {invoiceData.dueDate}
+                  <div className="font-bold text-rose-600 dark:text-rose-400 text-sm font-cairo">
+                    أقصى موعد للسداد: <span className="font-jakarta tabular-nums">{invoiceData.dueDate}</span>
                   </div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400 mt-1">فاتورة آجل (قيد مديونية)</div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-cairo">فاتورة آجل (قيد مديونية)</div>
                 </div>
               </div>
 
               {/* Items Table */}
-              <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-xl">
-                <table className="w-full text-right text-sm border-collapse">
+              <div className="overflow-x-auto border border-slate-200/80 dark:border-slate-800 rounded-xl">
+                <table className="w-full text-right text-xs sm:text-sm border-collapse">
                   <thead>
-                    <tr className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-bold">
+                    <tr className="bg-slate-50/80 dark:bg-[#0B0F19]/60 border-b border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold font-cairo">
                       <th className="py-3 px-4 w-12 text-center">#</th>
                       <th className="py-3 px-4">البيان</th>
                       <th className="py-3 px-4 text-center">الكمية</th>
@@ -562,17 +562,19 @@ export const DebtInvoiceScreen: FC = () => {
                       <th className="py-3 px-4 text-left">الإجمالي ({invoiceData.currencyConfig.symbol})</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {invoiceData.items.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/50">
-                        <td className="py-3 px-4 text-center text-slate-400 font-mono">{item.id}</td>
+                      <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-[#0B0F19]/40 transition-colors">
+                        <td className="py-3 px-4 text-center text-slate-400 font-jakarta tabular-nums">{item.id}</td>
                         <td className="py-3 px-4">
-                          <div className="font-bold text-slate-900 dark:text-white">{item.name}</div>
-                          <div className="text-xs text-slate-400 mt-0.5">{item.description}</div>
+                          <div className="font-bold text-[#09152B] dark:text-[#F8FAFC] font-cairo">{item.name}</div>
+                          {item.description && (
+                            <div className="text-xs text-slate-400 mt-0.5 font-cairo">{item.description}</div>
+                          )}
                         </td>
-                        <td className="py-3 px-4 text-center font-mono">{item.quantity}</td>
-                        <td className="py-3 px-4 text-center font-mono" dir="ltr">{item.unitPrice.toFixed(2)}</td>
-                        <td className="py-3 px-4 text-left font-mono font-bold" dir="ltr">{item.total.toFixed(2)}</td>
+                        <td className="py-3 px-4 text-center font-jakarta tabular-nums text-slate-700 dark:text-slate-300">{item.quantity}</td>
+                        <td className="py-3 px-4 text-center font-jakarta tabular-nums text-slate-700 dark:text-slate-300" dir="ltr">{item.unitPrice.toFixed(2)}</td>
+                        <td className="py-3 px-4 text-left font-jakarta tabular-nums font-bold text-[#09152B] dark:text-[#F8FAFC]" dir="ltr">{item.total.toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -580,31 +582,31 @@ export const DebtInvoiceScreen: FC = () => {
               </div>
 
               {/* Accounting Impact */}
-              <div className="bg-slate-50 dark:bg-slate-700/30 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
+              <div className="bg-slate-50/60 dark:bg-[#0B0F19]/40 rounded-xl p-6 border border-slate-200/80 dark:border-slate-800">
                 <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-                  <div className="space-y-3 w-full md:w-1/2 text-sm">
+                  <div className="space-y-3 w-full md:w-1/2 text-xs sm:text-sm font-cairo">
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-500">قيمة الفاتورة الحالية:</span>
-                      <span className="font-bold font-mono" dir="ltr">{invoiceData.invoiceAmount.toFixed(2)}</span>
+                      <span className="text-slate-500 dark:text-slate-400">قيمة الفاتورة الحالية:</span>
+                      <span className="font-bold font-jakarta tabular-nums text-[#09152B] dark:text-[#F8FAFC]" dir="ltr">{invoiceData.invoiceAmount.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-500">ديون سابقة:</span>
-                      <span className="font-bold font-mono" dir="ltr">{invoiceData.previousDebt.toFixed(2)}</span>
+                      <span className="text-slate-500 dark:text-slate-400">ديون سابقة:</span>
+                      <span className="font-bold font-jakarta tabular-nums text-[#09152B] dark:text-[#F8FAFC]" dir="ltr">{invoiceData.previousDebt.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-500">مدفوعات سابقة (-):</span>
-                      <span className="font-bold font-mono text-emerald-600" dir="ltr">{invoiceData.previousPaid.toFixed(2)}</span>
+                      <span className="text-slate-500 dark:text-slate-400">مدفوعات سابقة (-):</span>
+                      <span className="font-bold font-jakarta tabular-nums text-emerald-600 dark:text-emerald-400" dir="ltr">{invoiceData.previousPaid.toFixed(2)}</span>
                     </div>
                   </div>
                   
-                  <div className="w-full md:w-1/2 text-center md:text-left border-t md:border-t-0 md:border-r border-slate-200 dark:border-slate-700 pt-4 md:pt-0 md:pr-6">
-                    <span className="text-sm font-medium text-slate-500 block mb-2">إجمالي المديونية المطلوبة الآن</span>
-                    <div className="text-3xl sm:text-4xl font-bold text-rose-600 font-mono flex items-center justify-center md:justify-start gap-2" dir="ltr">
+                  <div className="w-full md:w-1/2 text-center md:text-left border-t md:border-t-0 md:border-r border-slate-200/80 dark:border-slate-800 pt-4 md:pt-0 md:pr-6">
+                    <span className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 block mb-2 font-cairo">إجمالي المديونية المطلوبة الآن</span>
+                    <div className="text-3xl sm:text-4xl font-black text-rose-600 dark:text-rose-400 font-jakarta tabular-nums flex items-center justify-center md:justify-start gap-2" dir="ltr">
                       <span>{invoiceData.totalCurrentDebt.toFixed(2)}</span>
-                      <span className="text-xl font-cairo text-slate-700 dark:text-slate-300">
-                        {invoiceData.currencyConfig.symbol} ({invoiceData.currencyConfig.labelAr})
+                      <span className="text-lg font-cairo text-slate-700 dark:text-slate-300">
+                        {invoiceData.currencyConfig.symbol}
                       </span>
-                      <span className={`text-xs px-2 py-0.5 rounded-md font-bold font-sans ${CURRENCY_BADGE_STYLES[invoiceData.currencyCode]}`}>
+                      <span className={`text-xs px-2 py-0.5 rounded-md font-bold font-jakarta tabular-nums ${CURRENCY_BADGE_STYLES[invoiceData.currencyCode]}`}>
                         {invoiceData.currencyCode}
                       </span>
                     </div>

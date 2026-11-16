@@ -332,53 +332,53 @@ export const InventoryScreen: FC = () => {
               </div>
             </div>
 
-            <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-800 border border-amber-200/80 dark:border-amber-900/40 shadow-xs flex items-center justify-between">
+            <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center justify-between">
               <div>
                 <span className="text-xs font-semibold text-amber-700 dark:text-amber-400 block mb-1">
                   أوشكت على النفاد 🟡
                 </span>
-                <span className="text-2xl sm:text-3xl font-black text-amber-600 dark:text-amber-400">
+                <span className="text-2xl sm:text-3xl font-black text-amber-600 dark:text-amber-400 font-jakarta tabular-nums">
                   {kpis.lowStockCount}
                 </span>
                 <span className="text-[11px] text-amber-600/70 block mt-1">تحت حد التنبيه المحدد</span>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-200/60 dark:border-amber-800/40">
                 <AlertTriangle className="w-6 h-6" />
               </div>
             </div>
 
-            <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-800 border border-rose-200/80 dark:border-rose-900/40 shadow-xs flex items-center justify-between">
+            <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center justify-between">
               <div>
                 <span className="text-xs font-semibold text-rose-700 dark:text-rose-400 block mb-1">
                   أصناف نفدت بالكامل 🔴
                 </span>
-                <span className="text-2xl sm:text-3xl font-black text-rose-600 dark:text-rose-400">
+                <span className="text-2xl sm:text-3xl font-black text-rose-600 dark:text-rose-400 font-jakarta tabular-nums">
                   {kpis.outOfStockCount}
                 </span>
                 <span className="text-[11px] text-rose-600/70 block mt-1">الرصيد الفعلي صفر بالمحل</span>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-200/60 dark:border-rose-800/40">
                 <XCircle className="w-6 h-6" />
               </div>
             </div>
 
-            <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-800 border border-emerald-200/80 dark:border-emerald-900/40 shadow-xs flex items-center justify-between">
+            <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center justify-between">
               <div>
                 <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 block mb-1">
                   القيمة التقديرية للمخزون
                 </span>
-                <span className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400">
+                <span className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 font-jakarta tabular-nums">
                   ₪{kpis.totalEstimatedValue.toLocaleString()}
                 </span>
                 <span className="text-[11px] text-emerald-600/70 block mt-1">بحسب سعر التكلفة</span>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-200/60 dark:border-emerald-800/40">
                 <TrendingUp className="w-6 h-6" />
               </div>
             </div>
           </div>
 
-          <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 shadow-xs space-y-4">
+          <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div className="relative flex-1">
                 <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3" />
@@ -387,13 +387,13 @@ export const InventoryScreen: FC = () => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="ابحث بالباركود، اسم الصنف، أو القسم..."
-                  className="w-full pr-10 pl-4 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-hidden transition-all"
+                  className="w-full pr-10 pl-4 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50 dark:bg-[#0B0F19] text-[#09152B] dark:text-[#F8FAFC] placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-hidden transition-all"
                 />
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery('')}
-                    className="absolute left-3 top-2.5 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    className="absolute left-3 top-2.5 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                   >
                     مسح
                   </button>
@@ -405,7 +405,7 @@ export const InventoryScreen: FC = () => {
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="px-3 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:border-emerald-500 outline-hidden cursor-pointer"
+                  className="px-3 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50 dark:bg-[#0B0F19] text-[#09152B] dark:text-[#F8FAFC] focus:border-emerald-500 outline-hidden cursor-pointer"
                 >
                   <option value="all">جميع التصنيفات ({categories.length})</option>
                   {categories.map((cat) => (
@@ -421,8 +421,8 @@ export const InventoryScreen: FC = () => {
                 <ArrowUpDown className="w-4 h-4 text-slate-400 shrink-0 mr-2" />
                 <select
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
-                  className="px-3 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:border-emerald-500 outline-hidden cursor-pointer"
+                  onChange={(e) => setSortBy(e.target.value as 'name' | 'stock_asc' | 'stock_desc' | 'price')}
+                  className="px-3 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50 dark:bg-[#0B0F19] text-[#09152B] dark:text-[#F8FAFC] focus:border-emerald-500 outline-hidden cursor-pointer"
                 >
                   <option value="name">ترتيب بالاسم أبجدياً</option>
                   <option value="stock_asc">الأقل مخزوناً أولاً</option>
@@ -432,7 +432,7 @@ export const InventoryScreen: FC = () => {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-2 flex items-center gap-1">
                 <Filter className="w-3.5 h-3.5" />
                 <span>حالة الرصيد:</span>
@@ -441,58 +441,62 @@ export const InventoryScreen: FC = () => {
               <button
                 type="button"
                 onClick={() => setStockFilter('all')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                   stockFilter === 'all'
-                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xs'
-                    : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                    ? 'bg-[#09152B] dark:bg-emerald-600 text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                 }`}
               >
-                الكل ({products.length})
+                <span>الكل</span>
+                <span className="mr-1 font-jakarta tabular-nums">({products.length})</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setStockFilter('in_stock')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                   stockFilter === 'in_stock'
                     ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100'
+                    : 'bg-emerald-50/60 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40'
                 }`}
               >
-                🟢 متوفر ({products.filter((p) => p.stock > p.minAlertThreshold).length})
+                <span>🟢 متوفر</span>
+                <span className="mr-1 font-jakarta tabular-nums">({products.filter((p) => p.stock > p.minAlertThreshold).length})</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setStockFilter('low_stock')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                   stockFilter === 'low_stock'
-                    ? 'bg-amber-500 text-white shadow-xs'
-                    : 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 hover:bg-amber-100'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'bg-amber-50/60 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40'
                 }`}
               >
-                🟡 أوشك على النفاد ({kpis.lowStockCount})
+                <span>🟡 أوشك على النفاد</span>
+                <span className="mr-1 font-jakarta tabular-nums">({kpis.lowStockCount})</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setStockFilter('out_of_stock')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                   stockFilter === 'out_of_stock'
                     ? 'bg-rose-600 text-white shadow-xs'
-                    : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 hover:bg-rose-100'
+                    : 'bg-rose-50/60 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/40'
                 }`}
               >
-                🔴 نفد بالكامل ({kpis.outOfStockCount})
+                <span>🔴 نفد بالكامل</span>
+                <span className="mr-1 font-jakarta tabular-nums">({kpis.outOfStockCount})</span>
               </button>
             </div>
           </div>
 
-          <div className="rounded-2xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 shadow-xs overflow-hidden">
+          <div className="rounded-2xl bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-right border-collapse">
                 <thead>
-                  <tr className="bg-slate-50/80 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                  <tr className="bg-slate-50 dark:bg-[#0B0F19]/40 border-b border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
                     <th className="py-3.5 px-4">الباركود</th>
                     <th className="py-3.5 px-4">اسم الصنف</th>
                     <th className="py-3.5 px-4">التصنيف</th>
@@ -525,17 +529,17 @@ export const InventoryScreen: FC = () => {
                       return (
                         <tr
                           key={product.id}
-                          className="hover:bg-slate-50/70 dark:hover:bg-slate-700/30 transition-colors"
+                          className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
                         >
                           <td className="py-3.5 px-4 whitespace-nowrap">
                             <div className="flex items-center gap-1.5">
-                              <span className="font-mono text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-900 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700">
+                              <span className="font-jakarta tabular-nums text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#0B0F19] px-2 py-1 rounded-md border border-slate-200/80 dark:border-slate-800">
                                 {product.barcode}
                               </span>
                               <button
                                 type="button"
                                 onClick={() => handleCopyBarcode(product.barcode)}
-                                className="p-1 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-md transition-colors"
+                                className="p-1 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-md transition-colors cursor-pointer"
                                 title="نسخ الباركود"
                               >
                                 {copiedBarcode === product.barcode ? (
@@ -548,7 +552,7 @@ export const InventoryScreen: FC = () => {
                           </td>
 
                           <td className="py-3.5 px-4">
-                            <div className="font-bold text-slate-900 dark:text-white">
+                            <div className="font-bold text-[#09152B] dark:text-[#F8FAFC]">
                               {product.name}
                             </div>
                             {product.isActive === false && (
@@ -560,7 +564,7 @@ export const InventoryScreen: FC = () => {
 
                           <td className="py-3.5 px-4 whitespace-nowrap">
                             {product.category && product.category.trim() && product.category !== FALLBACK_UNSPECIFIED ? (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50/60 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40">
                                 <Layers className="w-3 h-3 text-emerald-500" />
                                 <span>{product.category}</span>
                               </span>
@@ -573,7 +577,7 @@ export const InventoryScreen: FC = () => {
 
                           <td className="py-3.5 px-4 whitespace-nowrap">
                             {product.unit && product.unit.trim() && product.unit !== FALLBACK_UNSPECIFIED ? (
-                              <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800/40">
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50/60 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800/40">
                                 {product.unit}
                               </span>
                             ) : (
@@ -584,21 +588,21 @@ export const InventoryScreen: FC = () => {
                           </td>
 
                           <td className="py-3.5 px-4 whitespace-nowrap">
-                            <span className="font-black text-emerald-600 dark:text-emerald-400">
+                            <span className="font-black text-emerald-600 dark:text-emerald-400 font-jakarta tabular-nums">
                               ₪{product.salePrice.toFixed(2)}
                             </span>
                           </td>
 
-                          <td className="py-3.5 px-4 whitespace-nowrap text-slate-500 dark:text-slate-400">
+                          <td className="py-3.5 px-4 whitespace-nowrap text-slate-500 dark:text-slate-400 font-jakarta tabular-nums">
                             ₪{product.costPrice.toFixed(2)}
                           </td>
 
                           <td className="py-3.5 px-4 whitespace-nowrap">
                             <div className="flex items-center gap-2">
-                              <span className="font-black text-base text-slate-900 dark:text-white">
+                              <span className="font-black text-base text-[#09152B] dark:text-[#F8FAFC] font-jakarta tabular-nums">
                                 {product.stock}
                                 {product.unit && product.unit.trim() && product.unit !== FALLBACK_UNSPECIFIED ? (
-                                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 mr-1">
+                                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 mr-1 font-cairo">
                                     {product.unit}
                                   </span>
                                 ) : null}
@@ -622,7 +626,7 @@ export const InventoryScreen: FC = () => {
                             </div>
                           </td>
 
-                          <td className="py-3.5 px-4 whitespace-nowrap text-center text-slate-400 font-mono">
+                          <td className="py-3.5 px-4 whitespace-nowrap text-center text-slate-400 font-jakarta tabular-nums font-semibold">
                             {product.minAlertThreshold}
                           </td>
 
@@ -732,11 +736,11 @@ export const InventoryScreen: FC = () => {
               </table>
             </div>
 
-            <div className="p-4 bg-slate-50 dark:bg-slate-900/60 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+            <div className="p-4 bg-slate-50/50 dark:bg-[#0B0F19]/40 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-jakarta tabular-nums">
               <span>
                 عرض {filteredProducts.length} من أصل {products.length} صنف مسجل
               </span>
-              <span className="font-mono">نظام وثّق لإدارة المخزون ونقاط البيع الفورية</span>
+              <span className="font-cairo text-[11px] text-slate-400">نظام وثّق لإدارة المخزون ونقاط البيع الفورية</span>
             </div>
           </div>
         </main>
@@ -840,7 +844,7 @@ export const InventoryScreen: FC = () => {
                 type: 'success',
               });
             } else if (err instanceof ApiError && err.status === 409) {
-              throw new Error('لا يمكن إرجاع المخزون (قد يكون الصنف غير نشط أو تم تجاوز الحد الأقصى)');
+              throw new Error('لا يمكن إرجاع المخزون (قد يكون الصنف غير نشط أو تم تجاوز الحد الأقصى)', { cause: err });
             } else {
               throw err;
             }
